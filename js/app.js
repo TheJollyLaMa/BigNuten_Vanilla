@@ -602,7 +602,7 @@ window.addEventListener('DOMContentLoaded', () => {
     connectBtn.addEventListener('click', connectToBluetoothScale);
   }
 });
-import { connectW3upClient } from './w3upClient.js';
+import { connectW3upClient, tryAutoRestoreW3upClient } from './w3upClient.js';
 import { uploadDataToIPFS } from './uploadToIPFS.js';
 
 // Supplements form logic (now unified in fitnessTrackerData)
@@ -2261,11 +2261,17 @@ if (measurementForm) {
     ${suffix}`;
   }
 
-  async function connectWallet() {
+  async function connectWallet(preAuthorizedAccount = null) {
     if (typeof window.ethereum !== 'undefined') {
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const account = accounts[0];
+        let account;
+        if (preAuthorizedAccount) {
+          account = preAuthorizedAccount;
+        } else {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          account = accounts[0];
+        }
+        if (!account || typeof account !== 'string') return;
         walletButton.classList.remove('disconnected');
         walletButton.classList.add('connected');
         walletButton.title = `Connected: ${account}`;
@@ -2340,12 +2346,18 @@ if (measurementForm) {
         document.getElementById('current-weight-display').style.display = 'block';
         displayCurrentWeight();
 
-        const result = await connectW3upClient();
+        // On auto-connect (page reload), attempt silent restore only.
+        // On user-initiated connect, allow full email login flow.
+        const result = preAuthorizedAccount
+          ? await tryAutoRestoreW3upClient()
+          : await connectW3upClient();
         
         if (result) {
            console.log("Web3.Storage space DID:", result.spaceDid);
            const status = document.getElementById("ipfs-status");
            status.style.display = "block";
+           const ipfsIconEl = document.getElementById("ipfsIcon");
+           if (ipfsIconEl) ipfsIconEl.style.display = "inline-block";
 
            // Dynamic DID key animation characters (new ticker circle)
            const did = result.spaceDid;
@@ -2486,11 +2498,15 @@ if (measurementForm) {
              scheduleMidnightSnapshot(result.client);
            }
         } else {
-           console.error("Failed to connect to Web3.Storage.");
+           if (preAuthorizedAccount) {
+             console.info("W3UP session not restored on auto-connect — click the wallet button to connect IPFS.");
+           } else {
+             console.error("Failed to connect to Web3.Storage.");
+           }
         }
 
       } catch (error) {
-        console.error('User rejected wallet connection:', error);
+        console.error('Wallet connection error:', error);
       }
     } else {
       alert('MetaMask is not installed. Please install it to connect your wallet.');
@@ -2498,6 +2514,18 @@ if (measurementForm) {
   }
 
   walletButton.addEventListener('click', connectWallet);
+
+  // Auto-connect wallet on page load if the user already authorized MetaMask previously.
+  // Uses eth_accounts (no prompt) — only eth_requestAccounts prompts the user.
+  if (typeof window.ethereum !== 'undefined') {
+    window.ethereum.request({ method: 'eth_accounts' })
+      .then(async accounts => {
+        if (accounts && accounts.length > 0) {
+          await connectWallet(accounts[0]);
+        }
+      })
+      .catch(err => console.warn('Wallet auto-connect check failed:', err));
+  }
 
   // Modal logic
   const modalOverlay = document.getElementById('weight-modal');
