@@ -2523,7 +2523,7 @@ if (measurementForm) {
       console.warn(`Modal not found for: ${name}`);
       return;
     }
-    Object.values(modals).forEach(m => m.classList.add('modal-hidden'));
+    Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
     roundButtons.forEach(btn => btn.classList.remove('active'));
     triggerBtn.classList.add('active');
     modals[name].classList.remove('modal-hidden');
@@ -2651,21 +2651,21 @@ if (measurementForm) {
   const closeButtons = document.querySelectorAll('.modal-close');
   closeButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      Object.values(modals).forEach(m => m.classList.add('modal-hidden'));
+      Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
       roundButtons.forEach(btn => btn.classList.remove('active'));
     });
   });
 
   modalOverlay.addEventListener('click', (e) => {
     if (e.target === modalOverlay) {
-      Object.values(modals).forEach(m => m.classList.add('modal-hidden'));
+      Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
       roundButtons.forEach(btn => btn.classList.remove('active'));
     }
   });
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      Object.values(modals).forEach(m => m.classList.add('modal-hidden'));
+      Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
       roundButtons.forEach(btn => btn.classList.remove('active'));
     }
   });
@@ -2702,7 +2702,7 @@ if (measurementForm) {
       const today = new Date().toISOString().split('T')[0];
       weightDateInput.value = today;
     }
-    Object.values(modals).forEach(m => m.classList.add('modal-hidden'));
+    Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
     roundButtons.forEach(btn => btn.classList.remove('active'));
   });
 });
