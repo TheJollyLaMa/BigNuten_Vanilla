@@ -1,0 +1,914 @@
+#emotionWheelSVG text {
+  font-size: 9px;
+  fill: #fff;
+  dominant-baseline: middle;
+  text-anchor: middle;
+  paint-order: stroke fill;
+  stroke: #000;
+  stroke-width: 0.4px;
+}
+
+.emotion-slice:hover {
+  stroke: #00e5ff;
+  stroke-width: 2;
+  cursor: pointer;
+}
+#emotion-map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+}
+#emotion-wheel {
+  position: relative;
+  z-index: 1;
+}
+#moon-icon {
+  position: absolute;
+  top: 17%;
+  right: 46%;
+  width: 40px;
+  height: 40px;
+  font-size: 2rem;
+  transform: translate(-50%, -30%);
+  z-index: 100;
+  color: #87fdb6;
+  text-shadow: 0 0 16px #00ff66, 0 0 20px #00ff66, 0 0 50px #00ff66;
+  cursor: pointer;
+}
+#emotion-icon {
+  position: absolute;
+  top: 44%;
+  left: 48.5%;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -30%);
+  cursor: pointer;
+  z-index: 100;
+  animation: shimmer-spin-y 6s linear infinite;
+  filter: drop-shadow(0 0 6px #00e5ff);
+}
+
+#graph-icon {
+  position: absolute;
+  top: 22%;
+  left: 48.5%;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -30%);
+  cursor: pointer;
+  z-index: 100;
+  animation: shimmer-spin-y 6s linear infinite;
+  filter: drop-shadow(0 0 6px #00e5ff);
+}
+#exercises-last7days video {
+  display: inline-block;
+  vertical-align: middle;
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+#cancel-workout-button {
+  margin-top: 12px;
+  margin-left: 10px;
+  background-color: #ff0033;
+  color: #fff;
+  box-shadow: 0 0 10px #ff0033, 0 0 20px #ff0033;
+  border-radius: 6px;
+  border: none;
+  padding: 6px 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+#cancel-workout-button:hover {
+  box-shadow: 0 0 20px #ff0033, 0 0 24px #ff0033;
+  background-color: #ff3366;
+}
+.wallet-ticker {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+#wallet-ticker-circle .ticker-letter {
+  font-size: 0.5rem;
+  color: #00e5ff;
+  text-shadow: 0 0 4px #d6e101d7;
+}
+#walletIconWrapper {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  text-align: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+}
+
+.wallet-hover-display {
+  display: none;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: #00e5ff;
+  text-shadow: 0 0 4px #00e5ff;
+}
+
+#metamaskIcon {
+  display: block;
+  width: 50px;
+  height: 50px;
+  margin: 0;
+  opacity: 0.9;
+  animation: shimmer-spin-y 8s linear infinite;
+  filter: drop-shadow(0 0 10px #00e5ff);
+  cursor: pointer;
+}
+
+/* Recent Supplements and Foods lists: scrollable, neon border, sticky header styles */
+#recent-supplements-list,
+#recent-foods-list,
+#recent-exercises-list,
+#workout-set-list {
+  max-width: 400px;
+  width: 400px;
+  right: 10px;
+  position: absolute;
+  overflow-y: auto;
+  font-size: 0.9rem;
+  z-index: 1000;
+  border: 1px solid #00e5ff;
+  border-radius: 8px;
+  padding: 6px;
+  background: rgba(0, 0, 33, 0.9);
+}
+
+/* Update vertical stacking positions */
+#recent-exercises-list {
+  top: 100px;
+}
+#workout-set-list {
+  top: 420px;
+}
+#recent-supplements-list {
+  top: 100px;
+  left: 10px;
+}
+#recent-foods-list {
+  top: 420px;
+  left: 10px;
+}
+
+#foods-last7days li {
+  margin-bottom: 4px;
+  padding-left: 5px;
+  list-style: disc;
+}
+
+.supplement-name-hover {
+  cursor: pointer;
+  text-decoration: underline;
+}
+#ipfsIconWrapper {
+  position: relative;
+  top: 5px;
+  display: inline-block;
+}
+
+.hover-popup {
+  display: none;
+  position: absolute;
+  top: 50px;
+  left: 45px; /* moved closer to the IPFS icon */
+  background: rgba(0, 0, 40, 0.95);
+  color: white;
+  padding: 8px;
+  border: 1px solid #00e5ff;
+  border-radius: 8px;
+  font-size: 0.6rem;
+  min-width: 180px;
+  z-index: 9999 !important;
+  box-shadow: 0 0 8px #00e5ff;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.snapshot-today {
+  color: #00ff99;
+  text-shadow: 0 0 6px #00ff99;
+}
+
+.snapshot-old {
+  color: #ff00cc;
+  text-shadow: 0 0 6px #ff00cc;
+}
+/* Sticky header for exercise and workout lists */
+.exercise-list-header {
+  position: sticky;
+  top: 0;
+  background: rgba(0, 0, 33, 0.9);
+  padding-bottom: 0.5rem;
+  z-index: 1000;
+}
+#recent-exercises-list ul {
+  margin-top: 0.5rem;
+}
+
+.workout-header {
+  position: sticky;
+  top: 0;
+  background: rgba(0, 0, 33, 0.9);
+  padding-bottom: 0.5rem;
+  z-index: 1000;
+}
+
+#start-timer-button,
+#pause-timer-button {
+  margin: 10px 5px;
+  background-color: #00e5ff;
+  color: #000;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 8px #00e5ff;
+}
+
+.play-all-button {
+  background: #00ffcc;
+  color: #000;
+  padding: 6px 12px;
+  margin-bottom: 6px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 8px #00ffcc;
+}
+
+.play-all-button:hover {
+  background: #00e5ff;
+  box-shadow: 0 0 12px #00e5ff;
+}
+
+#workout-timer-modal .modal {
+  text-align: center;
+  background-color: rgba(0, 40, 40, 0.9);
+}
+
+#workout-timer-modal.resting .modal {
+  background-color: rgba(40, 0, 40, 0.9);
+}
+
+#workout-timer-display {
+  font-size: 3rem;
+  color: #fff;
+  text-shadow: 0 0 8px #00e5ff;
+}
+#workout-set-items .workout-set-item {
+  display: block;
+  margin-bottom: 1rem;
+  padding: 6px;
+  border-bottom: 1px dashed #00e5ff;
+}
+
+.set-details {
+  margin-top: 6px;
+}
+
+.set-entry {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.set-entry input {
+  width: 45%;
+  padding: 2px 4px;
+  font-size: 0.8rem;
+  background-color: #000033;
+  color: white;
+  border: 1px solid #00e5ff;
+  border-radius: 4px;
+}
+
+.play-button {
+  margin-top: 5px;
+  background: #00e5ff;
+  color: #000;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+/* Add vertical gap between upper and lower list sections on both sides */
+#workout-set-list {
+  text-align: right;
+  margin: 10px;
+  max-height: 300px;
+  padding: 5px;
+  color: white;
+  margin-top: 10px;
+}
+
+#workout-set-list h4 {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  text-align: right;
+}
+
+#workout-set-items li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 0;
+  font-size: 0.85rem;
+}
+
+.workout-exercise-name {
+  flex: 1;
+  text-align: left;
+}
+
+.workout-reps,
+.workout-sets {
+  width: 40px;
+  margin-left: 0.5rem;
+  background-color: #000033;
+  color: white;
+  border: 1px solid #00e5ff;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+#recent-exercises-list {
+  text-align: right;
+  margin: 10px;
+  max-height: 300px;
+  padding: 5px;
+  color: white;
+  margin-bottom: 10px;
+}
+
+
+#exercises-last7days li {
+  margin-bottom: 4px;
+  padding-right: 5px;
+  list-style: none;
+  position: relative;
+  padding-left: 1.2em;
+}
+
+#exercises-last7days li::before {
+  content: '';
+}
+
+.exercise-add-btn {
+  position: absolute;
+  left: 0;
+  background: transparent;
+  border: 1px solid #00e5ff;
+  color: #00e5ff;
+  font-size: 0.8rem;
+  font-weight: bold;
+  padding: 0 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-shadow: 0 0 4px #00e5ff;
+  transition: all 0.2s ease;
+}
+
+.exercise-add-btn:hover {
+  background-color: #00e5ff;
+  color: #000;
+}
+
+/* Exercise color legend:
+   .exercise-today      - Today
+   .exercise-1day-rest  - 1 day rest
+   .exercise-2day-rest  - 2 days rest
+   .exercise-3day-rest  - 3 days rest
+   .exercise-cooled-off - 4+ days rest
+*/
+.exercise-today {
+  color: #ff3d3d;
+  text-shadow: 0 0 6px #ff3d3d;
+}
+
+.exercise-1day-rest {
+  color: #aa00ff;
+  text-shadow: 0 0 6px #aa00ff;
+}
+
+.exercise-2day-rest {
+  color: #00bfff;
+  text-shadow: 0 0 6px #00bfff;
+}
+
+.exercise-3day-rest {
+  color: #00ff66;
+  text-shadow: 0 0 12px #00ff66;
+}
+
+.exercise-cooled-off {
+  color: #66ffcc;
+  text-shadow: 0 0 20px #0062ff, 0 0 30px #e1ff00;
+}
+
+
+#supplements-last7days li {
+  margin-bottom: 4px;
+  padding-left: 5px;
+  list-style: disc;
+}
+
+.supplement-today {
+  color: #00ff99;
+  text-shadow: 0 0 6px #00ff99;
+}
+
+.supplement-missed {
+  color: #ff00cc;
+  text-shadow: 0 0 6px #ff00cc;
+}
+#current-weight-display {
+  position: fixed;
+  top: 90px; /* higher above footer */
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #00e5ff;
+  text-shadow: 0 0 5px #00e5ff, 0 0 10px #7300ff, 0 0 25px #eaff0097;
+  z-index: 1000;
+  display: block;
+}
+
+/* Sticky headers for recent-supplements-list and recent-foods-list */
+#recent-supplements-list h4,
+#recent-foods-list h4 {
+  position: sticky;
+  top: 0;
+  background: rgba(0, 0, 33, 0.95);
+  z-index: 100;
+  margin-top: 0;
+  padding: 4px;
+}
+#header-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 1rem;
+  position: relative;
+}
+
+#header-center {
+  text-align: center;
+  flex-grow: 1;
+}
+
+#app-title {
+  font-family: 'Bungee', sans-serif;
+  font-size: 3.5rem;
+  color: #00e5ff;
+  text-shadow: 0 0 10px #7300ff, 0 0 20px #00ffff;
+  margin: 0;
+  font-weight: bold;
+}
+#app-subtitle {
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  font-size: 0.8rem;
+  color: #7300ff;
+  text-shadow: 0 0 10px #00e5ff, 0 0 20px #00ffff;
+  margin: 0;
+}
+
+#wallet-display {
+  margin: 0.5rem;
+  font-size: 1rem;
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.wallet-icon {
+  width: 16px;
+  height: 16px;
+}
+body {
+  margin: 0;
+  padding: 0;
+  background: #000021;
+  color: #fff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+
+header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 99999;
+  background: rgba(0, 0, 33, 0.85); /* semi-transparent midnight blue */
+}
+
+@keyframes shimmer-spin-y {
+  0% {
+    transform: rotateY(0deg);
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(2);
+  }
+  100% {
+    transform: rotateY(360deg);
+    filter: brightness(1);
+  }
+}
+
+@keyframes shimmer-spin {
+  0% {
+    transform: rotate(0deg);
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(2);
+  }
+  100% {
+    transform: rotate(360deg);
+    filter: brightness(1);
+  }
+}
+
+
+#ipfs-status {
+  position: absolute;
+  top: 20px;
+  left: 50px;
+  text-align: center;
+  display: none;
+  width: 60px;
+  height: 60px;
+  border: 2px solid #00e5ff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #00e5ff;
+}
+#ipfsIcon {
+  display: block;
+  width: 50px;
+  height: 50px;
+  opacity: 0.9;
+  animation: shimmer-spin 8s linear infinite;
+  filter: drop-shadow(0 0 10px #00e5ff);
+  cursor: pointer;
+}
+
+
+
+/* Ticker circle styles */
+/* Ticker circle new styles */
+.ticker-wrapper {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 130px;
+  height: 130px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ticker-circle-metamask {
+  position: absolute;
+  right: 49px;
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+}
+
+.ticker-circle-ipfs {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+
+  transform-origin: center center;
+}
+
+.ticker-letter {
+  position: absolute;
+  font-size: 0.5rem;
+  color: #00e5ff;
+  text-shadow: 0 0 4px #d6e101d7;
+  transform: translate(-50%, -50%);
+}
+
+#wallet-connect {
+  position: absolute;
+  right: 50px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: 2px solid; /* base style, color set by state */
+  border-radius: 50%;
+  padding: 0;
+  width: 70px;
+  height: 70px;
+  box-shadow: 0 0 10px; /* color set by state */
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#wallet-connect img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border: none;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+#wallet-connect:hover {
+  box-shadow: 0 0 15px #ff9800;
+  border-color: #ff9800;
+}
+
+/* Disconnected state: red neon border */
+#wallet-connect.disconnected {
+  border-color: #ff5722;
+  box-shadow: 0 0 10px #ff5722;
+}
+/* Connected state: green neon border */
+#wallet-connect.connected {
+  border-color: #00e676;
+  box-shadow: 0 0 10px #00e676;
+}
+/* Connected hover: blue-green neon border */
+#wallet-connect.connected:hover {
+  border-color: #00ffcc;
+  box-shadow: 0 0 15px #00ffcc;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  padding: 0;
+  margin: 0;
+  margin-top: 120px;
+  margin-bottom: 80px;
+}
+
+#landing-bg {
+  width: auto;
+  height: 80vh;
+  object-fit: contain;
+  opacity: 0.8;
+  margin: 0;
+  z-index: -1;
+}
+
+footer {
+  display: none;
+  justify-content: space-around;
+  padding: 1rem;
+  background-color: #000010;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  opacity: 0.8;
+  z-index: 10000;
+}
+
+.round-button {
+  background: transparent;
+  border: 2px solid #00e5ff;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  color: #fff;
+  font-weight: bold;
+  box-shadow: 0 0 10px #00e5ff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.round-button:hover {
+  box-shadow: 0 0 20px #00ffff;
+  border-color: #00ffff;
+}
+
+.round-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Modal hidden helper */
+.modal-hidden {
+  display: none;
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* Modal overlay for modals with overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 40, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100000;
+}
+
+/* General modal style for overlay modals */
+.modal {
+  background-color: rgba(0, 0, 50, 0.95);
+  padding: 2rem;
+  border-radius: 10px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  color: #fff;
+  box-shadow: 0 0 20px #00e5ff;
+  position: relative;
+  z-index: 100001;
+}
+
+.modal-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 1rem;
+  background: transparent;
+  color: #fff;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+#modal button[type="submit"] {
+  margin-top: 1rem;
+  background-color: #00e5ff;
+  color: #000;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Supplements Modal and Diet Modal consistent styling */
+#supplements-modal .modal,
+#dietModal {
+  background-color: rgba(0, 0, 50, 0.95);
+  padding: 2rem;
+  border-radius: 10px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  color: #fff;
+  box-shadow: 0 0 20px #00e5ff;
+  position: relative;
+  z-index: 100001;
+  /* For #dietModal, ensure it overlays content like a modal */
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+  align-items: center;
+}
+
+#dietModal[style*="display: block"] {
+  display: flex !important;
+}
+
+#dietModal .modal-content {
+  background-color: #fefefe;
+  margin: 15% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%;
+  max-width: 400px;
+  border-radius: 10px;
+  color: #000;
+  box-shadow: 0 0 20px #00e5ff;
+  position: relative;
+}
+
+#dietModal .close {
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  color: #000;
+  font-size: 2rem;
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+#weight-chart-toggle {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: space-around;
+}
+
+#weight-chart-toggle button {
+  background-color: transparent;
+  border: 1px solid #00e5ff;
+  color: #00e5ff;
+  padding: 0.3rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.round-button.active {
+  box-shadow: 0 0 20px #00ffcc;
+  border-color: #00ffcc;
+}
+
+#weight-chart {
+  margin-top: 1rem;
+  width: 100%;
+  height: 200px;
+}
+#log-exercise {
+  background-color: #00e5ff;
+  opacity: 0.8;
+}
+
+.delete-set-icon:hover {
+  filter: brightness(1.5);
+  transform: scale(1.1);
+  transition: all 0.2s ease;
+}
+
+#emotion-icon,
+#graph-icon {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+body.hide-icons footer,
+body.hide-icons #emotion-icon,
+body.hide-icons #graph-icon {
+  display: none !important;
+  opacity: 0;
+}
+
+svg text {
+  font-size: 10px;
+  fill: #333;
+  dominant-baseline: middle;
+}
+#emotionWheelSVG text {
+  paint-order: stroke fill;
+  stroke: #000;
+  stroke-width: 0.5px;
+  font-size: 10px;
+}
+
+.emotion-label {
+  font-size: 10px;
+  fill: #333;
+  pointer-events: none;
+}
+/* Raw Food Modal: Hide by default, modal overlay style */
+#rawFoodModal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.4);
+}

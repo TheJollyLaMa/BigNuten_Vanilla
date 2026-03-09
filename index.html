@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+    <title>⚕︎ BigNuten ⚕︎</title>
+    <link rel="icon" type="image/png" href="img/BigNuten.png" />
+
+    <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css" />
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    
+</head>
+<body>
+  
+  <header>
+    <div id="header-left">
+      <div id="ipfs-status">
+        <div class="ticker-wrapper">
+          <div class="ticker-circle-ipfs" id="ticker-circle"></div>
+        </div>
+        <div id="ipfsIconWrapper">
+          <img id="ipfsIcon" src="img/IPFS_Logo.png" alt="IPFS Connected" />
+          <div id="ipfsHoverPopup" class="hover-popup"></div>
+        </div>
+      </div>
+      <div id="current-weight-display"></div>
+    </div>
+    <div id="header-center">
+      <h1 id="app-title">⚕︎ Big Nuten ⚕︎</h1>
+      <h3 id="app-subtitle">(Another Decent Frankenstein)</h3>
+    </div>
+    <div id="walletIconWrapper">
+      <div class="ticker-wrapper wallet-ticker">
+        <div class="ticker-circle-metamask" id="wallet-ticker-circle"></div>
+      </div>
+      <button id="wallet-connect" class="neon-button disconnected">
+        <img id="metamaskIcon" src="img/MetaMaskFox.png" alt="Connect Wallet" />
+      </button>
+      <div id="wallet-display"></div>
+      <div id="walletHoverDisplay" class="wallet-hover-display"></div>
+    </div>
+  </header>
+
+
+  <div id="recent-exercises-list">
+    <div class="exercise-list-header">
+      <h4>Exercises (7 days)</h4>
+      <p style="font-size: 0.75rem;">
+        <span style="color: #ff3d3d;">● Today</span> &nbsp;
+        <span style="color: #aa00ff;">● 1 day ago</span> &nbsp;
+        <span style="color: #00bfff;">● 2 days ago</span> &nbsp;
+        <span style="color: #00ff66;">● 3 days ago</span> &nbsp;
+        <span style="color: #66ffcc;">● 4+ days ago</span>
+      </p>
+    </div>
+    <ul id="exercises-last7days">
+    </ul>
+  </div>
+  <div id="workout-set-list">
+    <div class="workout-header">
+      <label for="work-duration" style="color:white;font-size:0.8rem;margin-right:4px;">Work:</label>
+      <input type="number" id="work-duration" value="60" min="0" style="width:50px;margin-right:10px;" />
+      <label for="rest-duration" style="color:white;font-size:0.8rem;margin-right:4px;">Rest:</label>
+      <input type="number" id="rest-duration" value="120" min="0" style="width:50px;margin-right:10px;" />
+      <button id="start-workout-button" class="play-all-button">▶ Start Workout</button>
+      <h4>Workout Set List</h4>
+    </div>
+    <div id="estimated-total-time" style="font-size: 0.9rem; margin-bottom: 0.5rem;"></div>
+    <ul id="workout-set-items"></ul>
+  </div>
+
+  <main>
+    <div id="recent-supplements-list">
+      <h4>Supplements (7 days)</h4>
+      <ul id="supplements-last7days"></ul>
+    </div>
+    <div id="recent-foods-list">
+      <h4>Raw Intake (7 days)</h4>
+      <ul id="foods-last7days"></ul>
+    </div>
+    <img src="img/BigNuten.png" id="landing-bg" alt="BigNuten Background">
+    <!-- Moon icon above figure's head -->
+    <span id="moon-icon"> ⚸ </span>
+    <!-- Emotion icon above graph icon -->
+    <img src="img/EmotionWheel.png" id="emotion-icon" alt="Emotions" />
+    <img src="img/GraphIcon.png" id="graph-icon" alt="Graph" />
+  <!-- Emotion Modal -->
+  <!-- Moon & Sun Tracker Modal -->
+  <div id="moon-modal" class="modal-overlay modal-hidden">
+    <div class="modal">
+      <button class="modal-close" onclick="hideModal('moon-modal')">×</button>
+      <h2>Moon & Sun Tracker</h2>
+      <p id="moon-info"></p>
+      <p id="location-info"></p>
+      <button onclick="requestLocation()">🔄 Link Location</button>
+    </div>
+  </div>
+  <div id="emotion-modal" class="modal-overlay modal-hidden">
+    <div class="modal" style="position:relative;">
+      <button class="modal-close">×</button>
+      <h2>Log Emotion</h2>
+      <div style="position: relative; width: 600px; height: 600px; margin: 0 auto;">
+        <img src="img/EmotionWheel.png" id="emotionWheelOverlayImage"
+             style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" alt="Emotion Wheel" />
+        <svg id="emotionWheelOverlaySVG"
+             width="600" height="600"
+             style="position: absolute; top: 0; left: 0; z-index: 10; pointer-events: none;"></svg>
+        <!-- Emotion Wheel SVG with inner and outer rings -->
+        <svg id="emotionWheelSVG" width="600" height="600" style="display:none;">
+          <g id="emotionSlices"></g>
+        </svg>
+      </div>
+      <div id="selectedEmotion" style="text-align:center; font-size:1.2rem; margin-top:1rem;">Selected emotion will appear here.</div>
+      <form id="emotion-form">
+        <label for="emotion-input">What are you feeling?</label>
+        <input type="text" id="emotion-input" name="emotion" required style="width:100%;margin-bottom:1rem;" />
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+  </div>
+  </main>
+
+  <footer>
+    <button class="round-button" id="log-weight">
+      <img src="img/Scale.png" alt="Weight">
+    </button>
+    <button class="round-button" id="log-measurements">
+      <img src="img/MuscleMeasure.png" alt="Measurements">
+    </button>
+    <button class="round-button" id="log-supplements">
+      <img src="img/Supplements.png" alt="Supplements">
+    </button>
+    <button class="round-button" id="dietBtn" data-modal="dietModal">
+      <img src="img/Diet.png" alt="Diet">
+    </button>
+    <button class="round-button" id="log-exercise">
+      <img src="img/Exercise.png" alt="Exercise">
+    </button>
+  </footer>
+
+  <!-- Modal Structure -->
+
+  <!-- Raw Food Intake Modal (hidden by default, only shown via script) -->
+  <div id="rawFoodModal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close" id="closeRawFoodModal">&times;</span>
+      <h2>Log Raw Food Intake</h2>
+      <form id="rawFoodForm">
+        <input type="text" id="rawFoodName" placeholder="Food name" required />
+        <input type="number" id="rawFoodAmount" placeholder="Amount" required />
+        <input type="text" id="rawFoodUnit" placeholder="Unit (e.g., cup, tbsp)" required />
+        <input type="number" id="rawFoodProtein" placeholder="Estimated protein (g)" required />
+        <button type="submit">Log Intake</button>
+      </form>
+    </div>
+  </div>
+  <div id="weight-modal" class="modal-overlay modal-hidden">
+    <div class="modal">
+      <button class="modal-close">×</button>
+      <h2>Log Your Weight</h2>
+      
+      <!-- Bluetooth Button -->
+      <button id="connectScaleBtn">Connect to Bluetooth Scale</button>
+      <p id="scaleStatus">Not connected</p>
+      <p id="weightReading">-- lbs</p>
+      <input type="hidden" id="weightInput" />
+
+      <!-- Manual Logging -->
+      <form id="manualWeightForm">
+        <label for="manualWeight">Enter Weight (lbs):</label>
+        <input type="number" id="manualWeight" step="0.1" required />
+        <button type="submit">Log Weight</button>
+      </form>
+
+      <!-- Weight chart container -->
+      <div id="weight-chart-toggle">
+        <button>Day</button>
+        <button>Month</button>
+        <button>Year</button>
+        <button>Max</button>
+      </div>
+      <canvas id="weight-chart"></canvas>
+    </div>
+  </div>
+
+
+  <!-- Measurements Modal -->
+  <div id="measurements-modal" class="modal-overlay modal-hidden">
+    <div class="modal">
+      <button class="modal-close">×</button>
+      <h2>Log Measurements</h2>
+      <form id="measurement-form">
+        <label for="measurement-type">Type:</label>
+        <select id="measurement-type" name="measurement-type" required>
+          <option value="Bicep">Bicep</option>
+          <option value="Chest">Chest</option>
+          <option value="Waist">Waist</option>
+          <option value="Thigh">Thigh</option>
+          <option value="Calf">Calf</option>
+          <option value="add-new">+ Add New</option>
+        </select>
+
+        <label for="measurement">Measurement (inches/cm):</label>
+        <input type="number" id="measurement" name="measurement" step="0.01" required />
+
+        <label for="measurement-date">Date:</label>
+        <input type="date" id="measurement-date" name="measurement-date" required />
+
+        <label for="measurement-time">Time:</label>
+        <input type="time" id="measurement-time" name="measurement-time" required />
+
+        <button type="submit">Submit</button>
+      </form>
+      <div id="measurement-chart-toggle" style="margin-top: 1rem;">
+        <button>Day</button>
+        <button>Month</button>
+        <button>Year</button>
+        <button>Max</button>
+      </div>
+      <div id="measurement-chart-controls" style="margin-top: 1rem;">
+        <label for="measurement-chart-select">Select Type:</label>
+        <select id="measurement-chart-select">
+          <option value="all">All Measurements</option>
+          <option value="Bicep">Bicep</option>
+          <option value="Chest">Chest</option>
+          <option value="Waist">Waist</option>
+          <option value="Thigh">Thigh</option>
+          <option value="Calf">Calf</option>
+        </select>
+      </div>
+      <canvas id="measurement-chart" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Supplements Modal -->
+  <div id="supplementsModal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close" id="closeSupplementsModal">&times;</span>
+      <h2>Log Supplement Intake</h2>
+      <form id="supplementForm">
+        <input type="text" id="supplementName" placeholder="Supplement Name" required />
+        <input type="text" id="supplementDosage" placeholder="Dosage (e.g., 500mg)" required />
+        <button type="submit">Log Supplement</button>
+      </form>
+      <div id="supplementLog"></div>
+    </div>
+  </div>
+
+  <!-- Diet Modal -->
+  <div id="dietModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span class="close" id="closeDietModal">&times;</span>
+      <h2>Log Diet</h2>
+      <form id="dietForm">
+        <input type="text" id="dietFoodName" placeholder="Food Name" required>
+        <input type="number" id="dietFoodAmount" placeholder="Amount" required>
+        <input type="text" id="dietFoodUnit" placeholder="Unit (e.g., cup)" required>
+        <input type="number" id="dietFoodProtein" placeholder="Estimated Protein (g)" required>
+        <button type="submit">Log Diet</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Correlation Graph Modal -->
+  <div id="correlation-graph-modal" class="modal-overlay modal-hidden">
+    <div class="modal">
+      <button class="modal-close">×</button>
+      <h2>Correlation Graph</h2>
+      <label for="graph-data-select">Select Data Points:</label>
+      <select id="graph-data-select" multiple style="width:100%;margin-bottom:1rem;">
+        <option value="weight">Weight</option>
+        <option value="Push-ups:reps">Push-ups Reps</option>
+        <option value="Push-ups:weight">Push-ups Weight</option>
+        <option value="Sit-ups:reps">Sit-ups Reps</option>
+        <option value="Sit-ups:weight">Sit-ups Weight</option>
+        <option value="Pull-ups:reps">Pull-ups Reps</option>
+        <option value="Pull-ups:weight">Pull-ups Weight</option>
+        <option value="Bicep Curl:reps">Bicep Curl Reps</option>
+        <option value="Bicep Curl:weight">Bicep Curl Weight</option>
+        <option value="Forearm Curl (forward):reps">Forearm Curl (forward) Reps</option>
+        <option value="Forearm Curl (forward):weight">Forearm Curl (forward) Weight</option>
+        <option value="Squats:reps">Squats Reps</option>
+        <option value="Squats:weight">Squats Weight</option>
+        <option value="Bench Press (Incline):reps">Bench Press (Incline) Reps</option>
+        <option value="Bench Press (Incline):weight">Bench Press (Incline) Weight</option>
+        <option value="Calf Raises:reps">Calf Raises Reps</option>
+        <option value="Calf Raises:weight">Calf Raises Weight</option>
+        <option value="Leg Press:reps">Leg Press Reps</option>
+        <option value="Leg Press:weight">Leg Press Weight</option>
+        <option value="Bicep">Bicep (measurement)</option>
+        <option value="Forearm">Forearm (measurement)</option>
+        <!-- Add more as needed -->
+      </select>
+      <canvas id="correlationChart" height="300"></canvas>
+    </div>
+  </div>
+
+</main>
+
+  <!-- Exercise Modal -->
+  <div id="exercise-modal" class="modal-overlay modal-hidden">
+    <div class="modal">
+      <button class="modal-close">×</button>
+      <h2>Log Exercise</h2>
+      <form id="exercise-form">
+        <label for="exercise-type">Exercise:</label>
+        <select id="exercise-type" name="exercise-type" required>
+          <option value="">Select</option>
+          <option value="Push-ups">Push-ups</option>
+          <option value="Sit-ups">Sit-ups</option>
+          <option value="add-new">+ Add New</option>
+        </select>
+
+        <label for="exercise-sets">Sets:</label>
+        <input type="number" id="exercise-sets" name="exercise-sets" min="1" value="1" required />
+
+        <div id="exercise-set-inputs"></div>
+
+        <label for="exercise-description">Description:</label>
+        <input type="text" id="exercise-description" name="exercise-description" placeholder="e.g. Bowflex, Free weights, Bands..." />
+
+        <label for="exercise-date">Date:</label>
+        <input type="date" id="exercise-date" name="exercise-date" required />
+
+        <label for="exercise-time">Time:</label>
+        <input type="time" id="exercise-time" name="exercise-time" required />
+
+        <button type="submit">Add Exercise</button>
+      </form>
+    </div>
+  </div>
+
+</main>
+
+  <!-- Workout Timer Modal -->
+  <div id="workout-timer-modal" class="modal-overlay modal-hidden">
+    <div class="modal workout-modal">
+      <h2 id="workout-current-title">Workout</h2>
+      <p id="workout-current-info">Current: Push-ups - Set 1</p>
+      <h1 id="workout-timer-display">00:30</h1>
+      <p id="workout-next-info">Next: Rest 30s</p>
+      <button id="start-timer-button">Start</button>
+      <button id="pause-timer-button">Pause</button>
+    </div>
+  </div>
+  
+  <!-- @web3-storage browser.min.js hosted in JollySimSiddhi space on web3.Storage -->
+  <script src="https://bafybeicqxq54ncvkxvwdbov6ljgtyyrcpmek3ic2fxrwwsigmh4ud4s2mu.ipfs.w3s.link/browser.min.js"></script>
+  
+  <script type="module" src="js/app.js"></script>
+
+
+  <style>
+#emotionWheelSVG {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+#emotionSlices path {
+  cursor: pointer;
+  stroke: #222;
+  stroke-width: 2;
+  pointer-events: auto;
+}
+#emotionWheelSVG text {
+  font-size: 12px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: #fff;
+  font-family: 'Bungee', sans-serif;
+  user-select: none;
+}
+  </style>
+
+  
+  <script>
+  // --- EMOTION WHEEL SVG PROGRAMMATIC GENERATION ---
+  document.addEventListener('DOMContentLoaded', function () {
+    const svg = document.getElementById('emotionWheelSVG');
+    const slicesGroup = document.getElementById('emotionSlices');
+    const selectedDiv = document.getElementById('selectedEmotion');
+    const emotionInput = document.getElementById('emotion-input');
+    if (svg && slicesGroup) {
+      // Full hierarchy of emotions (Plutchik-inspired, 3 rings, 8 base sectors)
+      const emotions = [
+        // Level 1: Core emotions (center) - corrected (Plutchik's wheel, 7 segments)
+        { label: 'Surprised', level: 1 },
+        { label: 'Bad', level: 1 },
+        { label: 'Fearful', level: 1 },
+        { label: 'Angry', level: 1 },
+        { label: 'Disgusted', level: 1 },
+        { label: 'Sad', level: 1 },
+        { label: 'Happy', level: 1 },
+
+        // Level 2: Second ring (children of each base)
+        // Happy
+        { label: 'Content', parent: 'Happy', level: 2 },
+        { label: 'Proud', parent: 'Happy', level: 2 },
+        { label: 'Optimistic', parent: 'Happy', level: 2 },
+        { label: 'Excited', parent: 'Happy', level: 2 },
+        // Trusting
+        { label: 'Respectful', parent: 'Trusting', level: 2 },
+        { label: 'Loyal', parent: 'Trusting', level: 2 },
+        { label: 'Intimate', parent: 'Trusting', level: 2 },
+        { label: 'Admiring', parent: 'Trusting', level: 2 },
+        // Fearful
+        { label: 'Anxious', parent: 'Fearful', level: 2 },
+        { label: 'Insecure', parent: 'Fearful', level: 2 },
+        { label: 'Scared', parent: 'Fearful', level: 2 },
+        { label: 'Terrified', parent: 'Fearful', level: 2 },
+        // Surprised
+        { label: 'Startled', parent: 'Surprised', level: 2 },
+        { label: 'Amazed', parent: 'Surprised', level: 2 },
+        { label: 'Confused', parent: 'Surprised', level: 2 },
+        { label: 'Disillusioned', parent: 'Surprised', level: 2 },
+        // Sad
+        { label: 'Disappointed', parent: 'Sad', level: 2 },
+        { label: 'Lonely', parent: 'Sad', level: 2 },
+        { label: 'Guilty', parent: 'Sad', level: 2 },
+        { label: 'Depressed', parent: 'Sad', level: 2 },
+        // Disgusted
+        { label: 'Disapproving', parent: 'Disgusted', level: 2 },
+        { label: 'Judgmental', parent: 'Disgusted', level: 2 },
+        { label: 'Repelled', parent: 'Disgusted', level: 2 },
+        { label: 'Contemptuous', parent: 'Disgusted', level: 2 },
+        // Angry
+        { label: 'Hurt', parent: 'Angry', level: 2 },
+        { label: 'Let down', parent: 'Angry', level: 2 },
+        { label: 'Bitter', parent: 'Angry', level: 2 },
+        { label: 'Mad', parent: 'Angry', level: 2 },
+        // Anticipating
+        { label: 'Hopeful', parent: 'Anticipating', level: 2 },
+        { label: 'Eager', parent: 'Anticipating', level: 2 },
+        { label: 'Enthusiastic', parent: 'Anticipating', level: 2 },
+        { label: 'Vigilant', parent: 'Anticipating', level: 2 },
+
+        // Level 3: Third ring (children of each level 2)
+        // Happy > Content
+        { label: 'Free', parent: 'Content', level: 3 },
+        { label: 'Joyful', parent: 'Content', level: 3 },
+        // Happy > Proud
+        { label: 'Successful', parent: 'Proud', level: 3 },
+        { label: 'Confident', parent: 'Proud', level: 3 },
+        // Happy > Optimistic
+        { label: 'Hopeful', parent: 'Optimistic', level: 3 },
+        { label: 'Inspired', parent: 'Optimistic', level: 3 },
+        // Happy > Excited
+        { label: 'Energetic', parent: 'Excited', level: 3 },
+        { label: 'Cheerful', parent: 'Excited', level: 3 },
+        // Trusting > Respectful
+        { label: 'Grateful', parent: 'Respectful', level: 3 },
+        { label: 'Appreciative', parent: 'Respectful', level: 3 },
+        // Trusting > Loyal
+        { label: 'Faithful', parent: 'Loyal', level: 3 },
+        { label: 'Devoted', parent: 'Loyal', level: 3 },
+        // Trusting > Intimate
+        { label: 'Affectionate', parent: 'Intimate', level: 3 },
+        { label: 'Loving', parent: 'Intimate', level: 3 },
+        // Trusting > Admiring
+        { label: 'Proud (of others)', parent: 'Admiring', level: 3 },
+        { label: 'Respectful (of others)', parent: 'Admiring', level: 3 },
+        // Fearful > Anxious
+        { label: 'Worried', parent: 'Anxious', level: 3 },
+        { label: 'Overwhelmed', parent: 'Anxious', level: 3 },
+        // Fearful > Insecure
+        { label: 'Inferior', parent: 'Insecure', level: 3 },
+        { label: 'Worthless', parent: 'Insecure', level: 3 },
+        // Fearful > Scared
+        { label: 'Frightened', parent: 'Scared', level: 3 },
+        { label: 'Helpless', parent: 'Scared', level: 3 },
+        // Fearful > Terrified
+        { label: 'Panic', parent: 'Terrified', level: 3 },
+        { label: 'Horrified', parent: 'Terrified', level: 3 },
+        // Surprised > Startled
+        { label: 'Shocked', parent: 'Startled', level: 3 },
+        { label: 'Dismayed', parent: 'Startled', level: 3 },
+        // Surprised > Amazed
+        { label: 'Astonished', parent: 'Amazed', level: 3 },
+        { label: 'Awe', parent: 'Amazed', level: 3 },
+        // Surprised > Confused
+        { label: 'Disillusioned', parent: 'Confused', level: 3 },
+        { label: 'Perplexed', parent: 'Confused', level: 3 },
+        // Surprised > Disillusioned
+        { label: 'Disappointed (expectation)', parent: 'Disillusioned', level: 3 },
+        { label: 'Betrayed', parent: 'Disillusioned', level: 3 },
+        // Sad > Disappointed
+        { label: 'Dismayed (let down)', parent: 'Disappointed', level: 3 },
+        { label: 'Regretful', parent: 'Disappointed', level: 3 },
+        // Sad > Lonely
+        { label: 'Abandoned', parent: 'Lonely', level: 3 },
+        { label: 'Isolated', parent: 'Lonely', level: 3 },
+        // Sad > Guilty
+        { label: 'Ashamed', parent: 'Guilty', level: 3 },
+        { label: 'Remorseful', parent: 'Guilty', level: 3 },
+        // Sad > Depressed
+        { label: 'Despair', parent: 'Depressed', level: 3 },
+        { label: 'Hopeless', parent: 'Depressed', level: 3 },
+        // Disgusted > Disapproving
+        { label: 'Disdainful', parent: 'Disapproving', level: 3 },
+        { label: 'Scornful', parent: 'Disapproving', level: 3 },
+        // Disgusted > Judgmental
+        { label: 'Critical', parent: 'Judgmental', level: 3 },
+        { label: 'Skeptical', parent: 'Judgmental', level: 3 },
+        // Disgusted > Repelled
+        { label: 'Aversion', parent: 'Repelled', level: 3 },
+        { label: 'Disturbed', parent: 'Repelled', level: 3 },
+        // Disgusted > Contemptuous
+        { label: 'Disdain', parent: 'Contemptuous', level: 3 },
+        { label: 'Disrespect', parent: 'Contemptuous', level: 3 },
+        // Angry > Hurt
+        { label: 'Aggrieved', parent: 'Hurt', level: 3 },
+        { label: 'Offended', parent: 'Hurt', level: 3 },
+        // Angry > Let down
+        { label: 'Betrayed (anger)', parent: 'Let down', level: 3 },
+        { label: 'Resentful', parent: 'Let down', level: 3 },
+        // Angry > Bitter
+        { label: 'Indignant', parent: 'Bitter', level: 3 },
+        { label: 'Jealous', parent: 'Bitter', level: 3 },
+        // Angry > Mad
+        { label: 'Furious', parent: 'Mad', level: 3 },
+        { label: 'Enraged', parent: 'Mad', level: 3 },
+        // Anticipating > Hopeful
+        { label: 'Expectant', parent: 'Hopeful', level: 3 },
+        { label: 'Confident (future)', parent: 'Hopeful', level: 3 },
+        // Anticipating > Eager
+        { label: 'Excited (future)', parent: 'Eager', level: 3 },
+        { label: 'Impatient', parent: 'Eager', level: 3 },
+        // Anticipating > Enthusiastic
+        { label: 'Motivated', parent: 'Enthusiastic', level: 3 },
+        { label: 'Inspired (future)', parent: 'Enthusiastic', level: 3 },
+        // Anticipating > Vigilant
+        { label: 'Alert', parent: 'Vigilant', level: 3 },
+        { label: 'Watchful', parent: 'Vigilant', level: 3 }
+      ];
+
+      // Assign colors for each base sector (8 base emotions)
+      const baseColors = [
+        '#f4d03f', // Joy (yellow)
+        '#27ae60', // Trust (green)
+        '#16a085', // Fear (teal)
+        '#5dade2', // Surprise (blue)
+        '#34495e', // Sadness (navy)
+        '#229954', // Disgust (dark green)
+        '#e74c3c', // Anger (red)
+        '#e67e22', // Anticipation (orange)
+      ];
+      // Helper: get sector index for each base emotion
+      const baseEmotions = ['Joy','Trust','Fear','Surprise','Sadness','Disgust','Anger','Anticipation'];
+      function getBaseIndex(label) {
+        return baseEmotions.indexOf(label);
+      }
+      // Color blending for secondary/tertiary
+      function shadeColor(color, percent) {
+        // color: "#rrggbb", percent: -0.2 (darker), +0.2 (lighter)
+        let R = parseInt(color.substring(1,3),16);
+        let G = parseInt(color.substring(3,5),16);
+        let B = parseInt(color.substring(5,7),16);
+        R = Math.round(R * (1 + percent));
+        G = Math.round(G * (1 + percent));
+        B = Math.round(B * (1 + percent));
+        R = Math.min(255,Math.max(0,R));
+        G = Math.min(255,Math.max(0,G));
+        B = Math.min(255,Math.max(0,B));
+        return "#" + ((1<<24)+(R<<16)+(G<<8)+B).toString(16).slice(1);
+      }
+
+      // Group emotions by level and by parent for each ring
+      const levels = [1,2,3];
+      const levelGroups = {};
+      for (const lvl of levels) {
+        levelGroups[lvl] = emotions.filter(e => e.level === lvl);
+      }
+      // For level 2, group by parent (base emotion)
+      const level2ByParent = {};
+      for (const e of levelGroups[2]) {
+        if (!level2ByParent[e.parent]) level2ByParent[e.parent] = [];
+        level2ByParent[e.parent].push(e);
+      }
+      // For level 3, group by parent (secondary emotion)
+      const level3ByParent = {};
+      for (const e of levelGroups[3]) {
+        if (!level3ByParent[e.parent]) level3ByParent[e.parent] = [];
+        level3ByParent[e.parent].push(e);
+      }
+
+      // Radii for rings
+      const cx = 300, cy = 300;
+      const r1 = 100;
+      const r2 = 150;
+      const r3 = 200;
+      const r4 = 290; // outermost
+
+      // --- Draw core (level 1) as sectors in the center ---
+      const N = levelGroups[1].length;
+      for (let i = 0; i < N; ++i) {
+        const base = levelGroups[1][i];
+        const startAngle = (2 * Math.PI * i) / N;
+        const endAngle = (2 * Math.PI * (i + 1)) / N;
+        // Draw donut sector from 0 to r1
+        const rInner = 0, rOuter = r1;
+        const x1 = cx + rOuter * Math.cos(startAngle - Math.PI/2);
+        const y1 = cy + rOuter * Math.sin(startAngle - Math.PI/2);
+        const x2 = cx + rOuter * Math.cos(endAngle - Math.PI/2);
+        const y2 = cy + rOuter * Math.sin(endAngle - Math.PI/2);
+        const x3 = cx + rInner * Math.cos(endAngle - Math.PI/2);
+        const y3 = cy + rInner * Math.sin(endAngle - Math.PI/2);
+        const x4 = cx + rInner * Math.cos(startAngle - Math.PI/2);
+        const y4 = cy + rInner * Math.sin(startAngle - Math.PI/2);
+        const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+        const pathData = [
+          `M ${x1} ${y1}`,
+          `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2} ${y2}`,
+          `L ${x3} ${y3}`,
+          `A ${rInner} ${rInner} 0 ${largeArc} 0 ${x4} ${y4}`,
+          'Z'
+        ].join(' ');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', pathData);
+        // Use a color palette for 7 segments (fallback to baseColors, repeating if needed)
+        path.setAttribute('fill', baseColors[i % baseColors.length]);
+        path.setAttribute('data-emotion', base.label);
+        path.style.zIndex = 10;
+        path.style.pointerEvents = 'auto';
+        path.addEventListener('click', function () {
+          const emotion = this.getAttribute('data-emotion');
+          if (selectedDiv) selectedDiv.textContent = `Selected Emotion: ${emotion}`;
+          if (emotionInput) emotionInput.value = emotion;
+        });
+        slicesGroup.appendChild(path);
+        // Add label in center of sector
+        const angle = (startAngle + endAngle) / 2 - Math.PI/2;
+        const labelR = r1 * 0.75;
+        const labelX = cx + labelR * Math.cos(angle);
+        const labelY = cy + labelR * Math.sin(angle);
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', labelX);
+        text.setAttribute('y', labelY);
+        text.textContent = base.label;
+        slicesGroup.appendChild(text);
+      }
+      // --- Draw secondary (level 2) ring ---
+      // For each sector, place its 2 children in the same angle span as the base
+      for (let i = 0; i < N; ++i) {
+        const base = levelGroups[1][i];
+        const baseStart = (2 * Math.PI * i) / N;
+        const baseEnd = (2 * Math.PI * (i + 1)) / N;
+        const children = level2ByParent[base.label] || [];
+        const count = children.length;
+        for (let j = 0; j < count; ++j) {
+          const child = children[j];
+          // Each child gets half the sector
+          const startAngle = baseStart + ((baseEnd - baseStart) * j) / count;
+          const endAngle = baseStart + ((baseEnd - baseStart) * (j+1)) / count;
+          const rInner = r1, rOuter = r2;
+          const x1 = cx + rOuter * Math.cos(startAngle - Math.PI/2);
+          const y1 = cy + rOuter * Math.sin(startAngle - Math.PI/2);
+          const x2 = cx + rOuter * Math.cos(endAngle - Math.PI/2);
+          const y2 = cy + rOuter * Math.sin(endAngle - Math.PI/2);
+          const x3 = cx + rInner * Math.cos(endAngle - Math.PI/2);
+          const y3 = cy + rInner * Math.sin(endAngle - Math.PI/2);
+          const x4 = cx + rInner * Math.cos(startAngle - Math.PI/2);
+          const y4 = cy + rInner * Math.sin(startAngle - Math.PI/2);
+          const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+          // Color: shade of base color
+          const baseIdx = getBaseIndex(base.label);
+          const color = shadeColor(baseColors[baseIdx], 0.15*(j===0?-1:1));
+          const pathData = [
+            `M ${x1} ${y1}`,
+            `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2} ${y2}`,
+            `L ${x3} ${y3}`,
+            `A ${rInner} ${rInner} 0 ${largeArc} 0 ${x4} ${y4}`,
+            'Z'
+          ].join(' ');
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', pathData);
+          path.setAttribute('fill', color);
+          path.setAttribute('data-emotion', child.label);
+          path.style.zIndex = 10;
+          path.style.pointerEvents = 'auto';
+          path.addEventListener('click', function () {
+            const emotion = this.getAttribute('data-emotion');
+            if (selectedDiv) selectedDiv.textContent = `Selected Emotion: ${emotion}`;
+            if (emotionInput) emotionInput.value = emotion;
+          });
+          slicesGroup.appendChild(path);
+          // Add label in middle of arc
+          const angle = (startAngle + endAngle) / 2 - Math.PI/2;
+          const labelR = (r1 + r2) / 2;
+          const labelX = cx + labelR * Math.cos(angle);
+          const labelY = cy + labelR * Math.sin(angle);
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.setAttribute('x', labelX);
+          text.setAttribute('y', labelY);
+          text.textContent = child.label;
+          slicesGroup.appendChild(text);
+        }
+      }
+      // --- Draw tertiary (level 3) ring ---
+      // For each level2 emotion, place its 1 child in the correct sector (16 in total)
+      let tertiaryIndex = 0;
+      for (let i = 0; i < N; ++i) {
+        const base = levelGroups[1][i];
+        const baseStart = (2 * Math.PI * i) / N;
+        const baseEnd = (2 * Math.PI * (i + 1)) / N;
+        const children = level2ByParent[base.label] || [];
+        const count = children.length;
+        for (let j = 0; j < count; ++j) {
+          const child = children[j];
+          const tertiaries = level3ByParent[child.label] || [];
+          // Each tertiary gets the same sector as its parent (half sector)
+          for (let k = 0; k < tertiaries.length; ++k) {
+            const t = tertiaries[k];
+            const startAngle = baseStart + ((baseEnd - baseStart) * j) / count;
+            const endAngle = baseStart + ((baseEnd - baseStart) * (j+1)) / count;
+            const rInner = r2, rOuter = r3;
+            const x1 = cx + rOuter * Math.cos(startAngle - Math.PI/2);
+            const y1 = cy + rOuter * Math.sin(startAngle - Math.PI/2);
+            const x2 = cx + rOuter * Math.cos(endAngle - Math.PI/2);
+            const y2 = cy + rOuter * Math.sin(endAngle - Math.PI/2);
+            const x3 = cx + rInner * Math.cos(endAngle - Math.PI/2);
+            const y3 = cy + rInner * Math.sin(endAngle - Math.PI/2);
+            const x4 = cx + rInner * Math.cos(startAngle - Math.PI/2);
+            const y4 = cy + rInner * Math.sin(startAngle - Math.PI/2);
+            const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+            // Color: further shade of base
+            const baseIdx = getBaseIndex(base.label);
+            const color = shadeColor(baseColors[baseIdx], 0.25*(j===0?-1:1));
+            const pathData = [
+              `M ${x1} ${y1}`,
+              `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2} ${y2}`,
+              `L ${x3} ${y3}`,
+              `A ${rInner} ${rInner} 0 ${largeArc} 0 ${x4} ${y4}`,
+              'Z'
+            ].join(' ');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', pathData);
+            path.setAttribute('fill', color);
+            path.setAttribute('data-emotion', t.label);
+            path.style.zIndex = 10;
+            path.style.pointerEvents = 'auto';
+            path.addEventListener('click', function () {
+              const emotion = this.getAttribute('data-emotion');
+              if (selectedDiv) selectedDiv.textContent = `Selected Emotion: ${emotion}`;
+              if (emotionInput) emotionInput.value = emotion;
+            });
+            slicesGroup.appendChild(path);
+            // Add label in middle of arc
+            const angle = (startAngle + endAngle) / 2 - Math.PI/2;
+            const labelR = (r2 + r3) / 2;
+            const labelX = cx + labelR * Math.cos(angle);
+            const labelY = cy + labelR * Math.sin(angle);
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', labelX);
+            text.setAttribute('y', labelY);
+            text.textContent = t.label;
+            slicesGroup.appendChild(text);
+          }
+        }
+      }
+    }
+  });
+  </script>
+  </style>
+  <script>
+  // --- Weight Modal Bluetooth and Manual Logging ---
+  document.getElementById('connectScaleBtn')?.addEventListener('click', async () => {
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: 'Health' }],
+        optionalServices: ['0000fff0-0000-1000-8000-00805f9b34fb']
+      });
+
+      document.getElementById('scaleStatus').textContent = `✅ Connected to ${device.name}`;
+
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService('0000fff0-0000-1000-8000-00805f9b34fb');
+      const characteristic = await service.getCharacteristic('0000fff4-0000-1000-8000-00805f9b34fb');
+
+      await characteristic.startNotifications();
+      characteristic.addEventListener('characteristicvaluechanged', (event) => {
+        const value = event.target.value;
+        const weightKg = (value.getUint8(3) + value.getUint8(4) * 256) / 100;
+        const weightLbs = weightKg * 2.20462;
+        // Only display pounds
+        document.getElementById('weightReading').textContent = `${weightLbs.toFixed(2)} lbs`;
+        // Set the value of the hidden input to the pounds value
+        document.getElementById('weightInput').value = weightLbs.toFixed(2);
+        // Autofill the input field with id 'logWeight' if it exists
+        const weightInput = document.getElementById('logWeight');
+        if (weightInput) {
+          weightInput.value = weightLbs.toFixed(2);
+        }
+        logWeightToLocalStorage(weightLbs);
+      });
+
+    } catch (error) {
+      console.error('Bluetooth connection failed:', error);
+      document.getElementById('scaleStatus').textContent = `❌ Connection failed`;
+    }
+  });
+
+  function logWeightToLocalStorage(weightLbs) {
+    const today = new Date().toISOString().split('T')[0];
+    const logs = JSON.parse(localStorage.getItem('weightLogs') || '[]');
+    logs.push({ date: today, weight: weightLbs });
+    localStorage.setItem('weightLogs', JSON.stringify(logs));
+  }
+
+  document.getElementById('manualWeightForm')?.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const weightKg = parseFloat(document.getElementById('manualWeight').value);
+    if (!isNaN(weightKg)) {
+      const weightLbs = weightKg * 2.20462;
+      logWeightToLocalStorage(weightLbs);
+      document.getElementById('weightReading').textContent = `${weightLbs.toFixed(2)} lbs (manually logged)`;
+      document.getElementById('weightInput').value = weightLbs.toFixed(2);
+    }
+  });
+  </script>
+</body>
+</html>
