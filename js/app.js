@@ -2271,6 +2271,7 @@ if (measurementForm) {
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
           account = accounts[0];
         }
+        if (!account || typeof account !== 'string') return;
         walletButton.classList.remove('disconnected');
         walletButton.classList.add('connected');
         walletButton.title = `Connected: ${account}`;
@@ -2355,6 +2356,8 @@ if (measurementForm) {
            console.log("Web3.Storage space DID:", result.spaceDid);
            const status = document.getElementById("ipfs-status");
            status.style.display = "block";
+           const ipfsIconEl = document.getElementById("ipfsIcon");
+           if (ipfsIconEl) ipfsIconEl.style.display = "inline-block";
 
            // Dynamic DID key animation characters (new ticker circle)
            const did = result.spaceDid;
@@ -2503,7 +2506,7 @@ if (measurementForm) {
         }
 
       } catch (error) {
-        console.error('User rejected wallet connection:', error);
+        console.error('Wallet connection error:', error);
       }
     } else {
       alert('MetaMask is not installed. Please install it to connect your wallet.');
