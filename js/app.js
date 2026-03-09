@@ -2679,32 +2679,34 @@ if (measurementForm) {
     weightDateInput.value = today;
   }
 
-  weightForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const weight = parseFloat(document.getElementById('weight').value);
-    const date = document.getElementById('date').value;
-    const time = document.getElementById('time').value;
-    const timestamp = `${date} ${time}`;
+  if (weightForm) {
+    weightForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const weight = parseFloat(document.getElementById('weight').value);
+      const date = document.getElementById('date').value;
+      const time = document.getElementById('time').value;
+      const timestamp = `${date} ${time}`;
 
-    logWeight(weight, timestamp);
+      logWeight(weight, timestamp);
 
-    if (weightChart) {
-      // Add data point as { x: Date, y: weight }
-      weightChart.data.datasets[0].data.push({ x: new Date(timestamp), y: weight });
-      // No need to set labels; Chart.js time scale uses x
-      weightChart.update();
-    }
+      if (weightChart) {
+        // Add data point as { x: Date, y: weight }
+        weightChart.data.datasets[0].data.push({ x: new Date(timestamp), y: weight });
+        // No need to set labels; Chart.js time scale uses x
+        weightChart.update();
+      }
 
-    displayCurrentWeight();
+      displayCurrentWeight();
 
-    weightForm.reset();
-    if (weightDateInput) {
-      const today = new Date().toISOString().split('T')[0];
-      weightDateInput.value = today;
-    }
-    Object.values(modals).forEach(m => m.classList.add('modal-hidden'));
-    roundButtons.forEach(btn => btn.classList.remove('active'));
-  });
+      weightForm.reset();
+      if (weightDateInput) {
+        const today = new Date().toISOString().split('T')[0];
+        weightDateInput.value = today;
+      }
+      Object.values(modals).forEach(m => m.classList.add('modal-hidden'));
+      roundButtons.forEach(btn => btn.classList.remove('active'));
+    });
+  }
 });
 
 // (ticker arc animation code replaced by ticker-circle logic)

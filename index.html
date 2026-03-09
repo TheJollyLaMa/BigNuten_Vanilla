@@ -665,9 +665,8 @@
           const x4 = cx + rInner * Math.cos(startAngle - Math.PI/2);
           const y4 = cy + rInner * Math.sin(startAngle - Math.PI/2);
           const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
-          // Color: shade of base color
-          const baseIdx = getBaseIndex(base.label);
-          const color = shadeColor(baseColors[baseIdx], 0.15*(j===0?-1:1));
+          // Color: shade of base color (use loop index i for correct color mapping)
+          const color = shadeColor(baseColors[i % baseColors.length], 0.15*(j===0?-1:1));
           const pathData = [
             `M ${x1} ${y1}`,
             `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2} ${y2}`,
@@ -726,9 +725,8 @@
             const x4 = cx + rInner * Math.cos(startAngle - Math.PI/2);
             const y4 = cy + rInner * Math.sin(startAngle - Math.PI/2);
             const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
-            // Color: further shade of base
-            const baseIdx = getBaseIndex(base.label);
-            const color = shadeColor(baseColors[baseIdx], 0.25*(j===0?-1:1));
+            // Color: further shade of base (use loop index i for correct color mapping)
+            const color = shadeColor(baseColors[i % baseColors.length], 0.25*(j===0?-1:1));
             const pathData = [
               `M ${x1} ${y1}`,
               `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2} ${y2}`,
