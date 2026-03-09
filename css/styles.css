@@ -780,8 +780,7 @@ footer {
   cursor: pointer;
 }
 
-/* Supplements Modal and Diet Modal consistent styling */
-#supplements-modal .modal,
+/* Diet Modal consistent styling */
 #dietModal {
   background-color: rgba(0, 0, 50, 0.95);
   padding: 2rem;

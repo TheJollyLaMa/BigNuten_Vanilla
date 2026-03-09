@@ -237,16 +237,24 @@
   </div>
 
   <!-- Supplements Modal -->
-  <div id="supplementsModal" class="modal hidden">
-    <div class="modal-content">
-      <span class="close" id="closeSupplementsModal">&times;</span>
+  <div id="supplements-modal" class="modal-overlay modal-hidden">
+    <div class="modal">
+      <button class="modal-close">×</button>
       <h2>Log Supplement Intake</h2>
-      <form id="supplementForm">
-        <input type="text" id="supplementName" placeholder="Supplement Name" required />
-        <input type="text" id="supplementDosage" placeholder="Dosage (e.g., 500mg)" required />
+      <form id="supplement-form">
+        <label for="supplement-name">Name:</label>
+        <input type="text" id="supplement-name" placeholder="Supplement Name" required />
+        <label for="supplement-weight">Dosage (mg):</label>
+        <input type="number" id="supplement-weight" placeholder="Dosage (mg)" required />
+        <label for="supplement-date">Date:</label>
+        <input type="date" id="supplement-date" required />
+        <label for="supplement-time">Time:</label>
+        <input type="time" id="supplement-time" required />
+        <label for="supplement-description">Description:</label>
+        <input type="text" id="supplement-description" placeholder="Notes..." />
         <button type="submit">Log Supplement</button>
       </form>
-      <div id="supplementLog"></div>
+      <ul id="supplement-entries"></ul>
     </div>
   </div>
 
