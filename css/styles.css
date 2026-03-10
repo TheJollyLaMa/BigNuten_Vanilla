@@ -901,3 +901,30 @@ svg text {
   overflow: auto;
   background-color: rgba(0, 0, 0, 0.4);
 }
+/* Neon button base style (used in sync review and elsewhere) */
+.neon-button {
+  background: transparent;
+  border: 1px solid #00e5ff;
+  color: #00e5ff;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+.neon-button:hover {
+  background: rgba(0, 229, 255, 0.15);
+  box-shadow: 0 0 8px #00e5ff;
+}
+.neon-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Sync review modal info blocks */
+#sync-local-info {
+  background: rgba(0, 229, 255, 0.05);
+}
+#sync-remote-info {
+  background: rgba(255, 0, 204, 0.05);
+}

@@ -1905,8 +1905,221 @@ window.addEventListener('DOMContentLoaded', async () => {
         </a>
       </div>`;
     }).join('<hr style="opacity:0.3;">')
-      + '<div style="text-align:center;margin-top:8px;"><button id="show-all-snapshots-btn" style="font-size:0.6rem;background:#00e5ff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">Show All</button></div>';
+      + '<div style="text-align:center;margin-top:8px;"><button id="show-all-snapshots-btn" style="font-size:0.6rem;background:#00e5ff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">Show All</button></div>'
+      + '<hr style="opacity:0.3;margin:8px 0;">'
+      + '<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;padding-bottom:4px;">'
+      + '<button id="export-data-btn" style="font-size:0.6rem;background:#00ff99;color:#000;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">⬇ Export JSON</button>'
+      + '<button id="import-data-btn" style="font-size:0.6rem;background:#ff00cc;color:#fff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">⬆ Import JSON</button>'
+      + '<button id="sync-review-btn" style="font-size:0.6rem;background:#ffcc00;color:#000;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">🔄 Sync Review</button>'
+      + '</div>';
     // (Optional: consider pagination if history.length > X in the future)
+  }
+
+  // --- Export / Import / Sync Review ---
+
+  function exportFitnessDataAsJSON() {
+    const data = getFitnessData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    a.href = url;
+    a.download = `bignuten-export-${ts}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importFitnessDataFromFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        if (!parsed.weightLogs && !parsed.exercises && !parsed.supplements) {
+          alert('❌ Invalid file: does not appear to be a BigNuten export.');
+          return;
+        }
+        const entryCount = [
+          (parsed.weightLogs || []).length,
+          (Array.isArray(parsed.exercises) ? parsed.exercises : (parsed.exercises?.entries || [])).length,
+          (parsed.supplements || []).length,
+          (parsed.foods || []).length,
+          (parsed.measurements || []).length
+        ].reduce((a, b) => a + b, 0);
+
+        const latestTs = (parsed.weightLogs || []).reduce((max, e) => e.timestamp > max ? e.timestamp : max, '');
+        const ts = latestTs || '(unknown)';
+        const confirmMsg = `Import this dataset?\n\n📊 Total entries: ${entryCount}\n🕐 Latest record: ${ts}\n\n⚠️ This will REPLACE your current local data.`;
+        if (!confirm(confirmMsg)) return;
+
+        saveFitnessData(parsed);
+        alert('✅ Data imported successfully. Reloading…');
+        window.location.reload();
+      } catch (err) {
+        console.error('Import failed:', err);
+        alert('❌ Failed to parse JSON file.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function openSyncReview() {
+    const latestKey = Object.keys(localStorage)
+      .filter(k => k.startsWith('fitnessTrackerSnapshot-'))
+      .sort()
+      .reverse()[0];
+
+    const localData = getFitnessData();
+    const localCount = [
+      (localData.weightLogs || []).length,
+      (Array.isArray(localData.exercises) ? localData.exercises : (localData.exercises?.entries || [])).length,
+      (localData.supplements || []).length,
+      (localData.foods || []).length,
+      (localData.measurements || []).length
+    ].reduce((a, b) => a + b, 0);
+    const localLatest = (localData.weightLogs || []).reduce((max, e) => e.timestamp > max ? e.timestamp : max, '');
+
+    document.getElementById('sync-local-details').innerHTML =
+      `Entries: <strong>${localCount}</strong><br>Latest weight log: <strong>${localLatest ? new Date(localLatest).toLocaleString() : '—'}</strong>`;
+
+    const remoteDetails = document.getElementById('sync-remote-details');
+    const syncStatusMsg = document.getElementById('sync-status-msg');
+    const useRemoteBtn = document.getElementById('sync-use-remote-btn');
+    const mergeBtn = document.getElementById('sync-merge-btn');
+
+    // Reset button state
+    useRemoteBtn.disabled = false;
+    mergeBtn.disabled = false;
+    syncStatusMsg.textContent = '';
+
+    // Show modal first so user sees something happening
+    showModal('sync-review-modal');
+
+    if (!latestKey) {
+      remoteDetails.innerHTML = '<em>No local IPFS snapshot found. Upload a snapshot first.</em>';
+      useRemoteBtn.disabled = true;
+      mergeBtn.disabled = true;
+      return;
+    }
+
+    const latestSnapshot = JSON.parse(localStorage.getItem(latestKey) || 'null');
+    const remoteCid = latestSnapshot?.cid;
+
+    if (!remoteCid) {
+      remoteDetails.innerHTML = '<em>No IPFS snapshot CID found.</em>';
+      useRemoteBtn.disabled = true;
+      mergeBtn.disabled = true;
+    } else {
+      remoteDetails.innerHTML = `Fetching <code>${remoteCid.slice(0, 10)}…</code>`;
+      syncStatusMsg.textContent = '⏳ Fetching remote snapshot…';
+      try {
+        const resp = await fetch(`https://${remoteCid}.ipfs.w3s.link/`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const remoteData = await resp.json();
+
+        const remoteCount = [
+          (remoteData.weightLogs || []).length,
+          (Array.isArray(remoteData.exercises) ? remoteData.exercises : (remoteData.exercises?.entries || [])).length,
+          (remoteData.supplements || []).length,
+          (remoteData.foods || []).length,
+          (remoteData.measurements || []).length
+        ].reduce((a, b) => a + b, 0);
+        const remoteLatest = (remoteData.weightLogs || []).reduce((max, e) => e.timestamp > max ? e.timestamp : max, '');
+        const snapshotDateStr = latestKey.replace('fitnessTrackerSnapshot-', '');
+
+        remoteDetails.innerHTML =
+          `Entries: <strong>${remoteCount}</strong><br>`
+          + `Latest weight log: <strong>${remoteLatest ? new Date(remoteLatest).toLocaleString() : '—'}</strong><br>`
+          + `Snapshot date: <strong>${new Date(snapshotDateStr).toLocaleString()}</strong><br>`
+          + `<a href="https://${remoteCid}.ipfs.w3s.link/" target="_blank" style="font-size:0.7rem;color:#ff00cc;">${remoteCid.slice(0, 12)}…</a>`;
+
+        const isDivergent = localCount !== remoteCount || localLatest !== remoteLatest;
+        syncStatusMsg.textContent = isDivergent
+          ? '⚠️ Datasets differ. Choose how to proceed:'
+          : '✅ Local and remote datasets appear identical.';
+
+        useRemoteBtn.onclick = () => {
+          if (!confirm('Replace local data with the remote IPFS snapshot?')) return;
+          saveFitnessData(remoteData);
+          alert('✅ Local data replaced with IPFS snapshot. Reloading…');
+          window.location.reload();
+        };
+
+        mergeBtn.onclick = () => {
+          const { data: merged, count: mergedCount } = mergeDatasets(localData, remoteData);
+          if (!confirm(`Merge datasets?\n\nLocal: ${localCount} entries\nRemote: ${remoteCount} entries\nMerged: ${mergedCount} entries\n\nThis will replace your local data.`)) return;
+          saveFitnessData(merged);
+          alert('✅ Datasets merged. Reloading…');
+          window.location.reload();
+        };
+      } catch (err) {
+        console.error('Sync review fetch error:', err);
+        remoteDetails.innerHTML = `<span style="color:#ff4444;">❌ Could not fetch remote snapshot: ${err.message}</span>`;
+        syncStatusMsg.textContent = '';
+        useRemoteBtn.disabled = true;
+        mergeBtn.disabled = true;
+      }
+    }
+
+    document.getElementById('sync-keep-local-btn').onclick = () => {
+      hideModal('sync-review-modal');
+    };
+  }
+
+  function mergeDatasets(local, remote) {
+    function mergeByTimestamp(arr1, arr2, key = 'timestamp') {
+      const seen = new Set();
+      const result = [];
+      for (const item of [...(arr1 || []), ...(arr2 || [])]) {
+        const keyVal = item[key];
+        const id = keyVal != null ? String(keyVal) : null;
+        if (id !== null) {
+          if (!seen.has(id)) {
+            seen.add(id);
+            result.push(item);
+          }
+        } else {
+          result.push(item);
+        }
+      }
+      return result.sort((a, b) => {
+        const ta = a[key] ? new Date(a[key]).getTime() : null;
+        const tb = b[key] ? new Date(b[key]).getTime() : null;
+        if (ta === null && tb === null) return 0;
+        if (ta === null) return 1;
+        if (tb === null) return -1;
+        return ta - tb;
+      });
+    }
+
+    const localEntries = Array.isArray(local.exercises) ? local.exercises : (local.exercises?.entries || []);
+    const remoteEntries = Array.isArray(remote.exercises) ? remote.exercises : (remote.exercises?.entries || []);
+
+    const data = {
+      weightLogs: mergeByTimestamp(local.weightLogs, remote.weightLogs),
+      supplements: mergeByTimestamp(local.supplements, remote.supplements, 'date'),
+      foods: mergeByTimestamp(local.foods, remote.foods, 'date'),
+      measurements: mergeByTimestamp(local.measurements, remote.measurements, 'date'),
+      exercises: {
+        types: [...new Set([
+          ...(Array.isArray(local.exercises) ? [] : (local.exercises?.types || [])),
+          ...(Array.isArray(remote.exercises) ? [] : (remote.exercises?.types || []))
+        ])],
+        entries: mergeByTimestamp(localEntries, remoteEntries)
+      },
+      sessionLog: mergeByTimestamp(local.sessionLog, remote.sessionLog)
+    };
+
+    const count = [
+      data.weightLogs.length,
+      data.exercises.entries.length,
+      data.supplements.length,
+      data.foods.length,
+      data.measurements.length
+    ].reduce((a, b) => a + b, 0);
+
+    return { data, count };
   }
 
   ipfsWrapper?.addEventListener('mouseenter', () => {
@@ -1930,7 +2143,33 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (e.target.id === 'show-all-snapshots-btn') {
       showAllSnapshotsModal();
     }
+    if (e.target.id === 'export-data-btn') {
+      exportFitnessDataAsJSON();
+    }
+    if (e.target.id === 'import-data-btn') {
+      document.getElementById('import-json-input')?.click();
+    }
+    if (e.target.id === 'sync-review-btn') {
+      ipfsPopup.style.display = 'none';
+      openSyncReview();
+    }
   });
+
+  const importInput = document.getElementById('import-json-input');
+  if (importInput) {
+    importInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        importFitnessDataFromFile(file);
+        importInput.value = '';
+      }
+    });
+  }
+
+  const closeSyncReviewBtn = document.getElementById('closeSyncReviewModal');
+  if (closeSyncReviewBtn) {
+    closeSyncReviewBtn.addEventListener('click', () => hideModal('sync-review-modal'));
+  }
 
   function showAllSnapshotsModal() {
     const modal = document.createElement('div');

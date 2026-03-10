@@ -1,10 +1,13 @@
 // js/w3upClient.js
 
-const { create } = window.w3up;
-
 // Attempt to restore an existing W3UP session without prompting the user.
 // Returns { client, spaceDid } if a previously-authorized space is found, otherwise null.
 export async function tryAutoRestoreW3upClient() {
+  if (!window.w3up) {
+    console.warn("W3UP not available (window.w3up undefined).");
+    return null;
+  }
+  const { create } = window.w3up;
   try {
     const client = await create();
     const spaces = client.spaces();
@@ -23,6 +26,12 @@ export async function tryAutoRestoreW3upClient() {
 }
 
 export async function connectW3upClient() {
+  if (!window.w3up) {
+    console.error("W3UP not available (window.w3up undefined). Cannot connect.");
+    return null;
+  }
+  const { create } = window.w3up;
+
   // Try to restore an existing session before prompting the user.
   const restored = await tryAutoRestoreW3upClient();
   if (restored) return restored;

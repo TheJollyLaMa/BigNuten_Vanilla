@@ -355,6 +355,32 @@
       <button id="pause-timer-button">Pause</button>
     </div>
   </div>
+
+  <!-- Sync Review Modal -->
+  <div id="sync-review-modal" class="modal-overlay modal-hidden">
+    <div class="modal" style="max-width:480px;">
+      <button class="modal-close" id="closeSyncReviewModal">×</button>
+      <h2>🔄 Sync Review</h2>
+      <p style="font-size:0.8rem;opacity:0.8;">Comparing your local dataset with the latest IPFS snapshot.</p>
+      <div id="sync-local-info" style="margin:0.75rem 0;padding:0.5rem;border:1px solid #00e5ff;border-radius:6px;">
+        <strong>📱 Local</strong>
+        <div id="sync-local-details" style="font-size:0.75rem;margin-top:0.25rem;"></div>
+      </div>
+      <div id="sync-remote-info" style="margin:0.75rem 0;padding:0.5rem;border:1px solid #ff00cc;border-radius:6px;">
+        <strong>☁️ IPFS Snapshot</strong>
+        <div id="sync-remote-details" style="font-size:0.75rem;margin-top:0.25rem;"></div>
+      </div>
+      <div id="sync-actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1rem;">
+        <button id="sync-keep-local-btn" class="neon-button" style="flex:1;font-size:0.8rem;">✅ Keep Local</button>
+        <button id="sync-use-remote-btn" class="neon-button" style="flex:1;font-size:0.8rem;">☁️ Use Remote</button>
+        <button id="sync-merge-btn" class="neon-button" style="flex:1;font-size:0.8rem;">🔀 Merge</button>
+      </div>
+      <p id="sync-status-msg" style="font-size:0.75rem;text-align:center;margin-top:0.75rem;"></p>
+    </div>
+  </div>
+
+  <!-- Hidden file input for JSON import -->
+  <input type="file" id="import-json-input" accept=".json,application/json" style="display:none;" />
   
   <!-- @web3-storage browser.min.js hosted in JollySimSiddhi space on web3.Storage -->
   <script src="https://bafybeicqxq54ncvkxvwdbov6ljgtyyrcpmek3ic2fxrwwsigmh4ud4s2mu.ipfs.w3s.link/browser.min.js"></script>
