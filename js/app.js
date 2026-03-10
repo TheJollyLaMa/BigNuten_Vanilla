@@ -2073,7 +2073,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       const result = [];
       for (const item of [...(arr1 || []), ...(arr2 || [])]) {
         const keyVal = item[key];
-        const id = keyVal != null ? String(keyVal) : null;
+        const id = keyVal !== null && keyVal !== undefined ? String(keyVal) : null;
         if (id !== null) {
           if (!seen.has(id)) {
             seen.add(id);
