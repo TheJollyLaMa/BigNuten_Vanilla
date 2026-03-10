@@ -780,29 +780,18 @@ footer {
   cursor: pointer;
 }
 
-/* Supplements Modal and Diet Modal consistent styling */
-#supplements-modal .modal,
+/* Diet Modal overlay styling (legacy modal, uses style="display:none" toggle) */
 #dietModal {
-  background-color: rgba(0, 0, 50, 0.95);
-  padding: 2rem;
-  border-radius: 10px;
-  max-width: 600px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-  color: #fff;
-  box-shadow: 0 0 20px #00e5ff;
-  position: relative;
-  z-index: 100001;
-  /* For #dietModal, ensure it overlays content like a modal */
   display: none;
   position: fixed;
   left: 0;
   top: 0;
   width: 100%;
   height: 100%;
+  background-color: rgba(0, 0, 50, 0.95);
   justify-content: center;
   align-items: center;
+  z-index: 100001;
 }
 
 #dietModal[style*="display: block"] {
