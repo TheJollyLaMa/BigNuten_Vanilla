@@ -1,3 +1,5 @@
+import { showModal, hideModal, initModalSystem } from './ui/modals.js';
+
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
   const dietButton = document.getElementById('dietButton');
@@ -129,27 +131,9 @@ if (navigator.geolocation) {
   });
 }
 // --- Emotion Modal Logic ---
-// --- Modal Show/Hide Helper Functions ---
-function showModal(id) {
-  document.getElementById(id)?.classList.remove('modal-hidden');
-  document.body.classList.add('modal-active');
-  document.body.classList.add('hide-icons'); // NEW: hide graph/emotion/footer icons
-}
-
-function hideModal(id) {
-  document.getElementById(id)?.classList.add('modal-hidden');
-  if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
-    document.body.classList.remove('modal-active');
-    document.body.classList.remove('hide-icons'); // NEW: restore graph/emotion/footer icons
-  }
-}
-
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('emotion-icon')?.addEventListener('click', () => {
     showModal('emotion-modal');
-  });
-  document.querySelector('#emotion-modal .modal-close')?.addEventListener('click', () => {
-    hideModal('emotion-modal');
   });
   document.getElementById('emotion-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -163,19 +147,15 @@ window.addEventListener('DOMContentLoaded', () => {
     alert('Emotion logged.');
   });
 
-  // Expose showModal globally for inline HTML onclick handlers
+  // Expose showModal/hideModal globally for inline HTML onclick handlers
   window.showModal = showModal;
+  window.hideModal = hideModal;
 
   // Add event listener for moon icon to show modal
   const moonIcon = document.getElementById('moon-icon');
   if (moonIcon) {
     moonIcon.addEventListener('click', () => showModal('moon-modal'));
   }
-
-  // Add event listener for moon modal close button (ensures hideModal logic is attached)
-  document.querySelector('#moon-modal .modal-close')?.addEventListener('click', () => {
-    hideModal('moon-modal');
-  });
 
   // --- Emotion Wheel SVG Three-Ring Rendering (Full Hierarchy) ---
   // Only run if the SVG and group exist
@@ -2528,9 +2508,6 @@ if (measurementForm) {
   }
 
   // Modal logic
-  const modalOverlay = document.getElementById('weight-modal');
-  const modal = document.querySelector('#weight-modal .modal');
-  const closeModalBtn = document.getElementById('modal-close');
   const weightBtn = document.getElementById('log-weight');
   const supplementsBtn = document.getElementById('log-supplements');
   const exerciseBtn = document.getElementById('log-exercise');
@@ -2676,29 +2653,8 @@ if (measurementForm) {
     dietBtn.addEventListener('click', () => openModal('diet', dietBtn));
   }
 
-  const closeButtons = document.querySelectorAll('.modal-close');
-  closeButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
-      roundButtons.forEach(btn => btn.classList.remove('active'));
-    });
-  });
-
-  if (modalOverlay) {
-    modalOverlay.addEventListener('click', (e) => {
-      if (e.target === modalOverlay) {
-        Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
-        roundButtons.forEach(btn => btn.classList.remove('active'));
-      }
-    });
-  }
-
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
-      roundButtons.forEach(btn => btn.classList.remove('active'));
-    }
-  });
+  // Initialise the shared modal system (close buttons, overlay click, ESC key)
+  initModalSystem();
 
   // Form handling
   const weightForm = document.getElementById('weight-form');
