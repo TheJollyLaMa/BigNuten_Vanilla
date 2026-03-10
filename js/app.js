@@ -467,6 +467,7 @@ let sessionId = null;
 const STORAGE_KEY = 'fitnessTrackerData';
 
 const defaultData = {
+  dataVersion: 1,
   weightLogs: [],
   supplements: [],
   foods: [],
@@ -474,41 +475,16 @@ const defaultData = {
   exercises: {
     types: ['Sit-ups', 'Push-ups', 'Pull-ups'],
     entries: []
-  }
+  },
+  sessionLog: []
 };
 
 function getFitnessData() {
   let data = localStorage.getItem(STORAGE_KEY);
   if (data) {
-    const parsed = JSON.parse(data);
-    // Ensure exercises structure exists
-    if (!parsed.exercises) {
-      parsed.exercises = { types: ['Sit-ups', 'Push-ups', 'Pull-ups'], entries: [] };
-    } else {
-      // Ensure types is an array of strings
-      if (!Array.isArray(parsed.exercises.types)) {
-        parsed.exercises.types = ['Sit-ups', 'Push-ups', 'Pull-ups'];
-      }
-      // Ensure entries is an array
-      if (!Array.isArray(parsed.exercises.entries)) {
-        parsed.exercises.entries = [];
-      }
-    }
-    // Ensure measurements array exists
-    if (!Array.isArray(parsed.measurements)) {
-      parsed.measurements = [];
-    }
-    // Ensure supplements array exists
-    if (!Array.isArray(parsed.supplements)) {
-      parsed.supplements = [];
-    }
-    // Ensure foods array exists
-    if (!Array.isArray(parsed.foods)) {
-      parsed.foods = [];
-    }
-    // Save back if structure was missing/fixed
-    saveFitnessData(parsed);
-    return parsed;
+    const normalized = normalizeFitnessData(JSON.parse(data));
+    saveFitnessData(normalized);
+    return normalized;
   } else {
     // write default structure if no existing data
     saveFitnessData(defaultData);
@@ -517,11 +493,8 @@ function getFitnessData() {
 }
 
 function saveFitnessData(data) {
-  // Ensure all root arrays exist
-  if (!Array.isArray(data.supplements)) data.supplements = [];
-  if (!Array.isArray(data.foods)) data.foods = [];
-  if (!Array.isArray(data.measurements)) data.measurements = [];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  const normalized = normalizeFitnessData(data);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
 }
 
 function logWeight(weight, timestamp) {
@@ -604,6 +577,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 import { connectW3upClient, tryAutoRestoreW3upClient } from './w3upClient.js';
 import { uploadDataToIPFS } from './uploadToIPFS.js';
+import { normalizeFitnessData } from './fitnessData.js';
 
 // Supplements form logic (now unified in fitnessTrackerData)
 // --- Raw Intake Modal (New Modal) Logic ---
