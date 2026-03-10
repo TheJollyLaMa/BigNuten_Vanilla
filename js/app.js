@@ -2709,7 +2709,7 @@ if (measurementForm) {
     weightDateInput.value = today;
   }
 
-  weightForm.addEventListener('submit', (e) => {
+  if (weightForm) weightForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const weight = parseFloat(document.getElementById('weight').value);
     const date = document.getElementById('date').value;
