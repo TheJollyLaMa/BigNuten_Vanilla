@@ -2684,12 +2684,14 @@ if (measurementForm) {
     });
   });
 
-  modalOverlay.addEventListener('click', (e) => {
-    if (e.target === modalOverlay) {
-      Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
-      roundButtons.forEach(btn => btn.classList.remove('active'));
-    }
-  });
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) {
+        Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
+        roundButtons.forEach(btn => btn.classList.remove('active'));
+      }
+    });
+  }
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
