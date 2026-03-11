@@ -1058,6 +1058,11 @@ function displayRecentExercises() {
   const list = document.getElementById('exercises-last7days');
   if (!list) return;
 
+  // Helper: get total reps from an entry regardless of storage format
+  const getEntryTotalReps = e => Array.isArray(e.sets)
+    ? e.sets.reduce((sum, s) => sum + (parseInt(s.reps) || 0), 0)
+    : (parseInt(e.reps) || 0);
+
   // --- Insert or update the lifetime tally above the #exercise-list in the modal ---
   const fitnessData = getFitnessData();
   const log = fitnessData.exercises?.entries || [];
@@ -1076,9 +1081,9 @@ function displayRecentExercises() {
     // Compute tallies with normalized name matching (case/whitespace/hyphen insensitive, using includes)
     const normalize = str => (str || '').toLowerCase().replace(/[\s\-]/g, '');
 
-    const pullups = log.filter(e => normalize(e.type).includes('pullup')).reduce((sum, e) => sum + (parseInt(e.reps) || 0), 0);
-    const pushups = log.filter(e => normalize(e.type).includes('pushup')).reduce((sum, e) => sum + (parseInt(e.reps) || 0), 0);
-    const situps = log.filter(e => normalize(e.type).includes('situp')).reduce((sum, e) => sum + (parseInt(e.reps) || 0), 0);
+    const pullups = log.filter(e => normalize(e.type).includes('pullup')).reduce((sum, e) => sum + getEntryTotalReps(e), 0);
+    const pushups = log.filter(e => normalize(e.type).includes('pushup')).reduce((sum, e) => sum + getEntryTotalReps(e), 0);
+    const situps = log.filter(e => normalize(e.type).includes('situp')).reduce((sum, e) => sum + getEntryTotalReps(e), 0);
     // For total time, fallback to sessionLog if present, else use fitnessData.totalWorkSeconds/totalRestSeconds
     let totalTimeSec = 0;
     if (Array.isArray(fitnessData.sessionLog)) {
@@ -1216,7 +1221,9 @@ function displayRecentExercises() {
       } else if (entry.timestamp) {
         entryDate = entry.timestamp.split('T')[0];
       }
-      item.textContent = `${entryDate}: ${entry.type} - ${entry.reps || 0} reps x ${entry.sets || 0} sets`;
+      const totalReps = getEntryTotalReps(entry);
+      const totalSets = Array.isArray(entry.sets) ? entry.sets.length : (entry.sets || 0);
+      item.textContent = `${entryDate}: ${entry.type} - ${totalReps} reps x ${totalSets} sets`;
       exerciseList.appendChild(item);
     });
   }
