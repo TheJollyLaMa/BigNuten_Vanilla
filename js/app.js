@@ -604,6 +604,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 import { connectW3upClient, tryAutoRestoreW3upClient } from './w3upClient.js';
 import { uploadDataToIPFS } from './uploadToIPFS.js';
+import { importAndMergeFromCID } from './fitnessData.js';
 
 // Supplements form logic (now unified in fitnessTrackerData)
 // --- Raw Intake Modal (New Modal) Logic ---
@@ -1912,7 +1913,10 @@ window.addEventListener('DOMContentLoaded', async () => {
         </a>
       </div>`;
     }).join('<hr style="opacity:0.3;">')
-      + '<div style="text-align:center;margin-top:8px;"><button id="show-all-snapshots-btn" style="font-size:0.6rem;background:#00e5ff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">Show All</button></div>';
+      + '<div style="text-align:center;margin-top:8px;">'
+      + '<button id="show-all-snapshots-btn" style="font-size:0.6rem;background:#00e5ff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">Show All</button>'
+      + ' <button id="import-snapshot-btn" style="font-size:0.6rem;background:#ff00cc;color:#fff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">📥 Import</button>'
+      + '</div>';
     // (Optional: consider pagination if history.length > X in the future)
   }
 
@@ -1936,6 +1940,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.body.addEventListener('click', (e) => {
     if (e.target.id === 'show-all-snapshots-btn') {
       showAllSnapshotsModal();
+    }
+    if (e.target.id === 'import-snapshot-btn') {
+      ipfsPopup.style.display = 'none';
+      showImportSnapshotModal();
     }
   });
 
@@ -2022,9 +2030,138 @@ window.addEventListener('DOMContentLoaded', async () => {
     };
 
     renderPage();
+
+    // Show imported snapshot CIDs at the bottom
+    const importedList = JSON.parse(localStorage.getItem('importedSnapshotCIDs') || '[]');
+    if (importedList.length > 0) {
+      const importedSection = document.createElement('div');
+      importedSection.style.cssText = 'margin-top:1.5rem;border-top:1px solid rgba(0,229,255,0.2);padding-top:1rem;';
+      const importedTitle = document.createElement('h4');
+      importedTitle.style.cssText = 'color:#ff00cc;font-size:0.85rem;margin:0 0 0.5rem;';
+      importedTitle.textContent = '📥 Imported Snapshots';
+      importedSection.appendChild(importedTitle);
+      importedList.forEach(entry => {
+        const row = document.createElement('div');
+        row.style.cssText = 'margin:4px 0;font-size:0.75rem;';
+        const date = entry.importedAt ? new Date(entry.importedAt).toLocaleString() : '';
+        const short = `${entry.cid.slice(0, 6)}...${entry.cid.slice(-4)}`;
+        row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://${entry.cid}.ipfs.w3s.link/" target="_blank" style="color:#ff00cc;">${short}</a>`;
+        importedSection.appendChild(row);
+      });
+      content.appendChild(importedSection);
+    }
+
     modal.appendChild(content);
     document.body.appendChild(modal);
     document.body.classList.add('modal-active');
+  }
+
+  function showImportSnapshotModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'import-snapshot-modal';
+
+    const content = document.createElement('div');
+    content.className = 'modal';
+    content.style.maxWidth = '500px';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    closeBtn.className = 'modal-close';
+    closeBtn.onclick = () => {
+      document.body.removeChild(modal);
+      document.body.classList.remove('modal-active');
+    };
+    content.appendChild(closeBtn);
+
+    const header = document.createElement('h3');
+    header.style.cssText = 'color:#00e5ff;margin-top:0;';
+    header.textContent = '📥 Import Past IPFS Snapshot';
+    content.appendChild(header);
+
+    const desc = document.createElement('p');
+    desc.style.cssText = 'font-size:0.85rem;color:#ccc;';
+    desc.textContent = 'Enter a snapshot CID to fetch historical data from IPFS and merge it into your current dataset. Duplicate entries (same timestamp) will not be added twice.';
+    content.appendChild(desc);
+
+    const inputGroup = document.createElement('div');
+    inputGroup.style.cssText = 'margin:1rem 0;';
+    inputGroup.innerHTML = `
+      <label for="import-cid-input" style="display:block;margin-bottom:0.4rem;font-size:0.85rem;">IPFS CID:</label>
+      <input id="import-cid-input" type="text" placeholder="bafyrei..."
+        style="width:100%;box-sizing:border-box;padding:8px;background:#000030;color:#fff;border:1px solid #00e5ff;border-radius:6px;font-size:0.85rem;" />
+    `;
+    content.appendChild(inputGroup);
+
+    const feedback = document.createElement('div');
+    feedback.id = 'import-feedback';
+    feedback.style.cssText = 'min-height:2rem;font-size:0.8rem;margin-bottom:0.5rem;';
+    content.appendChild(feedback);
+
+    const importBtn = document.createElement('button');
+    importBtn.id = 'import-cid-btn';
+    importBtn.textContent = 'Import & Merge';
+    importBtn.style.cssText = 'background:#00e5ff;color:#000;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:bold;';
+    content.appendChild(importBtn);
+
+    // Show previously imported CID history
+    const importedList = JSON.parse(localStorage.getItem('importedSnapshotCIDs') || '[]');
+    if (importedList.length > 0) {
+      const historyDiv = document.createElement('div');
+      historyDiv.style.cssText = 'margin-top:1.5rem;border-top:1px solid rgba(0,229,255,0.2);padding-top:1rem;';
+      const histTitle = document.createElement('h4');
+      histTitle.style.cssText = 'color:#00e5ff;font-size:0.85rem;margin:0 0 0.5rem;';
+      histTitle.textContent = 'Previously Imported CIDs';
+      historyDiv.appendChild(histTitle);
+      importedList.slice(0, 10).forEach(entry => {
+        const row = document.createElement('div');
+        row.style.cssText = 'margin:4px 0;font-size:0.75rem;';
+        const date = entry.importedAt ? new Date(entry.importedAt).toLocaleString() : '';
+        const short = `${entry.cid.slice(0, 6)}...${entry.cid.slice(-4)}`;
+        row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://${entry.cid}.ipfs.w3s.link/" target="_blank" style="color:#00e5ff;">${short}</a>`;
+        historyDiv.appendChild(row);
+      });
+      content.appendChild(historyDiv);
+    }
+
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-active');
+
+    const cidInput = content.querySelector('#import-cid-input');
+    importBtn.addEventListener('click', async () => {
+      const cid = cidInput.value.trim();
+      if (!cid) {
+        feedback.textContent = '⚠️ Please enter a CID.';
+        feedback.style.color = '#ffcc00';
+        return;
+      }
+
+      feedback.textContent = '⏳ Fetching from IPFS…';
+      feedback.style.color = '#00e5ff';
+      importBtn.disabled = true;
+
+      try {
+        const result = await importAndMergeFromCID(cid);
+        const { added } = result;
+        feedback.innerHTML = `✅ Merged successfully!<br>
+          Added: ${added.weightLogs} weight log(s), ${added.exercises} exercise entry(s), ${added.sessionLog} session(s).<br>
+          <em style="color:#aaa;">Reload the page to see all merged data.</em>`;
+        feedback.style.color = '#00ff99';
+        cidInput.value = '';
+        importBtn.disabled = false;
+
+        setTimeout(() => {
+          if (confirm('Import successful! Reload the page to see all merged data?')) {
+            window.location.reload();
+          }
+        }, 500);
+      } catch (err) {
+        feedback.textContent = `❌ ${err.message}`;
+        feedback.style.color = '#ff4444';
+        importBtn.disabled = false;
+      }
+    });
   }
   // Removed pagination navigation for snapshot popup (all snapshots always shown)
   // --- Measurement Chart Logic ---
