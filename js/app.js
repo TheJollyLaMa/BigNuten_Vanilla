@@ -30,14 +30,25 @@ const TITHI_NAMES = [
   'Ekadasi', 'Dvadashi', 'Trayodashi', 'Chaturdashi', 'Amavasya'
 ];
 
-// Calculate Tithi (1–30) using the proper synodic month duration.
+// Calculate Tithi (1–30) and raw moon age (days since new moon) using the
+// proper synodic month duration.
 // Base: April 8 2024 18:21 UTC — total solar eclipse (verified new moon).
+// Follows the panchang convention: the tithi at local sunrise defines the whole
+// day, so we anchor on 6 AM local time rather than the current instant.
+// This prevents the tithi from flipping mid-day when a boundary falls during
+// waking hours (e.g. Ekadasi → Dvadashi at 9:30 AM).
 function calculateTithi() {
   const newMoonBase = new Date('2024-04-08T18:21:00Z');
   const synodicMonth = 29.530588853; // days
-  const diffDays = (Date.now() - newMoonBase.getTime()) / 86400000;
+  const now = new Date();
+  // Construct 6 AM local time. This is called at most a handful of times per
+  // page load plus once/hour in setInterval, so the allocation cost is trivial.
+  const sunrise = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0, 0);
+  const diffDays = (sunrise.getTime() - newMoonBase.getTime()) / 86400000;
   const cyclePos = ((diffDays % synodicMonth) + synodicMonth) % synodicMonth;
-  return Math.min(Math.floor(cyclePos / (synodicMonth / 30)) + 1, 30);
+  const tithi = Math.min(Math.floor(cyclePos / (synodicMonth / 30)) + 1, 30);
+  const moonAge = Math.floor(cyclePos); // simple 0-indexed days from new moon
+  return { tithi, moonAge };
 }
 
 // Return a status message and highlight colour for Ekadasi-adjacent tithis.
@@ -94,14 +105,16 @@ function sendEkadasiNotification(tithi) {
   });
 }
 
-function updateMoonSunModal(tithiDay, sunDay, lat, lng) {
+function updateMoonSunModal(tithiDay, moonAge, sunDay, lat, lng) {
   const moonInfo = document.getElementById('moon-info');
   const locationInfo = document.getElementById('location-info');
   const ekadasiInfo = document.getElementById('ekadasi-info');
   const tithiName = TITHI_NAMES[tithiDay - 1] || '';
   const paksha = tithiDay <= 15 ? 'Shukla' : 'Krishna';
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const sunDayName = dayNames[sunDay] || sunDay;
   if (moonInfo) {
-    moonInfo.textContent = `🌓 Moon Day (Tithi): ${tithiDay} — ${paksha} ${tithiName} | ☀️ Sun Day: ${sunDay}`;
+    moonInfo.textContent = `🌓 Moon Day: ${moonAge} — ${paksha} ${tithiName} | ☀️ Sun Day: ${sunDayName}`;
   }
   if (locationInfo) {
     locationInfo.textContent = lat && lng ? `📍 Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}` : '📍 Location not linked';
@@ -119,9 +132,9 @@ function requestLocation() {
     navigator.geolocation.getCurrentPosition(pos => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
-      const tithi = calculateTithi();
-      const sunDay = new Date().getDay() + 1;
-      updateMoonSunModal(tithi, sunDay, lat, lng);
+      const { tithi, moonAge } = calculateTithi();
+      const sunDay = new Date().getDay(); // 0 = Sunday … 6 = Saturday
+      updateMoonSunModal(tithi, moonAge, sunDay, lat, lng);
       sendEkadasiNotification(tithi);
     }, () => {
       alert("Location access denied.");
@@ -170,9 +183,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     overlaySVG.appendChild(path);
   }
-  const tithi = calculateTithi();
-  const sunDay = new Date().getDay() + 1;
-  updateMoonSunModal(tithi, sunDay, null, null);
+  const { tithi, moonAge } = calculateTithi();
+  const sunDay = new Date().getDay(); // 0 = Sunday … 6 = Saturday
+  updateMoonSunModal(tithi, moonAge, sunDay, null, null);
   sendEkadasiNotification(tithi);
 });
 // --- Moon Icon Logic ---
@@ -190,16 +203,16 @@ function updateMoonStatus(tithiDay) {
 
 if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(pos => {
-    updateMoonStatus(calculateTithi());
+    updateMoonStatus(calculateTithi().tithi);
   }, err => {
     console.warn("Location access denied. Using default values.");
-    updateMoonStatus(calculateTithi());
+    updateMoonStatus(calculateTithi().tithi);
   });
 } else {
-  updateMoonStatus(calculateTithi());
+  updateMoonStatus(calculateTithi().tithi);
 }
 // Refresh the moon icon status every hour to stay current throughout the day
-setInterval(() => updateMoonStatus(calculateTithi()), 3600000);
+setInterval(() => updateMoonStatus(calculateTithi().tithi), 3600000);
 // --- Emotion Modal Logic ---
 // --- Modal Show/Hide Helper Functions ---
 function showModal(id) {
