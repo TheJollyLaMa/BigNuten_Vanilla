@@ -21,12 +21,108 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 // --- Moon & Sun Modal Logic ---
-function updateMoonSunModal(tithiDay, sunDay, lat, lng) {
+const TITHI_NAMES = [
+  'Pratipada', 'Dvitiya', 'Tritiya', 'Chaturthi', 'Panchami',
+  'Shashthi', 'Saptami', 'Ashtami', 'Navami', 'Dashami',
+  'Ekadasi', 'Dvadashi', 'Trayodashi', 'Chaturdashi', 'Purnima',
+  'Pratipada', 'Dvitiya', 'Tritiya', 'Chaturthi', 'Panchami',
+  'Shashthi', 'Saptami', 'Ashtami', 'Navami', 'Dashami',
+  'Ekadasi', 'Dvadashi', 'Trayodashi', 'Chaturdashi', 'Amavasya'
+];
+
+// Calculate Tithi (1–30) and raw moon age (days since new moon) using the
+// proper synodic month duration.
+// Base: April 8 2024 18:21 UTC — total solar eclipse (verified new moon).
+// Follows the panchang convention: the tithi at local sunrise defines the whole
+// day, so we anchor on 6 AM local time rather than the current instant.
+// This prevents the tithi from flipping mid-day when a boundary falls during
+// waking hours (e.g. Ekadasi → Dvadashi at 9:30 AM).
+function calculateTithi() {
+  const newMoonBase = new Date('2024-04-08T18:21:00Z');
+  const synodicMonth = 29.530588853; // days
+  const now = new Date();
+  // Construct 6 AM local time. This is called at most a handful of times per
+  // page load plus once/hour in setInterval, so the allocation cost is trivial.
+  const sunrise = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0, 0);
+  const diffDays = (sunrise.getTime() - newMoonBase.getTime()) / 86400000;
+  const cyclePos = ((diffDays % synodicMonth) + synodicMonth) % synodicMonth;
+  const tithi = Math.min(Math.floor(cyclePos / (synodicMonth / 30)) + 1, 30);
+  const moonAge = Math.floor(cyclePos); // simple 0-indexed days from new moon
+  return { tithi, moonAge };
+}
+
+// Return a status message and highlight colour for Ekadasi-adjacent tithis.
+function getEkadasiStatus(tithi) {
+  if (tithi === 11 || tithi === 26) {
+    const paksha = tithi === 11 ? 'Shukla' : 'Krishna';
+    return {
+      message: `🙏 Today is ${paksha} Ekadasi — Observe your fast. Break fast tomorrow after sunrise.`,
+      color: '#00ccff'
+    };
+  }
+  if (tithi === 10 || tithi === 25) {
+    const nextPaksha = tithi === 10 ? 'Shukla' : 'Krishna';
+    return {
+      message: `⚠️ Tomorrow is ${nextPaksha} Ekadasi — Prepare for your fast!`,
+      color: '#ffd700'
+    };
+  }
+  if (tithi === 12 || tithi === 27) {
+    const paksha = tithi === 12 ? 'Shukla' : 'Krishna';
+    return {
+      message: `🌅 Today is ${paksha} Dvadashi — Break your Ekadasi fast after sunrise.`,
+      color: '#90ee90'
+    };
+  }
+  return { message: '', color: '' };
+}
+
+// Send a one-time browser notification for Ekadasi / Dashami days.
+// Uses localStorage to avoid sending duplicate notifications on the same day.
+function sendEkadasiNotification(tithi) {
+  if (!('Notification' in window)) return;
+  let title, body;
+  if (tithi === 10 || tithi === 25) {
+    title = '🌙 Ekadasi Tomorrow';
+    body = `Tomorrow is ${tithi === 10 ? 'Shukla' : 'Krishna'} Ekadasi. Prepare for your fast!`;
+  } else if (tithi === 11 || tithi === 26) {
+    title = '🙏 Ekadasi Today';
+    body = `Today is ${tithi === 11 ? 'Shukla' : 'Krishna'} Ekadasi. Observe your fast and break it tomorrow after sunrise.`;
+  } else {
+    return;
+  }
+  const today = new Date().toDateString();
+  const lastKey = 'ekadasi_last_notif';
+  try {
+    const last = JSON.parse(localStorage.getItem(lastKey) || '{}');
+    if (last.tithi === tithi && last.date === today) return; // already notified today
+  } catch (_) { /* ignore parse errors */ }
+  Notification.requestPermission().then(permission => {
+    if (permission === 'granted') {
+      new Notification(title, { body, icon: 'img/BigNuten.png' });
+      try { localStorage.setItem(lastKey, JSON.stringify({ tithi, date: today })); } catch (_) {}
+    }
+  });
+}
+
+function updateMoonSunModal(tithiDay, moonAge, sunDay, lat, lng) {
   const moonInfo = document.getElementById('moon-info');
   const locationInfo = document.getElementById('location-info');
-  if (moonInfo && locationInfo) {
-    moonInfo.textContent = `🌓 Moon Day (Tithi): ${tithiDay} | ☀️ Sun Day: ${sunDay}`;
+  const ekadasiInfo = document.getElementById('ekadasi-info');
+  const tithiName = TITHI_NAMES[tithiDay - 1] || '';
+  const paksha = tithiDay <= 15 ? 'Shukla' : 'Krishna';
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const sunDayName = dayNames[sunDay] || sunDay;
+  if (moonInfo) {
+    moonInfo.textContent = `🌓 Moon Day: ${moonAge} — ${paksha} ${tithiName} | ☀️ Sun Day: ${sunDayName}`;
+  }
+  if (locationInfo) {
     locationInfo.textContent = lat && lng ? `📍 Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}` : '📍 Location not linked';
+  }
+  if (ekadasiInfo) {
+    const status = getEkadasiStatus(tithiDay);
+    ekadasiInfo.textContent = status.message;
+    ekadasiInfo.style.color = status.color;
   }
 }
 
@@ -36,12 +132,10 @@ function requestLocation() {
     navigator.geolocation.getCurrentPosition(pos => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
-      const now = new Date();
-      const base = new Date('2024-04-08T00:00:00Z');
-      const diffDays = Math.floor((now - base) / (1000 * 60 * 60 * 24));
-      const tithi = (diffDays % 30) + 1;
-      const sunDay = (diffDays % 7) + 1;
-      updateMoonSunModal(tithi, sunDay, lat, lng);
+      const { tithi, moonAge } = calculateTithi();
+      const sunDay = new Date().getDay(); // 0 = Sunday … 6 = Saturday
+      updateMoonSunModal(tithi, moonAge, sunDay, lat, lng);
+      sendEkadasiNotification(tithi);
     }, () => {
       alert("Location access denied.");
     });
@@ -89,22 +183,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
     overlaySVG.appendChild(path);
   }
-  const now = new Date();
-  const base = new Date('2024-04-08T00:00:00Z');
-  const diffDays = Math.floor((now - base) / (1000 * 60 * 60 * 24));
-  const tithi = (diffDays % 30) + 1;
-  const sunDay = (diffDays % 7) + 1;
-  updateMoonSunModal(tithi, sunDay, null, null);
+  const { tithi, moonAge } = calculateTithi();
+  const sunDay = new Date().getDay(); // 0 = Sunday … 6 = Saturday
+  updateMoonSunModal(tithi, moonAge, sunDay, null, null);
+  sendEkadasiNotification(tithi);
 });
 // --- Moon Icon Logic ---
 function updateMoonStatus(tithiDay) {
   const icon = document.getElementById('moon-icon');
   if (!icon) return;
-  const hour = new Date().getHours();
-  if ((tithiDay === 11 || tithiDay === 25) && hour >= 6) {
+  if (tithiDay === 11 || tithiDay === 26) {
     icon.style.textShadow = '0 0 10px #00ccff'; // Blue for Ekadasi
-  } else if ((tithiDay === 10 || tithiDay === 24) && hour >= 6) {
-    icon.style.textShadow = '0 0 10px #ffd700'; // Gold for day before
+  } else if (tithiDay === 10 || tithiDay === 25) {
+    icon.style.textShadow = '0 0 10px #ffd700'; // Gold for day before Ekadasi
   } else {
     icon.style.textShadow = '0 0 10px #00ff66'; // Green for other days
   }
@@ -112,22 +203,16 @@ function updateMoonStatus(tithiDay) {
 
 if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-    const now = new Date();
-    const base = new Date('2024-04-08T00:00:00Z');
-    const diffDays = Math.floor((now - base) / (1000 * 60 * 60 * 24));
-    const tithi = (diffDays % 30) + 1;
-    updateMoonStatus(tithi);
+    updateMoonStatus(calculateTithi().tithi);
   }, err => {
     console.warn("Location access denied. Using default values.");
-    const base = new Date('2024-04-08T00:00:00Z');
-    const now = new Date();
-    const diffDays = Math.floor((now - base) / (1000 * 60 * 60 * 24));
-    const tithi = (diffDays % 30) + 1;
-    updateMoonStatus(tithi);
+    updateMoonStatus(calculateTithi().tithi);
   });
+} else {
+  updateMoonStatus(calculateTithi().tithi);
 }
+// Refresh the moon icon status every hour to stay current throughout the day
+setInterval(() => updateMoonStatus(calculateTithi().tithi), 3600000);
 // --- Emotion Modal Logic ---
 // --- Modal Show/Hide Helper Functions ---
 function showModal(id) {
