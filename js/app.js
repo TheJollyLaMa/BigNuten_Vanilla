@@ -32,31 +32,32 @@ const TITHI_NAMES = [
 
 // 24 named Ekadasis in a yearly cycle, starting from Kamada (Chaitra Shukla),
 // the first Ekadasi after the base new moon of April 8 2024.
+const EKADASI_BASE = 'http://www.iskcondesiretree.net/page/';
 const EKADASI_CYCLE = [
-  { name: 'Kamada',           url: 'https://iskcondesiretree.com/page/kamada-ekadashi' },
-  { name: 'Varuthini',        url: 'https://iskcondesiretree.com/page/varuthini-ekadashi' },
-  { name: 'Mohini',           url: 'https://iskcondesiretree.com/page/mohini-ekadashi' },
-  { name: 'Apara',            url: 'https://iskcondesiretree.com/page/apara-ekadashi' },
-  { name: 'Nirjala',          url: 'https://iskcondesiretree.com/page/nirjala-ekadashi' },
-  { name: 'Yogini',           url: 'https://iskcondesiretree.com/page/yogini-ekadashi' },
-  { name: 'Devshayani',       url: 'https://iskcondesiretree.com/page/devshayani-ekadashi' },
-  { name: 'Kamika',           url: 'https://iskcondesiretree.com/page/kamika-ekadashi' },
-  { name: 'Shravana Putrada', url: 'https://iskcondesiretree.com/page/shravana-putrada-ekadashi' },
-  { name: 'Annada',           url: 'https://iskcondesiretree.com/page/annada-ekadashi' },
-  { name: 'Parsva',           url: 'https://iskcondesiretree.com/page/parsva-ekadashi' },
-  { name: 'Indira',           url: 'https://iskcondesiretree.com/page/indira-ekadashi' },
-  { name: 'Pasankusha',       url: 'https://iskcondesiretree.com/page/pasankusha-ekadashi' },
-  { name: 'Rama',             url: 'https://iskcondesiretree.com/page/rama-ekadashi' },
-  { name: 'Devotthana',       url: 'https://iskcondesiretree.com/page/devotthana-ekadashi' },
-  { name: 'Utpanna',          url: 'https://iskcondesiretree.com/page/utpanna-ekadashi' },
-  { name: 'Mokshada',         url: 'https://iskcondesiretree.com/page/mokshada-ekadashi' },
-  { name: 'Saphala',          url: 'https://iskcondesiretree.com/page/saphala-ekadashi' },
-  { name: 'Pausha Putrada',   url: 'https://iskcondesiretree.com/page/pausha-putrada-ekadashi' },
-  { name: 'Sat-tila',         url: 'https://iskcondesiretree.com/page/sat-tila-ekadashi' },
-  { name: 'Jaya',             url: 'https://iskcondesiretree.com/page/jaya-ekadashi' },
-  { name: 'Vijaya',           url: 'https://iskcondesiretree.com/page/vijaya-ekadashi' },
-  { name: 'Amalaki',          url: 'https://iskcondesiretree.com/page/amalaki-ekadashi' },
-  { name: 'Papamochani',      url: 'https://iskcondesiretree.com/page/papamochani-ekadashi' },
+  { name: 'Kamada',            url: EKADASI_BASE + 'kamada-ekadasi' },
+  { name: 'Varuthini',         url: EKADASI_BASE + 'varuthini-ekadasi' },
+  { name: 'Mohini',            url: EKADASI_BASE + 'mohini-ekadasi' },
+  { name: 'Apara',             url: EKADASI_BASE + 'apara-ekadasi' },
+  { name: 'Pandava Nirjala',   url: EKADASI_BASE + 'pandava-nirjala-ekadasi' },
+  { name: 'Yogini',            url: EKADASI_BASE + 'yogini-ekadasi' },
+  { name: 'Sayana',            url: EKADASI_BASE + 'sayana-ekadasi' },
+  { name: 'Kamika',            url: EKADASI_BASE + 'kamika-ekadasi' },
+  { name: 'Pavitropana',       url: EKADASI_BASE + 'pavitropana-ekadasi' },
+  { name: 'Aja - Annada',      url: EKADASI_BASE + 'aja-annada-ekadasi' },
+  { name: 'Parsva',            url: EKADASI_BASE + 'parsva-ekadasi' },
+  { name: 'Indira',            url: EKADASI_BASE + 'indira-ekadasi' },
+  { name: 'Papankusha',        url: EKADASI_BASE + 'papankusha-ekadasi' },
+  { name: 'Rama',              url: EKADASI_BASE + 'rama-ekadasi' },
+  { name: 'Utthana',           url: EKADASI_BASE + 'utthana-ekadasi' },
+  { name: 'Utpanna',           url: EKADASI_BASE + 'utpanna-ekadasi' },
+  { name: 'Mokshada',          url: EKADASI_BASE + 'mokshada-ekadasi' },
+  { name: 'Saphala',           url: EKADASI_BASE + 'saphala-ekadasi' },
+  { name: 'Putrada',           url: EKADASI_BASE + 'putrada-ekadasi' },
+  { name: 'Sat-Tila',          url: EKADASI_BASE + 'sattila-ekadasi' },
+  { name: 'Bhaimi',            url: EKADASI_BASE + 'bhaimi-ekadasi' },
+  { name: 'Vaikuntha',         url: EKADASI_BASE + 'vaikuntha-ekadasi' },
+  { name: 'Amalaki',           url: EKADASI_BASE + 'amalaki-ekadasi' },
+  { name: 'Papamochani',       url: EKADASI_BASE + 'papamochani-ekadasi' },
 ];
 
 // Calculate Tithi (1–30) and raw moon age (days since new moon) using the
@@ -196,6 +197,9 @@ function updateMoonSunModal(tithiDay, moonAge, sunDay, lat, lng) {
     const status = getEkadasiStatus(tithiDay);
     ekadasiInfo.textContent = status.message;
     ekadasiInfo.style.color = status.color;
+    // Hide the ekadasi-info card when there's no message
+    const card = document.getElementById('ekadasi-info-card');
+    if (card) card.style.display = status.message ? '' : 'none';
   }
   if (ekadasiLinks) {
     const cycle = getEkadasiCycleInfo();
@@ -208,7 +212,6 @@ function updateMoonSunModal(tithiDay, moonAge, sunDay, lat, lng) {
       a.href = url;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
-      a.style.cssText = 'color:#00e5ff;text-decoration:underline;margin-left:0.4em;';
       return a;
     };
 
@@ -216,43 +219,47 @@ function updateMoonSunModal(tithiDay, moonAge, sunDay, lat, lng) {
     const isFastingDay = cycle.current !== null;
     const featured = isFastingDay ? cycle.current : cycle.next;
     if (featured) {
+      const featuredCard = document.createElement('div');
+      featuredCard.className = 'ekadasi-featured';
+
       const nameEl = document.createElement('p');
-      nameEl.style.cssText = 'margin:0.4em 0 0.2em;font-weight:bold;color:#00ccff;';
-      const label = isFastingDay ? '🙏 Today: ' : '⏭ Upcoming: ';
+      nameEl.className = 'ekadasi-featured-name';
+      const label = isFastingDay ? '🙏 Today: ' : '⏭️ Upcoming: ';
       nameEl.textContent = `${label}${featured.name} Ekadasi`;
-      ekadasiLinks.appendChild(nameEl);
+      featuredCard.appendChild(nameEl);
 
       const storyEl = document.createElement('p');
-      storyEl.style.cssText = 'margin:0.1em 0 0.5em;font-size:0.9em;';
+      storyEl.className = 'ekadasi-story-link';
       storyEl.appendChild(makeLink('📖 Read the Story', featured.url));
-      ekadasiLinks.appendChild(storyEl);
+      featuredCard.appendChild(storyEl);
+
+      ekadasiLinks.appendChild(featuredCard);
     }
 
     // Previous / Next story links.
     // The next link is omitted when cycle.next is already shown as featured
     // (i.e. when today is not an Ekadasi day and the next Ekadasi is featured above).
-    const navEl = document.createElement('p');
-    navEl.style.cssText = 'margin:0.4em 0;font-size:0.85em;color:#ccc;';
+    const navEl = document.createElement('div');
+    navEl.className = 'ekadasi-nav';
     if (cycle.prev) {
-      const prevLabel = document.createTextNode('◀ Previous: ');
-      navEl.appendChild(prevLabel);
-      navEl.appendChild(makeLink(`${cycle.prev.name} Ekadasi`, cycle.prev.url));
-    }
-    if (cycle.prev && cycle.next && isFastingDay) {
-      navEl.appendChild(document.createTextNode('  |  '));
+      const prevSpan = document.createElement('span');
+      prevSpan.appendChild(document.createTextNode('◀ '));
+      prevSpan.appendChild(makeLink(`${cycle.prev.name} Ekadasi`, cycle.prev.url));
+      navEl.appendChild(prevSpan);
     }
     // Only show the next link when it hasn't already been featured above.
     if (cycle.next && isFastingDay) {
-      const nextLabel = document.createTextNode('Next: ');
-      navEl.appendChild(nextLabel);
-      navEl.appendChild(makeLink(`${cycle.next.name} Ekadasi ▶`, cycle.next.url));
+      const nextSpan = document.createElement('span');
+      nextSpan.appendChild(makeLink(`${cycle.next.name} Ekadasi`, cycle.next.url));
+      nextSpan.appendChild(document.createTextNode(' ▶'));
+      navEl.appendChild(nextSpan);
     }
-    ekadasiLinks.appendChild(navEl);
+    if (navEl.hasChildNodes()) ekadasiLinks.appendChild(navEl);
 
     // About Ekadasi link.
     const aboutEl = document.createElement('p');
-    aboutEl.style.cssText = 'margin:0.6em 0 0;font-size:0.85em;';
-    aboutEl.appendChild(makeLink('ℹ️ About Ekadasi', 'https://iskcondesiretree.com/page/who-is-ekadasi'));
+    aboutEl.className = 'ekadasi-about';
+    aboutEl.appendChild(makeLink('ℹ️ About Ekadasi', 'http://www.iskcondesiretree.net/page/who-is-ekadasi'));
     ekadasiLinks.appendChild(aboutEl);
   }
 }
