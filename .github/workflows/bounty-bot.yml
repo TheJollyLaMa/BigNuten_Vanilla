@@ -1,0 +1,179 @@
+# .github/workflows/bounty-bot.yml
+# BigNuten Bounty Bot
+#
+# Automates $BNUT bounty notifications for GitHub issues:
+#
+#   1. When an issue is ASSIGNED:
+#      - Parses the bounty amount from a label like "bounty: 500 BNUT"
+#      - Posts a comment on the issue announcing the bounty to the assignee
+#
+#   2. When a PR is MERGED that closes an issue:
+#      - Posts a comment on the closed issue asking @TheJollyLaMa to approve
+#        the BNUT payout via the bounty-payout.yml workflow
+#
+# Related issues: #45 (bounty bot), #46 (bounty label system)
+#
+# Required GitHub Secrets (set in repo Settings → Secrets → Actions):
+#   GITHUB_TOKEN — automatically provided by GitHub Actions
+
+name: Bounty Bot
+
+on:
+  issues:
+    types: [assigned]
+  pull_request:
+    types: [closed]
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 1: Notify assignee when an issue with a bounty label is assigned
+  # ────────────────────────────────────────────────────────────────────────────
+  announce-bounty:
+    name: Announce bounty to assignee
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' && github.event.action == 'assigned'
+    permissions:
+      issues: write
+
+    steps:
+      - name: Parse bounty label and post comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            const assignee = context.payload.assignee;
+            const labels = issue.labels.map(l => l.name);
+
+            // Find a label matching the pattern "bounty: <amount> BNUT"
+            // Label format example: "bounty: 500 BNUT"
+            const bountyLabel = labels.find(l => /^bounty:\s*\d+\s*BNUT$/i.test(l));
+
+            if (!bountyLabel) {
+              console.log('No bounty label found on this issue. Skipping.');
+              return;
+            }
+
+            // Extract the numeric amount from the label.
+            const match = bountyLabel.match(/(\d+)\s*BNUT/i);
+            const amount = match ? match[1] : 'unknown';
+
+            const body = [
+              `👋 Hey @${assignee.login}! This issue has a **$BNUT bounty** attached. 🎉`,
+              '',
+              `| | |`,
+              `|---|---|`,
+              `| 💰 Bounty | **${amount} BNUT** |`,
+              `| 🏷️ Label | \`${bountyLabel}\` |`,
+              `| 📌 Issue | #${issue.number} |`,
+              '',
+              '**How to claim your bounty:**',
+              '1. Complete the work described in this issue.',
+              '2. Open a Pull Request that closes this issue (use `Closes #' + issue.number + '` in the PR body).',
+              '3. Once your PR is merged, @TheJollyLaMa will approve the $BNUT payout.',
+              '4. Provide your wallet address (Polygon/Base/Optimism) in the PR or a comment.',
+              '',
+              '> ℹ️ Payouts are sent in $BNUT via the BigNutenTreasury smart contract.',
+              `> See [TOKENOMICS.md](https://github.com/${{ github.repository }}/blob/main/docs/TOKENOMICS.md) for full details.`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body,
+            });
+
+            console.log(`Bounty announcement posted for issue #${issue.number} — ${amount} BNUT`);
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 2: When a PR is merged, notify the repo owner to approve payout
+  # ────────────────────────────────────────────────────────────────────────────
+  request-payout-approval:
+    name: Request payout approval on merged PR
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true
+    permissions:
+      issues: write
+      pull-requests: read
+
+    steps:
+      - name: Find closed issues and post payout request
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const prBody = pr.body || '';
+            const prNumber = pr.number;
+            const prAuthor = pr.user.login;
+
+            // Parse "Closes #N", "Fixes #N", "Resolves #N" from PR body.
+            const closePattern = /(?:closes?|fixes?|resolves?)\s+#(\d+)/gi;
+            const closedIssues = [];
+            let m;
+            while ((m = closePattern.exec(prBody)) !== null) {
+              closedIssues.push(parseInt(m[1], 10));
+            }
+
+            if (closedIssues.length === 0) {
+              console.log('No closed issue references found in PR body. Skipping payout request.');
+              return;
+            }
+
+            console.log(`PR #${prNumber} closes issues: ${closedIssues.join(', ')}`);
+
+            for (const issueNumber of closedIssues) {
+              // Fetch the issue to check for a bounty label.
+              let issue;
+              try {
+                const response = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                });
+                issue = response.data;
+              } catch (e) {
+                console.warn(`Could not fetch issue #${issueNumber}: ${e.message}`);
+                continue;
+              }
+
+              const labels = issue.labels.map(l => l.name);
+              const bountyLabel = labels.find(l => /^bounty:\s*\d+\s*BNUT$/i.test(l));
+              const match = bountyLabel && bountyLabel.match(/(\d+)\s*BNUT/i);
+              const amount = match ? match[1] : null;
+
+              const body = [
+                `🎉 PR #${prNumber} by @${prAuthor} has been merged and closes this issue!`,
+                '',
+                amount
+                  ? `💰 **Bounty: ${amount} BNUT** is ready for payout.`
+                  : '⚠️ No bounty label was found on this issue. Please check manually.',
+                '',
+                `@TheJollyLaMa — please approve the $BNUT payout by running the`,
+                `[Bounty Payout workflow](../../actions/workflows/bounty-payout.yml) with:`,
+                '',
+                `| Input | Value |`,
+                `|---|---|`,
+                `| contributor_address | *(contributor's wallet — ask @${prAuthor})* |`,
+                `| amount_bnut | ${amount || '???'} |`,
+                `| issue_number | ${issueNumber} |`,
+                '',
+                // TODO (#45): Once the payContributor.js script is wired into the
+                //             workflow, this step will trigger automatically.
+                '> **TODO (#45):** Wire up the actual `payContributor()` contract call',
+                '> in `bounty-payout.yml` so payouts happen automatically on approval.',
+              ].join('\n');
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body,
+              });
+
+              console.log(`Payout approval request posted on issue #${issueNumber}`);
+            }

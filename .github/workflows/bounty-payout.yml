@@ -1,0 +1,143 @@
+# .github/workflows/bounty-payout.yml
+# BigNuten Bounty Payout Workflow
+#
+# Manually triggered by @TheJollyLaMa to approve a $BNUT payout to a contributor
+# after they have completed a bounty issue and their PR has been merged.
+#
+# Workflow:
+#   1. Owner fills in contributor address, BNUT amount, and issue number
+#   2. Workflow logs the payout details for audit trail
+#   3. Workflow posts a confirmation comment on the GitHub issue
+#   4. TODO (#45): Trigger the actual on-chain payContributor() contract call
+#
+# Related issues: #45 (bounty bot), #46 (bounty label system)
+#
+# Required GitHub Secrets (set in repo Settings → Secrets → Actions):
+#   GITHUB_TOKEN              — automatically provided by GitHub Actions
+#   PRIVATE_KEY               — deployer wallet private key (for contract calls)
+#   TREASURY_CONTRACT_ADDRESS — deployed BigNutenTreasury address
+#   POLYGON_RPC_URL           — (or BASE_RPC_URL / OPTIMISM_RPC_URL)
+
+name: Bounty Payout
+
+on:
+  workflow_dispatch:
+    inputs:
+      contributor_address:
+        description: "Contributor wallet address (0x…)"
+        required: true
+        type: string
+      amount_bnut:
+        description: "Amount of BNUT to pay (whole tokens, e.g. 500)"
+        required: true
+        type: string
+      issue_number:
+        description: "GitHub issue number being paid out (e.g. 45)"
+        required: true
+        type: string
+      network:
+        description: "Target network"
+        required: true
+        default: "polygon_mumbai"
+        type: choice
+        options:
+          - polygon_mumbai
+          - base_sepolia
+          - optimism_sepolia
+
+jobs:
+  payout:
+    name: Approve $BNUT Payout
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      # ── 1. Log payout details ──────────────────────────────────────────────
+      - name: Log payout details
+        run: |
+          echo "════════════════════════════════════"
+          echo "  BigNuten Bounty Payout"
+          echo "════════════════════════════════════"
+          echo "  Issue number       : #${{ github.event.inputs.issue_number }}"
+          echo "  Contributor address: ${{ github.event.inputs.contributor_address }}"
+          echo "  BNUT amount        : ${{ github.event.inputs.amount_bnut }} BNUT"
+          echo "  Network            : ${{ github.event.inputs.network }}"
+          echo "  Approved by        : ${{ github.actor }}"
+          echo "════════════════════════════════════"
+
+      # ── 2. Checkout repository (needed for scripts/payContributor.js) ─────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 3. Set up Node.js ─────────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # ── 4. Install dependencies ───────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 5. Post confirmation comment on the GitHub issue ──────────────────
+      - name: Post confirmation comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = parseInt('${{ github.event.inputs.issue_number }}', 10);
+            const address = '${{ github.event.inputs.contributor_address }}';
+            const amount = '${{ github.event.inputs.amount_bnut }}';
+            const network = '${{ github.event.inputs.network }}';
+            const approver = '${{ github.actor }}';
+
+            const body = [
+              `✅ **$BNUT Payout Approved** by @${approver}`,
+              '',
+              `| | |`,
+              `|---|---|`,
+              `| 💰 Amount | **${amount} BNUT** |`,
+              `| 👛 Wallet | \`${address}\` |`,
+              `| 🌐 Network | ${network} |`,
+              `| 🔗 Workflow run | [View run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) |`,
+              '',
+              // TODO (#45): Replace the line below with a link to the actual
+              //             on-chain transaction hash once the contract call
+              //             in step 6 is implemented.
+              '> ⏳ **TODO (#45):** On-chain transfer via `payContributor()` not yet automated.',
+              '> The contract call will be added in issue #45.',
+              '> Please trigger the payout manually via `scripts/payContributor.js` until then.',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body,
+            });
+
+            console.log(`Payout confirmation comment posted on issue #${issueNumber}`);
+
+      # ── 6. TODO (#45): Wire up the on-chain payout via payContributor.js ───
+      # The script (scripts/payContributor.js) and contract (BigNutenTreasury.sol)
+      # are ready. What remains for issue #45 is:
+      #   a) Deploy contracts and add TREASURY_CONTRACT_ADDRESS / PRIVATE_KEY secrets
+      #   b) Uncomment the step below and test end-to-end on a testnet
+      #   c) Add error handling and post the tx hash back to the issue comment
+      #
+      # - name: Execute on-chain payout
+      #   env:
+      #     PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      #     POLYGON_RPC_URL: ${{ secrets.POLYGON_RPC_URL }}
+      #     BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+      #     OPTIMISM_RPC_URL: ${{ secrets.OPTIMISM_RPC_URL }}
+      #     TREASURY_CONTRACT_ADDRESS: ${{ secrets.TREASURY_CONTRACT_ADDRESS }}
+      #     CONTRIBUTOR_ADDRESS: ${{ github.event.inputs.contributor_address }}
+      #     BNUT_AMOUNT: ${{ github.event.inputs.amount_bnut }}
+      #     ISSUE_REF: "TheJollyLaMa/BigNuten_Vanilla#${{ github.event.inputs.issue_number }}"
+      #   run: |
+      #     npx hardhat run scripts/payContributor.js \
+      #       --network ${{ github.event.inputs.network }}
