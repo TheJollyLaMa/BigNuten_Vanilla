@@ -25,12 +25,12 @@
 }
 #moon-icon {
   position: absolute;
-  top: 17%;
-  right: 46%;
+  top: 22%;
+  left: 50%;
   width: 40px;
   height: 40px;
   font-size: 2rem;
-  transform: translate(-50%, -30%);
+  transform: translate(-50%, -50%);
   z-index: 100;
   color: #87fdb6;
   text-shadow: 0 0 16px #00ff66, 0 0 20px #00ff66, 0 0 50px #00ff66;
@@ -38,11 +38,10 @@
 }
 #emotion-icon {
   position: absolute;
-  top: 44%;
-  left: 48.5%;
+  top: 50%;
+  left: calc(50% - 20px);
   width: 40px;
   height: 40px;
-  transform: translate(-50%, -30%);
   cursor: pointer;
   z-index: 100;
   animation: shimmer-spin-y 6s linear infinite;
@@ -51,15 +50,53 @@
 
 #graph-icon {
   position: absolute;
-  top: 22%;
-  left: 48.5%;
+  top: 29%;
+  left: calc(50% - 20px);
   width: 40px;
   height: 40px;
-  transform: translate(-50%, -30%);
   cursor: pointer;
   z-index: 100;
   animation: shimmer-spin-y 6s linear infinite;
   filter: drop-shadow(0 0 6px #00e5ff);
+}
+
+/* Chakra placeholder icons */
+.chakra-icon {
+  position: absolute;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.6rem;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  cursor: pointer;
+  text-align: center;
+  line-height: 40px;
+  transition: text-shadow 0.3s ease;
+}
+.chakra-icon:hover {
+  filter: brightness(1.6) drop-shadow(0 0 8px currentColor);
+}
+
+#chakra-throat {
+  top: 35%;
+  color: #00bfff;
+  text-shadow: 0 0 10px #00bfff, 0 0 20px #00bfff;
+}
+#chakra-heart {
+  top: 41%;
+  color: #00ff88;
+  text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
+}
+#chakra-solar {
+  top: 57%;
+  color: #ffd700;
+  text-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700;
+}
+#chakra-root {
+  top: 64%;
+  color: #ff4444;
+  text-shadow: 0 0 10px #ff4444, 0 0 20px #ff4444;
 }
 #exercises-last7days video {
   display: inline-block;
@@ -860,14 +897,16 @@ footer {
 }
 
 #emotion-icon,
-#graph-icon {
+#graph-icon,
+.chakra-icon {
   opacity: 1;
   transition: opacity 0.3s ease;
 }
 
 body.hide-icons footer,
 body.hide-icons #emotion-icon,
-body.hide-icons #graph-icon {
+body.hide-icons #graph-icon,
+body.hide-icons .chakra-icon {
   display: none !important;
   opacity: 0;
 }
