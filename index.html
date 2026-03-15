@@ -91,14 +91,20 @@
   <!-- Emotion Modal -->
   <!-- Moon & Sun Tracker Modal -->
   <div id="moon-modal" class="modal-overlay modal-hidden">
-    <div class="modal">
+    <div class="modal moon-tracker-modal">
       <button class="modal-close" onclick="hideModal('moon-modal')">×</button>
-      <h2>Moon & Sun Tracker</h2>
-      <p id="moon-info"></p>
-      <p id="location-info"></p>
-      <p id="ekadasi-info"></p>
+      <h2>🌙 Moon &amp; ☀️ Sun Tracker</h2>
+      <div class="tracker-card" id="moon-info-card">
+        <p id="moon-info"></p>
+      </div>
+      <div class="tracker-card tracker-location" id="location-info-card">
+        <p id="location-info"></p>
+      </div>
+      <div class="tracker-card tracker-ekadasi" id="ekadasi-info-card">
+        <p id="ekadasi-info"></p>
+      </div>
       <div id="ekadasi-links"></div>
-      <button onclick="requestLocation()">🔄 Link Location</button>
+      <button class="tracker-location-btn" onclick="requestLocation()">🔄 Link Location</button>
     </div>
   </div>
   <div id="emotion-modal" class="modal-overlay modal-hidden">
