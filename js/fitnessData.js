@@ -1,15 +1,66 @@
 // fitnessData.js
 
 const STORAGE_KEY = 'fitnessTrackerData';
+const DATA_VERSION = 1;
+const DEFAULT_EXERCISE_TYPES = ['Sit-ups', 'Push-ups', 'Pull-ups'];
 
 const defaultData = {
+  dataVersion: DATA_VERSION,
   weightLogs: [],
   supplements: [],
   foods: [],
   measurements: [],
-  exercises: [],
+  exercises: {
+    types: DEFAULT_EXERCISE_TYPES,
+    entries: []
+  },
   sessionLog: []
 };
+
+/**
+ * Normalizes a fitness data object to the current schema.
+ * Guarantees all required arrays/objects exist with sensible defaults,
+ * and stamps the dataVersion for forward-migration compatibility.
+ * Safe to call on data loaded from older localStorage or IPFS snapshots.
+ *
+ * @param {object} data - Raw fitness data (may be from old schema)
+ * @returns {object} Normalized data with dataVersion set
+ */
+export function normalizeFitnessData(data) {
+  if (!data || typeof data !== 'object') {
+    return JSON.parse(JSON.stringify(defaultData));
+  }
+
+  // Migrate exercises from old array shape to object shape
+  if (Array.isArray(data.exercises)) {
+    data.exercises = {
+      types: DEFAULT_EXERCISE_TYPES,
+      entries: data.exercises
+    };
+  } else if (!data.exercises || typeof data.exercises !== 'object') {
+    data.exercises = {
+      types: DEFAULT_EXERCISE_TYPES,
+      entries: []
+    };
+  } else {
+    if (!Array.isArray(data.exercises.types)) {
+      data.exercises.types = DEFAULT_EXERCISE_TYPES;
+    }
+    if (!Array.isArray(data.exercises.entries)) {
+      data.exercises.entries = [];
+    }
+  }
+
+  if (!Array.isArray(data.weightLogs)) data.weightLogs = [];
+  if (!Array.isArray(data.supplements)) data.supplements = [];
+  if (!Array.isArray(data.foods)) data.foods = [];
+  if (!Array.isArray(data.measurements)) data.measurements = [];
+  if (!Array.isArray(data.sessionLog)) data.sessionLog = [];
+
+  data.dataVersion = DATA_VERSION;
+
+  return data;
+}
 
 
 function loadLatestSnapshotFromStorage() {
@@ -34,13 +85,11 @@ export async function getFitnessData() {
         if (!response.ok) throw new Error("Failed to fetch from IPFS.");
 
         const data = await response.json();
-        if (data.weightLogs && data.supplements && data.exercises) {
-          if (!Array.isArray(data.measurements)) data.measurements = [];
-          if (!Array.isArray(data.supplements)) data.supplements = [];
-          if (!Array.isArray(data.foods)) data.foods = [];
-          saveFitnessData(data);
+        if (data.weightLogs || data.supplements || data.exercises) {
+          const normalized = normalizeFitnessData(data);
+          saveFitnessData(normalized);
           alert("Snapshot restored from IPFS.");
-          return data;
+          return normalized;
         } else {
           alert("Invalid snapshot structure.");
         }
@@ -54,43 +103,34 @@ export async function getFitnessData() {
   }
 
   if (snapshot && !current) {
-    if (!Array.isArray(snapshot.data.measurements)) snapshot.data.measurements = [];
-    if (!Array.isArray(snapshot.data.supplements)) snapshot.data.supplements = [];
-    if (!Array.isArray(snapshot.data.foods)) snapshot.data.foods = [];
-    saveFitnessData(snapshot.data);
-    return snapshot.data;
+    const normalized = normalizeFitnessData(snapshot.data);
+    saveFitnessData(normalized);
+    return normalized;
   }
 
   if (snapshot && current) {
-    const currentData = JSON.parse(current);
-    if (!Array.isArray(currentData.measurements)) currentData.measurements = [];
-    if (!Array.isArray(currentData.supplements)) currentData.supplements = [];
-    if (!Array.isArray(currentData.foods)) currentData.foods = [];
+    const currentData = normalizeFitnessData(JSON.parse(current));
     const latestCurrent = currentData.weightLogs?.at(-1)?.timestamp || '';
     const latestSnapshot = snapshot.data.weightLogs?.at(-1)?.timestamp || '';
 
     if (latestSnapshot > latestCurrent) {
-      if (!Array.isArray(snapshot.data.measurements)) snapshot.data.measurements = [];
-      if (!Array.isArray(snapshot.data.supplements)) snapshot.data.supplements = [];
-      if (!Array.isArray(snapshot.data.foods)) snapshot.data.foods = [];
-      saveFitnessData(snapshot.data);
-      return snapshot.data;
+      const normalized = normalizeFitnessData(snapshot.data);
+      saveFitnessData(normalized);
+      return normalized;
     } else {
+      saveFitnessData(currentData);
       return currentData;
     }
   }
-  // fallback to default now handled above, so just return default
+
+  // fallback: no data found — return default
   saveFitnessData(defaultData);
   return JSON.parse(JSON.stringify(defaultData));
 }
 
 export function saveFitnessData(data) {
-  // Ensure root arrays are present
-  if (!Array.isArray(data.measurements)) data.measurements = [];
-  if (!Array.isArray(data.supplements)) data.supplements = [];
-  if (!Array.isArray(data.foods)) data.foods = [];
-  if (!Array.isArray(data.sessionLog)) data.sessionLog = [];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  const normalized = normalizeFitnessData(data);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
 }
 
 // Rebuilds the full snapshotHistory from all fitnessTrackerSnapshot-* entries on every load
