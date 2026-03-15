@@ -901,6 +901,227 @@ svg text {
   overflow: auto;
   background-color: rgba(0, 0, 0, 0.4);
 }
+
+/* ===== About Modal ===== */
+#app-title {
+  cursor: pointer;
+  transition: text-shadow 0.2s;
+}
+#app-title:hover {
+  text-shadow: 0 0 16px #7300ff, 0 0 32px #00ffff, 0 0 48px #00e5ff;
+}
+
+.about-modal {
+  max-width: 700px;
+  padding: 2rem 2.5rem;
+}
+
+.about-header {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 1.5rem;
+}
+
+.about-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  box-shadow: 0 0 16px #00e5ff;
+  flex-shrink: 0;
+}
+
+.about-title {
+  font-family: 'Bungee', sans-serif;
+  font-size: 2rem;
+  color: #00e5ff;
+  text-shadow: 0 0 10px #7300ff, 0 0 20px #00ffff;
+  margin: 0 0 0.2rem;
+}
+
+.about-subtitle {
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  font-size: 0.85rem;
+  color: #7300ff;
+  margin: 0 0 0.2rem;
+}
+
+.about-version {
+  font-size: 0.75rem;
+  color: #aaa;
+  margin: 0;
+}
+
+.about-section {
+  margin-bottom: 1.4rem;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.15);
+  padding-bottom: 1.2rem;
+}
+
+.about-section:last-of-type {
+  border-bottom: none;
+}
+
+.about-section h3 {
+  color: #00e5ff;
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  text-shadow: 0 0 6px #7300ff;
+}
+
+.about-tech-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+.about-tech-list li {
+  padding: 0.15rem 0;
+}
+
+.about-links {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.about-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+.github-link {
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid #00e5ff;
+  color: #00e5ff;
+}
+
+.github-link:hover {
+  background: rgba(0, 229, 255, 0.2);
+  box-shadow: 0 0 12px #00e5ff;
+}
+
+.email-link {
+  background: rgba(115, 0, 255, 0.12);
+  border: 1px solid #7300ff;
+  color: #bf80ff;
+}
+
+.email-link:hover {
+  background: rgba(115, 0, 255, 0.25);
+  box-shadow: 0 0 12px #7300ff;
+}
+
+.about-gh-icon {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+}
+
+.about-payment-desc {
+  font-size: 0.85rem;
+  color: #ccc;
+  margin: 0 0 0.75rem;
+}
+
+.about-payment-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.paypal-form {
+  display: inline-flex;
+}
+
+.about-pay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+.paypal-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.crypto-btn {
+  background: rgba(80, 80, 80, 0.3);
+  border: 2px solid rgba(120, 120, 120, 0.4);
+  color: #888;
+}
+
+.crypto-btn.disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.coming-soon-badge {
+  display: inline-block;
+  background: rgba(115, 0, 255, 0.25);
+  color: #bf80ff;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  margin-left: 0.2rem;
+  font-weight: normal;
+  border: 1px solid rgba(115, 0, 255, 0.4);
+}
+
+.about-footer {
+  margin-top: 1.2rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+.about-footer a {
+  color: #00e5ff;
+  text-decoration: none;
+}
+
+.about-footer a:hover {
+  text-decoration: underline;
+}
+
+.about-license {
+  color: #666;
+  font-size: 0.75rem;
+  margin-top: 0.3rem;
+}
+
+@media (max-width: 500px) {
+  .about-header {
+    flex-direction: column;
+    text-align: center;
+  }
+  .about-links {
+    justify-content: center;
+  }
+  .about-payment-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 /* ── Moon & Sun Tracker Modal ──────────────────────────────── */
 .moon-tracker-modal {
   background: linear-gradient(160deg, rgba(5,5,40,0.98) 0%, rgba(10,10,60,0.98) 100%);
