@@ -837,15 +837,12 @@
         const value = event.target.value;
         const weightKg = (value.getUint8(3) + value.getUint8(4) * 256) / 100;
         const weightLbs = weightKg * 2.20462;
+        // Update the live reading display and pre-fill the input as the scale settles.
+        // The user reviews the settled value and clicks "Log Weight" to confirm.
         document.getElementById('weightReading').textContent = `${weightLbs.toFixed(2)} lbs`;
         document.getElementById('weightInput').value = weightLbs.toFixed(2);
-        // Autofill the manual weight input if it exists
         const manualInput = document.getElementById('manualWeight');
         if (manualInput) manualInput.value = weightLbs.toFixed(2);
-        // Notify app.js to persist and update the chart
-        document.dispatchEvent(new CustomEvent('weightLogged', {
-          detail: { weight: weightLbs, timestamp: new Date().toISOString() }
-        }));
       });
 
     } catch (error) {
