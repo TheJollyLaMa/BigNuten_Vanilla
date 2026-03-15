@@ -1394,14 +1394,20 @@ svg text {
 /* ── Mobile: bottom bar layout (≤ 700px) ──────────────────────── */
 @media (max-width: 700px) {
   /* Panels become full-width fixed overlays above the toolbar bar */
+  #recent-supplements-list.panel-visible,
+  #recent-foods-list.panel-visible,
+  #recent-exercises-list.panel-visible,
+  #workout-set-list.panel-visible {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .dashboard-panel.panel-visible {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 72px;   /* sit above the mobile toolbar strip */
     top: auto;
-    width: 100% !important;
-    max-width: 100% !important;
     max-height: 48vh;
     overflow-y: auto;
     border-radius: 14px 14px 0 0;
