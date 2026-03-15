@@ -41,7 +41,7 @@
 }
 #emotion-icon {
   position: absolute;
-  top: 44%;
+  top: 39%;
   left: calc(50% - 20px);
   width: 40px;
   height: 40px;
@@ -53,7 +53,7 @@
 
 #graph-icon {
   position: absolute;
-  top: 24%;
+  top: 21%;
   left: calc(50% - 20px);
   width: 40px;
   height: 40px;
@@ -92,12 +92,12 @@
   text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
 }
 #chakra-sacral {
-  top: 51%;
+  top: 50%;
   color: #ff8c00;
   text-shadow: 0 0 10px #ff8c00, 0 0 20px #ff8c00;
 }
 #chakra-root {
-  top: 58%;
+  top: 57%;
   color: #ff4444;
   text-shadow: 0 0 10px #ff4444, 0 0 20px #ff4444;
 }
@@ -718,13 +718,20 @@ main {
   margin-bottom: 80px;
 }
 
+#body-figure-wrapper {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  flex-shrink: 0;
+}
+
 #landing-bg {
+  display: block;
   width: auto;
   height: 80vh;
   object-fit: contain;
   opacity: 0.8;
   margin: 0;
-  z-index: -1;
 }
 
 footer {
