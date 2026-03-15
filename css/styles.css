@@ -25,8 +25,9 @@
 }
 #moon-icon {
   position: absolute;
-  top: 22%;
+  top: 20%;
   left: 50%;
+  display: inline-block;
   width: 40px;
   height: 40px;
   font-size: 2rem;
@@ -35,10 +36,12 @@
   color: #87fdb6;
   text-shadow: 0 0 16px #00ff66, 0 0 20px #00ff66, 0 0 50px #00ff66;
   cursor: pointer;
+  text-align: center;
+  line-height: 40px;
 }
 #emotion-icon {
   position: absolute;
-  top: 50%;
+  top: 44%;
   left: calc(50% - 20px);
   width: 40px;
   height: 40px;
@@ -50,7 +53,7 @@
 
 #graph-icon {
   position: absolute;
-  top: 29%;
+  top: 24%;
   left: calc(50% - 20px);
   width: 40px;
   height: 40px;
@@ -79,22 +82,22 @@
 }
 
 #chakra-throat {
-  top: 35%;
+  top: 30%;
   color: #00bfff;
   text-shadow: 0 0 10px #00bfff, 0 0 20px #00bfff;
 }
 #chakra-heart {
-  top: 41%;
+  top: 37%;
   color: #00ff88;
   text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
 }
-#chakra-solar {
-  top: 57%;
-  color: #ffd700;
-  text-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700;
+#chakra-sacral {
+  top: 51%;
+  color: #ff8c00;
+  text-shadow: 0 0 10px #ff8c00, 0 0 20px #ff8c00;
 }
 #chakra-root {
-  top: 64%;
+  top: 58%;
   color: #ff4444;
   text-shadow: 0 0 10px #ff4444, 0 0 20px #ff4444;
 }
