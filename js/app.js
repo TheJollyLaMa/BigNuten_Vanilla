@@ -3102,6 +3102,60 @@ if (measurementForm) {
     Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
     roundButtons.forEach(btn => btn.classList.remove('active'));
   });
+
+  // Helper: show a timed status message in the weight modal feedback element
+  const STATUS_MESSAGE_DURATION_MS = 3000;
+  const MIN_WEIGHT_LBS = 50;
+  const MAX_WEIGHT_LBS = 1000;
+
+  function showWeightStatus(msg) {
+    const statusEl = document.getElementById('weight-status');
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    setTimeout(() => { statusEl.textContent = ''; }, STATUS_MESSAGE_DURATION_MS);
+  }
+
+  // Helper: append a new data point to the weight chart and refresh it
+  function appendWeightDataPoint(weight, timestamp) {
+    if (weightChart) {
+      weightChart.data.datasets[0].data.push({ x: new Date(timestamp), y: weight });
+      weightChart.update();
+    }
+  }
+
+  // Handle manual weight entry from the weight modal form
+  const manualWeightForm = document.getElementById('manualWeightForm');
+  if (manualWeightForm) {
+    manualWeightForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const weight = parseFloat(document.getElementById('manualWeight').value);
+
+      if (isNaN(weight) || weight < MIN_WEIGHT_LBS || weight > MAX_WEIGHT_LBS) {
+        showWeightStatus(`⚠️ Enter a valid weight between ${MIN_WEIGHT_LBS} and ${MAX_WEIGHT_LBS} lbs.`);
+        return;
+      }
+
+      const timestamp = new Date().toISOString();
+      logWeight(weight, timestamp);
+      appendWeightDataPoint(weight, timestamp);
+      displayCurrentWeight();
+
+      const weightReading = document.getElementById('weightReading');
+      if (weightReading) weightReading.textContent = `${weight.toFixed(1)} lbs`;
+
+      showWeightStatus('✅ Logged!');
+      manualWeightForm.reset();
+    });
+  }
+
+  // Handle weight readings coming from the Bluetooth scale (dispatched in index.html)
+  document.addEventListener('weightLogged', (e) => {
+    const { weight, timestamp } = e.detail;
+    logWeight(weight, timestamp);
+    appendWeightDataPoint(weight, timestamp);
+    displayCurrentWeight();
+    showWeightStatus('✅ Logged!');
+  });
 });
 
 // (ticker arc animation code replaced by ticker-circle logic)
