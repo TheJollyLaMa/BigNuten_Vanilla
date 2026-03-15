@@ -45,8 +45,31 @@
     </div>
   </header>
 
+  <!-- Left Panel Toolbar: Supplements & Raw Intake -->
+  <nav id="left-panel-toolbar" class="side-toolbar left-toolbar" aria-label="Left panel controls">
+    <button class="panel-toggle-btn" data-panel="recent-supplements-list" title="Supplements (7 days)">
+      <img src="img/Supplements.png" alt="Supplements">
+      <span>Supps</span>
+    </button>
+    <button class="panel-toggle-btn" data-panel="recent-foods-list" title="Raw Intake (7 days)">
+      <img src="img/Diet.png" alt="Raw Intake">
+      <span>Intake</span>
+    </button>
+  </nav>
 
-  <div id="recent-exercises-list">
+  <!-- Right Panel Toolbar: Exercises & Workout -->
+  <nav id="right-panel-toolbar" class="side-toolbar right-toolbar" aria-label="Right panel controls">
+    <button class="panel-toggle-btn" data-panel="recent-exercises-list" title="Exercises (7 days)">
+      <img src="img/Exercise.png" alt="Exercises">
+      <span>Exrcs</span>
+    </button>
+    <button class="panel-toggle-btn" data-panel="workout-set-list" title="Workout Set List">
+      <span class="toolbar-emoji">🏋️</span>
+      <span>Wrkout</span>
+    </button>
+  </nav>
+
+  <div id="recent-exercises-list" class="dashboard-panel">
     <div class="exercise-list-header">
       <h4>Exercises (7 days)</h4>
       <p style="font-size: 0.75rem;">
@@ -60,7 +83,7 @@
     <ul id="exercises-last7days">
     </ul>
   </div>
-  <div id="workout-set-list">
+  <div id="workout-set-list" class="dashboard-panel">
     <div class="workout-header">
       <label for="work-duration" style="color:white;font-size:0.8rem;margin-right:4px;">Work:</label>
       <input type="number" id="work-duration" value="60" min="0" style="width:50px;margin-right:10px;" />
@@ -74,11 +97,11 @@
   </div>
 
   <main>
-    <div id="recent-supplements-list">
+    <div id="recent-supplements-list" class="dashboard-panel">
       <h4>Supplements (7 days)</h4>
       <ul id="supplements-last7days"></ul>
     </div>
-    <div id="recent-foods-list">
+    <div id="recent-foods-list" class="dashboard-panel">
       <h4>Raw Intake (7 days)</h4>
       <ul id="foods-last7days"></ul>
     </div>
@@ -952,5 +975,37 @@
       </footer>
     </div>
   </div>
+  <script>
+  // ── Dashboard Panel Toggle Logic ───────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    const panels = document.querySelectorAll('.dashboard-panel');
+    const toggleBtns = document.querySelectorAll('.panel-toggle-btn');
+    let activePanel = null;
+
+    toggleBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const panelId = btn.dataset.panel;
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+
+        if (activePanel === panelId) {
+          // Toggle off: hide the current panel
+          panel.classList.remove('panel-visible');
+          btn.classList.remove('active');
+          activePanel = null;
+        } else {
+          // Hide all panels and deactivate all buttons
+          panels.forEach(p => p.classList.remove('panel-visible'));
+          toggleBtns.forEach(b => b.classList.remove('active'));
+
+          // Show the selected panel
+          panel.classList.add('panel-visible');
+          btn.classList.add('active');
+          activePanel = panelId;
+        }
+      });
+    });
+  });
+  </script>
 </body>
 </html>

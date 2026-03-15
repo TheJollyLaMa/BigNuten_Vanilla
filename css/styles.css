@@ -1310,3 +1310,135 @@ svg text {
   background: rgba(0, 180, 255, 0.25);
   box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   Dashboard Panel Toolbars & Toggle System
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Hide all panels by default; show only when .panel-visible is added */
+.dashboard-panel {
+  display: none;
+}
+.dashboard-panel.panel-visible {
+  display: block;
+}
+
+/* ── Side Toolbar Base ─────────────────────────────────────────── */
+.side-toolbar {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 1100;
+  background: rgba(0, 0, 33, 0.88);
+  border: 1px solid rgba(0, 229, 255, 0.5);
+  border-radius: 12px;
+  padding: 8px 5px;
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.25);
+}
+
+.left-toolbar {
+  left: 4px;
+}
+.right-toolbar {
+  right: 4px;
+}
+
+/* ── Toolbar Buttons ───────────────────────────────────────────── */
+.panel-toggle-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 6px 5px;
+  color: #00e5ff;
+  font-size: 0.58rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  min-width: 48px;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.panel-toggle-btn img,
+.panel-toggle-btn .toolbar-emoji {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  display: block;
+  text-align: center;
+  font-size: 1.6rem;
+  line-height: 30px;
+}
+
+.panel-toggle-btn:hover {
+  border-color: #00e5ff;
+  background: rgba(0, 229, 255, 0.08);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.35);
+}
+
+.panel-toggle-btn.active {
+  border-color: #00e5ff;
+  background: rgba(0, 229, 255, 0.18);
+  box-shadow: 0 0 10px #00e5ff, 0 0 22px rgba(0, 229, 255, 0.3);
+  color: #ffffff;
+}
+
+/* ── Mobile: bottom bar layout (≤ 700px) ──────────────────────── */
+@media (max-width: 700px) {
+  /* Panels become full-width fixed overlays above the toolbar bar */
+  .dashboard-panel.panel-visible {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 72px;   /* sit above the mobile toolbar strip */
+    top: auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 48vh;
+    overflow-y: auto;
+    border-radius: 14px 14px 0 0;
+    z-index: 1090;
+  }
+
+  /* Stack toolbars as a unified horizontal bar at the very bottom */
+  .side-toolbar {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    transform: none;
+    flex-direction: row;
+    border-radius: 0;
+    padding: 6px 10px;
+    gap: 4px;
+    width: 50%;
+    box-sizing: border-box;
+    justify-content: space-around;
+  }
+
+  .left-toolbar {
+    left: 0;
+    right: auto;
+    border-right: 1px solid rgba(0, 229, 255, 0.25);
+    border-radius: 0;
+  }
+
+  .right-toolbar {
+    right: 0;
+    left: auto;
+    border-left: none;
+    border-radius: 0;
+  }
+
+  .panel-toggle-btn {
+    min-width: 0;
+    flex: 1;
+  }
+}
