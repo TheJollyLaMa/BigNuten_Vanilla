@@ -32,7 +32,7 @@ const TITHI_NAMES = [
 
 // 24 named Ekadasis in a yearly cycle, starting from Kamada (Chaitra Shukla),
 // the first Ekadasi after the base new moon of April 8 2024.
-const EKADASI_BASE = 'https://www.iskcondesiretree.net/page/';
+const EKADASI_BASE = 'http://www.iskcondesiretree.net/page/';
 const EKADASI_CYCLE = [
   { name: 'Kamada',            url: EKADASI_BASE + 'kamada-ekadasi' },
   { name: 'Varuthini',         url: EKADASI_BASE + 'varuthini-ekadasi' },
@@ -259,7 +259,7 @@ function updateMoonSunModal(tithiDay, moonAge, sunDay, lat, lng) {
     // About Ekadasi link.
     const aboutEl = document.createElement('p');
     aboutEl.className = 'ekadasi-about';
-    aboutEl.appendChild(makeLink('ℹ️ About Ekadasi', 'https://www.iskcondesiretree.net/page/who-is-ekadasi'));
+    aboutEl.appendChild(makeLink('ℹ️ About Ekadasi', 'http://www.iskcondesiretree.net/page/who-is-ekadasi'));
     ekadasiLinks.appendChild(aboutEl);
   }
 }
