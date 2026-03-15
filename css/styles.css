@@ -1171,6 +1171,7 @@ svg text {
     flex-direction: column;
     align-items: flex-start;
   }
+}
 /* ── Moon & Sun Tracker Modal ──────────────────────────────── */
 .moon-tracker-modal {
   background: linear-gradient(160deg, rgba(5,5,40,0.98) 0%, rgba(10,10,60,0.98) 100%);
