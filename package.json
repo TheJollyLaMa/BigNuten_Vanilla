@@ -1,0 +1,29 @@
+{
+  "name": "bignuten-contracts",
+  "version": "1.0.0",
+  "description": "Hardhat toolchain for BigNuten smart contracts ($BNUT token, Treasury, Subscription, Governance)",
+  "private": true,
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:polygon": "hardhat run scripts/deploy.js --network polygon_mumbai",
+    "deploy:base": "hardhat run scripts/deploy.js --network base_sepolia",
+    "deploy:optimism": "hardhat run scripts/deploy.js --network optimism_sepolia",
+    "pay:contributor": "hardhat run scripts/payContributor.js --network polygon_mumbai",
+    "verify:polygon": "hardhat verify --network polygon_mumbai",
+    "verify:base": "hardhat verify --network base_sepolia",
+    "verify:optimism": "hardhat verify --network optimism_sepolia",
+    "clean": "hardhat clean"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.22.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^16.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
