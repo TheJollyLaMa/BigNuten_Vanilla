@@ -21,12 +21,246 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 // --- Moon & Sun Modal Logic ---
-function updateMoonSunModal(tithiDay, sunDay, lat, lng) {
+const TITHI_NAMES = [
+  'Pratipada', 'Dvitiya', 'Tritiya', 'Chaturthi', 'Panchami',
+  'Shashthi', 'Saptami', 'Ashtami', 'Navami', 'Dashami',
+  'Ekadasi', 'Dvadashi', 'Trayodashi', 'Chaturdashi', 'Purnima',
+  'Pratipada', 'Dvitiya', 'Tritiya', 'Chaturthi', 'Panchami',
+  'Shashthi', 'Saptami', 'Ashtami', 'Navami', 'Dashami',
+  'Ekadasi', 'Dvadashi', 'Trayodashi', 'Chaturdashi', 'Amavasya'
+];
+
+// 24 named Ekadasis in a yearly cycle, starting from Kamada (Chaitra Shukla),
+// the first Ekadasi after the base new moon of April 8 2024.
+const EKADASI_BASE = 'http://www.iskcondesiretree.net/page/';
+const EKADASI_CYCLE = [
+  { name: 'Kamada',            url: EKADASI_BASE + 'kamada-ekadasi' },
+  { name: 'Varuthini',         url: EKADASI_BASE + 'varuthini-ekadasi' },
+  { name: 'Mohini',            url: EKADASI_BASE + 'mohini-ekadasi' },
+  { name: 'Apara',             url: EKADASI_BASE + 'apara-ekadasi' },
+  { name: 'Pandava Nirjala',   url: EKADASI_BASE + 'pandava-nirjala-ekadasi' },
+  { name: 'Yogini',            url: EKADASI_BASE + 'yogini-ekadasi' },
+  { name: 'Sayana',            url: EKADASI_BASE + 'sayana-ekadasi' },
+  { name: 'Kamika',            url: EKADASI_BASE + 'kamika-ekadasi' },
+  { name: 'Pavitropana',       url: EKADASI_BASE + 'pavitropana-ekadasi' },
+  { name: 'Aja - Annada',      url: EKADASI_BASE + 'aja-annada-ekadasi' },
+  { name: 'Parsva',            url: EKADASI_BASE + 'parsva-ekadasi' },
+  { name: 'Indira',            url: EKADASI_BASE + 'indira-ekadasi' },
+  { name: 'Papankusha',        url: EKADASI_BASE + 'papankusha-ekadasi' },
+  { name: 'Rama',              url: EKADASI_BASE + 'rama-ekadasi' },
+  { name: 'Utthana',           url: EKADASI_BASE + 'utthana-ekadasi' },
+  { name: 'Utpanna',           url: EKADASI_BASE + 'utpanna-ekadasi' },
+  { name: 'Mokshada',          url: EKADASI_BASE + 'mokshada-ekadasi' },
+  { name: 'Saphala',           url: EKADASI_BASE + 'saphala-ekadasi' },
+  { name: 'Putrada',           url: EKADASI_BASE + 'putrada-ekadasi' },
+  { name: 'Sat-Tila',          url: EKADASI_BASE + 'sattila-ekadasi' },
+  { name: 'Bhaimi',            url: EKADASI_BASE + 'bhaimi-ekadasi' },
+  { name: 'Vaikuntha',         url: EKADASI_BASE + 'vaikuntha-ekadasi' },
+  { name: 'Amalaki',           url: EKADASI_BASE + 'amalaki-ekadasi' },
+  { name: 'Papamochani',       url: EKADASI_BASE + 'papamochani-ekadasi' },
+];
+
+// Calculate Tithi (1–30) and raw moon age (days since new moon) using the
+// proper synodic month duration.
+// Base: April 8 2024 18:21 UTC — total solar eclipse (verified new moon).
+// Follows the panchang convention: the tithi at local sunrise defines the whole
+// day, so we anchor on 6 AM local time rather than the current instant.
+// This prevents the tithi from flipping mid-day when a boundary falls during
+// waking hours (e.g. Ekadasi → Dvadashi at 9:30 AM).
+function calculateTithi() {
+  const newMoonBase = new Date('2024-04-08T18:21:00Z');
+  const synodicMonth = 29.530588853; // days
+  const now = new Date();
+  // Construct 6 AM local time. This is called at most a handful of times per
+  // page load plus once/hour in setInterval, so the allocation cost is trivial.
+  const sunrise = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0, 0);
+  const diffDays = (sunrise.getTime() - newMoonBase.getTime()) / 86400000;
+  const lunation = Math.floor(diffDays / synodicMonth); // full lunations since base
+  const cyclePos = ((diffDays % synodicMonth) + synodicMonth) % synodicMonth;
+  const tithi = Math.min(Math.floor(cyclePos / (synodicMonth / 30)) + 1, 30);
+  const moonAge = Math.floor(cyclePos); // simple 0-indexed days from new moon
+  return { tithi, moonAge, lunation };
+}
+
+// Return a status message and highlight colour for Ekadasi-adjacent tithis.
+function getEkadasiStatus(tithi) {
+  if (tithi === 11 || tithi === 26) {
+    const paksha = tithi === 11 ? 'Shukla' : 'Krishna';
+    return {
+      message: `🙏 Today is ${paksha} Ekadasi — Observe your fast. Break fast tomorrow after sunrise.`,
+      color: '#00ccff'
+    };
+  }
+  if (tithi === 10 || tithi === 25) {
+    const nextPaksha = tithi === 10 ? 'Shukla' : 'Krishna';
+    return {
+      message: `⚠️ Tomorrow is ${nextPaksha} Ekadasi — Prepare for your fast!`,
+      color: '#ffd700'
+    };
+  }
+  if (tithi === 12 || tithi === 27) {
+    const paksha = tithi === 12 ? 'Shukla' : 'Krishna';
+    return {
+      message: `🌅 Today is ${paksha} Dvadashi — Break your Ekadasi fast after sunrise.`,
+      color: '#90ee90'
+    };
+  }
+  return { message: '', color: '' };
+}
+
+// Send a one-time browser notification for Ekadasi / Dashami days.
+// Uses localStorage to avoid sending duplicate notifications on the same day.
+function sendEkadasiNotification(tithi) {
+  if (!('Notification' in window)) return;
+  let title, body;
+  if (tithi === 10 || tithi === 25) {
+    title = '🌙 Ekadasi Tomorrow';
+    body = `Tomorrow is ${tithi === 10 ? 'Shukla' : 'Krishna'} Ekadasi. Prepare for your fast!`;
+  } else if (tithi === 11 || tithi === 26) {
+    title = '🙏 Ekadasi Today';
+    body = `Today is ${tithi === 11 ? 'Shukla' : 'Krishna'} Ekadasi. Observe your fast and break it tomorrow after sunrise.`;
+  } else {
+    return;
+  }
+  const today = new Date().toDateString();
+  const lastKey = 'ekadasi_last_notif';
+  try {
+    const last = JSON.parse(localStorage.getItem(lastKey) || '{}');
+    if (last.tithi === tithi && last.date === today) return; // already notified today
+  } catch (_) { /* ignore parse errors */ }
+  Notification.requestPermission().then(permission => {
+    if (permission === 'granted') {
+      new Notification(title, { body, icon: 'img/BigNuten.png' });
+      try { localStorage.setItem(lastKey, JSON.stringify({ tithi, date: today })); } catch (_) {}
+    }
+  });
+}
+
+// Return info about the previous, current, and next Ekadasi in the named cycle.
+// The 24-name cycle starts with Kamada Ekadasi (Chaitra Shukla), the first
+// Ekadasi after the base new moon of April 8 2024.
+function getEkadasiCycleInfo() {
+  const { tithi, lunation } = calculateTithi();
+  // Map a sequential Ekadasi index to a cycle entry (wraps every 24).
+  const lookup = (idx) => {
+    const i = ((idx % 24) + 24) % 24;
+    return EKADASI_CYCLE[i];
+  };
+  // Each lunation contains two Ekadasis:
+  //   Shukla Ekadasi (tithi 11) → sequential index 2*lunation
+  //   Krishna Ekadasi (tithi 26) → sequential index 2*lunation + 1
+  let prevIdx, currIdx, nextIdx;
+  if (tithi === 11) {
+    currIdx = 2 * lunation;
+    prevIdx = currIdx - 1;
+    nextIdx = currIdx + 1;
+  } else if (tithi === 26) {
+    currIdx = 2 * lunation + 1;
+    prevIdx = currIdx - 1;
+    nextIdx = currIdx + 1;
+  } else if (tithi < 11) {
+    prevIdx = 2 * lunation - 1;
+    currIdx = null;
+    nextIdx = 2 * lunation;
+  } else if (tithi < 26) {
+    prevIdx = 2 * lunation;
+    currIdx = null;
+    nextIdx = 2 * lunation + 1;
+  } else {
+    prevIdx = 2 * lunation + 1;
+    currIdx = null;
+    nextIdx = 2 * (lunation + 1);
+  }
+  return {
+    prev: lookup(prevIdx),
+    current: currIdx !== null ? lookup(currIdx) : null,
+    next: lookup(nextIdx),
+  };
+}
+
+function updateMoonSunModal(tithiDay, moonAge, sunDay, lat, lng) {
   const moonInfo = document.getElementById('moon-info');
   const locationInfo = document.getElementById('location-info');
-  if (moonInfo && locationInfo) {
-    moonInfo.textContent = `🌓 Moon Day (Tithi): ${tithiDay} | ☀️ Sun Day: ${sunDay}`;
+  const ekadasiInfo = document.getElementById('ekadasi-info');
+  const ekadasiLinks = document.getElementById('ekadasi-links');
+  const tithiName = TITHI_NAMES[tithiDay - 1] || '';
+  const paksha = tithiDay <= 15 ? 'Shukla' : 'Krishna';
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const sunDayName = dayNames[sunDay] || sunDay;
+  if (moonInfo) {
+    moonInfo.textContent = `🌓 Moon Day: ${moonAge} — ${paksha} ${tithiName} | ☀️ Sun Day: ${sunDayName}`;
+  }
+  if (locationInfo) {
     locationInfo.textContent = lat && lng ? `📍 Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}` : '📍 Location not linked';
+  }
+  if (ekadasiInfo) {
+    const status = getEkadasiStatus(tithiDay);
+    ekadasiInfo.textContent = status.message;
+    ekadasiInfo.style.color = status.color;
+    // Hide the ekadasi-info card when there's no message
+    const card = document.getElementById('ekadasi-info-card');
+    if (card) card.style.display = status.message ? '' : 'none';
+  }
+  if (ekadasiLinks) {
+    const cycle = getEkadasiCycleInfo();
+    ekadasiLinks.innerHTML = '';
+
+    // Helper: create a styled external link element.
+    const makeLink = (text, url) => {
+      const a = document.createElement('a');
+      a.textContent = text;
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      return a;
+    };
+
+    // Highlight the current Ekadasi (if today is Ekadasi) or the upcoming one.
+    const isFastingDay = cycle.current !== null;
+    const featured = isFastingDay ? cycle.current : cycle.next;
+    if (featured) {
+      const featuredCard = document.createElement('div');
+      featuredCard.className = 'ekadasi-featured';
+
+      const nameEl = document.createElement('p');
+      nameEl.className = 'ekadasi-featured-name';
+      const label = isFastingDay ? '🙏 Today: ' : '⏭️ Upcoming: ';
+      nameEl.textContent = `${label}${featured.name} Ekadasi`;
+      featuredCard.appendChild(nameEl);
+
+      const storyEl = document.createElement('p');
+      storyEl.className = 'ekadasi-story-link';
+      storyEl.appendChild(makeLink('📖 Read the Story', featured.url));
+      featuredCard.appendChild(storyEl);
+
+      ekadasiLinks.appendChild(featuredCard);
+    }
+
+    // Previous / Next story links.
+    // The next link is omitted when cycle.next is already shown as featured
+    // (i.e. when today is not an Ekadasi day and the next Ekadasi is featured above).
+    const navEl = document.createElement('div');
+    navEl.className = 'ekadasi-nav';
+    if (cycle.prev) {
+      const prevSpan = document.createElement('span');
+      prevSpan.appendChild(document.createTextNode('◀ '));
+      prevSpan.appendChild(makeLink(`${cycle.prev.name} Ekadasi`, cycle.prev.url));
+      navEl.appendChild(prevSpan);
+    }
+    // Only show the next link when it hasn't already been featured above.
+    if (cycle.next && isFastingDay) {
+      const nextSpan = document.createElement('span');
+      nextSpan.appendChild(makeLink(`${cycle.next.name} Ekadasi`, cycle.next.url));
+      nextSpan.appendChild(document.createTextNode(' ▶'));
+      navEl.appendChild(nextSpan);
+    }
+    if (navEl.hasChildNodes()) ekadasiLinks.appendChild(navEl);
+
+    // About Ekadasi link.
+    const aboutEl = document.createElement('p');
+    aboutEl.className = 'ekadasi-about';
+    aboutEl.appendChild(makeLink('ℹ️ About Ekadasi', 'http://www.iskcondesiretree.net/page/who-is-ekadasi'));
+    ekadasiLinks.appendChild(aboutEl);
   }
 }
 
@@ -36,12 +270,10 @@ function requestLocation() {
     navigator.geolocation.getCurrentPosition(pos => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
-      const now = new Date();
-      const base = new Date('2024-04-08T00:00:00Z');
-      const diffDays = Math.floor((now - base) / (1000 * 60 * 60 * 24));
-      const tithi = (diffDays % 30) + 1;
-      const sunDay = (diffDays % 7) + 1;
-      updateMoonSunModal(tithi, sunDay, lat, lng);
+      const { tithi, moonAge } = calculateTithi();
+      const sunDay = new Date().getDay(); // 0 = Sunday … 6 = Saturday
+      updateMoonSunModal(tithi, moonAge, sunDay, lat, lng);
+      sendEkadasiNotification(tithi);
     }, () => {
       alert("Location access denied.");
     });
@@ -89,22 +321,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
     overlaySVG.appendChild(path);
   }
-  const now = new Date();
-  const base = new Date('2024-04-08T00:00:00Z');
-  const diffDays = Math.floor((now - base) / (1000 * 60 * 60 * 24));
-  const tithi = (diffDays % 30) + 1;
-  const sunDay = (diffDays % 7) + 1;
-  updateMoonSunModal(tithi, sunDay, null, null);
+  const { tithi, moonAge } = calculateTithi();
+  const sunDay = new Date().getDay(); // 0 = Sunday … 6 = Saturday
+  updateMoonSunModal(tithi, moonAge, sunDay, null, null);
+  sendEkadasiNotification(tithi);
 });
 // --- Moon Icon Logic ---
 function updateMoonStatus(tithiDay) {
   const icon = document.getElementById('moon-icon');
   if (!icon) return;
-  const hour = new Date().getHours();
-  if ((tithiDay === 11 || tithiDay === 25) && hour >= 6) {
+  if (tithiDay === 11 || tithiDay === 26) {
     icon.style.textShadow = '0 0 10px #00ccff'; // Blue for Ekadasi
-  } else if ((tithiDay === 10 || tithiDay === 24) && hour >= 6) {
-    icon.style.textShadow = '0 0 10px #ffd700'; // Gold for day before
+  } else if (tithiDay === 10 || tithiDay === 25) {
+    icon.style.textShadow = '0 0 10px #ffd700'; // Gold for day before Ekadasi
   } else {
     icon.style.textShadow = '0 0 10px #00ff66'; // Green for other days
   }
@@ -112,22 +341,16 @@ function updateMoonStatus(tithiDay) {
 
 if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-    const now = new Date();
-    const base = new Date('2024-04-08T00:00:00Z');
-    const diffDays = Math.floor((now - base) / (1000 * 60 * 60 * 24));
-    const tithi = (diffDays % 30) + 1;
-    updateMoonStatus(tithi);
+    updateMoonStatus(calculateTithi().tithi);
   }, err => {
     console.warn("Location access denied. Using default values.");
-    const base = new Date('2024-04-08T00:00:00Z');
-    const now = new Date();
-    const diffDays = Math.floor((now - base) / (1000 * 60 * 60 * 24));
-    const tithi = (diffDays % 30) + 1;
-    updateMoonStatus(tithi);
+    updateMoonStatus(calculateTithi().tithi);
   });
+} else {
+  updateMoonStatus(calculateTithi().tithi);
 }
+// Refresh the moon icon status every hour to stay current throughout the day
+setInterval(() => updateMoonStatus(calculateTithi().tithi), 3600000);
 // --- Emotion Modal Logic ---
 // --- Modal Show/Hide Helper Functions ---
 function showModal(id) {
@@ -577,7 +800,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 import { connectW3upClient, tryAutoRestoreW3upClient } from './w3upClient.js';
 import { uploadDataToIPFS } from './uploadToIPFS.js';
-import { normalizeFitnessData } from './fitnessData.js';
+import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
 
 // Supplements form logic (now unified in fitnessTrackerData)
 // --- Raw Intake Modal (New Modal) Logic ---
@@ -1032,6 +1255,11 @@ function displayRecentExercises() {
   const list = document.getElementById('exercises-last7days');
   if (!list) return;
 
+  // Helper: get total reps from an entry regardless of storage format
+  const getEntryTotalReps = e => Array.isArray(e.sets)
+    ? e.sets.reduce((sum, s) => sum + (parseInt(s.reps) || 0), 0)
+    : (parseInt(e.reps) || 0);
+
   // --- Insert or update the lifetime tally above the #exercise-list in the modal ---
   const fitnessData = getFitnessData();
   const log = fitnessData.exercises?.entries || [];
@@ -1050,9 +1278,9 @@ function displayRecentExercises() {
     // Compute tallies with normalized name matching (case/whitespace/hyphen insensitive, using includes)
     const normalize = str => (str || '').toLowerCase().replace(/[\s\-]/g, '');
 
-    const pullups = log.filter(e => normalize(e.type).includes('pullup')).reduce((sum, e) => sum + (parseInt(e.reps) || 0), 0);
-    const pushups = log.filter(e => normalize(e.type).includes('pushup')).reduce((sum, e) => sum + (parseInt(e.reps) || 0), 0);
-    const situps = log.filter(e => normalize(e.type).includes('situp')).reduce((sum, e) => sum + (parseInt(e.reps) || 0), 0);
+    const pullups = log.filter(e => normalize(e.type).includes('pullup')).reduce((sum, e) => sum + getEntryTotalReps(e), 0);
+    const pushups = log.filter(e => normalize(e.type).includes('pushup')).reduce((sum, e) => sum + getEntryTotalReps(e), 0);
+    const situps = log.filter(e => normalize(e.type).includes('situp')).reduce((sum, e) => sum + getEntryTotalReps(e), 0);
     // For total time, fallback to sessionLog if present, else use fitnessData.totalWorkSeconds/totalRestSeconds
     let totalTimeSec = 0;
     if (Array.isArray(fitnessData.sessionLog)) {
@@ -1190,7 +1418,9 @@ function displayRecentExercises() {
       } else if (entry.timestamp) {
         entryDate = entry.timestamp.split('T')[0];
       }
-      item.textContent = `${entryDate}: ${entry.type} - ${entry.reps || 0} reps x ${entry.sets || 0} sets`;
+      const totalReps = getEntryTotalReps(entry);
+      const totalSets = Array.isArray(entry.sets) ? entry.sets.length : (entry.sets || 0);
+      item.textContent = `${entryDate}: ${entry.type} - ${totalReps} reps x ${totalSets} sets`;
       exerciseList.appendChild(item);
     });
   }
@@ -1879,7 +2109,10 @@ window.addEventListener('DOMContentLoaded', async () => {
         </a>
       </div>`;
     }).join('<hr style="opacity:0.3;">')
-      + '<div style="text-align:center;margin-top:8px;"><button id="show-all-snapshots-btn" style="font-size:0.6rem;background:#00e5ff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">Show All</button></div>';
+      + '<div style="text-align:center;margin-top:8px;">'
+      + '<button id="show-all-snapshots-btn" style="font-size:0.6rem;background:#00e5ff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">Show All</button>'
+      + ' <button id="import-snapshot-btn" style="font-size:0.6rem;background:#ff00cc;color:#fff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">📥 Import</button>'
+      + '</div>';
     // (Optional: consider pagination if history.length > X in the future)
   }
 
@@ -1903,6 +2136,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.body.addEventListener('click', (e) => {
     if (e.target.id === 'show-all-snapshots-btn') {
       showAllSnapshotsModal();
+    }
+    if (e.target.id === 'import-snapshot-btn') {
+      ipfsPopup.style.display = 'none';
+      showImportSnapshotModal();
     }
   });
 
@@ -1989,9 +2226,138 @@ window.addEventListener('DOMContentLoaded', async () => {
     };
 
     renderPage();
+
+    // Show imported snapshot CIDs at the bottom
+    const importedList = JSON.parse(localStorage.getItem('importedSnapshotCIDs') || '[]');
+    if (importedList.length > 0) {
+      const importedSection = document.createElement('div');
+      importedSection.style.cssText = 'margin-top:1.5rem;border-top:1px solid rgba(0,229,255,0.2);padding-top:1rem;';
+      const importedTitle = document.createElement('h4');
+      importedTitle.style.cssText = 'color:#ff00cc;font-size:0.85rem;margin:0 0 0.5rem;';
+      importedTitle.textContent = '📥 Imported Snapshots';
+      importedSection.appendChild(importedTitle);
+      importedList.forEach(entry => {
+        const row = document.createElement('div');
+        row.style.cssText = 'margin:4px 0;font-size:0.75rem;';
+        const date = entry.importedAt ? new Date(entry.importedAt).toLocaleString() : '';
+        const short = `${entry.cid.slice(0, 6)}...${entry.cid.slice(-4)}`;
+        row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://${entry.cid}.ipfs.w3s.link/" target="_blank" style="color:#ff00cc;">${short}</a>`;
+        importedSection.appendChild(row);
+      });
+      content.appendChild(importedSection);
+    }
+
     modal.appendChild(content);
     document.body.appendChild(modal);
     document.body.classList.add('modal-active');
+  }
+
+  function showImportSnapshotModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'import-snapshot-modal';
+
+    const content = document.createElement('div');
+    content.className = 'modal';
+    content.style.maxWidth = '500px';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    closeBtn.className = 'modal-close';
+    closeBtn.onclick = () => {
+      document.body.removeChild(modal);
+      document.body.classList.remove('modal-active');
+    };
+    content.appendChild(closeBtn);
+
+    const header = document.createElement('h3');
+    header.style.cssText = 'color:#00e5ff;margin-top:0;';
+    header.textContent = '📥 Import Past IPFS Snapshot';
+    content.appendChild(header);
+
+    const desc = document.createElement('p');
+    desc.style.cssText = 'font-size:0.85rem;color:#ccc;';
+    desc.textContent = 'Enter a snapshot CID to fetch historical data from IPFS and merge it into your current dataset. Duplicate entries (same timestamp) will not be added twice.';
+    content.appendChild(desc);
+
+    const inputGroup = document.createElement('div');
+    inputGroup.style.cssText = 'margin:1rem 0;';
+    inputGroup.innerHTML = `
+      <label for="import-cid-input" style="display:block;margin-bottom:0.4rem;font-size:0.85rem;">IPFS CID:</label>
+      <input id="import-cid-input" type="text" placeholder="bafyrei..."
+        style="width:100%;box-sizing:border-box;padding:8px;background:#000030;color:#fff;border:1px solid #00e5ff;border-radius:6px;font-size:0.85rem;" />
+    `;
+    content.appendChild(inputGroup);
+
+    const feedback = document.createElement('div');
+    feedback.id = 'import-feedback';
+    feedback.style.cssText = 'min-height:2rem;font-size:0.8rem;margin-bottom:0.5rem;';
+    content.appendChild(feedback);
+
+    const importBtn = document.createElement('button');
+    importBtn.id = 'import-cid-btn';
+    importBtn.textContent = 'Import & Merge';
+    importBtn.style.cssText = 'background:#00e5ff;color:#000;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:bold;';
+    content.appendChild(importBtn);
+
+    // Show previously imported CID history
+    const importedList = JSON.parse(localStorage.getItem('importedSnapshotCIDs') || '[]');
+    if (importedList.length > 0) {
+      const historyDiv = document.createElement('div');
+      historyDiv.style.cssText = 'margin-top:1.5rem;border-top:1px solid rgba(0,229,255,0.2);padding-top:1rem;';
+      const histTitle = document.createElement('h4');
+      histTitle.style.cssText = 'color:#00e5ff;font-size:0.85rem;margin:0 0 0.5rem;';
+      histTitle.textContent = 'Previously Imported CIDs';
+      historyDiv.appendChild(histTitle);
+      importedList.slice(0, 10).forEach(entry => {
+        const row = document.createElement('div');
+        row.style.cssText = 'margin:4px 0;font-size:0.75rem;';
+        const date = entry.importedAt ? new Date(entry.importedAt).toLocaleString() : '';
+        const short = `${entry.cid.slice(0, 6)}...${entry.cid.slice(-4)}`;
+        row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://${entry.cid}.ipfs.w3s.link/" target="_blank" style="color:#00e5ff;">${short}</a>`;
+        historyDiv.appendChild(row);
+      });
+      content.appendChild(historyDiv);
+    }
+
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-active');
+
+    const cidInput = content.querySelector('#import-cid-input');
+    importBtn.addEventListener('click', async () => {
+      const cid = cidInput.value.trim();
+      if (!cid) {
+        feedback.textContent = '⚠️ Please enter a CID.';
+        feedback.style.color = '#ffcc00';
+        return;
+      }
+
+      feedback.textContent = '⏳ Fetching from IPFS…';
+      feedback.style.color = '#00e5ff';
+      importBtn.disabled = true;
+
+      try {
+        const result = await importAndMergeFromCID(cid);
+        const { added } = result;
+        feedback.innerHTML = `✅ Merged successfully!<br>
+          Added: ${added.weightLogs} weight log(s), ${added.exercises} exercise entry(s), ${added.sessionLog} session(s).<br>
+          <em style="color:#aaa;">Reload the page to see all merged data.</em>`;
+        feedback.style.color = '#00ff99';
+        cidInput.value = '';
+        importBtn.disabled = false;
+
+        setTimeout(() => {
+          if (confirm('Import successful! Reload the page to see all merged data?')) {
+            window.location.reload();
+          }
+        }, 500);
+      } catch (err) {
+        feedback.textContent = `❌ ${err.message}`;
+        feedback.style.color = '#ff4444';
+        importBtn.disabled = false;
+      }
+    });
   }
   // Removed pagination navigation for snapshot popup (all snapshots always shown)
   // --- Measurement Chart Logic ---
@@ -2709,6 +3075,60 @@ if (measurementForm) {
     Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
     roundButtons.forEach(btn => btn.classList.remove('active'));
   });
+
+  // Helper: show a timed status message in the weight modal feedback element
+  const STATUS_MESSAGE_DURATION_MS = 3000;
+  const MIN_WEIGHT_LBS = 50;
+  const MAX_WEIGHT_LBS = 1000;
+
+  function showWeightStatus(msg) {
+    const statusEl = document.getElementById('weight-status');
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    setTimeout(() => { statusEl.textContent = ''; }, STATUS_MESSAGE_DURATION_MS);
+  }
+
+  // Helper: append a new data point to the weight chart and refresh it
+  function appendWeightDataPoint(weight, timestamp) {
+    if (weightChart) {
+      weightChart.data.datasets[0].data.push({ x: new Date(timestamp), y: weight });
+      weightChart.update();
+    }
+  }
+
+  // Handle manual weight entry from the weight modal form
+  const manualWeightForm = document.getElementById('manualWeightForm');
+  if (manualWeightForm) {
+    manualWeightForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const weight = parseFloat(document.getElementById('manualWeight').value);
+
+      if (isNaN(weight) || weight < MIN_WEIGHT_LBS || weight > MAX_WEIGHT_LBS) {
+        showWeightStatus(`⚠️ Enter a valid weight between ${MIN_WEIGHT_LBS} and ${MAX_WEIGHT_LBS} lbs.`);
+        return;
+      }
+
+      const timestamp = new Date().toISOString();
+      logWeight(weight, timestamp);
+      appendWeightDataPoint(weight, timestamp);
+      displayCurrentWeight();
+
+      const weightReading = document.getElementById('weightReading');
+      if (weightReading) weightReading.textContent = `${weight.toFixed(1)} lbs`;
+
+      showWeightStatus('✅ Logged!');
+      manualWeightForm.reset();
+    });
+  }
+
+  // Handle weight readings coming from the Bluetooth scale (dispatched in index.html)
+  document.addEventListener('weightLogged', (e) => {
+    const { weight, timestamp } = e.detail;
+    logWeight(weight, timestamp);
+    appendWeightDataPoint(weight, timestamp);
+    displayCurrentWeight();
+    showWeightStatus('✅ Logged!');
+  });
 });
 
 // (ticker arc animation code replaced by ticker-circle logic)
@@ -2971,3 +3391,38 @@ function prepareGraphData(data, type) {
 
   return { labels, reps, weights, tooltips };
 }
+// --- About Modal Logic ---
+document.addEventListener('DOMContentLoaded', () => {
+  const appTitle = document.getElementById('app-title');
+  const aboutModal = document.getElementById('about-modal');
+  const aboutModalClose = document.getElementById('about-modal-close');
+
+  function openAboutModal() {
+    if (!aboutModal) return;
+    aboutModal.classList.remove('modal-hidden');
+    document.body.classList.add('modal-active');
+    aboutModalClose && aboutModalClose.focus();
+  }
+
+  function closeAboutModal() {
+    if (!aboutModal) return;
+    aboutModal.classList.add('modal-hidden');
+    document.body.classList.remove('modal-active');
+  }
+
+  if (appTitle) {
+    appTitle.addEventListener('click', openAboutModal);
+  }
+
+  if (aboutModalClose) {
+    aboutModalClose.addEventListener('click', closeAboutModal);
+  }
+
+  if (aboutModal) {
+    aboutModal.addEventListener('click', function (e) {
+      if (e.target === aboutModal) {
+        closeAboutModal();
+      }
+    });
+  }
+});

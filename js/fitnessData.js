@@ -220,3 +220,116 @@ export function logWeight(weight) {
 }
 // Run once manually after launch
 patchAllSnapshotHistory(); // Uncomment this line to execute the patch
+
+/**
+ * Merges two fitness data objects, deduplicating array entries by timestamp.
+ * Handles the exercises object structure ({types, entries}) as well as simple arrays.
+ * @param {Object} current - Current local fitness data
+ * @param {Object} imported - Fitness data fetched from an IPFS snapshot
+ * @returns {Object} Merged fitness data with duplicates removed, sorted chronologically
+ */
+export function mergeSnapshotData(current, imported) {
+  const merged = { ...current };
+
+  // Simple array fields — deduplicate by timestamp (or full JSON if no timestamp)
+  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog'];
+  simpleArrayFields.forEach(field => {
+    const a = Array.isArray(current[field]) ? current[field] : [];
+    const b = Array.isArray(imported[field]) ? imported[field] : [];
+    const seen = new Set(a.map(e => e.timestamp || JSON.stringify(e)));
+    const combined = [...a];
+    b.forEach(entry => {
+      const key = entry.timestamp || JSON.stringify(entry);
+      if (!seen.has(key)) {
+        seen.add(key);
+        combined.push(entry);
+      }
+    });
+    combined.sort((x, y) =>
+      (x.timestamp || x.date || '').localeCompare(y.timestamp || y.date || '')
+    );
+    merged[field] = combined;
+  });
+
+  // Exercises can be an {types, entries} object (app.js format) or a legacy array
+  const ce = current.exercises;
+  const ie = imported.exercises;
+  const currentEntries = Array.isArray(ce) ? ce : (ce?.entries || []);
+  const importedEntries = Array.isArray(ie) ? ie : (ie?.entries || []);
+  const currentTypes = Array.isArray(ce?.types) ? ce.types : [];
+  const importedTypes = Array.isArray(ie?.types) ? ie.types : [];
+
+  const seenEntries = new Set(currentEntries.map(e => e.timestamp || JSON.stringify(e)));
+  const mergedEntries = [...currentEntries];
+  importedEntries.forEach(entry => {
+    const key = entry.timestamp || JSON.stringify(entry);
+    if (!seenEntries.has(key)) {
+      seenEntries.add(key);
+      mergedEntries.push(entry);
+    }
+  });
+  mergedEntries.sort((x, y) => (x.timestamp || '').localeCompare(y.timestamp || ''));
+
+  merged.exercises = {
+    types: [...new Set([...currentTypes, ...importedTypes])],
+    entries: mergedEntries
+  };
+
+  return merged;
+}
+
+/**
+ * Fetches a fitness snapshot from IPFS by CID and merges it into the current local data.
+ * Deduplicates entries so re-importing the same CID is safe.
+ * @param {string} cid - The IPFS CID to fetch
+ * @returns {Promise<{merged: Object, added: {weightLogs: number, exercises: number, sessionLog: number}}>}
+ */
+export async function importAndMergeFromCID(cid) {
+  const trimmedCid = cid.trim();
+  if (!trimmedCid) throw new Error('No CID provided.');
+
+  const url = `https://${trimmedCid}.ipfs.w3s.link/`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch from IPFS (HTTP ${response.status}).`);
+
+  const imported = await response.json();
+
+  if (!imported.weightLogs && !imported.supplements && !imported.exercises) {
+    throw new Error('Invalid snapshot structure: missing expected data fields.');
+  }
+
+  ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog'].forEach(f => {
+    if (!Array.isArray(imported[f])) imported[f] = [];
+  });
+
+  const currentRaw = localStorage.getItem(STORAGE_KEY);
+  const current = currentRaw ? JSON.parse(currentRaw) : { ...defaultData };
+  ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog'].forEach(f => {
+    if (!Array.isArray(current[f])) current[f] = [];
+  });
+
+  const beforeWeightLogs = (current.weightLogs || []).length;
+  const beforeExercises = Array.isArray(current.exercises)
+    ? current.exercises.length
+    : (current.exercises?.entries || []).length;
+  const beforeSessionLog = (current.sessionLog || []).length;
+
+  const merged = mergeSnapshotData(current, imported);
+  saveFitnessData(merged);
+
+  // Track imported CIDs so users can see their import history
+  const importedList = JSON.parse(localStorage.getItem('importedSnapshotCIDs') || '[]');
+  if (!importedList.find(e => e.cid === trimmedCid)) {
+    importedList.unshift({ cid: trimmedCid, importedAt: new Date().toISOString() });
+    localStorage.setItem('importedSnapshotCIDs', JSON.stringify(importedList));
+  }
+
+  return {
+    merged,
+    added: {
+      weightLogs: merged.weightLogs.length - beforeWeightLogs,
+      exercises: (merged.exercises?.entries || []).length - beforeExercises,
+      sessionLog: merged.sessionLog.length - beforeSessionLog
+    }
+  };
+}

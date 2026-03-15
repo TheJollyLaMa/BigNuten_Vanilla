@@ -30,7 +30,7 @@
       <div id="current-weight-display"></div>
     </div>
     <div id="header-center">
-      <h1 id="app-title">⚕︎ Big Nuten ⚕︎</h1>
+      <h1 id="app-title" title="About BigNuten — click to learn more">⚕︎ Big Nuten ⚕︎</h1>
       <h3 id="app-subtitle">(Another Decent Frankenstein)</h3>
     </div>
     <div id="walletIconWrapper">
@@ -45,8 +45,31 @@
     </div>
   </header>
 
+  <!-- Left Panel Toolbar: Supplements & Raw Intake -->
+  <nav id="left-panel-toolbar" class="side-toolbar left-toolbar" aria-label="Left panel controls">
+    <button class="panel-toggle-btn" data-panel="recent-supplements-list" title="Supplements (7 days)">
+      <img src="img/Supplements.png" alt="Supplements">
+      <span>Supps</span>
+    </button>
+    <button class="panel-toggle-btn" data-panel="recent-foods-list" title="Raw Intake (7 days)">
+      <img src="img/Diet.png" alt="Raw Intake">
+      <span>Intake</span>
+    </button>
+  </nav>
 
-  <div id="recent-exercises-list">
+  <!-- Right Panel Toolbar: Exercises & Workout -->
+  <nav id="right-panel-toolbar" class="side-toolbar right-toolbar" aria-label="Right panel controls">
+    <button class="panel-toggle-btn" data-panel="recent-exercises-list" title="Exercises (7 days)">
+      <img src="img/Exercise.png" alt="Exercises">
+      <span>Exerc</span>
+    </button>
+    <button class="panel-toggle-btn" data-panel="workout-set-list" title="Workout Set List">
+      <span class="toolbar-emoji">🏋️</span>
+      <span>Workout</span>
+    </button>
+  </nav>
+
+  <div id="recent-exercises-list" class="dashboard-panel">
     <div class="exercise-list-header">
       <h4>Exercises (7 days)</h4>
       <p style="font-size: 0.75rem;">
@@ -60,7 +83,7 @@
     <ul id="exercises-last7days">
     </ul>
   </div>
-  <div id="workout-set-list">
+  <div id="workout-set-list" class="dashboard-panel">
     <div class="workout-header">
       <label for="work-duration" style="color:white;font-size:0.8rem;margin-right:4px;">Work:</label>
       <input type="number" id="work-duration" value="60" min="0" style="width:50px;margin-right:10px;" />
@@ -74,29 +97,48 @@
   </div>
 
   <main>
-    <div id="recent-supplements-list">
+    <div id="recent-supplements-list" class="dashboard-panel">
       <h4>Supplements (7 days)</h4>
       <ul id="supplements-last7days"></ul>
     </div>
-    <div id="recent-foods-list">
+    <div id="recent-foods-list" class="dashboard-panel">
       <h4>Raw Intake (7 days)</h4>
       <ul id="foods-last7days"></ul>
     </div>
-    <img src="img/BigNuten.png" id="landing-bg" alt="BigNuten Background">
-    <!-- Moon icon above figure's head -->
-    <span id="moon-icon"> ⚸ </span>
-    <!-- Emotion icon above graph icon -->
-    <img src="img/EmotionWheel.png" id="emotion-icon" alt="Emotions" />
-    <img src="img/GraphIcon.png" id="graph-icon" alt="Graph" />
+    <div id="body-figure-wrapper">
+      <img src="img/BigNuten.png" id="landing-bg" alt="BigNuten Background">
+      <!-- Crown: Moon icon on top of figure's head -->
+      <span id="moon-icon">⚸</span>
+      <!-- Third Eye: Graph icon on the forehead -->
+      <img src="img/GraphIcon.png" id="graph-icon" alt="Graph" />
+      <!-- Throat Chakra -->
+      <span class="chakra-icon" id="chakra-throat" title="Throat Chakra">◉</span>
+      <!-- Heart Chakra -->
+      <span class="chakra-icon" id="chakra-heart" title="Heart Chakra">◉</span>
+      <!-- Solar Plexus: Emotion Wheel -->
+      <img src="img/EmotionWheel.png" id="emotion-icon" alt="Emotions" />
+      <!-- Sacral Chakra (below belly button) -->
+      <span class="chakra-icon" id="chakra-sacral" title="Sacral Chakra">◉</span>
+      <!-- Root Chakra (crotch) -->
+      <span class="chakra-icon" id="chakra-root" title="Root Chakra">◉</span>
+    </div>
   <!-- Emotion Modal -->
   <!-- Moon & Sun Tracker Modal -->
   <div id="moon-modal" class="modal-overlay modal-hidden">
-    <div class="modal">
+    <div class="modal moon-tracker-modal">
       <button class="modal-close" onclick="hideModal('moon-modal')">×</button>
-      <h2>Moon & Sun Tracker</h2>
-      <p id="moon-info"></p>
-      <p id="location-info"></p>
-      <button onclick="requestLocation()">🔄 Link Location</button>
+      <h2>🌙 Moon &amp; ☀️ Sun Tracker</h2>
+      <div class="tracker-card" id="moon-info-card">
+        <p id="moon-info"></p>
+      </div>
+      <div class="tracker-card tracker-location" id="location-info-card">
+        <p id="location-info"></p>
+      </div>
+      <div class="tracker-card tracker-ekadasi" id="ekadasi-info-card">
+        <p id="ekadasi-info"></p>
+      </div>
+      <div id="ekadasi-links"></div>
+      <button class="tracker-location-btn" onclick="requestLocation()">🔄 Link Location</button>
     </div>
   </div>
   <div id="emotion-modal" class="modal-overlay modal-hidden">
@@ -172,9 +214,10 @@
       <!-- Manual Logging -->
       <form id="manualWeightForm">
         <label for="manualWeight">Enter Weight (lbs):</label>
-        <input type="number" id="manualWeight" step="0.1" required />
+        <input type="number" id="manualWeight" step="0.01" min="50" max="1000" required />
         <button type="submit">Log Weight</button>
       </form>
+      <p id="weight-status" style="min-height:1.4em; font-weight:bold; color:#00e5ff;"></p>
 
       <!-- Weight chart container -->
       <div id="weight-chart-toggle">
@@ -775,7 +818,7 @@
   </script>
   </style>
   <script>
-  // --- Weight Modal Bluetooth and Manual Logging ---
+  // --- Weight Modal Bluetooth Logging ---
   document.getElementById('connectScaleBtn')?.addEventListener('click', async () => {
     try {
       const device = await navigator.bluetooth.requestDevice({
@@ -794,16 +837,12 @@
         const value = event.target.value;
         const weightKg = (value.getUint8(3) + value.getUint8(4) * 256) / 100;
         const weightLbs = weightKg * 2.20462;
-        // Only display pounds
+        // Update the live reading display and pre-fill the input as the scale settles.
+        // The user reviews the settled value and clicks "Log Weight" to confirm.
         document.getElementById('weightReading').textContent = `${weightLbs.toFixed(2)} lbs`;
-        // Set the value of the hidden input to the pounds value
         document.getElementById('weightInput').value = weightLbs.toFixed(2);
-        // Autofill the input field with id 'logWeight' if it exists
-        const weightInput = document.getElementById('logWeight');
-        if (weightInput) {
-          weightInput.value = weightLbs.toFixed(2);
-        }
-        logWeightToLocalStorage(weightLbs);
+        const manualInput = document.getElementById('manualWeight');
+        if (manualInput) manualInput.value = weightLbs.toFixed(2);
       });
 
     } catch (error) {
@@ -811,23 +850,140 @@
       document.getElementById('scaleStatus').textContent = `❌ Connection failed`;
     }
   });
+  </script>
 
-  function logWeightToLocalStorage(weightLbs) {
-    const today = new Date().toISOString().split('T')[0];
-    const logs = JSON.parse(localStorage.getItem('weightLogs') || '[]');
-    logs.push({ date: today, weight: weightLbs });
-    localStorage.setItem('weightLogs', JSON.stringify(logs));
-  }
+  <!-- About Modal -->
+  <div id="about-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="about-modal-title">
+    <div class="modal about-modal">
+      <button class="modal-close" id="about-modal-close" aria-label="Close About modal">×</button>
 
-  document.getElementById('manualWeightForm')?.addEventListener('submit', function (e) {
-    e.preventDefault();
-    const weightKg = parseFloat(document.getElementById('manualWeight').value);
-    if (!isNaN(weightKg)) {
-      const weightLbs = weightKg * 2.20462;
-      logWeightToLocalStorage(weightLbs);
-      document.getElementById('weightReading').textContent = `${weightLbs.toFixed(2)} lbs (manually logged)`;
-      document.getElementById('weightInput').value = weightLbs.toFixed(2);
-    }
+      <div class="about-header">
+        <img src="img/BigNuten.png" alt="BigNuten Logo" class="about-logo" />
+        <div>
+          <h2 id="about-modal-title" class="about-title">⚕︎ BigNuten ⚕︎</h2>
+          <p class="about-subtitle">Another Decent Frankenstein</p>
+          <p class="about-version">v1.0.0 &nbsp;·&nbsp; MIT License</p>
+        </div>
+      </div>
+
+      <section class="about-section">
+        <h3>About the Project</h3>
+        <p>BigNuten helps you track the combined effects of regular exercise, vitamins, and supplements on your body over time. Log workouts, weight, nutrition, and emotions — all in one place, stored locally and optionally on IPFS for decentralized persistence.</p>
+      </section>
+
+      <section class="about-section">
+        <h3>Technologies</h3>
+        <ul class="about-tech-list">
+          <li>🌐 Vanilla HTML / CSS / JavaScript</li>
+          <li>📦 IPFS (InterPlanetary File System)</li>
+          <li>🦊 MetaMask &amp; Ethereum wallet integration</li>
+          <li>📊 Chart.js for data visualization</li>
+          <li>🌙 Moon &amp; Sun astronomical tracking</li>
+        </ul>
+      </section>
+
+      <section class="about-section">
+        <h3>Roadmap</h3>
+        <ul class="about-tech-list">
+          <li>✅ Local data logging (weight, supplements, food, exercise)</li>
+          <li>✅ IPFS snapshot persistence</li>
+          <li>✅ Emotion wheel tracking</li>
+          <li>🔜 Crypto subscription via Decent contract</li>
+          <li>🔜 AI-powered nutrition recommendations</li>
+          <li>🔜 Social sharing &amp; community challenges</li>
+        </ul>
+      </section>
+
+      <section class="about-section about-links">
+        <a href="https://github.com/TheJollyLaMa/BigNuten_Vanilla" target="_blank" rel="noopener noreferrer" class="about-link-btn github-link">
+          <svg class="about-gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.729.083-.729 1.205.084 1.84 1.236 1.84 1.236 1.07 1.835 2.807 1.305 3.492.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.468-2.38 1.235-3.22-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.3 1.23A11.51 11.51 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.29-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.12 3.176.77.84 1.233 1.91 1.233 3.22 0 4.61-2.807 5.625-5.479 5.92.43.372.823 1.102.823 2.222 0 1.606-.015 2.898-.015 3.293 0 .322.216.694.825.576C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+        <a href="mailto:jrlamanna@gmail.com" class="about-link-btn email-link">
+          ✉️ jrlamanna@gmail.com
+        </a>
+      </section>
+
+      <section class="about-section">
+        <h3>🔔 Subscribe</h3>
+        <p class="about-payment-desc">Support ongoing development with a $10/month recurring subscription.</p>
+        <div class="about-payment-row">
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="paypal-form">
+            <input type="hidden" name="cmd" value="_xclick-subscriptions" />
+            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
+            <input type="hidden" name="item_name" value="BigNuten Monthly Subscription" />
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="hidden" name="a3" value="10.00" />
+            <input type="hidden" name="p3" value="1" />
+            <input type="hidden" name="t3" value="M" />
+            <input type="hidden" name="src" value="1" />
+            <input type="hidden" name="no_note" value="1" />
+            <button type="submit" class="about-pay-btn paypal-btn" title="Subscribe $10/month via PayPal">
+              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" alt="Subscribe via PayPal" style="height:32px;vertical-align:middle;" />
+            </button>
+          </form>
+          <button class="about-pay-btn crypto-btn disabled" disabled title="Coming Soon — Crypto subscription via Decent contract">
+            🔗 Pay with Crypto <span class="coming-soon-badge">Coming Soon</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="about-section">
+        <h3>💖 Donate</h3>
+        <p class="about-payment-desc">Love BigNuten? A one-time donation goes a long way!</p>
+        <div class="about-payment-row">
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="paypal-form">
+            <input type="hidden" name="cmd" value="_donations" />
+            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
+            <input type="hidden" name="item_name" value="Donation to BigNuten" />
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="hidden" name="no_note" value="0" />
+            <button type="submit" class="about-pay-btn paypal-btn" title="Donate via PayPal">
+              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" alt="Donate via PayPal" style="height:32px;vertical-align:middle;" />
+            </button>
+          </form>
+          <button class="about-pay-btn crypto-btn disabled" disabled title="Coming Soon — Crypto donation via Decent contract">
+            🔗 Donate with Crypto <span class="coming-soon-badge">Coming Soon</span>
+          </button>
+        </div>
+      </section>
+
+      <footer class="about-footer">
+        <p>BigNuten is open-source and community-driven. Built with ❤️ by <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer">TheJollyLaMa</a>.</p>
+        <p class="about-license">MIT License &nbsp;·&nbsp; © 2024 BigNuten Contributors</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+  // ── Dashboard Panel Toggle Logic ───────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    const panels = document.querySelectorAll('.dashboard-panel');
+    const toggleBtns = document.querySelectorAll('.panel-toggle-btn');
+    let activePanel = null;
+
+    toggleBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const panelId = btn.dataset.panel;
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+
+        if (activePanel === panelId) {
+          // Toggle off: hide the current panel
+          panel.classList.remove('panel-visible');
+          btn.classList.remove('active');
+          activePanel = null;
+        } else {
+          // Hide all panels and deactivate all buttons
+          panels.forEach(p => p.classList.remove('panel-visible'));
+          toggleBtns.forEach(b => b.classList.remove('active'));
+
+          // Show the selected panel
+          panel.classList.add('panel-visible');
+          btn.classList.add('active');
+          activePanel = panelId;
+        }
+      });
+    });
   });
   </script>
 </body>

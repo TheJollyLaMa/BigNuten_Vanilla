@@ -25,24 +25,26 @@
 }
 #moon-icon {
   position: absolute;
-  top: 17%;
-  right: 46%;
+  top: 9%;
+  left: 50%;
+  display: inline-block;
   width: 40px;
   height: 40px;
   font-size: 2rem;
-  transform: translate(-50%, -30%);
+  transform: translate(-50%, -50%);
   z-index: 100;
   color: #87fdb6;
   text-shadow: 0 0 16px #00ff66, 0 0 20px #00ff66, 0 0 50px #00ff66;
   cursor: pointer;
+  text-align: center;
+  line-height: 40px;
 }
 #emotion-icon {
   position: absolute;
-  top: 44%;
-  left: 48.5%;
+  top: calc(36% - 20px);
+  left: calc(50% - 20px);
   width: 40px;
   height: 40px;
-  transform: translate(-50%, -30%);
   cursor: pointer;
   z-index: 100;
   animation: shimmer-spin-y 6s linear infinite;
@@ -51,15 +53,53 @@
 
 #graph-icon {
   position: absolute;
-  top: 22%;
-  left: 48.5%;
+  top: calc(14% - 20px);
+  left: calc(50% - 20px);
   width: 40px;
   height: 40px;
-  transform: translate(-50%, -30%);
   cursor: pointer;
   z-index: 100;
   animation: shimmer-spin-y 6s linear infinite;
   filter: drop-shadow(0 0 6px #00e5ff);
+}
+
+/* Chakra placeholder icons */
+.chakra-icon {
+  position: absolute;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.6rem;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  cursor: pointer;
+  text-align: center;
+  line-height: 40px;
+  transition: text-shadow 0.3s ease;
+}
+.chakra-icon:hover {
+  filter: brightness(1.6) drop-shadow(0 0 8px currentColor);
+}
+
+#chakra-throat {
+  top: 22%;
+  color: #00bfff;
+  text-shadow: 0 0 10px #00bfff, 0 0 20px #00bfff;
+}
+#chakra-heart {
+  top: 30%;
+  color: #00ff88;
+  text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
+}
+#chakra-sacral {
+  top: 44%;
+  color: #ff8c00;
+  text-shadow: 0 0 10px #ff8c00, 0 0 20px #ff8c00;
+}
+#chakra-root {
+  top: 50%;
+  color: #ff4444;
+  text-shadow: 0 0 10px #ff4444, 0 0 20px #ff4444;
 }
 #exercises-last7days video {
   display: inline-block;
@@ -678,13 +718,20 @@ main {
   margin-bottom: 80px;
 }
 
+#body-figure-wrapper {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  flex-shrink: 0;
+}
+
 #landing-bg {
+  display: block;
   width: auto;
   height: 80vh;
   object-fit: contain;
   opacity: 0.8;
   margin: 0;
-  z-index: -1;
 }
 
 footer {
@@ -860,14 +907,16 @@ footer {
 }
 
 #emotion-icon,
-#graph-icon {
+#graph-icon,
+.chakra-icon {
   opacity: 1;
   transition: opacity 0.3s ease;
 }
 
 body.hide-icons footer,
 body.hide-icons #emotion-icon,
-body.hide-icons #graph-icon {
+body.hide-icons #graph-icon,
+body.hide-icons .chakra-icon {
   display: none !important;
   opacity: 0;
 }
@@ -900,4 +949,503 @@ svg text {
   height: 100%;
   overflow: auto;
   background-color: rgba(0, 0, 0, 0.4);
+}
+
+/* ===== About Modal ===== */
+#app-title {
+  cursor: pointer;
+  transition: text-shadow 0.2s;
+}
+#app-title:hover {
+  text-shadow: 0 0 16px #7300ff, 0 0 32px #00ffff, 0 0 48px #00e5ff;
+}
+
+.about-modal {
+  max-width: 700px;
+  padding: 2rem 2.5rem;
+}
+
+.about-header {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 1.5rem;
+}
+
+.about-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  box-shadow: 0 0 16px #00e5ff;
+  flex-shrink: 0;
+}
+
+.about-title {
+  font-family: 'Bungee', sans-serif;
+  font-size: 2rem;
+  color: #00e5ff;
+  text-shadow: 0 0 10px #7300ff, 0 0 20px #00ffff;
+  margin: 0 0 0.2rem;
+}
+
+.about-subtitle {
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  font-size: 0.85rem;
+  color: #7300ff;
+  margin: 0 0 0.2rem;
+}
+
+.about-version {
+  font-size: 0.75rem;
+  color: #aaa;
+  margin: 0;
+}
+
+.about-section {
+  margin-bottom: 1.4rem;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.15);
+  padding-bottom: 1.2rem;
+}
+
+.about-section:last-of-type {
+  border-bottom: none;
+}
+
+.about-section h3 {
+  color: #00e5ff;
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  text-shadow: 0 0 6px #7300ff;
+}
+
+.about-tech-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+.about-tech-list li {
+  padding: 0.15rem 0;
+}
+
+.about-links {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.about-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+.github-link {
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid #00e5ff;
+  color: #00e5ff;
+}
+
+.github-link:hover {
+  background: rgba(0, 229, 255, 0.2);
+  box-shadow: 0 0 12px #00e5ff;
+}
+
+.email-link {
+  background: rgba(115, 0, 255, 0.12);
+  border: 1px solid #7300ff;
+  color: #bf80ff;
+}
+
+.email-link:hover {
+  background: rgba(115, 0, 255, 0.25);
+  box-shadow: 0 0 12px #7300ff;
+}
+
+.about-gh-icon {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+}
+
+.about-payment-desc {
+  font-size: 0.85rem;
+  color: #ccc;
+  margin: 0 0 0.75rem;
+}
+
+.about-payment-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.paypal-form {
+  display: inline-flex;
+}
+
+.about-pay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+.paypal-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.crypto-btn {
+  background: rgba(80, 80, 80, 0.3);
+  border: 2px solid rgba(120, 120, 120, 0.4);
+  color: #888;
+}
+
+.crypto-btn.disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.coming-soon-badge {
+  display: inline-block;
+  background: rgba(115, 0, 255, 0.25);
+  color: #bf80ff;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  margin-left: 0.2rem;
+  font-weight: normal;
+  border: 1px solid rgba(115, 0, 255, 0.4);
+}
+
+.about-footer {
+  margin-top: 1.2rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+.about-footer a {
+  color: #00e5ff;
+  text-decoration: none;
+}
+
+.about-footer a:hover {
+  text-decoration: underline;
+}
+
+.about-license {
+  color: #666;
+  font-size: 0.75rem;
+  margin-top: 0.3rem;
+}
+
+@media (max-width: 500px) {
+  .about-header {
+    flex-direction: column;
+    text-align: center;
+  }
+  .about-links {
+    justify-content: center;
+  }
+  .about-payment-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+/* ── Moon & Sun Tracker Modal ──────────────────────────────── */
+.moon-tracker-modal {
+  background: linear-gradient(160deg, rgba(5,5,40,0.98) 0%, rgba(10,10,60,0.98) 100%);
+  border-radius: 20px;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  box-shadow: 0 0 30px rgba(0,180,255,0.4), inset 0 0 60px rgba(0,0,80,0.5);
+  padding: 1.8rem 1.6rem 1.4rem;
+}
+
+.moon-tracker-modal h2 {
+  text-align: center;
+  font-size: 1.3rem;
+  letter-spacing: 0.05em;
+  color: #e0f7ff;
+  margin: 0 0 1.1rem;
+  text-shadow: 0 0 12px #00ccff;
+}
+
+.tracker-card {
+  background: rgba(0, 50, 80, 0.45);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 12px;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.7rem;
+  font-size: 0.95rem;
+  color: #cceeff;
+}
+
+.tracker-card p {
+  margin: 0;
+}
+
+.tracker-location {
+  border-color: rgba(100, 200, 255, 0.2);
+  background: rgba(0, 30, 60, 0.4);
+  font-size: 0.88rem;
+  color: #a0d8ef;
+}
+
+.tracker-ekadasi {
+  border-color: rgba(255, 215, 0, 0.2);
+  background: rgba(40, 30, 0, 0.35);
+}
+
+#ekadasi-links {
+  margin-top: 0.3rem;
+}
+
+/* Featured Ekadasi card */
+#ekadasi-links .ekadasi-featured {
+  background: rgba(0, 60, 80, 0.55);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 14px;
+  padding: 0.7rem 1rem 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+#ekadasi-links .ekadasi-featured-name {
+  font-weight: bold;
+  font-size: 1.05rem;
+  color: #00e5ff;
+  margin: 0 0 0.35rem;
+  text-shadow: 0 0 8px rgba(0,229,255,0.5);
+}
+
+#ekadasi-links .ekadasi-story-link a {
+  display: inline-block;
+  background: rgba(0, 180, 255, 0.15);
+  border: 1px solid rgba(0,180,255,0.4);
+  border-radius: 8px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.9rem;
+  color: #00e5ff;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+#ekadasi-links .ekadasi-story-link a:hover {
+  background: rgba(0, 180, 255, 0.3);
+}
+
+/* Prev / Next navigation row */
+#ekadasi-links .ekadasi-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  color: #99bbcc;
+  margin: 0.4rem 0 0.5rem;
+  gap: 0.5rem;
+}
+
+#ekadasi-links .ekadasi-nav a {
+  color: #66ccee;
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(102,204,238,0.4);
+}
+
+#ekadasi-links .ekadasi-nav a:hover {
+  color: #00e5ff;
+}
+
+/* About link row */
+#ekadasi-links .ekadasi-about {
+  text-align: center;
+  margin-top: 0.6rem;
+  font-size: 0.82rem;
+}
+
+#ekadasi-links .ekadasi-about a {
+  color: #88ddff;
+  text-decoration: none;
+  opacity: 0.8;
+}
+
+#ekadasi-links .ekadasi-about a:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Location button */
+.tracker-location-btn {
+  display: block;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.55rem 1rem;
+  background: rgba(0, 180, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  border-radius: 10px;
+  color: #00e5ff;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.tracker-location-btn:hover {
+  background: rgba(0, 180, 255, 0.25);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   Dashboard Panel Toolbars & Toggle System
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Hide all panels by default; show only when .panel-visible is added */
+.dashboard-panel {
+  display: none;
+}
+.dashboard-panel.panel-visible {
+  display: block;
+}
+
+/* ── Side Toolbar Base ─────────────────────────────────────────── */
+.side-toolbar {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 1100;
+  background: rgba(0, 0, 33, 0.88);
+  border: 1px solid rgba(0, 229, 255, 0.5);
+  border-radius: 12px;
+  padding: 8px 5px;
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.25);
+}
+
+.left-toolbar {
+  left: 4px;
+}
+.right-toolbar {
+  right: 4px;
+}
+
+/* ── Toolbar Buttons ───────────────────────────────────────────── */
+.panel-toggle-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 6px 5px;
+  color: #00e5ff;
+  font-size: 0.58rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  min-width: 48px;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.panel-toggle-btn img,
+.panel-toggle-btn .toolbar-emoji {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  display: block;
+  text-align: center;
+  font-size: 1.6rem;
+  line-height: 30px;
+}
+
+.panel-toggle-btn:hover {
+  border-color: #00e5ff;
+  background: rgba(0, 229, 255, 0.08);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.35);
+}
+
+.panel-toggle-btn.active {
+  border-color: #00e5ff;
+  background: rgba(0, 229, 255, 0.18);
+  box-shadow: 0 0 10px #00e5ff, 0 0 22px rgba(0, 229, 255, 0.3);
+  color: #ffffff;
+}
+
+/* ── Mobile: bottom bar layout (≤ 700px) ──────────────────────── */
+@media (max-width: 700px) {
+  /* Panels become full-width fixed overlays above the toolbar bar */
+  #recent-supplements-list.panel-visible,
+  #recent-foods-list.panel-visible,
+  #recent-exercises-list.panel-visible,
+  #workout-set-list.panel-visible {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .dashboard-panel.panel-visible {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 72px;   /* sit above the mobile toolbar strip */
+    top: auto;
+    max-height: 48vh;
+    overflow-y: auto;
+    border-radius: 14px 14px 0 0;
+    z-index: 1090;
+  }
+
+  /* Stack toolbars as a unified horizontal bar at the very bottom */
+  .side-toolbar {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    transform: none;
+    flex-direction: row;
+    border-radius: 0;
+    padding: 6px 10px;
+    gap: 4px;
+    width: 50%;
+    box-sizing: border-box;
+    justify-content: space-around;
+  }
+
+  .left-toolbar {
+    left: 0;
+    right: auto;
+    border-right: 1px solid rgba(0, 229, 255, 0.25);
+    border-radius: 0;
+  }
+
+  .right-toolbar {
+    right: 0;
+    left: auto;
+    border-left: none;
+    border-radius: 0;
+  }
+
+  .panel-toggle-btn {
+    min-width: 0;
+    flex: 1;
+  }
 }
