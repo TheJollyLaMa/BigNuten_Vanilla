@@ -30,7 +30,7 @@
       <div id="current-weight-display"></div>
     </div>
     <div id="header-center">
-      <h1 id="app-title">⚕︎ Big Nuten ⚕︎</h1>
+      <h1 id="app-title" title="About BigNuten — click to learn more">⚕︎ Big Nuten ⚕︎</h1>
       <h3 id="app-subtitle">(Another Decent Frankenstein)</h3>
     </div>
     <div id="walletIconWrapper">
@@ -831,5 +831,108 @@
     }
   });
   </script>
+
+  <!-- About Modal -->
+  <div id="about-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="about-modal-title">
+    <div class="modal about-modal">
+      <button class="modal-close" id="about-modal-close" aria-label="Close About modal">×</button>
+
+      <div class="about-header">
+        <img src="img/BigNuten.png" alt="BigNuten Logo" class="about-logo" />
+        <div>
+          <h2 id="about-modal-title" class="about-title">⚕︎ BigNuten ⚕︎</h2>
+          <p class="about-subtitle">Another Decent Frankenstein</p>
+          <p class="about-version">v1.0.0 &nbsp;·&nbsp; MIT License</p>
+        </div>
+      </div>
+
+      <section class="about-section">
+        <h3>About the Project</h3>
+        <p>BigNuten helps you track the combined effects of regular exercise, vitamins, and supplements on your body over time. Log workouts, weight, nutrition, and emotions — all in one place, stored locally and optionally on IPFS for decentralized persistence.</p>
+      </section>
+
+      <section class="about-section">
+        <h3>Technologies</h3>
+        <ul class="about-tech-list">
+          <li>🌐 Vanilla HTML / CSS / JavaScript</li>
+          <li>📦 IPFS (InterPlanetary File System)</li>
+          <li>🦊 MetaMask &amp; Ethereum wallet integration</li>
+          <li>📊 Chart.js for data visualization</li>
+          <li>🌙 Moon &amp; Sun astronomical tracking</li>
+        </ul>
+      </section>
+
+      <section class="about-section">
+        <h3>Roadmap</h3>
+        <ul class="about-tech-list">
+          <li>✅ Local data logging (weight, supplements, food, exercise)</li>
+          <li>✅ IPFS snapshot persistence</li>
+          <li>✅ Emotion wheel tracking</li>
+          <li>🔜 Crypto subscription via Decent contract</li>
+          <li>🔜 AI-powered nutrition recommendations</li>
+          <li>🔜 Social sharing &amp; community challenges</li>
+        </ul>
+      </section>
+
+      <section class="about-section about-links">
+        <a href="https://github.com/TheJollyLaMa/BigNuten" target="_blank" rel="noopener noreferrer" class="about-link-btn github-link">
+          <svg class="about-gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.729.083-.729 1.205.084 1.84 1.236 1.84 1.236 1.07 1.835 2.807 1.305 3.492.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.468-2.38 1.235-3.22-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.3 1.23A11.51 11.51 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.29-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.12 3.176.77.84 1.233 1.91 1.233 3.22 0 4.61-2.807 5.625-5.479 5.92.43.372.823 1.102.823 2.222 0 1.606-.015 2.898-.015 3.293 0 .322.216.694.825.576C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+        <a href="mailto:jrlamanna@gmail.com" class="about-link-btn email-link">
+          ✉️ jrlamanna@gmail.com
+        </a>
+      </section>
+
+      <section class="about-section">
+        <h3>🔔 Subscribe</h3>
+        <p class="about-payment-desc">Support ongoing development with a $10/month recurring subscription.</p>
+        <div class="about-payment-row">
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="paypal-form">
+            <input type="hidden" name="cmd" value="_xclick-subscriptions" />
+            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
+            <input type="hidden" name="item_name" value="BigNuten Monthly Subscription" />
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="hidden" name="a3" value="10.00" />
+            <input type="hidden" name="p3" value="1" />
+            <input type="hidden" name="t3" value="M" />
+            <input type="hidden" name="src" value="1" />
+            <input type="hidden" name="no_note" value="1" />
+            <button type="submit" class="about-pay-btn paypal-btn" title="Subscribe $10/month via PayPal">
+              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" alt="Subscribe via PayPal" style="height:32px;vertical-align:middle;" />
+            </button>
+          </form>
+          <button class="about-pay-btn crypto-btn disabled" disabled title="Coming Soon — Crypto subscription via Decent contract">
+            🔗 Pay with Crypto <span class="coming-soon-badge">Coming Soon</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="about-section">
+        <h3>💖 Donate</h3>
+        <p class="about-payment-desc">Love BigNuten? A one-time donation goes a long way!</p>
+        <div class="about-payment-row">
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="paypal-form">
+            <input type="hidden" name="cmd" value="_donations" />
+            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
+            <input type="hidden" name="item_name" value="Donation to BigNuten" />
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="hidden" name="no_note" value="0" />
+            <button type="submit" class="about-pay-btn paypal-btn" title="Donate via PayPal">
+              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" alt="Donate via PayPal" style="height:32px;vertical-align:middle;" />
+            </button>
+          </form>
+          <button class="about-pay-btn crypto-btn disabled" disabled title="Coming Soon — Crypto donation via Decent contract">
+            🔗 Donate with Crypto <span class="coming-soon-badge">Coming Soon</span>
+          </button>
+        </div>
+      </section>
+
+      <footer class="about-footer">
+        <p>BigNuten is open-source and community-driven. Built with ❤️ by <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer">TheJollyLaMa</a>.</p>
+        <p class="about-license">MIT License &nbsp;·&nbsp; © 2024 BigNuten Contributors</p>
+      </footer>
+    </div>
+  </div>
 </body>
 </html>

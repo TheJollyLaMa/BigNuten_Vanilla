@@ -3226,3 +3226,38 @@ function prepareGraphData(data, type) {
 
   return { labels, reps, weights, tooltips };
 }
+// --- About Modal Logic ---
+document.addEventListener('DOMContentLoaded', () => {
+  const appTitle = document.getElementById('app-title');
+  const aboutModal = document.getElementById('about-modal');
+  const aboutModalClose = document.getElementById('about-modal-close');
+
+  function openAboutModal() {
+    if (!aboutModal) return;
+    aboutModal.classList.remove('modal-hidden');
+    document.body.classList.add('modal-active');
+    aboutModalClose && aboutModalClose.focus();
+  }
+
+  function closeAboutModal() {
+    if (!aboutModal) return;
+    aboutModal.classList.add('modal-hidden');
+    document.body.classList.remove('modal-active');
+  }
+
+  if (appTitle) {
+    appTitle.addEventListener('click', openAboutModal);
+  }
+
+  if (aboutModalClose) {
+    aboutModalClose.addEventListener('click', closeAboutModal);
+  }
+
+  if (aboutModal) {
+    aboutModal.addEventListener('click', function (e) {
+      if (e.target === aboutModal) {
+        closeAboutModal();
+      }
+    });
+  }
+});
