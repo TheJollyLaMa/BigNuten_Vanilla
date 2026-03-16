@@ -1357,8 +1357,39 @@ svg text {
 .dnft-title {
   color: #bf80ff;
   font-size: 0.95rem;
-  margin: 0 0 0.3rem;
+  margin: 0 0 0.6rem;
   text-shadow: 0 0 6px rgba(115, 0, 255, 0.5);
+}
+
+.dnft-gh-link {
+  color: #00e5ff;
+  text-decoration: underline dotted;
+}
+
+.dnft-gh-link:hover {
+  text-shadow: 0 0 6px rgba(0, 229, 255, 0.5);
+}
+
+.dnft-perks-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.dnft-perks-list li {
+  font-size: 0.82rem;
+  color: #d4aaff;
+  padding-left: 0.2rem;
+}
+
+.dnft-cta-note {
+  font-style: italic;
+  color: #aaa;
+  font-size: 0.8rem;
+  margin-bottom: 0.7rem;
 }
 
 /* ── Cancel subscription row ───────────────── */
