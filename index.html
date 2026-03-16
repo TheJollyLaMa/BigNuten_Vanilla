@@ -917,6 +917,94 @@
         <p>BigNuten helps you track the combined effects of regular exercise, vitamins, and supplements on your body over time. Log workouts, weight, nutrition, and emotions — all in one place, stored locally and optionally on IPFS for decentralized persistence.</p>
       </section>
 
+      <!-- ── Subscription / Support Section ─────────────────────────── -->
+      <section class="about-section subscribe-section">
+        <h3>🌟 Support &amp; Subscribe</h3>
+        <p class="about-payment-desc">Unlock premium features with a recurring subscription or become an early supporter with a BigNuten DNFT.</p>
+
+        <!-- Premium features teaser -->
+        <ul class="premium-features-list">
+          <li>⚡ Priority IPFS sync &amp; cloud backup</li>
+          <li>📊 Advanced analytics &amp; trend charts</li>
+          <li>🤖 AI-powered nutrition &amp; supplement tips</li>
+          <li>🎨 Custom themes &amp; UI skins</li>
+        </ul>
+
+        <!-- Plan toggle -->
+        <div class="plan-toggle" id="plan-toggle" role="tablist" aria-label="Subscription plan">
+          <button class="plan-btn plan-btn-active" role="tab" aria-selected="true" aria-controls="paypal-monthly-form" data-plan="monthly">Monthly · $10</button>
+          <button class="plan-btn" role="tab" aria-selected="false" aria-controls="paypal-annual-form" data-plan="annual">Annual · $99 <span class="plan-save-badge">Save 17%</span></button>
+        </div>
+
+        <!-- Payment method buttons -->
+        <div class="about-payment-row subscribe-btns">
+
+          <!-- PayPal — monthly -->
+          <form id="paypal-monthly-form" role="tabpanel" aria-label="Monthly PayPal subscription" action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="paypal-form">
+            <input type="hidden" name="cmd" value="_xclick-subscriptions" />
+            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
+            <input type="hidden" name="item_name" value="BigNuten Monthly Subscription" />
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="hidden" name="a3" value="10.00" />
+            <input type="hidden" name="p3" value="1" />
+            <input type="hidden" name="t3" value="M" />
+            <input type="hidden" name="src" value="1" />
+            <input type="hidden" name="no_note" value="1" />
+            <button type="submit" class="about-pay-btn paypal-btn" title="Subscribe $10/month via PayPal">
+              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" alt="Subscribe via PayPal" style="height:32px;vertical-align:middle;" />
+            </button>
+          </form>
+
+          <!-- PayPal — annual (hidden until annual plan selected) -->
+          <form id="paypal-annual-form" role="tabpanel" aria-label="Annual PayPal subscription" action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="paypal-form" style="display:none;" aria-hidden="true">
+            <input type="hidden" name="cmd" value="_xclick-subscriptions" />
+            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
+            <input type="hidden" name="item_name" value="BigNuten Annual Subscription" />
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="hidden" name="a3" value="99.00" />
+            <input type="hidden" name="p3" value="1" />
+            <input type="hidden" name="t3" value="Y" />
+            <input type="hidden" name="src" value="1" />
+            <input type="hidden" name="no_note" value="1" />
+            <button type="submit" class="about-pay-btn paypal-btn" title="Subscribe $99/year via PayPal">
+              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" alt="Subscribe via PayPal" style="height:32px;vertical-align:middle;" />
+            </button>
+          </form>
+
+          <!-- Stripe (Coming Soon) -->
+          <button class="about-pay-btn stripe-btn" aria-disabled="true" title="Coming Soon — Credit/debit card payments via Stripe"
+                  onclick="alert('💳 Stripe card payments are coming soon! Check back after the next update.')">
+            💳 Pay with Card <span class="coming-soon-badge">Coming Soon</span>
+          </button>
+
+          <!-- Crypto (Coming Soon) -->
+          <button class="about-pay-btn crypto-btn" aria-disabled="true" title="Coming Soon — Crypto subscription via Decent contract"
+                  onclick="alert('🔗 Crypto payments are coming soon! The Decent escrow contract is being finalized.')">
+            🔗 Pay with Crypto <span class="coming-soon-badge">Coming Soon</span>
+          </button>
+
+        </div>
+
+        <!-- BigNuten DNFT Early Supporter -->
+        <div class="dnft-section">
+          <h4 class="dnft-title">🪙 Early Supporter — BigNuten DNFT v1.0.0</h4>
+          <p class="about-payment-desc">Own a piece of BigNuten history. A one-time $100 mint permanently unlocks exclusive features and special NFT holder perks — forever.</p>
+          <button class="about-pay-btn dnft-btn" aria-disabled="true" title="Coming Soon — BigNuten DNFT via deployed escrow contract"
+                  onclick="alert('🪙 BigNuten DNFT minting is coming soon! The escrow contract is being deployed.')">
+            🏅 Mint BigNuten DNFT <span class="coming-soon-badge">Coming Soon</span>
+          </button>
+        </div>
+
+        <!-- ⚠️ Cancel is EASY to see and do -->
+        <div class="cancel-subscription-row">
+          <a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer" class="cancel-sub-link">
+            ❌ Cancel / Manage Your PayPal Subscription
+          </a>
+        </div>
+
+      </section>
+      <!-- ── End Subscription Section ────────────────────────────────── -->
+
       <section class="about-section">
         <h3>Technologies</h3>
         <ul class="about-tech-list">
@@ -948,30 +1036,6 @@
         <a href="mailto:jrlamanna@gmail.com" class="about-link-btn email-link">
           ✉️ jrlamanna@gmail.com
         </a>
-      </section>
-
-      <section class="about-section">
-        <h3>🔔 Subscribe</h3>
-        <p class="about-payment-desc">Support ongoing development with a $10/month recurring subscription.</p>
-        <div class="about-payment-row">
-          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="paypal-form">
-            <input type="hidden" name="cmd" value="_xclick-subscriptions" />
-            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
-            <input type="hidden" name="item_name" value="BigNuten Monthly Subscription" />
-            <input type="hidden" name="currency_code" value="USD" />
-            <input type="hidden" name="a3" value="10.00" />
-            <input type="hidden" name="p3" value="1" />
-            <input type="hidden" name="t3" value="M" />
-            <input type="hidden" name="src" value="1" />
-            <input type="hidden" name="no_note" value="1" />
-            <button type="submit" class="about-pay-btn paypal-btn" title="Subscribe $10/month via PayPal">
-              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" alt="Subscribe via PayPal" style="height:32px;vertical-align:middle;" />
-            </button>
-          </form>
-          <button class="about-pay-btn crypto-btn disabled" disabled title="Coming Soon — Crypto subscription via Decent contract">
-            🔗 Pay with Crypto <span class="coming-soon-badge">Coming Soon</span>
-          </button>
-        </div>
       </section>
 
       <section class="about-section">
@@ -1030,6 +1094,40 @@
         }
       });
     });
+
+    // ── Subscription Plan Toggle ───────────────────────────────
+    const planToggle = document.getElementById('plan-toggle');
+    if (planToggle) {
+      const planBtns = planToggle.querySelectorAll('.plan-btn');
+      const monthlyForm = document.getElementById('paypal-monthly-form');
+      const annualForm  = document.getElementById('paypal-annual-form');
+
+      planBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          planBtns.forEach(b => {
+            b.classList.remove('plan-btn-active');
+            b.setAttribute('aria-selected', 'false');
+          });
+          btn.classList.add('plan-btn-active');
+          btn.setAttribute('aria-selected', 'true');
+
+          const plan = btn.dataset.plan;
+          if (monthlyForm && annualForm) {
+            if (plan === 'annual') {
+              monthlyForm.style.display = 'none';
+              monthlyForm.setAttribute('aria-hidden', 'true');
+              annualForm.style.display  = 'inline-flex';
+              annualForm.setAttribute('aria-hidden', 'false');
+            } else {
+              annualForm.style.display  = 'none';
+              annualForm.setAttribute('aria-hidden', 'true');
+              monthlyForm.style.display = 'inline-flex';
+              monthlyForm.setAttribute('aria-hidden', 'false');
+            }
+          }
+        });
+      });
+    }
   });
   </script>
 </body>

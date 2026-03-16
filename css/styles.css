@@ -1245,9 +1245,144 @@ svg text {
   color: #888;
 }
 
+.crypto-btn[aria-disabled="true"],
 .crypto-btn.disabled {
-  cursor: not-allowed;
+  cursor: default;
   opacity: 0.65;
+}
+
+/* ── Stripe button ─────────────────────────── */
+.stripe-btn {
+  background: rgba(99, 91, 255, 0.15);
+  border: 2px solid rgba(99, 91, 255, 0.5);
+  color: #a89fff;
+}
+
+.stripe-btn[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.65;
+}
+
+/* ── DNFT button ───────────────────────────── */
+.dnft-btn {
+  background: linear-gradient(135deg, rgba(115,0,255,0.2), rgba(0,229,255,0.1));
+  border: 2px solid rgba(115, 0, 255, 0.5);
+  color: #d4aaff;
+  font-size: 1rem;
+  padding: 0.55rem 1.2rem;
+}
+
+.dnft-btn[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* ── Subscribe section extras ──────────────── */
+.subscribe-section {
+  background: rgba(0, 229, 255, 0.04);
+  border-radius: 10px;
+  padding: 1rem;
+  border: 1px solid rgba(0, 229, 255, 0.1);
+}
+
+.premium-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.premium-features-list li {
+  font-size: 0.8rem;
+  color: #aaeeff;
+  background: rgba(0, 229, 255, 0.07);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+}
+
+/* ── Plan toggle ───────────────────────────── */
+.plan-toggle {
+  display: inline-flex;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.plan-btn {
+  background: transparent;
+  border: none;
+  color: #aaa;
+  font-size: 0.85rem;
+  font-weight: bold;
+  padding: 0.35rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.plan-btn-active {
+  background: rgba(0, 229, 255, 0.2);
+  color: #00e5ff;
+  text-shadow: 0 0 6px rgba(0, 229, 255, 0.5);
+}
+
+.plan-save-badge {
+  display: inline-block;
+  background: rgba(0, 229, 255, 0.2);
+  color: #00e5ff;
+  font-size: 0.65rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.4rem;
+  margin-left: 0.2rem;
+  font-weight: normal;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  vertical-align: middle;
+}
+
+.subscribe-btns {
+  margin-bottom: 1.2rem;
+}
+
+/* ── DNFT sub-section ──────────────────────── */
+.dnft-section {
+  border-top: 1px solid rgba(115, 0, 255, 0.2);
+  padding-top: 0.9rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.dnft-title {
+  color: #bf80ff;
+  font-size: 0.95rem;
+  margin: 0 0 0.3rem;
+  text-shadow: 0 0 6px rgba(115, 0, 255, 0.5);
+}
+
+/* ── Cancel subscription row ───────────────── */
+.cancel-subscription-row {
+  margin-top: 0.7rem;
+  text-align: center;
+}
+
+.cancel-sub-link {
+  display: inline-block;
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  font-weight: bold;
+  text-decoration: none;
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  border-radius: 999px;
+  padding: 0.3rem 1rem;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.cancel-sub-link:hover {
+  background: rgba(255, 107, 107, 0.1);
+  box-shadow: 0 0 8px rgba(255, 107, 107, 0.3);
+  text-decoration: none;
 }
 
 .coming-soon-badge {
