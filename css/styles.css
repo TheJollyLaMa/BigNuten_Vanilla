@@ -178,10 +178,13 @@
 #recent-foods-list,
 #recent-exercises-list,
 #workout-set-list {
-  max-width: 400px;
-  width: 400px;
-  right: 70px; /* standoff from right side-toolbar (~60px wide at right: 4px) */
-  position: absolute;
+  position: fixed;
+  top: 120px;    /* just below the fixed header / weight display */
+  bottom: 10px;  /* leave a small gap at the very bottom */
+  left: 70px;    /* clear the left side-toolbar */
+  right: 70px;   /* clear the right side-toolbar */
+  width: auto;
+  max-width: none;
   overflow-y: auto;
   font-size: 0.9rem;
   z-index: 1000;
@@ -189,24 +192,6 @@
   border-radius: 8px;
   padding: 6px;
   background: rgba(0, 0, 33, 0.9);
-}
-
-/* Update vertical stacking positions */
-#recent-exercises-list {
-  top: 100px;
-}
-#workout-set-list {
-  top: 420px;
-}
-#recent-supplements-list {
-  top: 100px;
-  left: 70px; /* standoff from left side-toolbar (~60px wide at left: 4px) */
-  right: auto;
-}
-#recent-foods-list {
-  top: 420px;
-  left: 70px; /* standoff from left side-toolbar (~60px wide at left: 4px) */
-  right: auto;
 }
 
 #foods-last7days li {
@@ -355,11 +340,9 @@
 /* Add vertical gap between upper and lower list sections on both sides */
 #workout-set-list {
   text-align: right;
-  margin: 10px;
-  max-height: 300px;
+  max-height: none;
   padding: 5px;
   color: white;
-  margin-top: 10px;
 }
 
 #workout-set-list h4 {
@@ -393,11 +376,9 @@
 }
 #recent-exercises-list {
   text-align: right;
-  margin: 10px;
-  max-height: 300px;
+  max-height: none;
   padding: 5px;
   color: white;
-  margin-bottom: 10px;
 }
 
 
