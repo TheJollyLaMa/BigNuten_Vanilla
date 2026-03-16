@@ -180,7 +180,7 @@
 #workout-set-list {
   max-width: 400px;
   width: 400px;
-  right: 10px;
+  right: 70px; /* standoff from right side-toolbar (~60px wide at right: 4px) */
   position: absolute;
   overflow-y: auto;
   font-size: 0.9rem;
@@ -200,11 +200,13 @@
 }
 #recent-supplements-list {
   top: 100px;
-  left: 10px;
+  left: 70px; /* standoff from left side-toolbar (~60px wide at left: 4px) */
+  right: auto;
 }
 #recent-foods-list {
   top: 420px;
-  left: 10px;
+  left: 70px; /* standoff from left side-toolbar (~60px wide at left: 4px) */
+  right: auto;
 }
 
 #foods-last7days li {
