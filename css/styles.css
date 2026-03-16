@@ -23,6 +23,66 @@
   position: relative;
   z-index: 1;
 }
+/* Water Intake Tracker */
+#water-tracker {
+  position: absolute;
+  top: -3%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 160px;
+  pointer-events: none;
+}
+
+#water-meter-svg {
+  width: 160px;
+  height: 88px;
+  filter: drop-shadow(0 0 8px #00bfff);
+  animation: water-shimmer-effect 2.5s ease-in-out infinite;
+}
+
+@keyframes water-shimmer-effect {
+  0%, 100% { filter: drop-shadow(0 0 8px #00bfff); }
+  50% { filter: drop-shadow(0 0 22px #00e5ff); }
+}
+
+#water-drop-icon {
+  font-size: 1.6rem;
+  cursor: pointer;
+  pointer-events: all;
+  position: relative;
+  top: -10px;
+  filter: drop-shadow(0 0 5px #00bfff);
+  animation: water-drop-pulse 2s ease-in-out infinite;
+  transition: filter 0.2s ease;
+}
+
+#water-drop-icon:hover {
+  filter: drop-shadow(0 0 16px #00e5ff) brightness(1.4);
+}
+
+@keyframes water-drop-pulse {
+  0%, 100% { filter: drop-shadow(0 0 5px #00bfff); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 14px #00e5ff); transform: scale(1.1); }
+}
+
+#water-count-label {
+  color: #00bfff;
+  font-size: 0.75rem;
+  text-shadow: 0 0 8px #00bfff, 0 0 14px #00e5ff;
+  font-family: 'Bungee', cursive;
+  position: relative;
+  top: -8px;
+  pointer-events: none;
+}
+
+body.hide-icons #water-tracker {
+  display: none !important;
+}
+
 #moon-icon {
   position: absolute;
   top: 9%;
