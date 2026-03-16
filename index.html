@@ -130,10 +130,12 @@
                   stroke-linecap="round"
                   stroke-dasharray="0 283"/>
           </svg>
-          <!-- Full drop on the right: click to open water log -->
-          <span class="water-drop-btn" id="water-drop-full" title="Log water intake">💧</span>
+          <!-- Full drop + count on the right: click to open water log -->
+          <div id="water-drop-right">
+            <span class="water-drop-btn" id="water-drop-full" title="Log water intake">💧</span>
+            <span id="water-count-label">0/8</span>
+          </div>
         </div>
-        <span id="water-count-label">0/8</span>
       </div>
       <!-- Crown: Moon icon on top of figure's head -->
       <span id="moon-icon">⚸</span>

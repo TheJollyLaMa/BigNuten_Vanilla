@@ -26,7 +26,7 @@
 /* Water Intake Tracker */
 #water-tracker {
   position: absolute;
-  top: -3%;
+  top: 4%;
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
@@ -75,12 +75,18 @@
   50% { filter: drop-shadow(0 0 14px #00e5ff); transform: scale(1.1); }
 }
 
+#water-drop-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
 #water-count-label {
   color: #00bfff;
   font-size: 0.75rem;
   text-shadow: 0 0 8px #00bfff, 0 0 14px #00e5ff;
   font-family: 'Bungee', cursive;
-  margin-top: -4px;
   pointer-events: none;
 }
 
