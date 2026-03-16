@@ -3430,6 +3430,11 @@ function updateWaterMeter() {
   if (label) {
     label.textContent = `${count}/${WATER_MAX}`;
   }
+
+  const modalCount = document.getElementById('water-modal-count');
+  if (modalCount) {
+    modalCount.textContent = `${count} / ${WATER_MAX}`;
+  }
 }
 
 function logWaterIntake() {
@@ -3441,13 +3446,35 @@ function logWaterIntake() {
   updateWaterMeter();
 }
 
+function removeWaterIntake() {
+  const data = getWaterData();
+  if (data.count > 0) {
+    data.count -= 1;
+    saveWaterData(data);
+  }
+  updateWaterMeter();
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   updateWaterMeter();
 
-  const waterDrop = document.getElementById('water-drop-icon');
-  if (waterDrop) {
-    waterDrop.addEventListener('click', logWaterIntake);
-  }
+  // Both drop buttons open the water log modal
+  document.getElementById('water-drop-empty')?.addEventListener('click', () => showModal('water-modal'));
+  document.getElementById('water-drop-full')?.addEventListener('click', () => showModal('water-modal'));
+
+  // Modal action buttons
+  document.getElementById('water-log-btn')?.addEventListener('click', logWaterIntake);
+  document.getElementById('water-remove-btn')?.addEventListener('click', removeWaterIntake);
+
+  // Close button
+  document.getElementById('water-modal-close')?.addEventListener('click', () => hideModal('water-modal'));
+
+  // Close on overlay click
+  document.getElementById('water-modal')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('water-modal')) {
+      hideModal('water-modal');
+    }
+  });
 });
 // ===== End Water Intake Tracker =====
 

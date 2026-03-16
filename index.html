@@ -109,26 +109,30 @@
       <img src="img/BigNuten.png" id="landing-bg" alt="BigNuten Background">
       <!-- Water Intake Tracker: upside-down semi-circle meter above BigNuten's head -->
       <div id="water-tracker">
-        <svg id="water-meter-svg" viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="waterGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" style="stop-color:#0077cc" />
-              <stop offset="50%" style="stop-color:#00bfff" />
-              <stop offset="100%" style="stop-color:#87ceeb" />
-            </linearGradient>
-          </defs>
-          <!-- Background arc -->
-          <path d="M 10 100 A 90 90 0 0 1 190 100"
-                stroke="#0a2a3a" stroke-width="14" fill="none" stroke-linecap="round"/>
-          <!-- Water fill arc (left to right) -->
-          <path id="water-meter-fill"
-                d="M 10 100 A 90 90 0 0 1 190 100"
-                stroke="url(#waterGradient)" stroke-width="14" fill="none"
-                stroke-linecap="round"
-                stroke-dasharray="0 283"/>
-        </svg>
-        <!-- Water drop icon: click to log a glass of water -->
-        <span id="water-drop-icon" title="Log a glass of water">💧</span>
+        <div id="water-meter-container">
+          <!-- Empty drop on the left: click to open water log -->
+          <span class="water-drop-btn" id="water-drop-empty" title="Log water intake">🫧</span>
+          <svg id="water-meter-svg" viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="waterGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#0077cc" />
+                <stop offset="50%" style="stop-color:#00bfff" />
+                <stop offset="100%" style="stop-color:#87ceeb" />
+              </linearGradient>
+            </defs>
+            <!-- Background arc -->
+            <path d="M 10 100 A 90 90 0 0 1 190 100"
+                  stroke="#0a2a3a" stroke-width="14" fill="none" stroke-linecap="round"/>
+            <!-- Water fill arc (left to right) -->
+            <path id="water-meter-fill"
+                  d="M 10 100 A 90 90 0 0 1 190 100"
+                  stroke="url(#waterGradient)" stroke-width="14" fill="none"
+                  stroke-linecap="round"
+                  stroke-dasharray="0 283"/>
+          </svg>
+          <!-- Full drop on the right: click to open water log -->
+          <span class="water-drop-btn" id="water-drop-full" title="Log water intake">💧</span>
+        </div>
         <span id="water-count-label">0/8</span>
       </div>
       <!-- Crown: Moon icon on top of figure's head -->
@@ -163,6 +167,22 @@
       </div>
       <div id="ekadasi-links"></div>
       <button class="tracker-location-btn" onclick="requestLocation()">🔄 Link Location</button>
+    </div>
+  </div>
+
+  <!-- Water Intake Log Modal -->
+  <div id="water-modal" class="modal-overlay modal-hidden">
+    <div class="modal water-log-modal">
+      <button class="modal-close" id="water-modal-close">×</button>
+      <h2>💧 Water Intake</h2>
+      <div class="tracker-card">
+        <p id="water-modal-count" class="water-modal-count-display">0 / 8</p>
+        <p class="water-modal-subtitle">glasses today</p>
+      </div>
+      <div class="water-modal-buttons">
+        <button id="water-log-btn" class="neon-button water-add-btn">+ Log a Glass</button>
+        <button id="water-remove-btn" class="neon-button water-remove-btn">− Remove Last</button>
+      </div>
     </div>
   </div>
   <div id="emotion-modal" class="modal-overlay modal-hidden">

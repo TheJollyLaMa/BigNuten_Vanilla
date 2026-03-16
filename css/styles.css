@@ -33,13 +33,19 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 160px;
   pointer-events: none;
 }
 
+#water-meter-container {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 6px;
+}
+
 #water-meter-svg {
-  width: 160px;
-  height: 88px;
+  width: 140px;
+  height: 77px;
   filter: drop-shadow(0 0 8px #00bfff);
   animation: water-shimmer-effect 2.5s ease-in-out infinite;
 }
@@ -49,18 +55,18 @@
   50% { filter: drop-shadow(0 0 22px #00e5ff); }
 }
 
-#water-drop-icon {
-  font-size: 1.6rem;
+.water-drop-btn {
+  font-size: 1.5rem;
   cursor: pointer;
   pointer-events: all;
-  position: relative;
-  top: -10px;
   filter: drop-shadow(0 0 5px #00bfff);
   animation: water-drop-pulse 2s ease-in-out infinite;
   transition: filter 0.2s ease;
+  line-height: 1;
+  margin-bottom: 2px;
 }
 
-#water-drop-icon:hover {
+.water-drop-btn:hover {
   filter: drop-shadow(0 0 16px #00e5ff) brightness(1.4);
 }
 
@@ -74,13 +80,59 @@
   font-size: 0.75rem;
   text-shadow: 0 0 8px #00bfff, 0 0 14px #00e5ff;
   font-family: 'Bungee', cursive;
-  position: relative;
-  top: -8px;
+  margin-top: -4px;
   pointer-events: none;
 }
 
 body.hide-icons #water-tracker {
   display: none !important;
+}
+
+/* Water Log Modal */
+.water-log-modal {
+  max-width: 340px;
+  text-align: center;
+}
+
+.water-modal-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.2rem;
+}
+
+.water-add-btn {
+  background: #003a5c;
+  color: #00e5ff;
+  border-color: #00bfff;
+}
+
+.water-add-btn:hover {
+  background: #00bfff;
+  color: #000;
+}
+
+.water-remove-btn {
+  background: #1a0033;
+  color: #aa88ff;
+  border-color: #7722cc;
+}
+
+.water-remove-btn:hover {
+  background: #7722cc;
+  color: #fff;
+}
+
+.water-modal-count-display {
+  font-size: 2rem;
+  text-align: center;
+  margin: 0.5rem 0;
+}
+
+.water-modal-subtitle {
+  text-align: center;
+  color: #00bfff;
+  font-size: 0.85rem;
 }
 
 #moon-icon {
