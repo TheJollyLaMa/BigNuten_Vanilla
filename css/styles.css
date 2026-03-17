@@ -1885,79 +1885,39 @@ svg text {
   }
 }
 
-/* ── Early Supporter Banner ────────────────────────────────── */
-#early-supporter-banner {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0.6rem 1rem;
-  position: relative;
-  z-index: 10;
+/* ── DNFT buy card (escrow listing) ────────────────────────── */
+.dnft-buy-card {
+  margin: 0.8em auto;
+  padding: 0.8em 1em;
+  border: 1px solid rgba(139, 0, 255, 0.33);
+  border-radius: 10px;
+  background: #120028;
+  max-width: 420px;
+  text-align: center;
 }
 
-.early-supporter-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.65rem 1.5rem;
-  border-radius: 999px;
-  border: 2px solid rgba(139, 0, 255, 0.7);
-  background: linear-gradient(135deg, rgba(139,0,255,0.18), rgba(0,229,255,0.10));
-  color: #d4aaff;
-  font-family: 'Bungee', sans-serif;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: box-shadow 0.25s, background 0.25s, border-color 0.25s;
-  box-shadow: 0 0 14px rgba(139, 0, 255, 0.35), 0 0 28px rgba(0, 229, 255, 0.10);
-  text-shadow: 0 0 8px rgba(139, 0, 255, 0.6);
-  white-space: nowrap;
-  max-width: 100%;
+.dnft-buy-card-label {
+  font-size: 0.95em;
+  color: #cc88ff;
+  margin-bottom: 0.3em;
+  font-weight: bold;
 }
 
-.early-supporter-btn:hover,
-.early-supporter-btn:focus-visible {
-  background: linear-gradient(135deg, rgba(139,0,255,0.32), rgba(0,229,255,0.18));
-  border-color: rgba(139, 0, 255, 1);
-  box-shadow: 0 0 22px rgba(139, 0, 255, 0.6), 0 0 44px rgba(0, 229, 255, 0.2);
-  color: #e8ccff;
-  outline: none;
+.dnft-buy-card-supply {
+  font-size: 0.82em;
+  color: #aaa;
+  margin-bottom: 0.6em;
 }
 
-.supporter-icon {
-  font-size: 1.4rem;
-  flex-shrink: 0;
+.dnft-escrow-buy-btn {
+  font-size: 1.05rem;
+  padding: 10px 24px;
 }
 
-.supporter-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.2;
-}
-
-.supporter-headline {
-  font-size: 0.95rem;
-  color: #e0c0ff;
-  font-family: 'Bungee', sans-serif;
-}
-
-.supporter-sub {
-  font-size: 0.7rem;
-  color: #a880cc;
-  font-family: sans-serif;
-  font-weight: normal;
-  letter-spacing: 0.03em;
-}
-
-.supporter-arrow {
-  font-size: 1.1rem;
-  color: #8b00ff;
-  flex-shrink: 0;
-  transition: transform 0.2s;
-}
-
-.early-supporter-btn:hover .supporter-arrow {
-  transform: translateX(4px);
+.dnft-buy-loading {
+  font-size: 0.82em;
+  color: #aaa;
+  margin: 0.5em 0;
 }
 
 /* ── DNFT Details table ────────────────────────────────────── */
@@ -1969,17 +1929,7 @@ svg text {
 /* ── DNFT Action Buttons row ───────────────────────────────── */
 /* (removed — action buttons now inside buy-option-cards) */
 
-@media (max-width: 500px) {
-  .early-supporter-btn {
-    font-size: 0.78rem;
-    padding: 0.55rem 1rem;
-  }
-
-  .supporter-headline {
-    font-size: 0.85rem;
-  }
-
-  .dnft-buy-options {
+@media (max-width: 500px) {  .dnft-buy-options {
     flex-direction: column;
     align-items: center;
   }

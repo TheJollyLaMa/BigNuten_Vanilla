@@ -12,7 +12,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
 </head>
 <body>
   
@@ -209,17 +209,6 @@
         <button type="submit">Submit</button>
       </form>
     </div>
-  </div>
-  <!-- Early Supporter DNFT Banner -->
-  <div id="early-supporter-banner" role="complementary" aria-label="Early Supporter DNFT">
-    <button id="early-supporter-btn" class="early-supporter-btn" aria-label="Become an Early Supporter — BigNuten DNFT v1.0.0">
-      <span class="supporter-icon">🎟️</span>
-      <span class="supporter-text">
-        <span class="supporter-headline">Become an Early Supporter</span>
-        <span class="supporter-sub">100 genesis DNFTs · ~$100 · Optimism</span>
-      </span>
-      <span class="supporter-arrow">→</span>
-    </button>
   </div>
   </main>
 
@@ -1012,22 +1001,16 @@
 
           <div class="dnft-buy-options">
 
-            <!-- ── Manual Crypto option ───────────────────────────────────── -->
+            <!-- ── Crypto option — on-chain escrow buy ────────────────────── -->
             <div class="dnft-buy-option-card dnft-crypto-option">
               <div class="dnft-option-title">🔗 Buy with Crypto</div>
-              <div class="dnft-option-price">ETH or USDC on Optimism — $100</div>
-              <p class="dnft-option-desc">Escrow contract deploying soon. Once live, send payment and DM your wallet address &amp; tx hash — DNFT transferred within 24 h.</p>
-              <ol class="dnft-steps-compact">
-                <li>Send ETH or USDC (≈ $100) to escrow <span class="dnft-placeholder-inline">TBD — deploying soon</span></li>
-                <li>DM <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer">@TheJollyLaMa</a> with wallet &amp; tx hash</li>
-                <li>Receive your BigNuten v1.0.0 DNFT 🎉</li>
-              </ol>
-              <a href="https://thejollylama.github.io/DecentMarket/" target="_blank" rel="noopener noreferrer"
-                 class="dnft-buy-btn" title="Browse BigNuten DNFTs on DecentMarket">
-                🛒 View in DecentMarket
-              </a>
+              <div class="dnft-option-price">USDC on Optimism — instant &amp; trustless</div>
+              <div id="dnft-buy-cards">
+                <p class="dnft-buy-loading">⏳ Loading available editions…</p>
+              </div>
+              <div id="dnft-buy-status"></div>
               <p class="dnft-escrow-note">
-                Escrow on <a href="https://optimistic.etherscan.io/" target="_blank" rel="noopener noreferrer">Optimistic Etherscan</a> — transparent &amp; verifiable.
+                Sold via <a href="https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e" target="_blank" rel="noopener noreferrer">DecentEscrow on Optimism</a> — instant, trustless, on-chain.
               </p>
             </div>
 
@@ -1046,7 +1029,6 @@
 
           <p class="dnft-buy-footer-note">
             💬 Questions? Open an issue or DM <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer">@TheJollyLaMa</a> on GitHub.
-            Once the escrow deploys, on-chain instant purchase will replace the manual flow.
           </p>
         </div>
 
