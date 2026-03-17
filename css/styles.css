@@ -1505,6 +1505,66 @@ svg text {
   cursor: default;
 }
 
+/* ── DNFT PayPal wallet-address input ─────────────────────────── */
+.dnft-wallet-input-row {
+  margin: 0.4em 0 0.8em;
+  text-align: left;
+}
+
+.dnft-wallet-label {
+  display: block;
+  font-size: 0.75em;
+  color: #5bc6f7;
+  margin-bottom: 0.3em;
+  font-weight: 600;
+}
+
+.dnft-wallet-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #001828;
+  border: 1px solid rgba(0, 112, 186, 0.5);
+  border-radius: 7px;
+  color: #e0f4ff;
+  font-size: 0.8em;
+  padding: 0.45em 0.7em;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: monospace;
+}
+
+.dnft-wallet-input:focus {
+  border-color: #0070ba;
+  box-shadow: 0 0 8px rgba(0, 112, 186, 0.45);
+}
+
+.dnft-wallet-err {
+  font-size: 0.72em;
+  color: #ff8a8a;
+  min-height: 1.1em;
+  margin: 0.25em 0 0;
+}
+
+.dnft-paypal-form {
+  margin-top: 0.2em;
+}
+
+.dnft-paypal-confirm {
+  font-size: 0.76em;
+  color: #7effc0;
+  background: rgba(0, 255, 140, 0.07);
+  border: 1px solid rgba(0, 255, 140, 0.2);
+  border-radius: 8px;
+  padding: 0.5em 0.7em;
+  margin-top: 0.7em;
+  line-height: 1.5;
+}
+
+.dnft-paypal-confirm code {
+  font-family: monospace;
+  color: #5bc6f7;
+}
+
 .dnft-escrow-note {
   font-size: 0.72em;
   color: #777;

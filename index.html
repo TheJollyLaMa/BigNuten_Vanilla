@@ -1026,10 +1026,33 @@
               <div class="dnft-option-title">💳 Buy with PayPal</div>
               <div class="dnft-option-price">$100 one-time payment</div>
               <p class="dnft-option-desc">Pay with a card or PayPal balance — admin will transfer your DNFT after verifying payment. Fiat-friendly, no crypto required.</p>
-              <button class="dnft-buy-btn dnft-paypal-btn" aria-disabled="true"
-                      onclick="alert('💳 PayPal purchase for BigNuten DNFT is coming soon!\n\nThis fiat purchase channel is being set up.\nIn the meantime, use the crypto (ETH/USDC) manual flow.')">
-                💳 Buy with PayPal <span class="coming-soon-badge">Coming Soon</span>
-              </button>
+
+              <!-- Step 1: wallet address input -->
+              <div class="dnft-wallet-input-row">
+                <label for="dnft-paypal-wallet" class="dnft-wallet-label">Your wallet address (to receive the DNFT)</label>
+                <input id="dnft-paypal-wallet" type="text" class="dnft-wallet-input"
+                       placeholder="0x… or ENS name" autocomplete="off" spellcheck="false" />
+                <p id="dnft-paypal-wallet-err" class="dnft-wallet-err" aria-live="polite"></p>
+              </div>
+
+              <!-- Step 2: PayPal one-time payment form -->
+              <form id="dnft-paypal-form"
+                    action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank"
+                    class="paypal-form dnft-paypal-form">
+                <input type="hidden" name="cmd" value="_xclick" />
+                <input type="hidden" name="business" value="jrlamanna@gmail.com" />
+                <input type="hidden" name="item_name" value="BigNuten v1.0.0 Early Supporter DNFT" />
+                <input type="hidden" name="amount" value="100.00" />
+                <input type="hidden" name="currency_code" value="USD" />
+                <input type="hidden" name="no_note" value="0" />
+                <!-- wallet address is embedded in the PayPal "custom" field by the submit handler -->
+                <input type="hidden" id="dnft-paypal-custom" name="custom" value="" />
+                <button type="submit" class="dnft-buy-btn dnft-paypal-btn" title="Buy BigNuten DNFT — $100 via PayPal">
+                  💳 Buy with PayPal — $100
+                </button>
+              </form>
+
+              <p id="dnft-paypal-confirm" class="dnft-paypal-confirm" style="display:none;"></p>
             </div>
 
           </div>
