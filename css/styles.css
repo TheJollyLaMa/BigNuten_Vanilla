@@ -1740,3 +1740,203 @@ svg text {
     flex: 1;
   }
 }
+
+/* ── Early Supporter Banner ────────────────────────────────── */
+#early-supporter-banner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  position: relative;
+  z-index: 10;
+}
+
+.early-supporter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1.5rem;
+  border-radius: 999px;
+  border: 2px solid rgba(139, 0, 255, 0.7);
+  background: linear-gradient(135deg, rgba(139,0,255,0.18), rgba(0,229,255,0.10));
+  color: #d4aaff;
+  font-family: 'Bungee', sans-serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: box-shadow 0.25s, background 0.25s, border-color 0.25s;
+  box-shadow: 0 0 14px rgba(139, 0, 255, 0.35), 0 0 28px rgba(0, 229, 255, 0.10);
+  text-shadow: 0 0 8px rgba(139, 0, 255, 0.6);
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.early-supporter-btn:hover,
+.early-supporter-btn:focus-visible {
+  background: linear-gradient(135deg, rgba(139,0,255,0.32), rgba(0,229,255,0.18));
+  border-color: rgba(139, 0, 255, 1);
+  box-shadow: 0 0 22px rgba(139, 0, 255, 0.6), 0 0 44px rgba(0, 229, 255, 0.2);
+  color: #e8ccff;
+  outline: none;
+}
+
+.supporter-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.supporter-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.supporter-headline {
+  font-size: 0.95rem;
+  color: #e0c0ff;
+  font-family: 'Bungee', sans-serif;
+}
+
+.supporter-sub {
+  font-size: 0.7rem;
+  color: #a880cc;
+  font-family: sans-serif;
+  font-weight: normal;
+  letter-spacing: 0.03em;
+}
+
+.supporter-arrow {
+  font-size: 1.1rem;
+  color: #8b00ff;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.early-supporter-btn:hover .supporter-arrow {
+  transform: translateX(4px);
+}
+
+/* ── DNFT Details table ────────────────────────────────────── */
+.dnft-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.8rem 0;
+  font-size: 0.82rem;
+}
+
+.dnft-detail-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.dnft-detail-label {
+  color: #7a9fbf;
+  font-weight: bold;
+  min-width: 110px;
+  flex-shrink: 0;
+}
+
+.dnft-detail-value {
+  color: #cce8ff;
+}
+
+.dnft-placeholder {
+  color: #888;
+  font-style: italic;
+}
+
+/* ── DNFT Manual Purchase Flow ─────────────────────────────── */
+.dnft-purchase-flow {
+  background: rgba(139, 0, 255, 0.06);
+  border: 1px solid rgba(139, 0, 255, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 0.8rem 0;
+}
+
+.dnft-flow-title {
+  color: #bf80ff;
+  font-size: 0.88rem;
+  margin: 0 0 0.5rem;
+}
+
+.dnft-steps-list {
+  margin: 0;
+  padding-left: 1.4rem;
+  font-size: 0.82rem;
+  color: #ccc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dnft-steps-list li strong {
+  color: #d4aaff;
+}
+
+.dnft-steps-list li em {
+  color: #888;
+}
+
+/* ── DNFT Action Buttons row ───────────────────────────────── */
+.dnft-action-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.dnft-market-btn {
+  text-decoration: none;
+  background: linear-gradient(135deg, rgba(139,0,255,0.25), rgba(0,229,255,0.12));
+  border: 2px solid rgba(139, 0, 255, 0.55);
+  color: #d4aaff;
+  font-size: 0.95rem;
+  padding: 0.55rem 1.2rem;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+.dnft-market-btn:hover {
+  box-shadow: 0 0 14px rgba(139, 0, 255, 0.5);
+  background: linear-gradient(135deg, rgba(139,0,255,0.38), rgba(0,229,255,0.18));
+  color: #e8ccff;
+  text-decoration: none;
+}
+
+.dnft-etherscan-btn {
+  text-decoration: none;
+  background: rgba(0, 229, 255, 0.08);
+  border: 2px solid rgba(0, 229, 255, 0.35);
+  color: #80d4ee;
+  font-size: 0.9rem;
+  padding: 0.55rem 1.1rem;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+.dnft-etherscan-btn:hover {
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.35);
+  background: rgba(0, 229, 255, 0.15);
+  color: #aaeeff;
+  text-decoration: none;
+}
+
+@media (max-width: 500px) {
+  .early-supporter-btn {
+    font-size: 0.78rem;
+    padding: 0.55rem 1rem;
+  }
+
+  .supporter-headline {
+    font-size: 0.85rem;
+  }
+
+  .dnft-detail-label {
+    min-width: 85px;
+  }
+
+  .dnft-action-row {
+    flex-direction: column;
+  }
+}

@@ -3484,11 +3484,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const aboutModal = document.getElementById('about-modal');
   const aboutModalClose = document.getElementById('about-modal-close');
 
-  function openAboutModal() {
+  function openAboutModal(scrollToDnft) {
     if (!aboutModal) return;
     aboutModal.classList.remove('modal-hidden');
     document.body.classList.add('modal-active');
-    aboutModalClose && aboutModalClose.focus();
+    if (scrollToDnft) {
+      const dnftSection = document.getElementById('dnft-supporter-section');
+      if (dnftSection) {
+        // Wait for the modal to be fully visible before scrolling
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            dnftSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+      }
+    } else {
+      aboutModalClose && aboutModalClose.focus();
+    }
   }
 
   function closeAboutModal() {
@@ -3498,7 +3510,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (appTitle) {
-    appTitle.addEventListener('click', openAboutModal);
+    appTitle.addEventListener('click', () => openAboutModal(false));
+  }
+
+  // Early Supporter banner button → open About modal scrolled to DNFT section
+  const supporterBtn = document.getElementById('early-supporter-btn');
+  if (supporterBtn) {
+    supporterBtn.addEventListener('click', () => openAboutModal(true));
   }
 
   if (aboutModalClose) {

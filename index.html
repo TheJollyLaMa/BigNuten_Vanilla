@@ -210,6 +210,17 @@
       </form>
     </div>
   </div>
+  <!-- Early Supporter DNFT Banner -->
+  <div id="early-supporter-banner" role="complementary" aria-label="Early Supporter DNFT">
+    <button id="early-supporter-btn" class="early-supporter-btn" aria-label="Become an Early Supporter — BigNuten DNFT v1.0.0">
+      <span class="supporter-icon">🎟️</span>
+      <span class="supporter-text">
+        <span class="supporter-headline">Become an Early Supporter</span>
+        <span class="supporter-sub">100 genesis DNFTs · ~$100 · Optimism</span>
+      </span>
+      <span class="supporter-arrow">→</span>
+    </button>
+  </div>
   </main>
 
   <footer>
@@ -986,8 +997,8 @@
         </div>
 
         <!-- BigNuten DNFT Early Supporter -->
-        <div class="dnft-section">
-          <h4 class="dnft-title">🪙 Early Supporter — BigNuten DNFT v1.0.0</h4>
+        <div class="dnft-section" id="dnft-supporter-section">
+          <h4 class="dnft-title">🎟️ Early Supporter — BigNuten DNFT v1.0.0</h4>
 
           <p class="about-payment-desc">
             BigNuten is an <strong>open-source, community-driven project</strong> — and it needs builders like you.
@@ -997,17 +1008,14 @@
           </p>
 
           <p class="about-payment-desc">
-            By minting a <strong>BigNuten DNFT v1.0.0</strong> for <strong>$100</strong>, you become a
-            <em>founding early adopter</em> of the
-            <a href="https://github.com/TheJollyLaMa/BigNuten_Vanilla" target="_blank" rel="noopener noreferrer" class="dnft-gh-link" aria-label="BigNuten GitHub repository (opens in new tab)">
-              GitHub repository
-            </a>.
-            This is crowd-funding at its most direct — your support accelerates the roadmap and your DNFT is
-            a permanent on-chain record of that.
+            By claiming a <strong>BigNuten DNFT v1.0.0</strong> for <strong>~ $100 USD in ETH or USDC</strong>, you become a
+            <em>founding early adopter</em> — a permanent on-chain record of your belief in the project at genesis.
+            Only <strong>100 editions</strong> will ever exist. Once they're gone, they're gone.
+            v2 will have its own run when the monetization branch ships.
           </p>
 
           <p class="about-payment-desc">
-            As the escrow contract matures, <strong>DNFT holders gain the ability to help steer BigNuten's direction</strong>:
+            <strong>DNFT holders gain the ability to help steer BigNuten's direction</strong>:
             vote on features, propose integrations, and participate in governance decisions — work done, voice earned.
           </p>
 
@@ -1018,17 +1026,60 @@
             <li>🎨 Exclusive DNFT holder UI skin &amp; badge</li>
             <li>📣 Name in the contributors hall-of-fame (optional)</li>
             <li>🤝 Direct line to the dev team for feedback &amp; collaboration</li>
+            <li>🪙 Stake in the $BNUT ecosystem from day one</li>
           </ul>
 
-          <p class="about-payment-desc dnft-cta-note">
-            The escrow contract is being finalized and audited. Click below to register your interest — you'll be
-            notified as soon as minting goes live.
-          </p>
+          <!-- DNFT Details table -->
+          <div class="dnft-details">
+            <div class="dnft-detail-row">
+              <span class="dnft-detail-label">Price</span>
+              <span class="dnft-detail-value">~$100 USD (ETH or USDC on Optimism)</span>
+            </div>
+            <div class="dnft-detail-row">
+              <span class="dnft-detail-label">Supply</span>
+              <span class="dnft-detail-value">100 editions — ERC-1155 on Optimism</span>
+            </div>
+            <div class="dnft-detail-row">
+              <span class="dnft-detail-label">Contract</span>
+              <span class="dnft-detail-value dnft-placeholder">TBD — Optimism DNFT v0.2</span>
+            </div>
+            <div class="dnft-detail-row">
+              <span class="dnft-detail-label">Token ID</span>
+              <span class="dnft-detail-value dnft-placeholder">TBD — fill in post-mint</span>
+            </div>
+            <div class="dnft-detail-row">
+              <span class="dnft-detail-label">Escrow Wallet</span>
+              <span class="dnft-detail-value dnft-placeholder">TBD — community escrow on Optimism</span>
+            </div>
+          </div>
 
-          <button class="about-pay-btn dnft-btn" aria-disabled="true" title="Coming Soon — BigNuten DNFT via deployed escrow contract"
-                  onclick="alert('🪙 BigNuten DNFT minting is coming soon!\n\nRegister your interest by starring the GitHub repo:\nhttps://github.com/TheJollyLaMa/BigNuten_Vanilla\n\nYou\'ll be notified the moment minting goes live.')">
-            🏅 Mint BigNuten DNFT <span class="coming-soon-badge">Coming Soon</span>
-          </button>
+          <!-- Manual purchase flow -->
+          <div class="dnft-purchase-flow">
+            <h5 class="dnft-flow-title">🛒 How to Buy (v1 Manual Flow)</h5>
+            <ol class="dnft-steps-list">
+              <li>Send ETH or USDC (≈ $100 USD) to the <strong>escrow contract address</strong> on Optimism (see the details table above — TBD until deployed)</li>
+              <li>DM <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer" class="dnft-gh-link">@TheJollyLaMa</a> on GitHub with your <strong>wallet address</strong> and <strong>transaction hash</strong></li>
+              <li>Receive your <strong>BigNuten v1.0.0 DNFT</strong> transfer directly to your wallet</li>
+              <li><em>On-chain instant purchase coming in a future version</em></li>
+            </ol>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="dnft-action-row">
+            <a href="https://thejollylama.github.io/DecentMarket/" target="_blank" rel="noopener noreferrer"
+               class="about-pay-btn dnft-btn dnft-market-btn" title="Browse BigNuten DNFTs on DecentMarket">
+              🛒 View in DecentMarket
+            </a>
+            <a href="https://optimistic.etherscan.io/" target="_blank" rel="noopener noreferrer"
+               class="about-pay-btn dnft-etherscan-btn" title="View contract on Optimistic Etherscan">
+              🔎 Optimistic Etherscan
+            </a>
+          </div>
+
+          <p class="about-payment-desc dnft-cta-note">
+            💬 Questions? Open an issue or DM <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer" class="dnft-gh-link">@TheJollyLaMa</a> on GitHub.
+            Escrow contract details will be posted here and in the README once deployed.
+          </p>
         </div>
 
         <!-- ⚠️ Cancel is EASY to see and do -->
