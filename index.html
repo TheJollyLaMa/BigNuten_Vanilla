@@ -996,89 +996,57 @@
 
         </div>
 
-        <!-- BigNuten DNFT Early Supporter -->
-        <div class="dnft-section" id="dnft-supporter-section">
-          <h4 class="dnft-title">🎟️ Early Supporter — BigNuten DNFT v1.0.0</h4>
+        <!-- BigNuten DNFT Early Supporter — matches DecentHead buy-section standard -->
+        <div class="dnft-buy-section" id="dnft-supporter-section">
+          <h3 class="dnft-buy-heading">🎟️ Own a Piece of Web3 History</h3>
+          <p class="dnft-buy-subheading">BigNuten v1.0.0 — 100 genesis DNFTs · ERC-1155 · Optimism</p>
 
-          <p class="about-payment-desc">
-            BigNuten is an <strong>open-source, community-driven project</strong> — and it needs builders like you.
-            We're a small team turning a personal health-tracking idea into a decentralized platform that puts your data
-            in your own hands. Every dollar of support goes directly toward infrastructure, development, and keeping
-            BigNuten free and open.
-          </p>
-
-          <p class="about-payment-desc">
-            By claiming a <strong>BigNuten DNFT v1.0.0</strong> for <strong>~ $100 USD in ETH or USDC</strong>, you become a
-            <em>founding early adopter</em> — a permanent on-chain record of your belief in the project at genesis.
-            Only <strong>100 editions</strong> will ever exist. Once they're gone, they're gone.
-            v2 will have its own run when the monetization branch ships.
-          </p>
-
-          <p class="about-payment-desc">
-            <strong>DNFT holders gain the ability to help steer BigNuten's direction</strong>:
-            vote on features, propose integrations, and participate in governance decisions — work done, voice earned.
-          </p>
-
-          <ul class="dnft-perks-list">
+          <ul class="dnft-perks-list dnft-perks-compact">
             <li>🏅 Permanent on-chain proof of founding support</li>
-            <li>🔓 Lifetime unlock of all premium features &amp; future feature tiers</li>
-            <li>🗳️ Governance voting rights on product roadmap &amp; integrations</li>
+            <li>🔓 Lifetime access to all premium features &amp; tiers</li>
+            <li>🗳️ Governance voting rights on roadmap &amp; integrations</li>
             <li>🎨 Exclusive DNFT holder UI skin &amp; badge</li>
-            <li>📣 Name in the contributors hall-of-fame (optional)</li>
-            <li>🤝 Direct line to the dev team for feedback &amp; collaboration</li>
+            <li>📣 Optional hall-of-fame listing</li>
             <li>🪙 Stake in the $BNUT ecosystem from day one</li>
           </ul>
 
-          <!-- DNFT Details table -->
-          <div class="dnft-details">
-            <div class="dnft-detail-row">
-              <span class="dnft-detail-label">Price</span>
-              <span class="dnft-detail-value">~$100 USD (ETH or USDC on Optimism)</span>
+          <div class="dnft-buy-options">
+
+            <!-- ── Manual Crypto option ───────────────────────────────────── -->
+            <div class="dnft-buy-option-card dnft-crypto-option">
+              <div class="dnft-option-title">🔗 Buy with Crypto</div>
+              <div class="dnft-option-price">ETH or USDC on Optimism — $100</div>
+              <p class="dnft-option-desc">Escrow contract deploying soon. Once live, send payment and DM your wallet address &amp; tx hash — DNFT transferred within 24 h.</p>
+              <ol class="dnft-steps-compact">
+                <li>Send ETH or USDC (≈ $100) to escrow <span class="dnft-placeholder-inline">TBD — deploying soon</span></li>
+                <li>DM <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer">@TheJollyLaMa</a> with wallet &amp; tx hash</li>
+                <li>Receive your BigNuten v1.0.0 DNFT 🎉</li>
+              </ol>
+              <a href="https://thejollylama.github.io/DecentMarket/" target="_blank" rel="noopener noreferrer"
+                 class="dnft-buy-btn" title="Browse BigNuten DNFTs on DecentMarket">
+                🛒 View in DecentMarket
+              </a>
+              <p class="dnft-escrow-note">
+                Escrow on <a href="https://optimistic.etherscan.io/" target="_blank" rel="noopener noreferrer">Optimistic Etherscan</a> — transparent &amp; verifiable.
+              </p>
             </div>
-            <div class="dnft-detail-row">
-              <span class="dnft-detail-label">Supply</span>
-              <span class="dnft-detail-value">100 editions — ERC-1155 on Optimism</span>
+
+            <!-- ── PayPal option ───────────────────────────────────────────── -->
+            <div class="dnft-buy-option-card dnft-paypal-option">
+              <div class="dnft-option-title">💳 Buy with PayPal</div>
+              <div class="dnft-option-price">$100 one-time payment</div>
+              <p class="dnft-option-desc">Pay with a card or PayPal balance — admin will transfer your DNFT after verifying payment. Fiat-friendly, no crypto required.</p>
+              <button class="dnft-buy-btn dnft-paypal-btn" aria-disabled="true"
+                      onclick="alert('💳 PayPal purchase for BigNuten DNFT is coming soon!\n\nThis fiat purchase channel is being set up.\nIn the meantime, use the crypto (ETH/USDC) manual flow.')">
+                💳 Buy with PayPal <span class="coming-soon-badge">Coming Soon</span>
+              </button>
             </div>
-            <div class="dnft-detail-row">
-              <span class="dnft-detail-label">Contract</span>
-              <span class="dnft-detail-value dnft-placeholder">TBD — Optimism DNFT v0.2</span>
-            </div>
-            <div class="dnft-detail-row">
-              <span class="dnft-detail-label">Token ID</span>
-              <span class="dnft-detail-value dnft-placeholder">TBD — fill in post-mint</span>
-            </div>
-            <div class="dnft-detail-row">
-              <span class="dnft-detail-label">Escrow Wallet</span>
-              <span class="dnft-detail-value dnft-placeholder">TBD — community escrow on Optimism</span>
-            </div>
+
           </div>
 
-          <!-- Manual purchase flow -->
-          <div class="dnft-purchase-flow">
-            <h5 class="dnft-flow-title">🛒 How to Buy (v1 Manual Flow)</h5>
-            <ol class="dnft-steps-list">
-              <li>Send ETH or USDC (≈ $100 USD) to the <strong>escrow contract address</strong> on Optimism (see the details table above — TBD until deployed)</li>
-              <li>DM <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer" class="dnft-gh-link">@TheJollyLaMa</a> on GitHub with your <strong>wallet address</strong> and <strong>transaction hash</strong></li>
-              <li>Receive your <strong>BigNuten v1.0.0 DNFT</strong> transfer directly to your wallet</li>
-              <li><em>On-chain instant purchase coming in a future version</em></li>
-            </ol>
-          </div>
-
-          <!-- Action buttons -->
-          <div class="dnft-action-row">
-            <a href="https://thejollylama.github.io/DecentMarket/" target="_blank" rel="noopener noreferrer"
-               class="about-pay-btn dnft-btn dnft-market-btn" title="Browse BigNuten DNFTs on DecentMarket">
-              🛒 View in DecentMarket
-            </a>
-            <a href="https://optimistic.etherscan.io/" target="_blank" rel="noopener noreferrer"
-               class="about-pay-btn dnft-etherscan-btn" title="View contract on Optimistic Etherscan">
-              🔎 Optimistic Etherscan
-            </a>
-          </div>
-
-          <p class="about-payment-desc dnft-cta-note">
-            💬 Questions? Open an issue or DM <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer" class="dnft-gh-link">@TheJollyLaMa</a> on GitHub.
-            Escrow contract details will be posted here and in the README once deployed.
+          <p class="dnft-buy-footer-note">
+            💬 Questions? Open an issue or DM <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer">@TheJollyLaMa</a> on GitHub.
+            Once the escrow deploys, on-chain instant purchase will replace the manual flow.
           </p>
         </div>
 
