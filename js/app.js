@@ -3480,16 +3480,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // --- DNFT Escrow Purchase Flow (BigNuten v1.0.0) ---
 // Mirrors the DecentHead AboutModal.js on-chain buy pattern.
-const _BIGNUTEN_ESCROW_ADDRESS = '0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e';
-const _BIGNUTEN_USDC_ADDRESS   = '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85'; // USDC on Optimism
-const _BIGNUTEN_ZERO_ADDRESS   = '0x0000000000000000000000000000000000000000';
-const _BIGNUTEN_CHAIN_ID       = 10n; // Optimism Mainnet
-const _BIGNUTEN_BUY_BTN_TEXT   = '🎟️ Buy Now';
+const _BIGNUTEN_ESCROW_ADDRESS  = '0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e';
+const _BIGNUTEN_USDC_ADDRESS    = '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85'; // USDC on Optimism
+const _BIGNUTEN_ZERO_ADDRESS    = '0x0000000000000000000000000000000000000000';
+const _BIGNUTEN_CHAIN_ID        = 10n; // Optimism Mainnet
+const _BIGNUTEN_OPTIMISM_RPC    = 'https://mainnet.optimism.io'; // public read-only RPC
+const _BIGNUTEN_BUY_BTN_TEXT    = '🎟️ Buy Now';
+const _BIGNUTEN_MSG_NO_NFT_STOCK = '⚠ NFT stock not yet loaded into escrow — check back soon.';
 
 const _BIGNUTEN_ESCROW_ABI = [
   'function nextListingId() view returns (uint256)',
   'function getListing(uint256 listingId) view returns (tuple(address nftContract, uint256 tokenId, uint256 priceETH, address priceToken, uint256 priceAmount, uint256 available, bool active, string note))',
   'function getNFTBalance(address nftContract, uint256 tokenId) view returns (uint256)',
+  'function purchaseWithETH(uint256 listingId, uint256 amount) payable',
   'function purchaseWithToken(uint256 listingId, uint256 amount)',
 ];
 
@@ -3508,12 +3511,14 @@ async function _loadBigNutenListings() {
 
   try {
     const ethers = window.ethers;
-    if (!ethers || !window.ethereum) {
-      container.innerHTML = '<p class="dnft-buy-loading">Connect MetaMask to see live availability.</p>';
+    if (!ethers) {
+      container.innerHTML = '<p class="dnft-buy-loading">Could not load listings — please refresh.</p>';
       return;
     }
 
-    const provider = new ethers.BrowserProvider(window.ethereum);
+    // Use a public read-only RPC so listings and prices are visible to ALL
+    // visitors, with or without MetaMask.  MetaMask is only needed at buy time.
+    const provider = new ethers.JsonRpcProvider(_BIGNUTEN_OPTIMISM_RPC);
     const escrow   = new ethers.Contract(_BIGNUTEN_ESCROW_ADDRESS, _BIGNUTEN_ESCROW_ABI, provider);
     const count    = Number(await escrow.nextListingId());
 
@@ -3544,23 +3549,42 @@ async function _loadBigNutenListings() {
       return;
     }
 
-    // Verify actual escrow NFT stock
+    // Verify actual escrow NFT stock — listing `available` can be stale if
+    // NFTs were never deposited or were later withdrawn.
     const nftBalances = await Promise.all(
       matched.map(l => escrow.getNFTBalance(l.nftContract, l.tokenId))
     );
 
     container.innerHTML = matched.map((l, idx) => {
-      const priceUSD   = (Number(l.priceAmount) / 1e6).toFixed(2);
       const nftInStock = nftBalances[idx] > 0n;
+
+      // Determine human-readable price label (matches DecentHead logic)
+      let priceLabel;
+      if (l.priceETH > 0n) {
+        priceLabel = `${ethers.formatEther(l.priceETH)} ETH`;
+      } else if (l.priceAmount > 0n) {
+        const isUsdc = !l.priceToken
+          || l.priceToken === _BIGNUTEN_ZERO_ADDRESS
+          || l.priceToken.toLowerCase() === _BIGNUTEN_USDC_ADDRESS.toLowerCase();
+        priceLabel = isUsdc
+          ? `$${(Number(l.priceAmount) / 1e6).toFixed(2)} USDC`
+          : `${l.priceAmount.toString()} raw units (${l.priceToken.slice(0, 8)}…)`;
+      } else {
+        priceLabel = 'Free';
+      }
+
       return `
         <div class="dnft-buy-card">
           <div class="dnft-buy-card-label">${l.note}</div>
           <div class="dnft-buy-card-supply">${l.available} available</div>
           ${nftInStock
-            ? `<button class="dnft-buy-btn dnft-escrow-buy-btn" data-listing-id="${l.id}" data-price="${l.priceAmount.toString()}">
-                 🎟️ Buy Now — $${priceUSD} USDC
+            ? `<button class="dnft-buy-btn dnft-escrow-buy-btn"
+                 data-listing-id="${l.id}"
+                 data-price-amount="${l.priceAmount.toString()}"
+                 data-price-eth="${l.priceETH.toString()}">
+                 🎟️ Buy Now — ${priceLabel}
                </button>`
-            : `<span class="dnft-buy-loading" style="color:#ff8800;">⚠ NFT stock not yet loaded into escrow — check back soon.</span>`
+            : `<span class="dnft-buy-loading" style="color:#ff8800;" role="status">${_BIGNUTEN_MSG_NO_NFT_STOCK}</span>`
           }
         </div>
       `;
@@ -3568,9 +3592,10 @@ async function _loadBigNutenListings() {
 
     container.querySelectorAll('.dnft-escrow-buy-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const listingId = parseInt(btn.dataset.listingId);
-        const price     = BigInt(btn.dataset.price);
-        _handleBigNutenBuy(listingId, price, btn, statusEl);
+        const listingId   = parseInt(btn.dataset.listingId);
+        const priceAmount = BigInt(btn.dataset.priceAmount);
+        const priceEth    = BigInt(btn.dataset.priceEth);
+        _handleBigNutenBuy(listingId, priceAmount, priceEth, btn, statusEl);
       });
     });
 
@@ -3580,7 +3605,7 @@ async function _loadBigNutenListings() {
   }
 }
 
-async function _handleBigNutenBuy(listingId, price, btn, statusEl) {
+async function _handleBigNutenBuy(listingId, priceAmount, priceEth, btn, statusEl) {
   const setStatus = (msg, color = '#aaa') => {
     if (!statusEl) return;
     statusEl.style.color  = color;
@@ -3627,11 +3652,11 @@ async function _handleBigNutenBuy(listingId, price, btn, statusEl) {
         }
       }
       const freshProvider = new ethers.BrowserProvider(window.ethereum);
-      await _doBigNutenPurchase(freshProvider, ethers, listingId, price, btn, setStatus);
+      await _doBigNutenPurchase(freshProvider, ethers, listingId, btn, setStatus);
       return;
     }
 
-    await _doBigNutenPurchase(provider, ethers, listingId, price, btn, setStatus);
+    await _doBigNutenPurchase(provider, ethers, listingId, btn, setStatus);
   } catch (err) {
     btn.disabled    = false;
     btn.textContent = _BIGNUTEN_BUY_BTN_TEXT;
@@ -3644,7 +3669,7 @@ async function _handleBigNutenBuy(listingId, price, btn, statusEl) {
   }
 }
 
-async function _doBigNutenPurchase(provider, ethers, listingId, price, btn, setStatus) {
+async function _doBigNutenPurchase(provider, ethers, listingId, btn, setStatus) {
   const signer = await provider.getSigner();
   const buyer  = signer.address;
 
@@ -3663,33 +3688,60 @@ async function _doBigNutenPurchase(provider, ethers, listingId, price, btn, setS
 
   setStatus('⏳ Verifying NFT stock…');
   const nftBalance = await escrow.getNFTBalance(listing.nftContract, listing.tokenId);
+  console.log('[BigNuten] escrow NFT balance:', {
+    nftContract: listing.nftContract,
+    tokenId:     listing.tokenId.toString(),
+    balance:     nftBalance.toString(),
+  });
   if (nftBalance < 1n) {
     btn.disabled = false; btn.textContent = _BIGNUTEN_BUY_BTN_TEXT;
-    setStatus('⚠ NFT stock not yet loaded into escrow — check back soon.', '#ff8800'); return;
+    setStatus(`⚠ ${_BIGNUTEN_MSG_NO_NFT_STOCK}`, '#ff8800'); return;
   }
 
-  const tokenAmount  = listing.priceAmount;
-  const priceETH     = listing.priceETH ?? 0n;
-  const rawToken     = listing.priceToken;
-  const paymentToken = (rawToken && rawToken !== _BIGNUTEN_ZERO_ADDRESS) ? rawToken : _BIGNUTEN_USDC_ADDRESS;
+  const tokenAmount = listing.priceAmount;
+  const priceETH    = listing.priceETH ?? 0n;
+  const rawToken    = listing.priceToken;
 
-  if (tokenAmount > 0n) {
+  let purchaseTx;
+
+  if (priceETH > 0n) {
+    // ETH listing — send exact ETH value
+    setStatus('⏳ Confirm purchase in MetaMask…');
+    btn.textContent = '⏳ Purchasing…';
+    purchaseTx = await escrow.purchaseWithETH(listingId, 1, { value: priceETH });
+  } else {
+    // ERC-20 listing — approve token then purchase
+    // address(0) stored in listing means "use the contract's default token (USDC)"
+    const paymentToken = (rawToken && rawToken !== _BIGNUTEN_ZERO_ADDRESS)
+      ? rawToken
+      : _BIGNUTEN_USDC_ADDRESS;
+
+    const tokenLabel = paymentToken.toLowerCase() === _BIGNUTEN_USDC_ADDRESS.toLowerCase()
+      ? 'USDC'
+      : `token (${paymentToken.slice(0, 8)}…)`;
+
     setStatus('⏳ Checking token allowance…');
     const token     = new ethers.Contract(paymentToken, _BIGNUTEN_ERC20_ABI, signer);
     const allowance = await token.allowance(buyer, _BIGNUTEN_ESCROW_ADDRESS);
+    console.log('[BigNuten] allowance check:', {
+      resolvedToken: paymentToken,
+      allowance:     allowance.toString(),
+      required:      tokenAmount.toString(),
+    });
+
     if (allowance < tokenAmount) {
-      setStatus('⏳ Approving USDC spend (confirm in MetaMask)…');
+      setStatus(`⏳ Approving ${tokenLabel} spend (confirm in MetaMask)…`);
       btn.textContent = '⏳ Approving…';
       const approveTx = await token.approve(_BIGNUTEN_ESCROW_ADDRESS, tokenAmount);
       setStatus('⏳ Waiting for approval confirmation…');
       await approveTx.wait();
     }
+
+    setStatus('⏳ Confirm purchase in MetaMask…');
+    btn.textContent = '⏳ Purchasing…';
+    purchaseTx = await escrow.purchaseWithToken(listingId, 1);
   }
 
-  setStatus('⏳ Confirm purchase in MetaMask…');
-  btn.textContent = '⏳ Purchasing…';
-  const txOptions  = priceETH > 0n ? { value: priceETH } : {};
-  const purchaseTx = await escrow.purchaseWithToken(listingId, 1, txOptions);
   setStatus('⏳ Waiting for purchase confirmation…');
   await purchaseTx.wait();
 
