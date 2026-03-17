@@ -8,6 +8,60 @@
 ![Built With](https://img.shields.io/badge/built%20with-Vanilla%20JS-yellow?style=flat-square)
 ![Storage](https://img.shields.io/badge/storage-IPFS%20via%20web3.storage%20w3up-blueviolet?style=flat-square)
 ![Wallet](https://img.shields.io/badge/wallet-MetaMask-orange?style=flat-square)
+[![Early Supporter DNFT](https://img.shields.io/badge/Early%20Access-100%20DNFTs-8b00ff?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
+
+---
+
+## 🎟️ Become an Early Supporter
+
+> **100 genesis BigNuten DNFTs — limited, on-chain, and yours forever.**
+
+BigNuten v1.0.0 is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155 tokens via the DecentNFT contract. These are not just collectibles — they are founding artifacts of the project.
+
+### What You Get
+
+- 🏅 **Permanent on-chain proof** of founding support — your name in history
+- 🔓 **Lifetime access** to all premium BigNuten features, current and future
+- 🗳️ **Governance voting rights** on product roadmap, features, and integrations
+- 🎨 **Exclusive DNFT holder UI skin & badge** in the app
+- 📣 **Optional hall-of-fame listing** in the contributors section
+- 🤝 **Direct line to the dev team** for feedback and collaboration
+- 🪙 **Stake in the $BNUT ecosystem** from day one
+
+### DNFT Details
+
+| Field | Detail |
+|---|---|
+| **Price** | ~$100 USD equivalent in ETH or USDC |
+| **Supply** | 100 editions max — once they're gone, they're gone |
+| **Standard** | ERC-1155 on Optimism |
+| **Contract Address** | _(TBD — Optimism DNFT v0.2 from DecentMarket `contracts.js`)_ |
+| **Token ID** | _(TBD — fill in post-mint)_ |
+| **Escrow / Community Wallet** | _(TBD — transparent community escrow contract on Optimism)_ |
+
+> v2 DNFTs will have their own run when the monetization feature branch ships.
+
+### How to Buy (v1 Manual Flow)
+
+1. Send ETH or USDC (≈ $100 USD) to the **escrow contract address** on Optimism (listed above — TBD until contract is deployed)
+2. DM **[@TheJollyLaMa](https://github.com/TheJollyLaMa)** on GitHub with your **wallet address** and **transaction hash**
+3. Receive your **BigNuten v1.0.0 DNFT** transfer to your wallet
+4. _(Future versions will feature on-chain instant purchase — coming soon)_
+
+### Links
+
+- 🛒 **[View in DecentMarket](https://thejollylama.github.io/DecentMarket/)** — browse the full DNFT gallery
+- 🔎 **[View on Optimistic Etherscan](https://optimistic.etherscan.io/)** — _(contract + token ID added post-mint)_
+
+### Community Escrow
+
+Proceeds from DNFT sales flow to a **transparent escrow contract on Optimism**, viewable on Optimistic Etherscan. Funds are reserved for:
+
+- $BNUT bounties for contributors
+- Feature development and infrastructure
+- Community rewards and governance
+
+> Deploying and documenting the escrow contract is tracked as a separate follow-up issue.
 
 ---
 

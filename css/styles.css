@@ -1346,28 +1346,28 @@ svg text {
   margin-bottom: 1.2rem;
 }
 
-/* ── DNFT sub-section ──────────────────────── */
-.dnft-section {
-  border-top: 1px solid rgba(115, 0, 255, 0.2);
-  padding-top: 0.9rem;
+/* ── DNFT sub-section — DecentHead-standard buy section ─────── */
+.dnft-buy-section {
+  text-align: center;
+  border: 1px solid rgba(139, 0, 255, 0.53);
+  border-radius: 12px;
+  padding: 1.2em 1em 1em;
+  background: #1a0033;
   margin-top: 0.5rem;
   margin-bottom: 0.9rem;
 }
 
-.dnft-title {
-  color: #bf80ff;
-  font-size: 0.95rem;
-  margin: 0 0 0.6rem;
-  text-shadow: 0 0 6px rgba(115, 0, 255, 0.5);
+.dnft-buy-heading {
+  color: #cc88ff;
+  font-size: 1rem;
+  margin: 0 0 0.2rem;
+  text-shadow: 0 0 8px rgba(139, 0, 255, 0.6);
 }
 
-.dnft-gh-link {
-  color: #00e5ff;
-  text-decoration: underline dotted;
-}
-
-.dnft-gh-link:hover {
-  text-shadow: 0 0 6px rgba(0, 229, 255, 0.5);
+.dnft-buy-subheading {
+  font-size: 0.78rem;
+  color: #888;
+  margin: 0 0 0.8rem;
 }
 
 .dnft-perks-list {
@@ -1385,12 +1385,156 @@ svg text {
   padding-left: 0.2rem;
 }
 
-.dnft-cta-note {
-  font-style: italic;
-  color: #aaa;
-  font-size: 0.8rem;
-  margin-bottom: 0.7rem;
+.dnft-perks-compact {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  justify-content: center;
+  gap: 0.25rem 1rem;
+  text-align: left;
+  margin-bottom: 1rem;
 }
+
+.dnft-perks-compact li {
+  font-size: 0.78rem;
+}
+
+/* ── Buy options — two side-by-side cards ────────────────────── */
+.dnft-buy-options {
+  display: flex;
+  gap: 1em;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.4em;
+}
+
+.dnft-buy-option-card {
+  flex: 1;
+  min-width: 200px;
+  max-width: 300px;
+  border: 1px solid rgba(139, 0, 255, 0.33);
+  border-radius: 12px;
+  padding: 1em;
+  background: #120028;
+  text-align: center;
+}
+
+.dnft-paypal-option {
+  border-color: rgba(0, 112, 186, 0.33);
+  background: #001a2c;
+}
+
+.dnft-option-title {
+  font-size: 0.95em;
+  font-weight: bold;
+  color: #cc88ff;
+  margin-bottom: 0.3em;
+}
+
+.dnft-paypal-option .dnft-option-title {
+  color: #5bc6f7;
+}
+
+.dnft-option-price {
+  font-size: 0.8em;
+  color: #aaa;
+  margin-bottom: 0.5em;
+}
+
+.dnft-option-desc {
+  font-size: 0.78em;
+  color: #888;
+  margin: 0 0 0.7em;
+}
+
+.dnft-steps-compact {
+  text-align: left;
+  font-size: 0.78em;
+  color: #ccc;
+  padding-left: 1.2em;
+  margin: 0 0 0.8em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+
+.dnft-steps-compact a {
+  color: #00e5ff;
+  text-decoration: none;
+}
+
+.dnft-steps-compact a:hover {
+  text-decoration: underline;
+}
+
+.dnft-placeholder-inline {
+  color: #888;
+  font-style: italic;
+}
+
+/* ── Main buy button — matches DecentHead buy-btn ─────────────── */
+.dnft-buy-btn {
+  display: inline-block;
+  background: linear-gradient(135deg, #8b00ff, #00e5ff);
+  color: white;
+  font-weight: bold;
+  font-size: 0.95rem;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  box-shadow: 0 0 16px rgba(139, 0, 255, 0.53);
+  transition: box-shadow 0.2s, transform 0.1s;
+  text-decoration: none;
+}
+
+.dnft-buy-btn:hover:not([aria-disabled="true"]):not(.dnft-paypal-btn[aria-disabled="true"]) {
+  box-shadow: 0 0 28px rgba(0, 229, 255, 0.67);
+  transform: translateY(-2px);
+  text-decoration: none;
+}
+
+.dnft-paypal-btn {
+  background: linear-gradient(135deg, #0070ba, #003087);
+  box-shadow: 0 0 16px rgba(0, 112, 186, 0.33);
+}
+
+.dnft-paypal-btn[aria-disabled="true"] {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.dnft-escrow-note {
+  font-size: 0.72em;
+  color: #777;
+  margin-top: 0.5em;
+}
+
+.dnft-escrow-note a {
+  color: rgba(139, 0, 255, 0.85);
+  text-decoration: none;
+}
+
+.dnft-escrow-note a:hover {
+  text-decoration: underline;
+}
+
+.dnft-buy-footer-note {
+  font-size: 0.75em;
+  color: #777;
+  margin-top: 0.8em;
+}
+
+.dnft-buy-footer-note a {
+  color: #8b00ff;
+  text-decoration: none;
+}
+
+.dnft-buy-footer-note a:hover {
+  text-decoration: underline;
+}
+
 
 /* ── Cancel subscription row ───────────────── */
 .cancel-subscription-row {
@@ -1738,5 +1882,59 @@ svg text {
   .panel-toggle-btn {
     min-width: 0;
     flex: 1;
+  }
+}
+
+/* ── DNFT buy card (escrow listing) ────────────────────────── */
+.dnft-buy-card {
+  margin: 0.8em auto;
+  padding: 0.8em 1em;
+  border: 1px solid rgba(139, 0, 255, 0.33);
+  border-radius: 10px;
+  background: #120028;
+  max-width: 420px;
+  text-align: center;
+}
+
+.dnft-buy-card-label {
+  font-size: 0.95em;
+  color: #cc88ff;
+  margin-bottom: 0.3em;
+  font-weight: bold;
+}
+
+.dnft-buy-card-supply {
+  font-size: 0.82em;
+  color: #aaa;
+  margin-bottom: 0.6em;
+}
+
+.dnft-escrow-buy-btn {
+  font-size: 1.05rem;
+  padding: 10px 24px;
+}
+
+.dnft-buy-loading {
+  font-size: 0.82em;
+  color: #aaa;
+  margin: 0.5em 0;
+}
+
+/* ── DNFT Details table ────────────────────────────────────── */
+/* (removed — replaced by dnft-buy-section card layout) */
+
+/* ── DNFT Manual Purchase Flow ─────────────────────────────── */
+/* (removed — steps now inside dnft-steps-compact in buy cards) */
+
+/* ── DNFT Action Buttons row ───────────────────────────────── */
+/* (removed — action buttons now inside buy-option-cards) */
+
+@media (max-width: 500px) {  .dnft-buy-options {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .dnft-buy-option-card {
+    max-width: 100%;
   }
 }

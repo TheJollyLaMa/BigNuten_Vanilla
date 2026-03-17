@@ -12,7 +12,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
 </head>
 <body>
   
@@ -985,50 +985,51 @@
 
         </div>
 
-        <!-- BigNuten DNFT Early Supporter -->
-        <div class="dnft-section">
-          <h4 class="dnft-title">🪙 Early Supporter — BigNuten DNFT v1.0.0</h4>
+        <!-- BigNuten DNFT Early Supporter — matches DecentHead buy-section standard -->
+        <div class="dnft-buy-section" id="dnft-supporter-section">
+          <h3 class="dnft-buy-heading">🎟️ Own a Piece of Web3 History</h3>
+          <p class="dnft-buy-subheading">BigNuten v1.0.0 — 100 genesis DNFTs · ERC-1155 · Optimism</p>
 
-          <p class="about-payment-desc">
-            BigNuten is an <strong>open-source, community-driven project</strong> — and it needs builders like you.
-            We're a small team turning a personal health-tracking idea into a decentralized platform that puts your data
-            in your own hands. Every dollar of support goes directly toward infrastructure, development, and keeping
-            BigNuten free and open.
-          </p>
-
-          <p class="about-payment-desc">
-            By minting a <strong>BigNuten DNFT v1.0.0</strong> for <strong>$100</strong>, you become a
-            <em>founding early adopter</em> of the
-            <a href="https://github.com/TheJollyLaMa/BigNuten_Vanilla" target="_blank" rel="noopener noreferrer" class="dnft-gh-link" aria-label="BigNuten GitHub repository (opens in new tab)">
-              GitHub repository
-            </a>.
-            This is crowd-funding at its most direct — your support accelerates the roadmap and your DNFT is
-            a permanent on-chain record of that.
-          </p>
-
-          <p class="about-payment-desc">
-            As the escrow contract matures, <strong>DNFT holders gain the ability to help steer BigNuten's direction</strong>:
-            vote on features, propose integrations, and participate in governance decisions — work done, voice earned.
-          </p>
-
-          <ul class="dnft-perks-list">
+          <ul class="dnft-perks-list dnft-perks-compact">
             <li>🏅 Permanent on-chain proof of founding support</li>
-            <li>🔓 Lifetime unlock of all premium features &amp; future feature tiers</li>
-            <li>🗳️ Governance voting rights on product roadmap &amp; integrations</li>
+            <li>🔓 Lifetime access to all premium features &amp; tiers</li>
+            <li>🗳️ Governance voting rights on roadmap &amp; integrations</li>
             <li>🎨 Exclusive DNFT holder UI skin &amp; badge</li>
-            <li>📣 Name in the contributors hall-of-fame (optional)</li>
-            <li>🤝 Direct line to the dev team for feedback &amp; collaboration</li>
+            <li>📣 Optional hall-of-fame listing</li>
+            <li>🪙 Stake in the $BNUT ecosystem from day one</li>
           </ul>
 
-          <p class="about-payment-desc dnft-cta-note">
-            The escrow contract is being finalized and audited. Click below to register your interest — you'll be
-            notified as soon as minting goes live.
-          </p>
+          <div class="dnft-buy-options">
 
-          <button class="about-pay-btn dnft-btn" aria-disabled="true" title="Coming Soon — BigNuten DNFT via deployed escrow contract"
-                  onclick="alert('🪙 BigNuten DNFT minting is coming soon!\n\nRegister your interest by starring the GitHub repo:\nhttps://github.com/TheJollyLaMa/BigNuten_Vanilla\n\nYou\'ll be notified the moment minting goes live.')">
-            🏅 Mint BigNuten DNFT <span class="coming-soon-badge">Coming Soon</span>
-          </button>
+            <!-- ── Crypto option — on-chain escrow buy ────────────────────── -->
+            <div class="dnft-buy-option-card dnft-crypto-option">
+              <div class="dnft-option-title">🔗 Buy with Crypto</div>
+              <div class="dnft-option-price">USDC on Optimism — instant &amp; trustless</div>
+              <div id="dnft-buy-cards">
+                <p class="dnft-buy-loading">⏳ Loading available editions…</p>
+              </div>
+              <div id="dnft-buy-status"></div>
+              <p class="dnft-escrow-note">
+                Sold via <a href="https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e" target="_blank" rel="noopener noreferrer">DecentEscrow on Optimism</a> — instant, trustless, on-chain.
+              </p>
+            </div>
+
+            <!-- ── PayPal option ───────────────────────────────────────────── -->
+            <div class="dnft-buy-option-card dnft-paypal-option">
+              <div class="dnft-option-title">💳 Buy with PayPal</div>
+              <div class="dnft-option-price">$100 one-time payment</div>
+              <p class="dnft-option-desc">Pay with a card or PayPal balance — admin will transfer your DNFT after verifying payment. Fiat-friendly, no crypto required.</p>
+              <button class="dnft-buy-btn dnft-paypal-btn" aria-disabled="true"
+                      onclick="alert('💳 PayPal purchase for BigNuten DNFT is coming soon!\n\nThis fiat purchase channel is being set up.\nIn the meantime, use the crypto (ETH/USDC) manual flow.')">
+                💳 Buy with PayPal <span class="coming-soon-badge">Coming Soon</span>
+              </button>
+            </div>
+
+          </div>
+
+          <p class="dnft-buy-footer-note">
+            💬 Questions? Open an issue or DM <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer">@TheJollyLaMa</a> on GitHub.
+          </p>
         </div>
 
         <!-- ⚠️ Cancel is EASY to see and do -->

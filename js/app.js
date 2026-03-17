@@ -3478,17 +3478,309 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 // ===== End Water Intake Tracker =====
 
+// --- DNFT Escrow Purchase Flow (BigNuten v1.0.0) ---
+// Mirrors the DecentHead AboutModal.js on-chain buy pattern.
+const _BIGNUTEN_ESCROW_ADDRESS  = '0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e';
+const _BIGNUTEN_USDC_ADDRESS    = '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85'; // USDC on Optimism
+const _BIGNUTEN_ZERO_ADDRESS    = '0x0000000000000000000000000000000000000000';
+const _BIGNUTEN_CHAIN_ID        = 10n; // Optimism Mainnet
+const _BIGNUTEN_OPTIMISM_RPC    = 'https://mainnet.optimism.io'; // public read-only RPC
+const _BIGNUTEN_BUY_BTN_TEXT    = '🎟️ Buy Now';
+const _BIGNUTEN_MSG_NO_NFT_STOCK = '⚠ NFT stock not yet loaded into escrow — check back soon.';
+
+const _BIGNUTEN_ESCROW_ABI = [
+  'function nextListingId() view returns (uint256)',
+  'function getListing(uint256 listingId) view returns (tuple(address nftContract, uint256 tokenId, uint256 priceETH, address priceToken, uint256 priceAmount, uint256 available, bool active, string note))',
+  'function getNFTBalance(address nftContract, uint256 tokenId) view returns (uint256)',
+  'function purchaseWithETH(uint256 listingId, uint256 amount) payable',
+  'function purchaseWithToken(uint256 listingId, uint256 amount)',
+];
+
+const _BIGNUTEN_ERC20_ABI = [
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+];
+
+async function _loadBigNutenListings() {
+  const container = document.getElementById('dnft-buy-cards');
+  const statusEl  = document.getElementById('dnft-buy-status');
+  if (!container) return;
+
+  container.innerHTML = '<p class="dnft-buy-loading">⏳ Loading available editions…</p>';
+  if (statusEl) statusEl.textContent = '';
+
+  try {
+    const ethers = window.ethers;
+    if (!ethers) {
+      container.innerHTML = '<p class="dnft-buy-loading">Could not load listings — please refresh.</p>';
+      return;
+    }
+
+    // Use a public read-only RPC so listings and prices are visible to ALL
+    // visitors, with or without MetaMask.  MetaMask is only needed at buy time.
+    const provider = new ethers.JsonRpcProvider(_BIGNUTEN_OPTIMISM_RPC);
+    const escrow   = new ethers.Contract(_BIGNUTEN_ESCROW_ADDRESS, _BIGNUTEN_ESCROW_ABI, provider);
+    const count    = Number(await escrow.nextListingId());
+
+    const raws = await Promise.all(
+      Array.from({ length: count }, (_, i) => escrow.getListing(i))
+    );
+
+    const matched = raws
+      .map((raw, i) => ({
+        id:          i,
+        nftContract: raw[0],
+        tokenId:     raw[1],
+        priceETH:    raw[2],
+        priceToken:  raw[3],
+        priceAmount: raw[4],
+        available:   raw[5],
+        active:      raw[6],
+        note:        raw[7],
+      }))
+      .filter(l =>
+        l.active &&
+        l.available > 0n &&
+        l.note.toLowerCase().includes('bignuten')
+      );
+
+    if (matched.length === 0) {
+      container.innerHTML = '<p class="dnft-buy-loading">No editions currently listed — check back soon.</p>';
+      return;
+    }
+
+    // Verify actual escrow NFT stock — listing `available` can be stale if
+    // NFTs were never deposited or were later withdrawn.
+    const nftBalances = await Promise.all(
+      matched.map(l => escrow.getNFTBalance(l.nftContract, l.tokenId))
+    );
+
+    container.innerHTML = matched.map((l, idx) => {
+      const nftInStock = nftBalances[idx] > 0n;
+
+      // Determine human-readable price label (matches DecentHead logic)
+      let priceLabel;
+      if (l.priceETH > 0n) {
+        priceLabel = `${ethers.formatEther(l.priceETH)} ETH`;
+      } else if (l.priceAmount > 0n) {
+        const isUsdc = !l.priceToken
+          || l.priceToken === _BIGNUTEN_ZERO_ADDRESS
+          || l.priceToken.toLowerCase() === _BIGNUTEN_USDC_ADDRESS.toLowerCase();
+        priceLabel = isUsdc
+          ? `$${(Number(l.priceAmount) / 1e6).toFixed(2)} USDC`
+          : `${l.priceAmount.toString()} raw units (${l.priceToken.slice(0, 8)}…)`;
+      } else {
+        priceLabel = 'Free';
+      }
+
+      return `
+        <div class="dnft-buy-card">
+          <div class="dnft-buy-card-label">${l.note}</div>
+          <div class="dnft-buy-card-supply">${l.available} available</div>
+          ${nftInStock
+            ? `<button class="dnft-buy-btn dnft-escrow-buy-btn"
+                 data-listing-id="${l.id}"
+                 data-price-amount="${l.priceAmount.toString()}"
+                 data-price-eth="${l.priceETH.toString()}">
+                 🎟️ Buy Now — ${priceLabel}
+               </button>`
+            : `<span class="dnft-buy-loading" style="color:#ff8800;" role="status">${_BIGNUTEN_MSG_NO_NFT_STOCK}</span>`
+          }
+        </div>
+      `;
+    }).join('');
+
+    container.querySelectorAll('.dnft-escrow-buy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const listingId   = parseInt(btn.dataset.listingId);
+        const priceAmount = BigInt(btn.dataset.priceAmount);
+        const priceEth    = BigInt(btn.dataset.priceEth);
+        _handleBigNutenBuy(listingId, priceAmount, priceEth, btn, statusEl);
+      });
+    });
+
+  } catch (err) {
+    console.warn('[BigNuten] _loadBigNutenListings failed:', err);
+    container.innerHTML = '<p class="dnft-buy-loading">Could not load listings — please refresh.</p>';
+  }
+}
+
+async function _handleBigNutenBuy(listingId, priceAmount, priceEth, btn, statusEl) {
+  const setStatus = (msg, color = '#aaa') => {
+    if (!statusEl) return;
+    statusEl.style.color  = color;
+    statusEl.textContent  = msg;
+  };
+
+  if (!window.ethereum) {
+    setStatus('⚠ MetaMask not found. Please install it to buy on-chain.', '#ff8800');
+    return;
+  }
+  const ethers = window.ethers;
+  if (!ethers) {
+    setStatus('⚠ ethers.js not loaded.', '#ff8800');
+    return;
+  }
+
+  try {
+    btn.disabled    = true;
+    btn.textContent = '⏳ Connecting wallet…';
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send('eth_requestAccounts', []);
+
+    // Ensure we're on Optimism
+    const network = await provider.getNetwork();
+    if (network.chainId !== _BIGNUTEN_CHAIN_ID) {
+      setStatus('⏳ Switching to Optimism…');
+      try {
+        await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0xa' }] });
+      } catch (switchErr) {
+        if (switchErr.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: '0xa',
+              chainName: 'Optimism Mainnet',
+              nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+              rpcUrls: ['https://mainnet.optimism.io'],
+              blockExplorerUrls: ['https://optimistic.etherscan.io'],
+            }],
+          });
+        } else {
+          throw switchErr;
+        }
+      }
+      const freshProvider = new ethers.BrowserProvider(window.ethereum);
+      await _doBigNutenPurchase(freshProvider, ethers, listingId, btn, setStatus);
+      return;
+    }
+
+    await _doBigNutenPurchase(provider, ethers, listingId, btn, setStatus);
+  } catch (err) {
+    btn.disabled    = false;
+    btn.textContent = _BIGNUTEN_BUY_BTN_TEXT;
+    const data = err?.data ?? err?.info?.error?.data ?? '';
+    if (typeof data === 'string' && data.startsWith('0x03dee4c5')) {
+      setStatus('⚠ NFT stock not in escrow — the seller needs to deposit NFTs before purchase.', '#ff8800');
+    } else {
+      setStatus(`⚠ ${err.reason || err.message || 'Unknown error'}`, '#ff4444');
+    }
+  }
+}
+
+async function _doBigNutenPurchase(provider, ethers, listingId, btn, setStatus) {
+  const signer = await provider.getSigner();
+  const buyer  = signer.address;
+
+  setStatus('⏳ Checking listing…');
+  const escrow  = new ethers.Contract(_BIGNUTEN_ESCROW_ADDRESS, _BIGNUTEN_ESCROW_ABI, signer);
+  const listing = await escrow.getListing(listingId);
+
+  if (!listing.active) {
+    btn.disabled = false; btn.textContent = _BIGNUTEN_BUY_BTN_TEXT;
+    setStatus('⚠ This listing is no longer active.', '#ff8800'); return;
+  }
+  if (listing.available === 0n) {
+    btn.disabled = false; btn.textContent = _BIGNUTEN_BUY_BTN_TEXT;
+    setStatus('⚠ Sold out — no tokens remaining.', '#ff8800'); return;
+  }
+
+  setStatus('⏳ Verifying NFT stock…');
+  const nftBalance = await escrow.getNFTBalance(listing.nftContract, listing.tokenId);
+  console.log('[BigNuten] escrow NFT balance:', {
+    nftContract: listing.nftContract,
+    tokenId:     listing.tokenId.toString(),
+    balance:     nftBalance.toString(),
+  });
+  if (nftBalance < 1n) {
+    btn.disabled = false; btn.textContent = _BIGNUTEN_BUY_BTN_TEXT;
+    setStatus(`⚠ ${_BIGNUTEN_MSG_NO_NFT_STOCK}`, '#ff8800'); return;
+  }
+
+  const tokenAmount = listing.priceAmount;
+  const priceETH    = listing.priceETH ?? 0n;
+  const rawToken    = listing.priceToken;
+
+  let purchaseTx;
+
+  if (priceETH > 0n) {
+    // ETH listing — send exact ETH value
+    setStatus('⏳ Confirm purchase in MetaMask…');
+    btn.textContent = '⏳ Purchasing…';
+    purchaseTx = await escrow.purchaseWithETH(listingId, 1, { value: priceETH });
+  } else {
+    // ERC-20 listing — approve token then purchase
+    // address(0) stored in listing means "use the contract's default token (USDC)"
+    const paymentToken = (rawToken && rawToken !== _BIGNUTEN_ZERO_ADDRESS)
+      ? rawToken
+      : _BIGNUTEN_USDC_ADDRESS;
+
+    const tokenLabel = paymentToken.toLowerCase() === _BIGNUTEN_USDC_ADDRESS.toLowerCase()
+      ? 'USDC'
+      : `token (${paymentToken.slice(0, 8)}…)`;
+
+    setStatus('⏳ Checking token allowance…');
+    const token     = new ethers.Contract(paymentToken, _BIGNUTEN_ERC20_ABI, signer);
+    const allowance = await token.allowance(buyer, _BIGNUTEN_ESCROW_ADDRESS);
+    console.log('[BigNuten] allowance check:', {
+      resolvedToken: paymentToken,
+      allowance:     allowance.toString(),
+      required:      tokenAmount.toString(),
+    });
+
+    if (allowance < tokenAmount) {
+      setStatus(`⏳ Approving ${tokenLabel} spend (confirm in MetaMask)…`);
+      btn.textContent = '⏳ Approving…';
+      const approveTx = await token.approve(_BIGNUTEN_ESCROW_ADDRESS, tokenAmount);
+      setStatus('⏳ Waiting for approval confirmation…');
+      await approveTx.wait();
+    }
+
+    setStatus('⏳ Confirm purchase in MetaMask…');
+    btn.textContent = '⏳ Purchasing…';
+    purchaseTx = await escrow.purchaseWithToken(listingId, 1);
+  }
+
+  setStatus('⏳ Waiting for purchase confirmation…');
+  await purchaseTx.wait();
+
+  btn.disabled    = false;
+  btn.textContent = '✅ Purchased!';
+  if (statusEl) {
+    statusEl.style.color = '#00e5ff';
+    statusEl.innerHTML = `✅ Success! DNFT transferred to your wallet. Tx: <a href="https://optimistic.etherscan.io/tx/${purchaseTx.hash}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff">${purchaseTx.hash.slice(0, 10)}…</a>`;
+  }
+
+  // Refresh listing cards
+  _loadBigNutenListings();
+}
+
 // --- About Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
-  const appTitle = document.getElementById('app-title');
-  const aboutModal = document.getElementById('about-modal');
+  const appTitle       = document.getElementById('app-title');
+  const aboutModal     = document.getElementById('about-modal');
   const aboutModalClose = document.getElementById('about-modal-close');
 
-  function openAboutModal() {
+  function openAboutModal(scrollToDnft) {
     if (!aboutModal) return;
     aboutModal.classList.remove('modal-hidden');
     document.body.classList.add('modal-active');
-    aboutModalClose && aboutModalClose.focus();
+    // Load live DNFT listings from escrow each time the modal opens
+    _loadBigNutenListings();
+    if (scrollToDnft) {
+      const dnftSection = document.getElementById('dnft-supporter-section');
+      if (dnftSection) {
+        // Wait for the modal to be fully visible before scrolling
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            dnftSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+      }
+    } else {
+      aboutModalClose && aboutModalClose.focus();
+    }
   }
 
   function closeAboutModal() {
@@ -3498,7 +3790,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (appTitle) {
-    appTitle.addEventListener('click', openAboutModal);
+    appTitle.addEventListener('click', () => openAboutModal(false));
   }
 
   if (aboutModalClose) {
