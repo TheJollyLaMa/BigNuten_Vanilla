@@ -30,8 +30,32 @@
       <div id="current-weight-display"></div>
     </div>
     <div id="header-center">
-      <h1 id="app-title" title="About BigNuten — click to learn more">⚕︎ Big Nuten ⚕︎</h1>
+      <h1 id="app-title">
+        <span id="app-title-left"
+              title="About BigNuten — click to learn more">⚕︎ Big Nuten </span><span
+              id="aesculapius-right"
+              title="$BNUT Features — click to open menu"
+              aria-haspopup="true"
+              aria-expanded="false"
+              tabindex="0"
+              role="button">⚕︎</span>
+      </h1>
       <h3 id="app-subtitle">(Another Decent Frankenstein)</h3>
+
+      <!-- Staff of Aesculapius Dropdown (right ⚕︎) -->
+      <div id="aesculapius-dropdown" class="aesculapius-dropdown hidden" role="menu" aria-label="$BNUT Features menu">
+        <div id="aes-bnut-balance" class="aes-bnut-balance">
+          <img src="img/BigNuten.png" alt="$BNUT" class="aes-bnut-icon" />
+          <span id="aes-bnut-amount" class="aes-bnut-amount">Connect wallet</span>
+        </div>
+        <hr class="aes-divider" />
+        <button class="aes-menu-item" id="aes-dnft-btn"      role="menuitem">🎟️ Supporter DNFT</button>
+        <button class="aes-menu-item" id="aes-sub-btn"       role="menuitem">💳 Subscription</button>
+        <button class="aes-menu-item" id="aes-achieve-btn"   role="menuitem">🏆 Achievements</button>
+        <button class="aes-menu-item" id="aes-gov-btn"       role="menuitem">🗳️ Governance</button>
+        <button class="aes-menu-item" id="aes-data-btn"      role="menuitem">📊 Data Sharing</button>
+        <button class="aes-menu-item" id="aes-challenge-btn" role="menuitem">🏋️ Monthly Challenge</button>
+      </div>
     </div>
     <div id="walletIconWrapper">
       <div class="ticker-wrapper wallet-ticker">
@@ -1193,5 +1217,91 @@
     }
   });
   </script>
+
+  <!-- ── Achievements Modal (stub) ─────────────────────────────────────── -->
+  <div id="achievements-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="achievements-modal-title">
+    <div class="modal aes-stub-modal">
+      <button class="modal-close" id="achievements-modal-close" aria-label="Close Achievements modal">×</button>
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="achievements-modal-title">🏆 Achievements</h2>
+      </div>
+      <p class="aes-stub-desc">Track your fitness milestones and earn $BNUT rewards for hitting goals.</p>
+      <ul class="aes-stub-list">
+        <li>🥇 First Workout Logged</li>
+        <li>💧 7-Day Hydration Streak</li>
+        <li>⚖️ Reach Goal Weight</li>
+        <li>🌙 30-Day Sleep Tracker</li>
+        <li>🏋️ 100 Workouts Completed</li>
+      </ul>
+      <p class="aes-stub-coming-soon">🚧 Full achievement tracking &amp; $BNUT rewards coming soon!</p>
+    </div>
+  </div>
+
+  <!-- ── Governance Modal (stub) ────────────────────────────────────────── -->
+  <div id="governance-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="governance-modal-title">
+    <div class="modal aes-stub-modal">
+      <button class="modal-close" id="governance-modal-close" aria-label="Close Governance modal">×</button>
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="governance-modal-title">🗳️ Governance</h2>
+      </div>
+      <p class="aes-stub-desc">$BNUT holders vote on feature roadmap, prize pools, and protocol changes.</p>
+      <div class="aes-stub-actions">
+        <a href="https://snapshot.org/#/" target="_blank" rel="noopener noreferrer" class="aes-stub-link-btn">
+          🗳️ Vote on Snapshot (space coming soon)
+        </a>
+      </div>
+      <ul class="aes-stub-list">
+        <li>📋 Submit feature proposals</li>
+        <li>🔢 Weighted voting by $BNUT balance</li>
+        <li>🏆 DNFT holders get bonus votes</li>
+      </ul>
+      <p class="aes-stub-coming-soon">🚧 On-chain governance contract deploying soon!</p>
+    </div>
+  </div>
+
+  <!-- ── Data Sharing Modal (stub) ──────────────────────────────────────── -->
+  <div id="data-sharing-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="data-sharing-modal-title">
+    <div class="modal aes-stub-modal">
+      <button class="modal-close" id="data-sharing-modal-close" aria-label="Close Data Sharing modal">×</button>
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="data-sharing-modal-title">📊 Data Sharing</h2>
+      </div>
+      <p class="aes-stub-desc">Earn $BNUT by anonymously contributing your health data to community research pools.</p>
+      <ul class="aes-stub-list">
+        <li>🔒 Fully anonymised before sharing</li>
+        <li>💰 Earn $BNUT per data contribution</li>
+        <li>📈 Help build community health insights</li>
+        <li>🌐 Stored on IPFS — you own your data</li>
+      </ul>
+      <p class="aes-stub-coming-soon">🚧 Data sharing &amp; earn programme coming soon!</p>
+    </div>
+  </div>
+
+  <!-- ── Monthly Challenge Modal (stub) ─────────────────────────────────── -->
+  <div id="challenge-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="challenge-modal-title">
+    <div class="modal aes-stub-modal">
+      <button class="modal-close" id="challenge-modal-close" aria-label="Close Monthly Challenge modal">×</button>
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="challenge-modal-title">🏋️ Monthly Challenge</h2>
+      </div>
+      <p class="aes-stub-desc">Enter the monthly fitness lottery! Log workouts &amp; healthy habits to earn tickets. Winners share the $BNUT prize pool.</p>
+      <ul class="aes-stub-list">
+        <li>🎟️ 1 ticket per logged workout</li>
+        <li>💧 Bonus ticket for daily hydration goal</li>
+        <li>⚖️ Bonus ticket for weight check-in</li>
+        <li>🏆 Top 3 wallets share the prize pool</li>
+      </ul>
+      <div class="aes-stub-prize-pool">
+        <img src="img/BigNuten.png" alt="$BNUT" class="aes-stub-pool-icon" />
+        <span>Prize Pool: <strong>TBD $BNUT</strong></span>
+      </div>
+      <p class="aes-stub-coming-soon">🚧 Monthly challenge lottery launching soon!</p>
+    </div>
+  </div>
+
 </body>
 </html>

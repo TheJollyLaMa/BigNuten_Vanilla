@@ -2620,6 +2620,7 @@ if (measurementForm) {
         walletButton.classList.remove('disconnected');
         walletButton.classList.add('connected');
         walletButton.title = `Connected: ${account}`;
+        window._connectedAccount = account;
         console.log(`Connected to ${account}`);
 
         if (WALLET_WHITELIST.includes(account.toLowerCase())) {
@@ -2683,26 +2684,6 @@ if (measurementForm) {
           rotate();
         }
         animateWalletTicker();
-
-        // Show $BNUT balance in wallet hover display using favicon as coin image
-        const walletHoverEl = document.getElementById('walletHoverDisplay');
-        if (walletHoverEl && window.CONTRACTS && window.CONTRACTS.bnut &&
-            window.CONTRACTS.bnut !== '0x0000000000000000000000000000000000000000') {
-          try {
-            const bnutAbi = ['function balanceOf(address account) view returns (uint256)'];
-            const bnutProvider = new ethers.JsonRpcProvider(window.CONTRACTS.rpcUrl);
-            const bnutContract = new ethers.Contract(window.CONTRACTS.bnut, bnutAbi, bnutProvider);
-            const rawBalance = await bnutContract.balanceOf(account);
-            const formatted = parseFloat(ethers.formatUnits(rawBalance, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
-            const { coinImage, symbol } = window.CONTRACTS.bnutToken;
-            walletHoverEl.innerHTML =
-              `<img src="${coinImage}" alt="${symbol}" class="bnut-coin-icon" />` +
-              `<span>${formatted} ${symbol}</span>`;
-            walletHoverEl.style.display = 'flex';
-          } catch (bnutErr) {
-            console.warn('[BNUT] Could not fetch balance:', bnutErr);
-          }
-        }
 
         // Show current weight display and update it once wallet is connected
         document.getElementById('current-weight-display').style.display = 'block';
@@ -3778,11 +3759,15 @@ async function _doBigNutenPurchase(provider, ethers, listingId, btn, setStatus) 
   _loadBigNutenListings();
 }
 
-// --- About Modal Logic ---
+// --- About Modal Logic & Staff of Aesculapius Dropdown ---
 document.addEventListener('DOMContentLoaded', () => {
-  const appTitle       = document.getElementById('app-title');
-  const aboutModal     = document.getElementById('about-modal');
+  const appTitleLeft    = document.getElementById('app-title-left');
+  const aesRight        = document.getElementById('aesculapius-right');
+  const aesDropdown     = document.getElementById('aesculapius-dropdown');
+  const aboutModal      = document.getElementById('about-modal');
   const aboutModalClose = document.getElementById('about-modal-close');
+
+  // ── About modal helpers ───────────────────────────────────────────────────
 
   function openAboutModal(scrollToDnft) {
     if (!aboutModal) return;
@@ -3811,8 +3796,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.remove('modal-active');
   }
 
-  if (appTitle) {
-    appTitle.addEventListener('click', () => openAboutModal(false));
+  if (appTitleLeft) {
+    appTitleLeft.addEventListener('click', () => openAboutModal(false));
   }
 
   if (aboutModalClose) {
@@ -3824,6 +3809,140 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === aboutModal) {
         closeAboutModal();
       }
+    });
+  }
+
+  // ── Staff of Aesculapius dropdown ────────────────────────────────────────
+
+  function openAesDropdown() {
+    if (!aesDropdown) return;
+    aesDropdown.classList.remove('hidden');
+    aesRight && aesRight.setAttribute('aria-expanded', 'true');
+    refreshAesBnutBalance();
+  }
+
+  function closeAesDropdown() {
+    if (!aesDropdown) return;
+    aesDropdown.classList.add('hidden');
+    aesRight && aesRight.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleAesDropdown(e) {
+    e.stopPropagation();
+    if (aesDropdown && aesDropdown.classList.contains('hidden')) {
+      openAesDropdown();
+    } else {
+      closeAesDropdown();
+    }
+  }
+
+  if (aesRight) {
+    aesRight.addEventListener('click', toggleAesDropdown);
+    aesRight.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleAesDropdown(e);
+      }
+      if (e.key === 'Escape') closeAesDropdown();
+    });
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (aesDropdown && !aesDropdown.classList.contains('hidden') &&
+        !aesDropdown.contains(e.target) && e.target !== aesRight) {
+      closeAesDropdown();
+    }
+  });
+
+  // ── $BNUT balance in dropdown ─────────────────────────────────────────────
+
+  async function refreshAesBnutBalance() {
+    const amountEl = document.getElementById('aes-bnut-amount');
+    if (!amountEl) return;
+    const account = window._connectedAccount;
+    if (!account) {
+      amountEl.textContent = 'Connect wallet';
+      return;
+    }
+    if (!window.CONTRACTS || !window.CONTRACTS.bnut ||
+        window.CONTRACTS.bnut === '0x0000000000000000000000000000000000000000') {
+      amountEl.textContent = '—';
+      return;
+    }
+    amountEl.textContent = 'Loading…';
+    try {
+      const bnutAbi = ['function balanceOf(address account) view returns (uint256)'];
+      const bnutProvider = new ethers.JsonRpcProvider(window.CONTRACTS.rpcUrl);
+      const bnutContract = new ethers.Contract(window.CONTRACTS.bnut, bnutAbi, bnutProvider);
+      const rawBalance = await bnutContract.balanceOf(account);
+      const formatted = parseFloat(ethers.formatUnits(rawBalance, 18))
+        .toLocaleString(undefined, { maximumFractionDigits: 2 });
+      const symbol = (window.CONTRACTS.bnutToken && window.CONTRACTS.bnutToken.symbol) || 'BNUT';
+      amountEl.textContent = `${formatted} $${symbol}`;
+    } catch (err) {
+      console.warn('[AES Dropdown] Could not fetch $BNUT balance:', err);
+      const symbol = (window.CONTRACTS.bnutToken && window.CONTRACTS.bnutToken.symbol) || 'BNUT';
+      amountEl.textContent = `— $${symbol}`;
+    }
+  }
+
+  // ── Stub modal helpers ────────────────────────────────────────────────────
+
+  const stubModals = [
+    { btnId: 'aes-achieve-btn',   modalId: 'achievements-modal', closeId: 'achievements-modal-close' },
+    { btnId: 'aes-gov-btn',       modalId: 'governance-modal',   closeId: 'governance-modal-close' },
+    { btnId: 'aes-data-btn',      modalId: 'data-sharing-modal', closeId: 'data-sharing-modal-close' },
+    { btnId: 'aes-challenge-btn', modalId: 'challenge-modal',    closeId: 'challenge-modal-close' },
+  ];
+
+  stubModals.forEach(({ btnId, modalId, closeId }) => {
+    const btn   = document.getElementById(btnId);
+    const modal = document.getElementById(modalId);
+    const close = document.getElementById(closeId);
+
+    if (btn && modal) {
+      btn.addEventListener('click', () => {
+        closeAesDropdown();
+        modal.classList.remove('modal-hidden');
+        document.body.classList.add('modal-active');
+      });
+    }
+    if (close && modal) {
+      close.addEventListener('click', () => {
+        modal.classList.add('modal-hidden');
+        if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
+          document.body.classList.remove('modal-active');
+        }
+      });
+    }
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.add('modal-hidden');
+          if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
+            document.body.classList.remove('modal-active');
+          }
+        }
+      });
+    }
+  });
+
+  // ── Wire up existing DNFT + Subscription buttons in dropdown ─────────────
+
+  const aesDnftBtn = document.getElementById('aes-dnft-btn');
+  if (aesDnftBtn) {
+    aesDnftBtn.addEventListener('click', () => {
+      closeAesDropdown();
+      openAboutModal(true);
+    });
+  }
+
+  const aesSubBtn = document.getElementById('aes-sub-btn');
+  if (aesSubBtn) {
+    aesSubBtn.addEventListener('click', () => {
+      closeAesDropdown();
+      openAboutModal(false);
     });
   }
 });
