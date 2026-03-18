@@ -134,24 +134,58 @@ Examples:
 
 ## Governance
 
-BigNuten uses simple on-chain token-weighted governance via the `BigNutenGovernance` contract.
+BigNuten uses simple on-chain governance via the `BigNutenGov` contract deployed on **Optimism Mainnet**.
+
+### Model
+
+- **Voting**: 1 wallet = 1 vote (sybil-resistant for the early community)
+- **Eligibility**: Must hold ≥ 1 $BNUT token to vote
+- **Proposers**: Only wallets with `PROPOSER_ROLE` (DNFT holders granted by the admin) can create proposals
+- **Admin veto**: `DEFAULT_ADMIN_ROLE` (TheJollyLaMa) has final say — can `enact` or `veto` any finalized result
+- **No auto-execution**: All outcomes are advisory — the admin confirms and acts
+
+### Contract
+
+| Field | Detail |
+|---|---|
+| Contract | `BigNutenGov.sol` |
+| Address (Optimism) | `0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD` |
+| $BNUT Token | `0x733c4d2Aae900E608147dd89Fa93606f89722823` |
+| Min BNUT to vote | 1 $BNUT |
+| Default voting window | 7 days |
 
 ### How It Works
 
-1. **Any $BNUT holder** can view active proposals on the Community Dashboard.
-2. **The owner** creates proposals with a description and voting duration.
-3. **$BNUT holders** (any non-zero balance) cast one vote per proposal — FOR or AGAINST.
-4. After the deadline, **the owner** executes the proposal. The outcome (passed/failed) is recorded on-chain.
-5. The community and owner are expected to honour the outcome of governance votes.
+1. **Any $BNUT holder** can view active proposals in the Governance modal (🗳️ in the ⚕️ dropdown).
+2. **DNFT holders** with `PROPOSER_ROLE` can create proposals via the in-app form.
+3. **$BNUT holders** (≥ 1 token) cast one vote per proposal — YES or NO.
+4. After the deadline, **anyone** can call `finalizeProposal()` (or the admin does it via the admin panel).
+5. **The admin** reviews the tally and marks the proposal as `Enacted` or `Vetoed` with a public note.
 
-### Future Improvements
+### What Can Be Voted On
 
-- Move from owner-executed to fully autonomous proposal execution
-- Weighted voting proportional to BNUT balance
-- Delegation (vote with someone else's BNUT)
-- Integration with OpenZeppelin Governor / Tally
+Community governance proposals may cover:
 
----
+- Feature prioritisation and product roadmap
+- Prize pool and payout rate changes
+- Community data use policies
+- Token reward rates for contributors
+- Protocol parameter changes (e.g. quorum, voting duration)
+
+### What Cannot Be Voted On
+
+- Core security and access control (admin-only)
+- Smart contract upgrades (require deployment)
+- Individual user data
+
+### How to Get $BNUT
+
+- 🎟️ **Buy a Supporter DNFT** — earns $BNUT rewards and grants `PROPOSER_ROLE`
+- 💻 **Contribute code** — merged PRs rewarded by the admin via `mintReward()`
+- 📊 **Share health data** (opt-in) — earn $BNUT for community research contributions
+- ⚙️ **Admin mint** — during startup, TheJollyLaMa can mint test $BNUT to any wallet via the Governance modal Admin Panel
+
+
 
 ## Data Sharing Rewards
 

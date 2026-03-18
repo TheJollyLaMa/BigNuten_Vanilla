@@ -1253,6 +1253,73 @@
         1 wallet = 1 vote · Must hold ≥1 $BNUT · Quorum required for valid results.
       </p>
 
+      <!-- Wallet BNUT balance (shown when connected) -->
+      <p id="gov-wallet-balance" class="gov-wallet-balance" style="display:none;"></p>
+
+      <!-- How to get $BNUT info box -->
+      <details class="gov-info-box">
+        <summary>💡 How to get $BNUT</summary>
+        <div class="gov-info-content">
+          <p>$BNUT is the BigNuten governance &amp; rewards token on <strong>Optimism Mainnet</strong>.</p>
+          <ul>
+            <li>🎟️ <strong>Buy a Supporter DNFT</strong> — DNFT holders earn $BNUT rewards and gain PROPOSER_ROLE.</li>
+            <li>💻 <strong>Contribute code</strong> — merged PRs can be rewarded with $BNUT by the admin.</li>
+            <li>📊 <strong>Share health data</strong> (opt-in) — earn $BNUT for community research contributions.</li>
+            <li>⚙️ <strong>Admin mint</strong> — TheJollyLaMa can mint $BNUT to wallets via the Admin Panel below.</li>
+          </ul>
+          <p class="gov-info-contract">Token: <code>0x733c4d2Aae900E608147dd89Fa93606f89722823</code> (Optimism)</p>
+        </div>
+      </details>
+
+      <!-- ── Admin Panel (visible to DEFAULT_ADMIN_ROLE only) ──────────── -->
+      <div id="gov-admin-panel" class="gov-admin-panel" style="display:none;">
+        <h3 class="gov-admin-panel-title">⚙️ Admin Panel</h3>
+
+        <!-- Mint $BNUT -->
+        <details class="gov-admin-section">
+          <summary>🪙 Mint $BNUT to Wallet</summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">Caller must hold <strong>MINTER_ROLE</strong> on the $BNUT contract.</p>
+            <label class="gov-label">Recipient address
+              <input id="gov-mint-addr" class="gov-input" type="text" placeholder="0x…" />
+            </label>
+            <label class="gov-label">Amount (whole $BNUT)
+              <input id="gov-mint-amount" class="gov-input gov-input-short" type="number" min="1" placeholder="100" />
+            </label>
+            <label class="gov-label">Reason (on-chain note)
+              <input id="gov-mint-reason" class="gov-input" type="text" placeholder="e.g. Governance test mint" />
+            </label>
+            <button id="gov-mint-btn" class="gov-admin-action-btn">🚀 Mint $BNUT</button>
+            <p id="gov-mint-status" class="gov-form-status"></p>
+          </div>
+        </details>
+
+        <!-- Add Proposer -->
+        <details class="gov-admin-section">
+          <summary>🎟️ Grant PROPOSER_ROLE</summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">Grant a DNFT holder the ability to create proposals.</p>
+            <label class="gov-label">Wallet address
+              <input id="gov-add-proposer-addr" class="gov-input" type="text" placeholder="0x…" />
+            </label>
+            <button id="gov-add-proposer-btn" class="gov-admin-action-btn">✅ Grant Role</button>
+            <p id="gov-add-proposer-status" class="gov-form-status"></p>
+          </div>
+        </details>
+
+        <!-- Remove Proposer -->
+        <details class="gov-admin-section">
+          <summary>🚫 Revoke PROPOSER_ROLE</summary>
+          <div class="gov-admin-section-body">
+            <label class="gov-label">Wallet address
+              <input id="gov-rm-proposer-addr" class="gov-input" type="text" placeholder="0x…" />
+            </label>
+            <button id="gov-rm-proposer-btn" class="gov-admin-action-btn gov-admin-danger-btn">🗑️ Revoke Role</button>
+            <p id="gov-rm-proposer-status" class="gov-form-status"></p>
+          </div>
+        </details>
+      </div>
+
       <!-- Create Proposal button — shown only when PROPOSER_ROLE is confirmed -->
       <div id="gov-create-btn-wrapper" class="gov-create-btn-wrapper" style="display:none;">
         <button id="gov-create-btn" class="gov-create-btn">✏️ Create Proposal</button>
