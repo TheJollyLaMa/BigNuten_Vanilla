@@ -55,6 +55,8 @@
         <button class="aes-menu-item" id="aes-gov-btn"       role="menuitem">🗳️ Governance</button>
         <button class="aes-menu-item" id="aes-data-btn"      role="menuitem">📊 Data Sharing</button>
         <button class="aes-menu-item" id="aes-challenge-btn" role="menuitem">🏋️ Monthly Challenge</button>
+        <!-- Payroll button — shown only to treasury owner via JS -->
+        <button class="aes-menu-item" id="aes-payroll-btn" role="menuitem" style="display:none;">💸 Payroll</button>
       </div>
     </div>
     <div id="walletIconWrapper">
@@ -1359,6 +1361,64 @@
       <div id="gov-proposals-container" class="gov-proposals-container">
         <p class="gov-loading">Connect wallet or wait for proposals to load…</p>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Data Sharing Modal (stub) ──────────────────────────────────────── -->
+  <!-- ── Payroll Modal (treasury owner only) ────────────────────────────── -->
+  <div id="payroll-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="payroll-modal-title">
+    <div class="modal gov-modal">
+      <button class="modal-close" id="payroll-modal-close" aria-label="Close Payroll modal">×</button>
+
+      <!-- Header -->
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="payroll-modal-title">💸 Weekly Payroll</h2>
+      </div>
+      <p class="aes-stub-desc">
+        Review and settle all pending $BNUT contributor payouts directly from your wallet.
+        No private key required — MetaMask signs each settlement.
+      </p>
+
+      <!-- Treasury balance -->
+      <p id="payroll-treasury-balance" class="gov-wallet-balance" style="display:none;"></p>
+
+      <!-- Info box -->
+      <details class="gov-info-box">
+        <summary>💡 How payroll works</summary>
+        <div class="gov-info-content">
+          <ol>
+            <li>When a contributor's PR is merged, run the <strong>Bounty Payout</strong> GitHub Actions workflow to queue their payout (no private key needed — just fill in their wallet &amp; BNUT amount).</li>
+            <li>The payout is added to <code>payroll-queue.json</code> in the repo.</li>
+            <li>Come back here once a week, connect MetaMask, and click <strong>Settle Payroll</strong>.</li>
+            <li>MetaMask will ask you to sign a single batch transaction — all contributors are paid at once.</li>
+          </ol>
+          <p>Network: <strong>Optimism Mainnet</strong> · Token: <strong>$BNUT</strong></p>
+        </div>
+      </details>
+
+      <!-- Pending payouts table -->
+      <div id="payroll-pending-section">
+        <h3 class="gov-admin-panel-title">⏳ Pending Payouts</h3>
+        <div id="payroll-pending-list">
+          <p class="gov-loading">Loading queue…</p>
+        </div>
+
+        <div id="payroll-actions" style="display:none; margin-top:1rem; text-align:center;">
+          <button id="payroll-settle-btn" class="gov-admin-action-btn" style="font-size:1rem; padding:0.6rem 1.4rem;">
+            🚀 Settle Payroll
+          </button>
+          <p id="payroll-settle-status" class="gov-form-status" style="margin-top:0.5rem;"></p>
+        </div>
+      </div>
+
+      <!-- Recently settled -->
+      <details id="payroll-settled-section" class="gov-admin-section" style="margin-top:1.5rem;">
+        <summary>✅ Recently Settled</summary>
+        <div id="payroll-settled-list" class="gov-admin-section-body">
+          <p class="gov-loading">Loading…</p>
+        </div>
+      </details>
     </div>
   </div>
 

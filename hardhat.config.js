@@ -2,9 +2,14 @@
 // BigNuten Hardhat Configuration
 //
 // Supports deployment to:
-//   - Polygon Mumbai testnet    (polygon_mumbai)
+//   - Optimism Mainnet          (optimism)          ← primary production network
+//   - Optimism Sepolia testnet  (optimism_sepolia)  ← staging / testing
 //   - Base Sepolia testnet      (base_sepolia)
-//   - Optimism Sepolia testnet  (optimism_sepolia)
+//   - Polygon Mumbai testnet    (polygon_mumbai)
+//
+// The PRIVATE_KEY is only required for contract *deployment* scripts.
+// Day-to-day operations (e.g. payroll settlement) are done through the owner's
+// own MetaMask wallet via the BigNuten UI — no private key stored in CI.
 //
 // Set all required env vars in a local .env file (see .env.example).
 // Never commit your .env file — it is already in .gitignore.
@@ -24,6 +29,11 @@ const POLYGON_RPC_URL =
 const BASE_RPC_URL =
   process.env.BASE_RPC_URL || "https://sepolia.base.org";
 
+// Optimism Mainnet (production) — chain ID 10
+const OPTIMISM_MAINNET_RPC_URL =
+  process.env.OPTIMISM_MAINNET_RPC_URL || "https://mainnet.optimism.io";
+
+// Optimism Sepolia (staging) — chain ID 11155420
 const OPTIMISM_RPC_URL =
   process.env.OPTIMISM_RPC_URL || "https://sepolia.optimism.io";
 
@@ -36,13 +46,26 @@ const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || "";
 module.exports = {
   // ── Solidity Compiler ────────────────────────────────────────────────────
   solidity: {
-    version: "0.8.20",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200, // Optimise for typical deployment + frequent calls balance.
+    compilers: [
+      {
+        version: "0.8.24",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
       },
-    },
+      {
+        version: "0.8.20",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+    ],
   },
 
   // ── Network Definitions ──────────────────────────────────────────────────
@@ -50,6 +73,14 @@ module.exports = {
     // Local Hardhat node — useful for fast unit tests.
     hardhat: {
       chainId: 31337,
+    },
+
+    // Optimism Mainnet (production) — primary target for BigNuten contracts.
+    // Explorer: https://optimistic.etherscan.io
+    optimism: {
+      url: OPTIMISM_MAINNET_RPC_URL,
+      accounts: [PRIVATE_KEY],
+      chainId: 10,
     },
 
     // Polygon Mumbai testnet (MATIC)
@@ -68,7 +99,7 @@ module.exports = {
       chainId: 84532,
     },
 
-    // Optimism Sepolia testnet (ETH)
+    // Optimism Sepolia testnet (ETH) — staging before mainnet deployment.
     // Faucet: https://www.alchemy.com/faucets/optimism-sepolia
     optimism_sepolia: {
       url: OPTIMISM_RPC_URL,
@@ -82,7 +113,9 @@ module.exports = {
   etherscan: {
     apiKey: {
       polygonMumbai: POLYGONSCAN_API_KEY,
-      // Base and Optimism use etherscan-compatible APIs:
+      // Optimism Mainnet uses etherscan-compatible API:
+      optimisticEthereum: ETHERSCAN_API_KEY,
+      // Base and Optimism Sepolia use etherscan-compatible APIs:
       baseSepolia: ETHERSCAN_API_KEY,
       optimismSepolia: ETHERSCAN_API_KEY,
     },

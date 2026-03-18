@@ -71,9 +71,9 @@ jobs:
               '1. Complete the work described in this issue.',
               '2. Open a Pull Request that closes this issue (use `Closes #' + issue.number + '` in the PR body).',
               '3. Once your PR is merged, @TheJollyLaMa will approve the $BNUT payout.',
-              '4. Provide your wallet address (Polygon/Base/Optimism) in the PR or a comment.',
+              '4. Provide your wallet address (Optimism Mainnet) in the PR or a comment.',
               '',
-              '> ℹ️ Payouts are sent in $BNUT via the BigNutenTreasury smart contract.',
+              '> ℹ️ Payouts are sent in $BNUT on **Optimism Mainnet** via the BigNutenTreasury smart contract.',
               `> See [TOKENOMICS.md](https://github.com/${{ github.repository }}/blob/main/docs/TOKENOMICS.md) for full details.`,
             ].join('\n');
 
@@ -150,10 +150,10 @@ jobs:
                 `🎉 PR #${prNumber} by @${prAuthor} has been merged and closes this issue!`,
                 '',
                 amount
-                  ? `💰 **Bounty: ${amount} BNUT** is ready for payout.`
+                  ? `💰 **Bounty: ${amount} BNUT** is ready to be queued for payout.`
                   : '⚠️ No bounty label was found on this issue. Please check manually.',
                 '',
-                `@TheJollyLaMa — please approve the $BNUT payout by running the`,
+                `@TheJollyLaMa — please queue the $BNUT payout by running the`,
                 `[Bounty Payout workflow](../../actions/workflows/bounty-payout.yml) with:`,
                 '',
                 `| Input | Value |`,
@@ -161,6 +161,10 @@ jobs:
                 `| contributor_address | *(contributor's wallet — ask @${prAuthor})* |`,
                 `| amount_bnut | ${amount || '???'} |`,
                 `| issue_number | ${issueNumber} |`,
+                '',
+                `> 💡 Once queued, settle all pending payouts any time by visiting the`,
+                `> [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) and clicking **💸 Payroll**.`,
+                `> No private key required — just connect MetaMask and click **Settle Payroll**!`,
               ].join('\n');
 
               await github.rest.issues.createComment({

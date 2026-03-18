@@ -1,5 +1,6 @@
 import { initDnftPayPalPurchase } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
+import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll } from './treasury.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -4176,4 +4177,181 @@ document.addEventListener('DOMContentLoaded', () => {
       openAboutModal(false);
     });
   }
+
+  // ── Payroll Modal (treasury owner only) ──────────────────────────────────
+
+  (function initPayrollModal() {
+    const payrollBtn   = document.getElementById('aes-payroll-btn');
+    const payrollModal = document.getElementById('payroll-modal');
+    const payrollClose = document.getElementById('payroll-modal-close');
+
+    if (!payrollModal) return;
+
+    // ── Render pending payouts list ───────────────────────────────────────
+
+    function renderPendingList(pending) {
+      const listEl = document.getElementById('payroll-pending-list');
+      const actionsEl = document.getElementById('payroll-actions');
+      if (!listEl) return;
+
+      if (!pending || pending.length === 0) {
+        listEl.innerHTML = '<p class="gov-loading">🎉 No pending payouts — queue is empty!</p>';
+        if (actionsEl) actionsEl.style.display = 'none';
+        return;
+      }
+
+      const rows = pending.map((p, i) => `
+        <div class="gov-admin-section-body" style="margin-bottom:0.5rem; border:1px solid rgba(0,229,255,0.2); border-radius:6px; padding:0.5rem 0.75rem;">
+          <strong>#${i + 1} ${p.issueRef}</strong>
+          ${p.contributorGithub ? `<span style="color:#aaa;"> · @${p.contributorGithub}</span>` : ''}
+          <br/>
+          <span style="color:#00e5ff;">💰 ${p.amount} BNUT</span>
+          &nbsp;→&nbsp;
+          <code style="font-size:0.78em;">${p.contributor}</code>
+          <br/>
+          <span style="color:#888; font-size:0.78em;">Queued ${new Date(p.queuedAt).toLocaleDateString()} by @${p.queuedBy}</span>
+        </div>
+      `).join('');
+
+      listEl.innerHTML = rows;
+      if (actionsEl) actionsEl.style.display = 'block';
+    }
+
+    function renderSettledList(settled) {
+      const listEl = document.getElementById('payroll-settled-list');
+      if (!listEl) return;
+
+      if (!settled || settled.length === 0) {
+        listEl.innerHTML = '<p class="gov-loading">No settled payouts yet.</p>';
+        return;
+      }
+
+      // Show most recent first, max 10 entries.
+      const recent = [...settled].reverse().slice(0, 10);
+      const rows = recent.map(p => {
+        const txLink = p.txHash
+          ? `<a href="https://optimistic.etherscan.io/tx/${p.txHash}" target="_blank" rel="noopener" style="color:#00e5ff;">${p.txHash.slice(0, 12)}…</a>`
+          : '—';
+        return `
+          <div style="margin-bottom:0.4rem; font-size:0.85rem;">
+            <strong>${p.issueRef}</strong> · ${p.amount} BNUT
+            → <code style="font-size:0.78em;">${p.contributor}</code>
+            · ${txLink}
+          </div>
+        `;
+      }).join('');
+
+      listEl.innerHTML = rows;
+    }
+
+    // ── Load queue and populate modal ─────────────────────────────────────
+
+    async function refreshPayrollModal() {
+      const balanceEl = document.getElementById('payroll-treasury-balance');
+
+      try {
+        // Load queue
+        const queue = await loadPayrollQueue();
+        renderPendingList(queue.pending);
+        renderSettledList(queue.settled);
+
+        // Treasury balance (read-only, no wallet needed)
+        const bal = await getTreasuryBalance();
+        if (balanceEl) {
+          balanceEl.textContent = `🏦 Treasury: ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT`;
+          balanceEl.style.display = 'block';
+        }
+      } catch (err) {
+        const listEl = document.getElementById('payroll-pending-list');
+        if (listEl) listEl.innerHTML = `<p style="color:#ff6b6b;">❌ ${err.message}</p>`;
+      }
+    }
+
+    // ── Show Payroll button only to treasury owner ─────────────────────────
+
+    async function maybeShowPayrollButton() {
+      if (!payrollBtn || !window.ethereum) return;
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.send('eth_accounts', []);
+        if (!accounts || accounts.length === 0) return;
+        const isOwner = await isTreasuryOwner(accounts[0]);
+        payrollBtn.style.display = isOwner ? 'block' : 'none';
+      } catch (_) { /* wallet not ready */ }
+    }
+
+    // Run on wallet connect or account change.
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', maybeShowPayrollButton);
+    }
+    // Also check once on load.
+    maybeShowPayrollButton();
+
+    // ── Settle Payroll button ─────────────────────────────────────────────
+
+    const settleBtn    = document.getElementById('payroll-settle-btn');
+    const settleStatus = document.getElementById('payroll-settle-status');
+
+    if (settleBtn) {
+      settleBtn.addEventListener('click', async () => {
+        settleBtn.disabled = true;
+        if (settleStatus) settleStatus.textContent = '⏳ Loading queue…';
+
+        try {
+          const queue = await loadPayrollQueue();
+          if (!queue.pending || queue.pending.length === 0) {
+            if (settleStatus) settleStatus.textContent = '🎉 No pending payouts!';
+            return;
+          }
+
+          if (settleStatus) settleStatus.textContent = `⏳ Sending batch payout for ${queue.pending.length} contributor(s) via MetaMask…`;
+
+          const txHash = await settlePayroll(queue.pending);
+
+          if (settleStatus) {
+            const txUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+            settleStatus.innerHTML = `✅ Settled! <a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View on Optimism Explorer ↗</a>`;
+          }
+
+          // Refresh the list.
+          await refreshPayrollModal();
+        } catch (err) {
+          if (settleStatus) settleStatus.textContent = `❌ ${err.reason || err.message || err}`;
+        } finally {
+          settleBtn.disabled = false;
+        }
+      });
+    }
+
+    // ── Open modal ────────────────────────────────────────────────────────
+
+    if (payrollBtn) {
+      payrollBtn.addEventListener('click', async () => {
+        closeAesDropdown();
+        payrollModal.classList.remove('modal-hidden');
+        document.body.classList.add('modal-active');
+        await refreshPayrollModal();
+      });
+    }
+
+    // ── Close modal ───────────────────────────────────────────────────────
+
+    if (payrollClose) {
+      payrollClose.addEventListener('click', () => {
+        payrollModal.classList.add('modal-hidden');
+        if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
+          document.body.classList.remove('modal-active');
+        }
+      });
+    }
+
+    payrollModal.addEventListener('click', (e) => {
+      if (e.target === payrollModal) {
+        payrollModal.classList.add('modal-hidden');
+        if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
+          document.body.classList.remove('modal-active');
+        }
+      }
+    });
+  })();
 });

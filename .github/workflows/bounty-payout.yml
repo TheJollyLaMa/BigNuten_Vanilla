@@ -1,22 +1,25 @@
 # .github/workflows/bounty-payout.yml
-# BigNuten Bounty Payout Workflow
+# BigNuten Bounty Payout — Queue Workflow
 #
-# Manually triggered by @TheJollyLaMa to approve a $BNUT payout to a contributor
-# after they have completed a bounty issue and their PR has been merged.
+# Manually triggered by @TheJollyLaMa to queue a $BNUT payout after a
+# contributor completes a bounty issue and their PR has been merged.
+#
+# ── No private key required ──────────────────────────────────────────────────
+# This workflow does NOT execute on-chain transactions.  Instead it appends
+# the payout request to `payroll-queue.json` and commits that file back to the
+# repo.  Once a week the owner visits the BigNuten app, connects MetaMask, and
+# clicks "Settle Payroll" — all queued payouts are then sent directly from the
+# owner's wallet (no secret key stored anywhere in CI).
 #
 # Workflow:
-#   1. Owner fills in contributor address, BNUT amount, and issue number
-#   2. Workflow logs the payout details for audit trail
-#   3. Workflow calls payContributor() on the BigNutenTreasury contract on-chain
-#   4. Posts a confirmation comment on the GitHub issue with the transaction hash
+#   1. Owner fills in contributor address, BNUT amount, and issue number.
+#   2. Workflow appends an entry to payroll-queue.json and commits it.
+#   3. Posts a confirmation comment on the GitHub issue.
 #
 # Related issues: #45 (bounty bot), #46 (bounty label system)
 #
-# Required GitHub Secrets (set in repo Settings → Secrets → Actions):
-#   GITHUB_TOKEN              — automatically provided by GitHub Actions
-#   PRIVATE_KEY               — deployer wallet private key (for contract calls)
-#   TREASURY_CONTRACT_ADDRESS — deployed BigNutenTreasury address
-#   POLYGON_RPC_URL           — (or BASE_RPC_URL / OPTIMISM_RPC_URL)
+# Required GitHub Secrets:
+#   GITHUB_TOKEN  — automatically provided by GitHub Actions (no extras needed)
 
 name: Bounty Payout
 
@@ -35,22 +38,17 @@ on:
         description: "GitHub issue number being paid out (e.g. 45)"
         required: true
         type: string
-      network:
-        description: "Target network"
-        required: true
-        default: "polygon_mumbai"
-        type: choice
-        options:
-          - polygon_mumbai
-          - base_sepolia
-          - optimism_sepolia
+      contributor_github:
+        description: "Contributor GitHub username (e.g. octocat) — for the queue record"
+        required: false
+        type: string
 
 jobs:
-  payout:
-    name: Approve $BNUT Payout
+  queue-payout:
+    name: Queue $BNUT Payout
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write   # needed to commit payroll-queue.json
       issues: write
 
     steps:
@@ -58,100 +56,115 @@ jobs:
       - name: Log payout details
         run: |
           echo "════════════════════════════════════"
-          echo "  BigNuten Bounty Payout"
+          echo "  BigNuten Bounty — Queue Payout"
           echo "════════════════════════════════════"
           echo "  Issue number       : #${{ github.event.inputs.issue_number }}"
           echo "  Contributor address: ${{ github.event.inputs.contributor_address }}"
           echo "  BNUT amount        : ${{ github.event.inputs.amount_bnut }} BNUT"
-          echo "  Network            : ${{ github.event.inputs.network }}"
-          echo "  Approved by        : ${{ github.actor }}"
+          echo "  Queued by          : ${{ github.actor }}"
           echo "════════════════════════════════════"
 
-      # ── 2. Checkout repository (needed for scripts/payContributor.js) ─────
+      # ── 2. Checkout repository ─────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # ── 3. Set up Node.js ─────────────────────────────────────────────────
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── 4. Install dependencies ───────────────────────────────────────────
-      - name: Install dependencies
-        run: npm ci
-
-      # ── 5. Execute on-chain payout via payContributor.js ─────────────────
-      - name: Execute on-chain payout
-        id: payout
+      # ── 3. Append entry to payroll-queue.json ─────────────────────────────
+      - name: Update payroll queue
+        id: queue
+        uses: actions/github-script@v7
         env:
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          POLYGON_RPC_URL: ${{ secrets.POLYGON_RPC_URL }}
-          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
-          OPTIMISM_RPC_URL: ${{ secrets.OPTIMISM_RPC_URL }}
-          TREASURY_CONTRACT_ADDRESS: ${{ secrets.TREASURY_CONTRACT_ADDRESS }}
           CONTRIBUTOR_ADDRESS: ${{ github.event.inputs.contributor_address }}
-          BNUT_AMOUNT: ${{ github.event.inputs.amount_bnut }}
-          ISSUE_REF: "TheJollyLaMa/BigNuten_Vanilla#${{ github.event.inputs.issue_number }}"
-        run: |
-          SCRIPT_OUTPUT=$(npx hardhat run scripts/payContributor.js \
-            --network ${{ github.event.inputs.network }} 2>&1)
-          echo "$SCRIPT_OUTPUT"
-          # Extract the 66-character tx hash printed by payContributor.js as "   Tx hash : 0x..."
-          TX_HASH=$(echo "$SCRIPT_OUTPUT" | grep -oP '(?<=Tx hash : )0x[0-9a-fA-F]{64}' || true)
-          if [ -z "$TX_HASH" ]; then
-            echo "::warning::Could not parse transaction hash from script output — check logs above."
-          fi
-          echo "tx_hash=$TX_HASH" >> "$GITHUB_OUTPUT"
+          AMOUNT_BNUT: ${{ github.event.inputs.amount_bnut }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          CONTRIBUTOR_GITHUB: ${{ github.event.inputs.contributor_github }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = 'payroll-queue.json';
 
-      # ── 6. Post confirmation comment on the GitHub issue ──────────────────
-      - name: Post confirmation comment
+            let queue = { pending: [], settled: [] };
+            if (fs.existsSync(path)) {
+              try { queue = JSON.parse(fs.readFileSync(path, 'utf8')); } catch (_) {}
+            }
+            if (!Array.isArray(queue.pending))  queue.pending  = [];
+            if (!Array.isArray(queue.settled))  queue.settled  = [];
+
+            const issueNumber = process.env.ISSUE_NUMBER;
+            const issueRef    = `TheJollyLaMa/BigNuten_Vanilla#${issueNumber}`;
+
+            // Prevent duplicate entries for the same issue.
+            const alreadyQueued = queue.pending.some(e => e.issueRef === issueRef);
+            if (alreadyQueued) {
+              console.log(`⚠️  Issue ${issueRef} is already in the pending queue.`);
+              core.setOutput('already_queued', 'true');
+              return;
+            }
+
+            const entry = {
+              issueRef,
+              contributor: process.env.CONTRIBUTOR_ADDRESS,
+              contributorGithub: process.env.CONTRIBUTOR_GITHUB || '',
+              amount: process.env.AMOUNT_BNUT,
+              queuedAt: new Date().toISOString(),
+              queuedBy: context.actor,
+            };
+
+            queue.pending.push(entry);
+            fs.writeFileSync(path, JSON.stringify(queue, null, 2) + '\n');
+            console.log(`✅  Queued ${entry.amount} BNUT → ${entry.contributor} for ${issueRef}`);
+            core.setOutput('already_queued', 'false');
+
+      # ── 4. Commit updated queue file ───────────────────────────────────────
+      - name: Commit payroll-queue.json
+        if: steps.queue.outputs.already_queued == 'false'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add payroll-queue.json
+          git commit -m "chore: queue BNUT payout for issue #${{ github.event.inputs.issue_number }}"
+          git push
+
+      # ── 5. Post comment on the GitHub issue ───────────────────────────────
+      - name: Post queue confirmation comment
         uses: actions/github-script@v7
         env:
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
           CONTRIBUTOR_ADDRESS: ${{ github.event.inputs.contributor_address }}
           AMOUNT_BNUT: ${{ github.event.inputs.amount_bnut }}
-          NETWORK: ${{ github.event.inputs.network }}
-          TX_HASH: ${{ steps.payout.outputs.tx_hash }}
+          ALREADY_QUEUED: ${{ steps.queue.outputs.already_queued }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const issueNumber = parseInt(process.env.ISSUE_NUMBER, 10);
-            const address = process.env.CONTRIBUTOR_ADDRESS;
-            const amount = process.env.AMOUNT_BNUT;
-            const network = process.env.NETWORK;
-            const approver = context.actor;
-            const txHash = process.env.TX_HASH || '';
+            const address     = process.env.CONTRIBUTOR_ADDRESS;
+            const amount      = process.env.AMOUNT_BNUT;
+            const approver    = context.actor;
+            const alreadyQueued = process.env.ALREADY_QUEUED === 'true';
 
-            const explorerUrls = {
-              polygon_mumbai:   'https://mumbai.polygonscan.com/tx/',
-              base_sepolia:     'https://sepolia.basescan.org/tx/',
-              optimism_sepolia: 'https://sepolia-optimistic.etherscan.io/tx/',
-            };
-            const explorerBase = explorerUrls[network] || '';
-
-            const txLine = txHash
-              ? `| 🔗 Transaction | [${txHash.slice(0, 10)}…](${explorerBase}${txHash}) |`
-              : `| 🔗 Transaction | *Tx hash not captured — the payout likely succeeded; confirm by checking the [workflow run logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})* |`;
-
-            const body = [
-              `✅ **$BNUT Payout Sent** by @${approver}`,
-              '',
-              `| | |`,
-              `|---|---|`,
-              `| 💰 Amount | **${amount} BNUT** |`,
-              `| 👛 Wallet | \`${address}\` |`,
-              `| 🌐 Network | ${network} |`,
-              txLine,
-              `| 🔗 Workflow run | [View run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) |`,
-            ].join('\n');
+            const body = alreadyQueued
+              ? `⚠️ Issue #${issueNumber} was already in the payroll queue — no duplicate entry added.`
+              : [
+                  `⏳ **$BNUT Payout Queued** by @${approver}`,
+                  '',
+                  `| | |`,
+                  `|---|---|`,
+                  `| 💰 Amount | **${amount} BNUT** |`,
+                  `| 👛 Wallet | \`${address}\` |`,
+                  `| 🌐 Network | Optimism Mainnet |`,
+                  `| 📋 Status | Queued — will be settled in the next weekly payroll run |`,
+                  '',
+                  `> 💡 @${approver} — visit the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) and click **💸 Payroll** to settle all pending payouts with MetaMask. No private key required!`,
+                ].join('\n');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo:  context.repo.repo,
               issue_number: issueNumber,
               body,
             });
 
-            console.log(`Payout confirmation comment posted on issue #${issueNumber}`);
+            console.log(`Comment posted on issue #${issueNumber}`);
+
