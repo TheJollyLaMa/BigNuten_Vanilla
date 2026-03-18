@@ -1,5 +1,5 @@
 import { initDnftPayPalPurchase } from './subscription.js';
-import { displayProposals, createProposal, isProposer } from './governance.js';
+import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -3937,27 +3937,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!govBtn || !govModal) return;
 
-    // Open modal + load proposals
+    // Helper: refresh the wallet-aware sections in the modal header
+    async function refreshGovWalletStatus() {
+      const balanceEl   = document.getElementById('gov-wallet-balance');
+      const adminPanel  = document.getElementById('gov-admin-panel');
+      const createWrapper = document.getElementById('gov-create-btn-wrapper');
+
+      if (!window.ethereum) return;
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.send('eth_accounts', []);
+        if (!accounts || accounts.length === 0) return;
+        const addr = accounts[0];
+
+        // BNUT balance
+        const balance = await getBnutBalance(addr);
+        if (balanceEl) {
+          balanceEl.textContent = `💰 Your $BNUT: ${balance.toLocaleString(undefined, { maximumFractionDigits: 4 })}`;
+          balanceEl.style.display = 'block';
+        }
+
+        // Create Proposal button (PROPOSER_ROLE)
+        if (createWrapper) {
+          const canPropose = await isProposer(addr);
+          createWrapper.style.display = canPropose ? 'block' : 'none';
+        }
+
+        // Admin panel (DEFAULT_ADMIN_ROLE)
+        if (adminPanel) {
+          const adminStatus = await isAdmin(addr);
+          adminPanel.style.display = adminStatus ? 'block' : 'none';
+        }
+      } catch (_) { /* wallet not ready */ }
+    }
+
+    // Open modal + load proposals + refresh wallet status
     govBtn.addEventListener('click', async () => {
       closeAesDropdown();
       govModal.classList.remove('modal-hidden');
       document.body.classList.add('modal-active');
 
-      // Load proposals into the container
-      await displayProposals('gov-proposals-container');
-
-      // Show "Create Proposal" button only for PROPOSER_ROLE holders
-      const createWrapper = document.getElementById('gov-create-btn-wrapper');
-      if (createWrapper && window.ethereum) {
-        try {
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          const accounts = await provider.send('eth_accounts', []);
-          if (accounts && accounts.length > 0) {
-            const canPropose = await isProposer(accounts[0]);
-            createWrapper.style.display = canPropose ? 'block' : 'none';
-          }
-        } catch (_) { /* wallet not connected — keep hidden */ }
-      }
+      // Run in parallel
+      await Promise.all([
+        displayProposals('gov-proposals-container'),
+        refreshGovWalletStatus(),
+      ]);
     });
 
     // Close button
@@ -4036,6 +4060,100 @@ document.addEventListener('DOMContentLoaded', () => {
           if (formStatus) formStatus.textContent = `❌ Failed: ${err.reason || err.message || err}`;
         } finally {
           submitBtn.disabled = false;
+        }
+      });
+    }
+
+    // ── Admin Panel — Mint $BNUT ──────────────────────────────────────────
+    const mintBtn    = document.getElementById('gov-mint-btn');
+    const mintStatus = document.getElementById('gov-mint-status');
+
+    if (mintBtn) {
+      mintBtn.addEventListener('click', async () => {
+        const toAddr = (document.getElementById('gov-mint-addr')?.value || '').trim();
+        const amount = Number(document.getElementById('gov-mint-amount')?.value || 0);
+        const reason = (document.getElementById('gov-mint-reason')?.value || '').trim();
+
+        if (!toAddr || !toAddr.startsWith('0x') || toAddr.length !== 42) {
+          if (mintStatus) mintStatus.textContent = '⚠️ Enter a valid wallet address.';
+          return;
+        }
+        if (!amount || amount <= 0) {
+          if (mintStatus) mintStatus.textContent = '⚠️ Enter a positive amount.';
+          return;
+        }
+
+        mintBtn.disabled = true;
+        if (mintStatus) mintStatus.textContent = '⏳ Minting…';
+
+        try {
+          const txHash = await mintBnutToAddress(toAddr, amount, reason || 'Admin mint');
+          if (mintStatus) mintStatus.textContent = `✅ Minted ${amount} $BNUT! Tx: ${txHash.slice(0, 18)}…`;
+          document.getElementById('gov-mint-addr').value   = '';
+          document.getElementById('gov-mint-amount').value = '';
+          document.getElementById('gov-mint-reason').value = '';
+          // Refresh balance
+          await refreshGovWalletStatus();
+        } catch (err) {
+          if (mintStatus) mintStatus.textContent = `❌ Mint failed: ${err.reason || err.message || err}`;
+        } finally {
+          mintBtn.disabled = false;
+        }
+      });
+    }
+
+    // ── Admin Panel — Add Proposer ────────────────────────────────────────
+    const addProposerBtn    = document.getElementById('gov-add-proposer-btn');
+    const addProposerStatus = document.getElementById('gov-add-proposer-status');
+
+    if (addProposerBtn) {
+      addProposerBtn.addEventListener('click', async () => {
+        const addr = (document.getElementById('gov-add-proposer-addr')?.value || '').trim();
+
+        if (!addr || !addr.startsWith('0x') || addr.length !== 42) {
+          if (addProposerStatus) addProposerStatus.textContent = '⚠️ Enter a valid wallet address.';
+          return;
+        }
+
+        addProposerBtn.disabled = true;
+        if (addProposerStatus) addProposerStatus.textContent = '⏳ Granting PROPOSER_ROLE…';
+
+        try {
+          const txHash = await addProposer(addr);
+          if (addProposerStatus) addProposerStatus.textContent = `✅ Proposer added! Tx: ${txHash.slice(0, 18)}…`;
+          document.getElementById('gov-add-proposer-addr').value = '';
+        } catch (err) {
+          if (addProposerStatus) addProposerStatus.textContent = `❌ Failed: ${err.reason || err.message || err}`;
+        } finally {
+          addProposerBtn.disabled = false;
+        }
+      });
+    }
+
+    // ── Admin Panel — Remove Proposer ─────────────────────────────────────
+    const rmProposerBtn    = document.getElementById('gov-rm-proposer-btn');
+    const rmProposerStatus = document.getElementById('gov-rm-proposer-status');
+
+    if (rmProposerBtn) {
+      rmProposerBtn.addEventListener('click', async () => {
+        const addr = (document.getElementById('gov-rm-proposer-addr')?.value || '').trim();
+
+        if (!addr || !addr.startsWith('0x') || addr.length !== 42) {
+          if (rmProposerStatus) rmProposerStatus.textContent = '⚠️ Enter a valid wallet address.';
+          return;
+        }
+
+        rmProposerBtn.disabled = true;
+        if (rmProposerStatus) rmProposerStatus.textContent = '⏳ Revoking PROPOSER_ROLE…';
+
+        try {
+          const txHash = await removeProposer(addr);
+          if (rmProposerStatus) rmProposerStatus.textContent = `✅ Proposer removed! Tx: ${txHash.slice(0, 18)}…`;
+          document.getElementById('gov-rm-proposer-addr').value = '';
+        } catch (err) {
+          if (rmProposerStatus) rmProposerStatus.textContent = `❌ Failed: ${err.reason || err.message || err}`;
+        } finally {
+          rmProposerBtn.disabled = false;
         }
       });
     }

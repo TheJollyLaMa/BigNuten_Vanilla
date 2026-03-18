@@ -2508,3 +2508,210 @@ svg text {
   color: #c0e8ff;
   min-height: 1.2em;
 }
+
+/* Wallet balance display in modal header */
+.gov-wallet-balance {
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #00e5ff;
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+/* How to get $BNUT info box */
+.gov-info-box {
+  background: rgba(0, 0, 40, 0.5);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.83rem;
+  color: #9ec8e0;
+}
+
+.gov-info-box summary {
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  color: #7ecfff;
+  font-weight: 600;
+  user-select: none;
+  list-style: none;
+}
+
+.gov-info-box summary::-webkit-details-marker { display: none; }
+
+.gov-info-content {
+  padding: 0.5rem 0.75rem 0.75rem;
+  border-top: 1px solid rgba(0, 229, 255, 0.12);
+}
+
+.gov-info-content ul {
+  margin: 0.35rem 0 0.5rem;
+  padding-left: 1.2rem;
+}
+
+.gov-info-content li {
+  margin-bottom: 0.3rem;
+}
+
+.gov-info-contract {
+  font-size: 0.75rem;
+  color: #5898b0;
+  word-break: break-all;
+  margin: 0;
+}
+
+.gov-info-contract code {
+  background: rgba(0,0,0,0.3);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* Admin panel */
+.gov-admin-panel {
+  background: rgba(120, 60, 255, 0.07);
+  border: 1px solid rgba(160, 112, 255, 0.35);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.gov-admin-panel-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.92rem;
+  color: #a070ff;
+  font-weight: 700;
+}
+
+.gov-admin-section {
+  background: rgba(0, 0, 30, 0.4);
+  border: 1px solid rgba(160, 112, 255, 0.2);
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  font-size: 0.83rem;
+  color: #c8b8ff;
+}
+
+.gov-admin-section summary {
+  cursor: pointer;
+  padding: 0.45rem 0.65rem;
+  color: #b8aaff;
+  font-weight: 600;
+  user-select: none;
+  list-style: none;
+}
+
+.gov-admin-section summary::-webkit-details-marker { display: none; }
+
+.gov-admin-section-body {
+  padding: 0.5rem 0.65rem 0.65rem;
+  border-top: 1px solid rgba(160, 112, 255, 0.15);
+}
+
+.gov-admin-hint {
+  font-size: 0.78rem;
+  color: #7e60c0;
+  margin: 0 0 0.5rem;
+  font-style: italic;
+}
+
+.gov-admin-action-btn {
+  background: rgba(120, 60, 255, 0.2);
+  border: 1px solid rgba(160, 112, 255, 0.5);
+  color: #c8b8ff;
+  padding: 0.35rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 0.4rem;
+  transition: background 0.2s;
+}
+
+.gov-admin-action-btn:hover {
+  background: rgba(120, 60, 255, 0.4);
+}
+
+.gov-admin-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gov-admin-danger-btn {
+  border-color: rgba(255, 80, 80, 0.5);
+  color: #ff9090;
+  background: rgba(255, 80, 80, 0.1);
+}
+
+.gov-admin-danger-btn:hover {
+  background: rgba(255, 80, 80, 0.25);
+}
+
+/* Admin controls on proposal cards */
+.gov-admin-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(160, 112, 255, 0.2);
+}
+
+.gov-admin-label {
+  font-size: 0.72rem;
+  color: #7e60c0;
+  font-weight: 600;
+}
+
+.gov-finalize-btn {
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  color: #00e5ff;
+  padding: 0.25rem 0.7rem;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.gov-finalize-btn:hover { background: rgba(0, 229, 255, 0.22); }
+
+.gov-enact-btn {
+  background: rgba(120, 60, 255, 0.12);
+  border: 1px solid rgba(160, 112, 255, 0.5);
+  color: #a070ff;
+  padding: 0.25rem 0.7rem;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.gov-enact-btn:hover { background: rgba(120, 60, 255, 0.3); }
+
+.gov-veto-btn {
+  background: rgba(255, 140, 0, 0.1);
+  border: 1px solid rgba(255, 140, 0, 0.4);
+  color: #ff8c00;
+  padding: 0.25rem 0.7rem;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.gov-veto-btn:hover { background: rgba(255, 140, 0, 0.25); }
+
+.gov-finalize-btn:disabled,
+.gov-enact-btn:disabled,
+.gov-veto-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
