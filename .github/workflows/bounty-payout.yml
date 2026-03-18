@@ -7,8 +7,8 @@
 # Workflow:
 #   1. Owner fills in contributor address, BNUT amount, and issue number
 #   2. Workflow logs the payout details for audit trail
-#   3. Workflow posts a confirmation comment on the GitHub issue
-#   4. TODO (#45): Trigger the actual on-chain payContributor() contract call
+#   3. Workflow calls payContributor() on the BigNutenTreasury contract on-chain
+#   4. Posts a confirmation comment on the GitHub issue with the transaction hash
 #
 # Related issues: #45 (bounty bot), #46 (bounty label system)
 #
@@ -82,34 +82,69 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # ── 5. Post confirmation comment on the GitHub issue ──────────────────
+      # ── 5. Execute on-chain payout via payContributor.js ─────────────────
+      - name: Execute on-chain payout
+        id: payout
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          POLYGON_RPC_URL: ${{ secrets.POLYGON_RPC_URL }}
+          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+          OPTIMISM_RPC_URL: ${{ secrets.OPTIMISM_RPC_URL }}
+          TREASURY_CONTRACT_ADDRESS: ${{ secrets.TREASURY_CONTRACT_ADDRESS }}
+          CONTRIBUTOR_ADDRESS: ${{ github.event.inputs.contributor_address }}
+          BNUT_AMOUNT: ${{ github.event.inputs.amount_bnut }}
+          ISSUE_REF: "TheJollyLaMa/BigNuten_Vanilla#${{ github.event.inputs.issue_number }}"
+        run: |
+          SCRIPT_OUTPUT=$(npx hardhat run scripts/payContributor.js \
+            --network ${{ github.event.inputs.network }} 2>&1)
+          echo "$SCRIPT_OUTPUT"
+          # Extract the 66-character tx hash printed by payContributor.js as "   Tx hash : 0x..."
+          TX_HASH=$(echo "$SCRIPT_OUTPUT" | grep -oP '(?<=Tx hash : )0x[0-9a-fA-F]{64}' || true)
+          if [ -z "$TX_HASH" ]; then
+            echo "::warning::Could not parse transaction hash from script output — check logs above."
+          fi
+          echo "tx_hash=$TX_HASH" >> "$GITHUB_OUTPUT"
+
+      # ── 6. Post confirmation comment on the GitHub issue ──────────────────
       - name: Post confirmation comment
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          CONTRIBUTOR_ADDRESS: ${{ github.event.inputs.contributor_address }}
+          AMOUNT_BNUT: ${{ github.event.inputs.amount_bnut }}
+          NETWORK: ${{ github.event.inputs.network }}
+          TX_HASH: ${{ steps.payout.outputs.tx_hash }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const issueNumber = parseInt('${{ github.event.inputs.issue_number }}', 10);
-            const address = '${{ github.event.inputs.contributor_address }}';
-            const amount = '${{ github.event.inputs.amount_bnut }}';
-            const network = '${{ github.event.inputs.network }}';
-            const approver = '${{ github.actor }}';
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER, 10);
+            const address = process.env.CONTRIBUTOR_ADDRESS;
+            const amount = process.env.AMOUNT_BNUT;
+            const network = process.env.NETWORK;
+            const approver = context.actor;
+            const txHash = process.env.TX_HASH || '';
+
+            const explorerUrls = {
+              polygon_mumbai:   'https://mumbai.polygonscan.com/tx/',
+              base_sepolia:     'https://sepolia.basescan.org/tx/',
+              optimism_sepolia: 'https://sepolia-optimistic.etherscan.io/tx/',
+            };
+            const explorerBase = explorerUrls[network] || '';
+
+            const txLine = txHash
+              ? `| 🔗 Transaction | [${txHash.slice(0, 10)}…](${explorerBase}${txHash}) |`
+              : `| 🔗 Transaction | *Tx hash not captured — the payout likely succeeded; confirm by checking the [workflow run logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})* |`;
 
             const body = [
-              `✅ **$BNUT Payout Approved** by @${approver}`,
+              `✅ **$BNUT Payout Sent** by @${approver}`,
               '',
               `| | |`,
               `|---|---|`,
               `| 💰 Amount | **${amount} BNUT** |`,
               `| 👛 Wallet | \`${address}\` |`,
               `| 🌐 Network | ${network} |`,
-              `| 🔗 Workflow run | [View run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) |`,
-              '',
-              // TODO (#45): Replace the line below with a link to the actual
-              //             on-chain transaction hash once the contract call
-              //             in step 6 is implemented.
-              '> ⏳ **TODO (#45):** On-chain transfer via `payContributor()` not yet automated.',
-              '> The contract call will be added in issue #45.',
-              '> Please trigger the payout manually via `scripts/payContributor.js` until then.',
+              txLine,
+              `| 🔗 Workflow run | [View run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) |`,
             ].join('\n');
 
             await github.rest.issues.createComment({
@@ -120,24 +155,3 @@ jobs:
             });
 
             console.log(`Payout confirmation comment posted on issue #${issueNumber}`);
-
-      # ── 6. TODO (#45): Wire up the on-chain payout via payContributor.js ───
-      # The script (scripts/payContributor.js) and contract (BigNutenTreasury.sol)
-      # are ready. What remains for issue #45 is:
-      #   a) Deploy contracts and add TREASURY_CONTRACT_ADDRESS / PRIVATE_KEY secrets
-      #   b) Uncomment the step below and test end-to-end on a testnet
-      #   c) Add error handling and post the tx hash back to the issue comment
-      #
-      # - name: Execute on-chain payout
-      #   env:
-      #     PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-      #     POLYGON_RPC_URL: ${{ secrets.POLYGON_RPC_URL }}
-      #     BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
-      #     OPTIMISM_RPC_URL: ${{ secrets.OPTIMISM_RPC_URL }}
-      #     TREASURY_CONTRACT_ADDRESS: ${{ secrets.TREASURY_CONTRACT_ADDRESS }}
-      #     CONTRIBUTOR_ADDRESS: ${{ github.event.inputs.contributor_address }}
-      #     BNUT_AMOUNT: ${{ github.event.inputs.amount_bnut }}
-      #     ISSUE_REF: "TheJollyLaMa/BigNuten_Vanilla#${{ github.event.inputs.issue_number }}"
-      #   run: |
-      #     npx hardhat run scripts/payContributor.js \
-      #       --network ${{ github.event.inputs.network }}

@@ -161,11 +161,6 @@ jobs:
                 `| contributor_address | *(contributor's wallet — ask @${prAuthor})* |`,
                 `| amount_bnut | ${amount || '???'} |`,
                 `| issue_number | ${issueNumber} |`,
-                '',
-                // TODO (#45): Once the payContributor.js script is wired into the
-                //             workflow, this step will trigger automatically.
-                '> **TODO (#45):** Wire up the actual `payContributor()` contract call',
-                '> in `bounty-payout.yml` so payouts happen automatically on approval.',
               ].join('\n');
 
               await github.rest.issues.createComment({
