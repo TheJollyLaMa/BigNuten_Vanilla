@@ -4024,13 +4024,11 @@ document.addEventListener('DOMContentLoaded', () => {
             durDays
           );
           if (formStatus) formStatus.textContent = `✅ Proposal #${newId} created!`;
-          // Clear form
-          ['gov-input-title','gov-input-desc','gov-input-yes','gov-input-no'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
+          // Clear form inputs
+          createForm.querySelectorAll('input, textarea').forEach(el => {
+            if (el.id === 'gov-input-duration') el.value = '7';
+            else el.value = '';
           });
-          const durEl = document.getElementById('gov-input-duration');
-          if (durEl) durEl.value = '7';
           // Refresh proposals list
           await displayProposals('gov-proposals-container');
           createForm.style.display = 'none';

@@ -179,8 +179,9 @@ export async function createProposal(
     GOVERNANCE_ABI,
     signer
   );
+  const SECONDS_PER_DAY = 86400;
   const durationSec =
-    durationDays > 0 ? Math.floor(durationDays) * 86400 : 0;
+    durationDays > 0 ? Math.floor(durationDays) * SECONDS_PER_DAY : 0;
   console.log("[governance.js] Creating proposal:", title);
   const tx = await contract.createProposal(
     title,
@@ -377,6 +378,7 @@ export async function displayProposals(containerId) {
       if (!btn) return;
       const proposalId = Number(btn.dataset.id);
       const voteYes = btn.dataset.vote === "yes";
+      const originalText = btn.textContent;
 
       btn.disabled = true;
       btn.textContent = "⏳ Submitting…";
@@ -389,12 +391,10 @@ export async function displayProposals(containerId) {
         await displayProposals(containerId);
       } catch (err) {
         btn.disabled = false;
-        btn.textContent = voteYes
-          ? `✅ ${btn.closest(".proposal-card").querySelector(".gov-btn-yes")?.textContent || "Yes"}`
-          : `❌ ${btn.closest(".proposal-card")?.querySelector(".gov-btn-no")?.textContent || "No"}`;
+        btn.textContent = originalText;
         alert(`❌ Vote failed: ${err.reason || err.message || err}`);
       }
-    }, { once: true });
+    });
 
   } catch (err) {
     container.innerHTML = `<p class="gov-error">⚠️ Failed to load proposals: ${_sanitize(err.message)}</p>`;
