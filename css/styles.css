@@ -2066,8 +2066,7 @@ svg text {
 .aes-bnut-icon {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
-  object-fit: cover;
+  object-fit: contain;
   filter: drop-shadow(0 0 6px #00e5ff);
   animation: shimmer-spin 8s linear infinite;
 }
@@ -2127,8 +2126,7 @@ svg text {
 .aes-stub-logo {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
-  object-fit: cover;
+  object-fit: contain;
   filter: drop-shadow(0 0 8px #00e5ff);
   animation: shimmer-spin 8s linear infinite;
 }

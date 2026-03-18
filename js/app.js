@@ -2685,26 +2685,6 @@ if (measurementForm) {
         }
         animateWalletTicker();
 
-        // Show $BNUT balance in wallet hover display using favicon as coin image
-        const walletHoverEl = document.getElementById('walletHoverDisplay');
-        if (walletHoverEl && window.CONTRACTS && window.CONTRACTS.bnut &&
-            window.CONTRACTS.bnut !== '0x0000000000000000000000000000000000000000') {
-          try {
-            const bnutAbi = ['function balanceOf(address account) view returns (uint256)'];
-            const bnutProvider = new ethers.JsonRpcProvider(window.CONTRACTS.rpcUrl);
-            const bnutContract = new ethers.Contract(window.CONTRACTS.bnut, bnutAbi, bnutProvider);
-            const rawBalance = await bnutContract.balanceOf(account);
-            const formatted = parseFloat(ethers.formatUnits(rawBalance, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 });
-            const { coinImage, symbol } = window.CONTRACTS.bnutToken;
-            walletHoverEl.innerHTML =
-              `<img src="${coinImage}" alt="${symbol}" class="bnut-coin-icon" />` +
-              `<span>${formatted} ${symbol}</span>`;
-            walletHoverEl.style.display = 'flex';
-          } catch (bnutErr) {
-            console.warn('[BNUT] Could not fetch balance:', bnutErr);
-          }
-        }
-
         // Show current weight display and update it once wallet is connected
         document.getElementById('current-weight-display').style.display = 'block';
         displayCurrentWeight();
