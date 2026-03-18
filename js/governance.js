@@ -1,119 +1,254 @@
 /**
  * js/governance.js
- * BigNuten Governance Frontend Module
+ * BigNuten In-App Governance Module
  *
- * Handles on-chain governance interactions for the BigNuten community:
- *   - Loading active proposals from the BigNutenGovernance contract
- *   - Casting votes via MetaMask
- *   - Rendering proposals to a DOM element for the community dashboard
+ * Handles on-chain governance for BigNutenGov contract on Optimism Mainnet:
+ *   - Loading proposals via getAllProposals()
+ *   - Casting votes via castVote(proposalId, voteYes)
+ *   - Creating proposals via createProposal() (PROPOSER_ROLE only)
+ *   - Rendering proposals to the governance modal DOM
  *
- * Related issue: #47 — Deploy $BNUT-Based Community Governance System.
+ * Contract: 0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD (Optimism)
+ * Related issue: #47 — Build In-App Governance Contract & Modal
  *
  * Prerequisites (loaded in index.html before this module):
  *   - ethers.js v6 (via CDN)
+ *   - js/contracts.js (sets window.GOVERNANCE_CONTRACT_ADDRESS)
  *   - MetaMask or another EIP-1193 browser wallet
- *
- * Usage (ES module):
- *   import { loadProposals, castVote, displayProposals } from './governance.js';
  */
 
-// ─── Contract ABI (minimal — only the functions we call) ──────────────────────
+// ─── Minimal ABI (only the functions and events we call) ─────────────────────
 
-/** Minimal ABI for the BigNutenGovernance contract. */
 const GOVERNANCE_ABI = [
-  // View functions
-  "function proposalCount() view returns (uint256)",
-  "function getProposal(uint256 proposalId) view returns (tuple(uint256 id, string description, uint256 voteFor, uint256 voteAgainst, uint256 deadline, bool executed))",
+  // View
+  "function getAllProposals() view returns (tuple(uint256 id, address proposer, string title, string description, string optionYes, string optionNo, uint256 deadline, uint256 yesVotes, uint256 noVotes, uint8 state, string adminNote)[])",
   "function hasVoted(uint256 proposalId, address voter) view returns (bool)",
-  // State-changing functions
-  "function vote(uint256 proposalId, bool support)",
-  // Events (for log filtering — optional)
-  "event Voted(uint256 indexed proposalId, address indexed voter, bool support)",
-  "event ProposalCreated(uint256 indexed proposalId, string description, uint256 deadline)",
+  "function canVote(address voter) view returns (bool)",
+  "function quorum() view returns (uint256)",
+  "function PROPOSER_ROLE() view returns (bytes32)",
+  "function hasRole(bytes32 role, address account) view returns (bool)",
+  // State-changing
+  "function castVote(uint256 proposalId, bool voteYes)",
+  "function createProposal(string title, string description, string optionYes, string optionNo, uint256 duration) returns (uint256)",
+  // Events
+  "event VoteCast(uint256 indexed proposalId, address indexed voter, bool voteYes)",
+  "event ProposalCreated(uint256 indexed id, address indexed proposer, string title, uint256 deadline)",
 ];
+
+// ─── Proposal state enum (must match BigNutenGov.sol) ────────────────────────
+const PROPOSAL_STATE = {
+  0: { label: "Active",  emoji: "🗳️",  cssClass: "badge-active"  },
+  1: { label: "Passed",  emoji: "✅",  cssClass: "badge-passed"  },
+  2: { label: "Failed",  emoji: "❌",  cssClass: "badge-failed"  },
+  3: { label: "Enacted", emoji: "⚡",  cssClass: "badge-enacted" },
+  4: { label: "Vetoed",  emoji: "🚫",  cssClass: "badge-vetoed"  },
+};
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-/**
- * Governance contract address — update after deploying BigNutenGovernance.sol.
- * In production, inject this value server-side or read from a config endpoint.
- */
 const GOVERNANCE_CONTRACT_ADDRESS =
   window.GOVERNANCE_CONTRACT_ADDRESS ||
-  "0x0000000000000000000000000000000000000000";
+  "0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD";
+
+const OPTIMISM_RPC_URL =
+  (window.CONTRACTS && window.CONTRACTS.rpcUrl) ||
+  "https://mainnet.optimism.io";
 
 // ─── Internal Helpers ─────────────────────────────────────────────────────────
 
-/**
- * Returns a read-only ethers.js provider backed by MetaMask's injected provider.
- * Falls back to a JSON-RPC provider if MetaMask is unavailable (read-only mode).
- *
- * @returns {import('ethers').Provider}
- */
 function _getProvider() {
   if (window.ethereum) {
     return new ethers.BrowserProvider(window.ethereum);
   }
-  // Fallback: configurable public RPC for reading data without a wallet.
-  // Set window.FALLBACK_RPC_URL in your page to match the network your
-  // contracts are deployed on (Polygon, Base, Optimism, etc.).
-  const fallbackRpc = window.FALLBACK_RPC_URL || "https://polygon-rpc.com";
   console.warn(
-    `[governance.js] MetaMask not found — using fallback RPC (${fallbackRpc}). Voting will not be available.`
+    "[governance.js] MetaMask not found — using read-only Optimism RPC. Voting unavailable."
   );
-  return new ethers.JsonRpcProvider(fallbackRpc);
+  return new ethers.JsonRpcProvider(OPTIMISM_RPC_URL);
 }
 
-/**
- * Returns an ethers.js Signer for the currently connected MetaMask account.
- * Prompts the user to connect their wallet if not already connected.
- *
- * @returns {Promise<import('ethers').Signer>}
- */
 async function _getSigner() {
   if (!window.ethereum) {
-    throw new Error(
-      "MetaMask is required to vote. Install it at https://metamask.io"
-    );
+    throw new Error("MetaMask is required. Install it at https://metamask.io");
   }
   const provider = new ethers.BrowserProvider(window.ethereum);
   await provider.send("eth_requestAccounts", []);
   return provider.getSigner();
 }
 
-/**
- * Formats a Unix timestamp into a human-readable local date/time string.
- *
- * @param {bigint|number} timestamp - Unix timestamp in seconds.
- * @returns {string} Formatted date string.
- */
-function _formatDeadline(timestamp) {
-  return new Date(Number(timestamp) * 1000).toLocaleString();
+function _sanitize(str) {
+  const d = document.createElement("div");
+  d.textContent = String(str || "");
+  return d.innerHTML;
 }
 
-// ─── Exported Functions ───────────────────────────────────────────────────────
+// ─── Exported: loadProposals ──────────────────────────────────────────────────
 
 /**
- * Fetches all proposals from the BigNutenGovernance contract and returns
- * them as an array of plain objects sorted by deadline (most recent first).
+ * Fetch all proposals from the contract.
+ * Returns an array of normalised plain objects sorted open-first, then by
+ * deadline descending.
  *
- * Only proposals that exist (deadline !== 0) are included.
- *
- * @returns {Promise<Array<{
- *   id: number,
- *   description: string,
- *   voteFor: number,
- *   voteAgainst: number,
- *   deadline: Date,
- *   executed: boolean,
- *   isOpen: boolean
- * }>>} Array of proposal objects.
- *
- * @example
- *   const proposals = await loadProposals();
- *   proposals.forEach(p => console.log(p.description, p.isOpen ? 'OPEN' : 'CLOSED'));
+ * @returns {Promise<Array>}
  */
 export async function loadProposals() {
+  const provider = _getProvider();
+  const contract = new ethers.Contract(
+    GOVERNANCE_CONTRACT_ADDRESS,
+    GOVERNANCE_ABI,
+    provider
+  );
+
+  const raw = await contract.getAllProposals();
+  const now = Date.now();
+
+  return [...raw]
+    .map((p) => {
+      const deadlineMs = Number(p.deadline) * 1000;
+      const stateNum = Number(p.state);
+      return {
+        id:          Number(p.id),
+        proposer:    p.proposer,
+        title:       p.title,
+        description: p.description,
+        optionYes:   p.optionYes,
+        optionNo:    p.optionNo,
+        deadline:    new Date(deadlineMs),
+        yesVotes:    Number(p.yesVotes),
+        noVotes:     Number(p.noVotes),
+        state:       stateNum,
+        adminNote:   p.adminNote,
+        isActive:    stateNum === 0 && deadlineMs > now,
+      };
+    })
+    .sort((a, b) => {
+      // Active proposals first, then by deadline descending.
+      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+      return b.deadline - a.deadline;
+    });
+}
+
+// ─── Exported: castVote ───────────────────────────────────────────────────────
+
+/**
+ * Cast a YES or NO vote on a proposal via MetaMask.
+ * Wallet must hold >= minBnutToVote $BNUT (enforced on-chain).
+ *
+ * @param {number}  proposalId
+ * @param {boolean} voteYes  – true = YES, false = NO
+ * @returns {Promise<string>} transaction hash
+ */
+export async function castVote(proposalId, voteYes) {
+  const signer = await _getSigner();
+  const contract = new ethers.Contract(
+    GOVERNANCE_CONTRACT_ADDRESS,
+    GOVERNANCE_ABI,
+    signer
+  );
+  console.log(
+    `[governance.js] Casting ${voteYes ? "YES" : "NO"} on proposal #${proposalId}…`
+  );
+  const tx = await contract.castVote(proposalId, voteYes);
+  console.log("[governance.js] Vote tx:", tx.hash);
+  await tx.wait();
+  console.log("[governance.js] Vote confirmed.");
+  return tx.hash;
+}
+
+// ─── Exported: createProposal ─────────────────────────────────────────────────
+
+/**
+ * Create a new governance proposal (PROPOSER_ROLE only).
+ *
+ * @param {string} title
+ * @param {string} description
+ * @param {string} optionYes   – label for YES vote
+ * @param {string} optionNo    – label for NO vote
+ * @param {number} durationDays – voting window in days (0 = contract default 7d)
+ * @returns {Promise<number>} new proposal ID
+ */
+export async function createProposal(
+  title,
+  description,
+  optionYes,
+  optionNo,
+  durationDays
+) {
+  const signer = await _getSigner();
+  const contract = new ethers.Contract(
+    GOVERNANCE_CONTRACT_ADDRESS,
+    GOVERNANCE_ABI,
+    signer
+  );
+  const durationSec =
+    durationDays > 0 ? Math.floor(durationDays) * 86400 : 0;
+  console.log("[governance.js] Creating proposal:", title);
+  const tx = await contract.createProposal(
+    title,
+    description,
+    optionYes,
+    optionNo,
+    durationSec
+  );
+  const receipt = await tx.wait();
+  console.log("[governance.js] Proposal created. Tx:", tx.hash);
+  // Parse ProposalCreated event to get the new ID.
+  const iface = new ethers.Interface(GOVERNANCE_ABI);
+  for (const log of receipt.logs) {
+    try {
+      const parsed = iface.parseLog(log);
+      if (parsed && parsed.name === "ProposalCreated") {
+        return Number(parsed.args.id);
+      }
+    } catch (_) {
+      // ignore non-matching logs
+    }
+  }
+  return -1;
+}
+
+// ─── Exported: isProposer ─────────────────────────────────────────────────────
+
+/**
+ * Check if a wallet holds PROPOSER_ROLE (i.e. is a DNFT holder/proposer).
+ *
+ * @param {string} address
+ * @returns {Promise<boolean>}
+ */
+export async function isProposer(address) {
+  if (!address) return false;
+  try {
+    const provider = _getProvider();
+    const contract = new ethers.Contract(
+      GOVERNANCE_CONTRACT_ADDRESS,
+      GOVERNANCE_ABI,
+      provider
+    );
+    const role = await contract.PROPOSER_ROLE();
+    return await contract.hasRole(role, address);
+  } catch (err) {
+    console.error("[governance.js] isProposer error:", err);
+    return false;
+  }
+}
+
+// ─── Exported: displayProposals ───────────────────────────────────────────────
+
+/**
+ * Render governance proposals into #gov-proposals-container.
+ * Fetches wallet state (has voted, can vote) in parallel per proposal.
+ *
+ * @param {string} containerId – id of the DOM element to render into
+ * @returns {Promise<void>}
+ */
+export async function displayProposals(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) {
+    console.error(`[governance.js] #${containerId} not found.`);
+    return;
+  }
+
+  container.innerHTML = `<p class="gov-loading">⏳ Loading proposals…</p>`;
+
   try {
     const provider = _getProvider();
     const contract = new ethers.Contract(
@@ -122,185 +257,147 @@ export async function loadProposals() {
       provider
     );
 
-    const count = await contract.proposalCount();
-    const total = Number(count);
+    // Resolve connected wallet (if any) — read-only, no prompt.
+    let walletAddress = null;
+    let walletCanVote = false;
+    let quorumValue = 5;
 
-    if (total === 0) {
-      return [];
+    try {
+      if (window.ethereum) {
+        const p = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await p.send("eth_accounts", []);
+        if (accounts && accounts.length > 0) {
+          walletAddress = accounts[0];
+          walletCanVote = await contract.canVote(walletAddress);
+        }
+      }
+      quorumValue = Number(await contract.quorum());
+    } catch (_) {
+      // Non-fatal — fall through to read-only display.
     }
 
-    // Fetch all proposals in parallel.
-    const proposalPromises = Array.from({ length: total }, (_, i) =>
-      contract.getProposal(i).catch(() => null)
-    );
-    const raw = await Promise.all(proposalPromises);
+    const proposals = await loadProposals();
 
-    const now = Date.now();
-
-    return raw
-      .filter(Boolean) // Remove any failed fetches.
-      .map((p) => ({
-        id: Number(p.id),
-        description: p.description,
-        voteFor: Number(p.voteFor),
-        voteAgainst: Number(p.voteAgainst),
-        deadline: new Date(Number(p.deadline) * 1000),
-        executed: p.executed,
-        isOpen: !p.executed && Number(p.deadline) * 1000 > now,
-      }))
-      .sort((a, b) => b.deadline - a.deadline); // Most recent first.
-  } catch (err) {
-    console.error("[governance.js] loadProposals error:", err);
-    throw err;
-  }
-}
-
-/**
- * Casts a vote on a governance proposal via MetaMask.
- * The connected wallet must hold at least 1 $BNUT token.
- * Each address can vote only once per proposal (enforced on-chain).
- *
- * @param {number} proposalId - The numeric ID of the proposal to vote on.
- * @param {boolean} support   - true = vote FOR, false = vote AGAINST.
- * @returns {Promise<string>} The transaction hash of the vote.
- *
- * @example
- *   const txHash = await castVote(0, true); // Vote FOR proposal #0
- *   console.log('Vote tx:', txHash);
- */
-export async function castVote(proposalId, support) {
-  try {
-    const signer = await _getSigner();
-    const contract = new ethers.Contract(
-      GOVERNANCE_CONTRACT_ADDRESS,
-      GOVERNANCE_ABI,
-      signer
-    );
-
-    console.log(
-      `[governance.js] Casting ${support ? "FOR" : "AGAINST"} vote on proposal #${proposalId}…`
-    );
-
-    const tx = await contract.vote(proposalId, support);
-    console.log("[governance.js] Vote tx submitted:", tx.hash);
-    await tx.wait();
-    console.log("[governance.js] Vote confirmed on-chain!");
-    return tx.hash;
-  } catch (err) {
-    console.error("[governance.js] castVote error:", err);
-    throw err;
-  }
-}
-
-/**
- * Renders governance proposals into a DOM container element.
- * Displays proposal description, vote counts, status, and deadline.
- * Adds "Vote For" / "Vote Against" buttons for open proposals.
- *
- * @param {string} containerId - The `id` of the DOM element to render into.
- * @param {Array} [proposals]  - Optional pre-loaded proposals array.
- *   If omitted, `loadProposals()` is called automatically.
- * @returns {Promise<void>}
- *
- * @example
- *   // Render proposals into <div id="governance-container"></div>
- *   await displayProposals('governance-container');
- */
-export async function displayProposals(containerId, proposals) {
-  const container = document.getElementById(containerId);
-  if (!container) {
-    console.error(
-      `[governance.js] displayProposals: element #${containerId} not found.`
-    );
-    return;
-  }
-
-  // Show a loading indicator.
-  container.innerHTML = "<p>Loading proposals…</p>";
-
-  try {
-    const items = proposals || (await loadProposals());
-
-    if (items.length === 0) {
+    if (proposals.length === 0) {
       container.innerHTML =
-        "<p>No governance proposals yet. Check back soon!</p>";
+        `<p class="gov-empty">No governance proposals yet — check back soon!</p>`;
       return;
     }
 
-    container.innerHTML = ""; // Clear loading indicator.
+    // For active proposals, batch-check hasVoted for connected wallet.
+    const votedMap = {};
+    if (walletAddress) {
+      await Promise.all(
+        proposals
+          .filter((p) => p.isActive)
+          .map(async (p) => {
+            try {
+              votedMap[p.id] = await contract.hasVoted(p.id, walletAddress);
+            } catch (_) {
+              votedMap[p.id] = false;
+            }
+          })
+      );
+    }
 
-    items.forEach((proposal) => {
-      const totalVotes = proposal.voteFor + proposal.voteAgainst;
-      const forPct =
-        totalVotes > 0
-          ? Math.round((proposal.voteFor / totalVotes) * 100)
-          : 0;
-      const againstPct = totalVotes > 0 ? 100 - forPct : 0;
+    container.innerHTML = "";
 
-      const statusBadge = proposal.executed
-        ? '<span class="badge badge-executed">Executed</span>'
-        : proposal.isOpen
-        ? '<span class="badge badge-open">Open</span>'
-        : '<span class="badge badge-closed">Closed</span>';
+    proposals.forEach((proposal) => {
+      const totalVotes = proposal.yesVotes + proposal.noVotes;
+      const yesPct =
+        totalVotes > 0 ? Math.round((proposal.yesVotes / totalVotes) * 100) : 0;
+      const noPct = totalVotes > 0 ? 100 - yesPct : 0;
+      const quorumMet = totalVotes >= quorumValue;
 
-      const voteButtons = proposal.isOpen
-        ? `<div class="vote-buttons">
-             <button
-               class="btn btn-vote-for"
-               onclick="window._bnutVote(${proposal.id}, true)"
-               title="Vote in favour of this proposal"
-             >
-               👍 Vote For
-             </button>
-             <button
-               class="btn btn-vote-against"
-               onclick="window._bnutVote(${proposal.id}, false)"
-               title="Vote against this proposal"
-             >
-               👎 Vote Against
-             </button>
-           </div>`
+      const stateInfo = PROPOSAL_STATE[proposal.state] || {
+        label: "Unknown", emoji: "❓", cssClass: "badge-unknown",
+      };
+
+      // Vote buttons (only for Active proposals)
+      let voteSection = "";
+      if (proposal.isActive) {
+        const alreadyVoted = votedMap[proposal.id] === true;
+        if (alreadyVoted) {
+          voteSection = `<p class="gov-voted-notice">✓ You have already voted on this proposal.</p>`;
+        } else if (!walletAddress) {
+          voteSection = `<p class="gov-connect-notice">🔗 Connect wallet to vote.</p>`;
+        } else if (!walletCanVote) {
+          voteSection = `<p class="gov-no-bnut-notice">💰 You need ≥1 $BNUT to vote.</p>`;
+        } else {
+          voteSection = `
+            <div class="gov-vote-buttons">
+              <button class="gov-btn-yes" data-id="${proposal.id}" data-vote="yes">
+                ✅ ${_sanitize(proposal.optionYes) || "Yes"}
+              </button>
+              <button class="gov-btn-no" data-id="${proposal.id}" data-vote="no">
+                ❌ ${_sanitize(proposal.optionNo) || "No"}
+              </button>
+            </div>`;
+        }
+      }
+
+      // Admin note (Enacted / Vetoed)
+      const adminNoteHtml = proposal.adminNote
+        ? `<p class="gov-admin-note">📋 Admin note: ${_sanitize(proposal.adminNote)}</p>`
         : "";
 
       const card = document.createElement("div");
-      card.className = "proposal-card";
+      card.className = `proposal-card${proposal.isActive ? " proposal-active" : ""}`;
       card.innerHTML = `
         <div class="proposal-header">
           <span class="proposal-id">#${proposal.id}</span>
-          ${statusBadge}
+          <span class="badge ${stateInfo.cssClass}">${stateInfo.emoji} ${stateInfo.label}</span>
         </div>
-        <p class="proposal-description">${proposal.description}</p>
-        <div class="vote-bar">
-          <div class="vote-bar-for" style="width:${forPct}%" title="${proposal.voteFor} votes for"></div>
-          <div class="vote-bar-against" style="width:${againstPct}%" title="${proposal.voteAgainst} votes against"></div>
+        <h4 class="proposal-title">${_sanitize(proposal.title)}</h4>
+        <p class="proposal-description">${_sanitize(proposal.description)}</p>
+        <div class="gov-vote-bar">
+          <div class="gov-vote-bar-yes" style="width:${yesPct}%" title="${proposal.yesVotes} yes votes"></div>
+          <div class="gov-vote-bar-no"  style="width:${noPct}%"  title="${proposal.noVotes} no votes"></div>
         </div>
-        <div class="vote-counts">
-          <span>✅ For: ${proposal.voteFor}</span>
-          <span>❌ Against: ${proposal.voteAgainst}</span>
+        <div class="gov-vote-counts">
+          <span>✅ ${_sanitize(proposal.optionYes) || "Yes"}: ${proposal.yesVotes}</span>
+          <span>❌ ${_sanitize(proposal.optionNo)  || "No"}: ${proposal.noVotes}</span>
+          <span class="gov-quorum${quorumMet ? " quorum-met" : " quorum-unmet"}">
+            ${quorumMet ? "✅" : "⏳"} Quorum (${quorumValue}): ${quorumMet ? "met" : `${totalVotes}/${quorumValue}`}
+          </span>
         </div>
         <p class="proposal-deadline">
-          ${proposal.isOpen ? "Voting closes" : "Voting closed"}:
+          ${proposal.isActive ? "⏰ Voting closes" : "🔒 Voting closed"}:
           ${proposal.deadline.toLocaleString()}
         </p>
-        ${voteButtons}
+        ${adminNoteHtml}
+        ${voteSection}
       `;
-
       container.appendChild(card);
     });
 
-    // Attach vote handler to window so inline onclick handlers can reach it.
-    window._bnutVote = async (proposalId, support) => {
+    // Delegate vote button clicks to avoid stale closures.
+    container.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-id][data-vote]");
+      if (!btn) return;
+      const proposalId = Number(btn.dataset.id);
+      const voteYes = btn.dataset.vote === "yes";
+
+      btn.disabled = true;
+      btn.textContent = "⏳ Submitting…";
+
       try {
-        const txHash = await castVote(proposalId, support);
-        alert(`✅ Vote submitted!\nTx: ${txHash}\nRefreshing proposals…`);
-        // Refresh the display after a successful vote.
+        const txHash = await castVote(proposalId, voteYes);
+        alert(
+          `✅ Vote submitted!\nTx: ${txHash}\n\nRefreshing proposals…`
+        );
         await displayProposals(containerId);
       } catch (err) {
-        alert(`❌ Vote failed: ${err.message || err}`);
+        btn.disabled = false;
+        btn.textContent = voteYes
+          ? `✅ ${btn.closest(".proposal-card").querySelector(".gov-btn-yes")?.textContent || "Yes"}`
+          : `❌ ${btn.closest(".proposal-card")?.querySelector(".gov-btn-no")?.textContent || "No"}`;
+        alert(`❌ Vote failed: ${err.reason || err.message || err}`);
       }
-    };
+    }, { once: true });
+
   } catch (err) {
-    container.innerHTML = `<p class="error">Failed to load proposals: ${err.message}</p>`;
+    container.innerHTML = `<p class="gov-error">⚠️ Failed to load proposals: ${_sanitize(err.message)}</p>`;
     console.error("[governance.js] displayProposals error:", err);
   }
 }

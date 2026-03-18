@@ -1238,26 +1238,60 @@
     </div>
   </div>
 
-  <!-- ── Governance Modal (stub) ────────────────────────────────────────── -->
+  <!-- ── Governance Modal ──────────────────────────────────────────────── -->
   <div id="governance-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="governance-modal-title">
-    <div class="modal aes-stub-modal">
+    <div class="modal gov-modal">
       <button class="modal-close" id="governance-modal-close" aria-label="Close Governance modal">×</button>
+
+      <!-- Header -->
       <div class="aes-stub-header">
         <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
         <h2 id="governance-modal-title">🗳️ Governance</h2>
       </div>
-      <p class="aes-stub-desc">$BNUT holders vote on feature roadmap, prize pools, and protocol changes.</p>
-      <div class="aes-stub-actions">
-        <a href="https://snapshot.org/#/" target="_blank" rel="noopener noreferrer" class="aes-stub-link-btn">
-          🗳️ Vote on Snapshot (space coming soon)
-        </a>
+      <p class="aes-stub-desc">
+        $BNUT holders vote on feature roadmap, prize pools, and protocol changes.
+        1 wallet = 1 vote · Must hold ≥1 $BNUT · Quorum required for valid results.
+      </p>
+
+      <!-- Create Proposal button — shown only when PROPOSER_ROLE is confirmed -->
+      <div id="gov-create-btn-wrapper" class="gov-create-btn-wrapper" style="display:none;">
+        <button id="gov-create-btn" class="gov-create-btn">✏️ Create Proposal</button>
       </div>
-      <ul class="aes-stub-list">
-        <li>📋 Submit feature proposals</li>
-        <li>🔢 Weighted voting by $BNUT balance</li>
-        <li>🏆 DNFT holders get bonus votes</li>
-      </ul>
-      <p class="aes-stub-coming-soon">🚧 On-chain governance contract deploying soon!</p>
+
+      <!-- Create Proposal form (hidden until button clicked) -->
+      <div id="gov-create-form" class="gov-create-form" style="display:none;">
+        <h3 class="gov-form-title">New Proposal</h3>
+        <label class="gov-label">
+          Title
+          <input id="gov-input-title" class="gov-input" type="text" maxlength="80" placeholder="Short title (max 80 chars)…" />
+        </label>
+        <label class="gov-label">
+          Description
+          <textarea id="gov-input-desc" class="gov-input gov-textarea" rows="3" placeholder="Full description of what's being decided…"></textarea>
+        </label>
+        <label class="gov-label">
+          Yes Option Label
+          <input id="gov-input-yes" class="gov-input" type="text" maxlength="60" placeholder="e.g. Run the lottery" />
+        </label>
+        <label class="gov-label">
+          No Option Label
+          <input id="gov-input-no" class="gov-input" type="text" maxlength="60" placeholder="e.g. Let funds grow" />
+        </label>
+        <label class="gov-label">
+          Voting Duration (days, 0 = default 7 days)
+          <input id="gov-input-duration" class="gov-input gov-input-short" type="number" min="0" max="30" value="7" />
+        </label>
+        <div class="gov-form-actions">
+          <button id="gov-submit-btn" class="gov-submit-btn">🚀 Submit Proposal</button>
+          <button id="gov-cancel-btn" class="gov-cancel-btn">Cancel</button>
+        </div>
+        <p id="gov-form-status" class="gov-form-status"></p>
+      </div>
+
+      <!-- Proposals list container -->
+      <div id="gov-proposals-container" class="gov-proposals-container">
+        <p class="gov-loading">Connect wallet or wait for proposals to load…</p>
+      </div>
     </div>
   </div>
 

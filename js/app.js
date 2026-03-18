@@ -1,4 +1,5 @@
 import { initDnftPayPalPurchase } from './subscription.js';
+import { displayProposals, createProposal, isProposer } from './governance.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -3891,7 +3892,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const stubModals = [
     { btnId: 'aes-achieve-btn',   modalId: 'achievements-modal', closeId: 'achievements-modal-close' },
-    { btnId: 'aes-gov-btn',       modalId: 'governance-modal',   closeId: 'governance-modal-close' },
     { btnId: 'aes-data-btn',      modalId: 'data-sharing-modal', closeId: 'data-sharing-modal-close' },
     { btnId: 'aes-challenge-btn', modalId: 'challenge-modal',    closeId: 'challenge-modal-close' },
   ];
@@ -3927,6 +3927,121 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   });
+
+  // ── Governance modal ──────────────────────────────────────────────────────
+
+  (function initGovernanceModal() {
+    const govBtn   = document.getElementById('aes-gov-btn');
+    const govModal = document.getElementById('governance-modal');
+    const govClose = document.getElementById('governance-modal-close');
+
+    if (!govBtn || !govModal) return;
+
+    // Open modal + load proposals
+    govBtn.addEventListener('click', async () => {
+      closeAesDropdown();
+      govModal.classList.remove('modal-hidden');
+      document.body.classList.add('modal-active');
+
+      // Load proposals into the container
+      await displayProposals('gov-proposals-container');
+
+      // Show "Create Proposal" button only for PROPOSER_ROLE holders
+      const createWrapper = document.getElementById('gov-create-btn-wrapper');
+      if (createWrapper && window.ethereum) {
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const accounts = await provider.send('eth_accounts', []);
+          if (accounts && accounts.length > 0) {
+            const canPropose = await isProposer(accounts[0]);
+            createWrapper.style.display = canPropose ? 'block' : 'none';
+          }
+        } catch (_) { /* wallet not connected — keep hidden */ }
+      }
+    });
+
+    // Close button
+    if (govClose) {
+      govClose.addEventListener('click', () => {
+        govModal.classList.add('modal-hidden');
+        if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
+          document.body.classList.remove('modal-active');
+        }
+      });
+    }
+
+    // Click-outside to close
+    govModal.addEventListener('click', (e) => {
+      if (e.target === govModal) {
+        govModal.classList.add('modal-hidden');
+        if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
+          document.body.classList.remove('modal-active');
+        }
+      }
+    });
+
+    // Create Proposal button — toggle form
+    const createBtn  = document.getElementById('gov-create-btn');
+    const createForm = document.getElementById('gov-create-form');
+    const cancelBtn  = document.getElementById('gov-cancel-btn');
+    const submitBtn  = document.getElementById('gov-submit-btn');
+    const formStatus = document.getElementById('gov-form-status');
+
+    if (createBtn && createForm) {
+      createBtn.addEventListener('click', () => {
+        createForm.style.display = createForm.style.display === 'none' ? 'block' : 'none';
+        if (formStatus) formStatus.textContent = '';
+      });
+    }
+
+    if (cancelBtn && createForm) {
+      cancelBtn.addEventListener('click', () => {
+        createForm.style.display = 'none';
+        if (formStatus) formStatus.textContent = '';
+      });
+    }
+
+    if (submitBtn && createForm) {
+      submitBtn.addEventListener('click', async () => {
+        const title    = (document.getElementById('gov-input-title')?.value || '').trim();
+        const desc     = (document.getElementById('gov-input-desc')?.value  || '').trim();
+        const optYes   = (document.getElementById('gov-input-yes')?.value   || '').trim();
+        const optNo    = (document.getElementById('gov-input-no')?.value    || '').trim();
+        const durDays  = Number(document.getElementById('gov-input-duration')?.value || 7);
+
+        if (!title || !desc) {
+          if (formStatus) formStatus.textContent = '⚠️ Title and description are required.';
+          return;
+        }
+
+        submitBtn.disabled = true;
+        if (formStatus) formStatus.textContent = '⏳ Submitting proposal…';
+
+        try {
+          const newId = await createProposal(
+            title, desc,
+            optYes || 'Yes', optNo || 'No',
+            durDays
+          );
+          if (formStatus) formStatus.textContent = `✅ Proposal #${newId} created!`;
+          // Clear form
+          ['gov-input-title','gov-input-desc','gov-input-yes','gov-input-no'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+          });
+          const durEl = document.getElementById('gov-input-duration');
+          if (durEl) durEl.value = '7';
+          // Refresh proposals list
+          await displayProposals('gov-proposals-container');
+          createForm.style.display = 'none';
+        } catch (err) {
+          if (formStatus) formStatus.textContent = `❌ Failed: ${err.reason || err.message || err}`;
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    }
+  })();
 
   // ── Wire up existing DNFT + Subscription buttons in dropdown ─────────────
 

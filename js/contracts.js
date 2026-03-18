@@ -40,9 +40,9 @@ const SUBSCRIPTION_CONTRACT_ADDRESS = '0x000000000000000000000000000000000000000
 
 /**
  * BigNutenGovernance — community proposal voting powered by $BNUT.
- * Not yet deployed; placeholder until live.
+ * Deployed on Optimism Mainnet. 1 wallet = 1 vote; DNFT holders can propose.
  */
-const GOVERNANCE_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000';
+const GOVERNANCE_CONTRACT_ADDRESS = '0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD';
 
 /**
  * BigNutenEscrow (DecentEscrow) — trustless DNFT / ERC-1155 escrow.
