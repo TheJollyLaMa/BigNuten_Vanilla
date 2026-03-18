@@ -238,7 +238,7 @@ Deployed addresses are set in `.env` after running `npm run deploy:<network>`.
 | 2     | Build subscription status UI (Issue #42)                          | 🔵 Planned  |
 | 2     | Build crypto subscription payment flow (Issue #43)                | 🔵 Planned  |
 | 2     | Accept $BNUT for discounted subscriptions (Issue #44)             | 🔵 Planned  |
-| 3     | Build GitHub bounty bot (Issue #45)                               | 🔵 Planned  |
+| 3     | Build GitHub bounty bot (Issue #45)                               | ✅ Done     |
 | 3     | Add bounty label system to issues (Issue #46)                     | 🔵 Planned  |
 | 3     | Deploy community governance (Issue #47)                           | 🔵 Planned  |
 | 4     | Build community data dashboard (Issue #48)                        | 🔵 Planned  |

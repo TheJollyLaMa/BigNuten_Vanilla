@@ -33,6 +33,14 @@ const OPTIMISM_RPC_URL = 'https://mainnet.optimism.io';
 const BNUT_CONTRACT_ADDRESS = '0x733c4d2Aae900E608147dd89Fa93606f89722823';
 
 /**
+ * BigNutenTreasury — holds the $BNUT reserve and pays out contributor bounties.
+ * Owner settles the weekly payroll queue directly via MetaMask in the app.
+ * Deploy via: npx hardhat run scripts/deploy.js --network optimism
+ * Placeholder until the contract is deployed on Optimism Mainnet.
+ */
+const TREASURY_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+/**
  * BigNutenSubscription — on-chain subscription management.
  * Accepts ETH and $BNUT. Not yet deployed; placeholder until live.
  */
@@ -80,6 +88,7 @@ const CONTRACTS = {
   chainId:      OPTIMISM_CHAIN_ID,
   rpcUrl:       OPTIMISM_RPC_URL,
   bnut:         BNUT_CONTRACT_ADDRESS,
+  treasury:     TREASURY_CONTRACT_ADDRESS,
   subscription: SUBSCRIPTION_CONTRACT_ADDRESS,
   governance:   GOVERNANCE_CONTRACT_ADDRESS,
   dnftEscrow:   DNFT_ESCROW_ADDRESS,
@@ -92,6 +101,7 @@ const CONTRACTS = {
 // Individual address globals — consumed by subscription.js and governance.js
 // via their  window.BNUT_CONTRACT_ADDRESS || "0x000…"  fallback pattern.
 window.BNUT_CONTRACT_ADDRESS         = BNUT_CONTRACT_ADDRESS;
+window.TREASURY_CONTRACT_ADDRESS     = TREASURY_CONTRACT_ADDRESS;
 window.SUBSCRIPTION_CONTRACT_ADDRESS = SUBSCRIPTION_CONTRACT_ADDRESS;
 window.GOVERNANCE_CONTRACT_ADDRESS   = GOVERNANCE_CONTRACT_ADDRESS;
 
