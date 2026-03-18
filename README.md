@@ -32,36 +32,45 @@ BigNuten v1.0.0 is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155
 
 | Field | Detail |
 |---|---|
-| **Price** | ~$100 USD equivalent in ETH or USDC |
-| **Supply** | 100 editions max — once they're gone, they're gone |
+| **Price** | $100 USDC (exact) |
+| **Supply** | 100 editions max — 10 of 100 listed at launch · once they're gone, they're gone |
 | **Standard** | ERC-1155 on Optimism |
-| **Contract Address** | _(TBD — Optimism DNFT v0.2 from DecentMarket `contracts.js`)_ |
-| **Token ID** | _(TBD — fill in post-mint)_ |
-| **Escrow / Community Wallet** | _(TBD — transparent community escrow contract on Optimism)_ |
+| **DNFT Contract** | [`0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958`](https://optimistic.etherscan.io/address/0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958) — DecentNFT v0.2 on Optimism |
+| **Token ID** | Visible in the live [DecentMarket listing](https://thejollylama.github.io/DecentMarket/) or via [`TokenRegistered` events](https://optimistic.etherscan.io/address/0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958#events) on the DNFT contract |
+| **Escrow Contract** | [`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) — DecentEscrow v0.1 on Optimism |
 
 > v2 DNFTs will have their own run when the monetization feature branch ships.
 
-### How to Buy (v1 Manual Flow)
+### How to Buy
 
-1. Send ETH or USDC (≈ $100 USD) to the **escrow contract address** on Optimism (listed above — TBD until contract is deployed)
-2. DM **[@TheJollyLaMa](https://github.com/TheJollyLaMa)** on GitHub with your **wallet address** and **transaction hash**
-3. Receive your **BigNuten v1.0.0 DNFT** transfer to your wallet
-4. _(Future versions will feature on-chain instant purchase — coming soon)_
+#### 🔗 Option 1 — Crypto (instant & trustless)
+
+1. Visit **[DecentMarket](https://thejollylama.github.io/DecentMarket/)** or use the **🎟️ Buy Now** button inside BigNuten's About modal
+2. Connect your MetaMask wallet (Optimism network)
+3. Approve $100 USDC and confirm the purchase — the escrow releases your DNFT automatically on-chain
+
+> Powered by [DecentEscrow `0x23A4…350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) on Optimism — no middleman, instant settlement.
+
+#### 💳 Option 2 — PayPal (fiat-friendly, no crypto required)
+
+1. Open the **About modal** inside BigNuten and scroll to the Early Supporter section
+2. Enter your wallet address (to receive the DNFT)
+3. Click **💳 Buy with PayPal — $100** and complete checkout
+4. **[@TheJollyLaMa](https://github.com/TheJollyLaMa)** verifies the payment and transfers your DNFT manually
 
 ### Links
 
-- 🛒 **[View in DecentMarket](https://thejollylama.github.io/DecentMarket/)** — browse the full DNFT gallery
-- 🔎 **[View on Optimistic Etherscan](https://optimistic.etherscan.io/)** — _(contract + token ID added post-mint)_
+- 🛒 **[View in DecentMarket](https://thejollylama.github.io/DecentMarket/)** — browse the full DNFT gallery and buy with crypto
+- 🔎 **[DecentNFT contract on Optimistic Etherscan](https://optimistic.etherscan.io/address/0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958)** — DecentNFT v0.2
+- 🏦 **[DecentEscrow contract on Optimistic Etherscan](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e)** — DecentEscrow v0.1
 
 ### Community Escrow
 
-Proceeds from DNFT sales flow to a **transparent escrow contract on Optimism**, viewable on Optimistic Etherscan. Funds are reserved for:
+Proceeds from DNFT sales flow to the **[DecentEscrow contract](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e)** (`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`) on Optimism — a transparent, on-chain community treasury viewable by anyone on Optimistic Etherscan. Funds are reserved for:
 
 - $BNUT bounties for contributors
 - Feature development and infrastructure
 - Community rewards and governance
-
-> Deploying and documenting the escrow contract is tracked as a separate follow-up issue.
 
 ---
 
