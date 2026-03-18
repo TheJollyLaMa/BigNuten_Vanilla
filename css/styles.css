@@ -2009,3 +2009,199 @@ svg text {
     max-width: 100%;
   }
 }
+
+/* ── Staff of Aesculapius Dropdown ──────────────────────────────────────── */
+
+#header-center {
+  position: relative;
+}
+
+#app-title-left {
+  cursor: pointer;
+}
+#app-title-left:hover {
+  text-shadow: 0 0 16px #00ff66, 0 0 32px #00e5ff;
+}
+
+#aesculapius-right {
+  cursor: pointer;
+  display: inline-block;
+  transition: text-shadow 0.2s ease, transform 0.2s ease;
+}
+#aesculapius-right:hover,
+#aesculapius-right:focus {
+  text-shadow: 0 0 20px #00ff66, 0 0 40px #7300ff, 0 0 60px #00e5ff;
+  transform: scale(1.15);
+  outline: none;
+}
+
+.aesculapius-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 220px;
+  background: rgba(0, 0, 40, 0.97);
+  border: 2px solid #00e5ff;
+  border-radius: 10px;
+  box-shadow: 0 0 24px #00e5ff, 0 0 8px #7300ff;
+  z-index: 200000;
+  padding: 0.75rem 0.5rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.aesculapius-dropdown.hidden {
+  display: none;
+}
+
+.aes-bnut-balance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0.4rem 0.5rem 0.5rem;
+}
+
+.aes-bnut-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  filter: drop-shadow(0 0 6px #00e5ff);
+  animation: shimmer-spin 8s linear infinite;
+}
+
+.aes-bnut-amount {
+  font-family: 'Bungee', sans-serif;
+  font-size: 0.95rem;
+  color: #00e5ff;
+  text-shadow: 0 0 8px #00e5ff;
+  white-space: nowrap;
+}
+
+.aes-divider {
+  border: none;
+  border-top: 1px solid rgba(0, 229, 255, 0.3);
+  margin: 2px 4px;
+}
+
+.aes-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #e0f7ff;
+  font-size: 0.9rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.aes-menu-item:hover,
+.aes-menu-item:focus {
+  background: rgba(0, 229, 255, 0.12);
+  border-color: #00e5ff;
+  color: #00e5ff;
+  outline: none;
+}
+
+/* ── Staff of Aesculapius Stub Modals ───────────────────────────────────── */
+
+.aes-stub-modal {
+  text-align: center;
+}
+
+.aes-stub-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.aes-stub-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  filter: drop-shadow(0 0 8px #00e5ff);
+  animation: shimmer-spin 8s linear infinite;
+}
+
+.aes-stub-header h2 {
+  margin: 0;
+  font-family: 'Bungee', sans-serif;
+  font-size: 1.4rem;
+  color: #00e5ff;
+  text-shadow: 0 0 10px #00e5ff;
+}
+
+.aes-stub-desc {
+  color: #c0e8ff;
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+
+.aes-stub-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  text-align: left;
+  display: inline-block;
+}
+.aes-stub-list li {
+  padding: 0.3rem 0;
+  color: #e0f7ff;
+  font-size: 0.9rem;
+}
+
+.aes-stub-coming-soon {
+  color: #7300ff;
+  font-size: 0.85rem;
+  text-shadow: 0 0 6px #7300ff;
+  margin-top: 0.5rem;
+}
+
+.aes-stub-actions {
+  margin-bottom: 1rem;
+}
+
+.aes-stub-link-btn {
+  display: inline-block;
+  padding: 0.5rem 1.25rem;
+  border: 2px solid #00e5ff;
+  border-radius: 6px;
+  color: #00e5ff;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: background 0.2s, color 0.2s;
+}
+.aes-stub-link-btn:hover {
+  background: rgba(0, 229, 255, 0.15);
+}
+
+.aes-stub-prize-pool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0.75rem 0;
+  padding: 0.5rem 1rem;
+  border: 1px solid #00e5ff;
+  border-radius: 8px;
+  background: rgba(0, 229, 255, 0.07);
+  color: #00e5ff;
+  font-size: 1rem;
+}
+
+.aes-stub-pool-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
