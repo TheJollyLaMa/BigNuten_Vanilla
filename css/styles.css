@@ -274,10 +274,21 @@ body.hide-icons #water-tracker {
 
 .wallet-hover-display {
   display: none;
+  align-items: center;
+  gap: 4px;
   margin-top: 6px;
   font-size: 0.7rem;
   color: #00e5ff;
   text-shadow: 0 0 4px #00e5ff;
+  white-space: nowrap;
+}
+
+.bnut-coin-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+  filter: drop-shadow(0 0 4px #00e5ff);
 }
 
 #metamaskIcon {
