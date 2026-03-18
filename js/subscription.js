@@ -8,6 +8,7 @@
  *   - Stripe.js payment flow initialisation             (Issue #41)
  *   - ETH payment via MetaMask                          (Issue #43)
  *   - $BNUT discounted payment via MetaMask             (Issue #44)
+ *   - PayPal one-time DNFT purchase flow                (Issue #62)
  *
  * Prerequisites (loaded in index.html before this module):
  *   - ethers.js v6 (via CDN)
@@ -21,6 +22,7 @@
  *     initStripeSubscription,
  *     payCryptoSubscription,
  *     payBNUTSubscription,
+ *     initDnftPayPalPurchase,
  *   } from './subscription.js';
  */
 
@@ -240,6 +242,82 @@ export async function initStripeSubscription(
   //   body: JSON.stringify({ priceId, successUrl, cancelUrl }),
   // }).then(r => r.json());
   // await stripe.redirectToCheckout({ sessionId });
+}
+
+/**
+ * Initialises the DNFT PayPal one-time purchase flow.
+ * Attaches a submit handler to the DNFT PayPal form that validates the wallet
+ * address input before allowing the form to POST to PayPal's standard checkout.
+ *
+ * Related issue: #62 — Add PayPal Purchase Flow for Supporter DNFT.
+ *
+ * @param {string} [formId]        - ID of the DNFT PayPal form element.
+ * @param {string} [walletInputId] - ID of the wallet address <input>.
+ * @param {string} [errElId]       - ID of the error message element.
+ * @param {string} [confirmElId]   - ID of the post-submit confirmation element.
+ * @returns {void}
+ *
+ * @example
+ *   initDnftPayPalPurchase(); // uses default IDs set in index.html
+ */
+export function initDnftPayPalPurchase(
+  formId        = "dnft-paypal-form",
+  walletInputId = "dnft-paypal-wallet",
+  errElId       = "dnft-paypal-wallet-err",
+  confirmElId   = "dnft-paypal-confirm"
+) {
+  const form        = document.getElementById(formId);
+  const walletInput = document.getElementById(walletInputId);
+  const errEl       = document.getElementById(errElId);
+  const confirmEl   = document.getElementById(confirmElId);
+  const customInput = document.getElementById("dnft-paypal-custom");
+
+  if (!form || !walletInput) {
+    console.warn(
+      "[subscription.js] initDnftPayPalPurchase: form or wallet input not found."
+    );
+    return;
+  }
+
+  form.addEventListener("submit", function (event) {
+    const wallet    = walletInput.value.trim();
+    const isAddress = /^0x[0-9a-fA-F]{40}$/.test(wallet);
+    const isEns     = /^[^\s]+\.eth$/i.test(wallet);
+
+    if (!wallet) {
+      if (errEl) errEl.textContent = "⚠️ Please enter your wallet address before paying.";
+      event.preventDefault();
+      walletInput.focus();
+      return;
+    }
+    if (!isAddress && !isEns) {
+      if (errEl) errEl.textContent =
+        "⚠️ Enter a valid 0x… address or ENS name (e.g. yourname.eth).";
+      event.preventDefault();
+      walletInput.focus();
+      return;
+    }
+
+    if (errEl) errEl.textContent = "";
+
+    // Embed wallet in PayPal "custom" field — admin sees it in the payment notification.
+    if (customInput) customInput.value = "DNFT-wallet:" + wallet;
+
+    // Show in-page confirmation after PayPal tab opens.
+    setTimeout(function () {
+      if (confirmEl) {
+        const truncated =
+          wallet.length > 14
+            ? wallet.slice(0, 8) + "…" + wallet.slice(-6)
+            : wallet;
+        confirmEl.style.display = "block";
+        confirmEl.innerHTML =
+          "✅ PayPal checkout opened! Complete your $100 payment there.<br>" +
+          "Your wallet <code>" + truncated + "</code> was submitted — " +
+          "admin will send your DNFT after verifying payment.";
+      }
+    }, 800);
+  });
 }
 
 /**

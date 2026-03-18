@@ -1,5 +1,10 @@
+import { initDnftPayPalPurchase } from './subscription.js';
+
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialise DNFT PayPal one-time purchase form (wallet validation + PayPal submit)
+  initDnftPayPalPurchase();
+
   const dietButton = document.getElementById('dietButton');
   const rawFoodModal = document.getElementById('rawFoodModal');
   const closeRawFoodModal = document.getElementById('closeRawFoodModal');
