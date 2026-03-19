@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Bounty Nut</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1>Admin Panel</h1>
+            <nav class="admin-nav">
+                <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+                <button class="tab-btn" data-tab="users">Users</button>
+                <button class="tab-btn" data-tab="bounties">Bounties</button>
+                <button class="tab-btn" data-tab="payroll">Payroll</button>
+                <button class="tab-btn" data-tab="settings">Settings</button>
+            </nav>
+        </header>
+
+        <main class="admin-main">
+            <div class="tab-content active" id="dashboard">
+                <h2>Dashboard</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total Users</h3>
+                        <p class="stat-number">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Active Bounties</h3>
+                        <p class="stat-number">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Pending Payouts</h3>
+                        <p class="stat-number">0 $BNUT</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Paid Out</h3>
+                        <p class="stat-number">0 $BNUT</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="users">
+                <h2>User Management</h2>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Balance</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table">
+                            <!-- User data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-content" id="bounties">
+                <h2>Bounty Management</h2>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Creator</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bounties-table">
+                            <!-- Bounty data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-content" id="payroll">
+                <h2>Payroll Management</h2>
+                <div class="payroll-controls">
+                    <button class="btn-primary" id="refresh-payroll">Refresh Queue</button>
+                    <button class="btn-secondary" id="settle-all">Settle All Pending</button>
+                    <span class="total-pending">Total Pending: <strong id="total-pending-amount">0 $BNUT</strong></span>
+                </div>
+                
+                <div class="table-container">
+                    <table class="admin-table payroll-table">
+                        <thead>
+                            <tr>
+                                <th>Queue ID</th>
+                                <th>Bounty ID</th>
+                                <th>Bounty Title</th>
+                                <th>Winner</th>
+                                <th>Winner Address</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Date Added</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="payroll-table">
+                            <!-- Payroll queue data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="empty-state" id="payroll-empty" style="display: none;">
+                    <h3>No Pending Payouts</h3>
+                    <p>All bounties have been settled. Check back later for new payouts.</p>
+                </div>
+            </div>
+
+            <div class="tab-content" id="settings">
+                <h2>Settings</h2>
+                <div class="settings-grid">
+                    <div class="setting-card">
+                        <h3>Platform Settings</h3>
+                        <form id="platform-settings">
+                            <div class="form-group">
+                                <label for="platform-fee">Platform Fee (%)</label>
+                                <input type="number" id="platform-fee" min="0" max="100" step="0.1" value="5">
+                            </div>
+                            <div class="form-group">
+                                <label for="min-bounty">Minimum Bounty Amount</label>
+                                <input type="number" id="min-bounty" min="1" value="10">
+                            </div>
+                            <button type="submit" class="btn-primary">Save Settings</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
