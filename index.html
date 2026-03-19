@@ -1490,6 +1490,30 @@
           <p class="gov-loading">Loading…</p>
         </div>
       </details>
+
+      <!-- Data Sharing Reward Settlement -->
+      <details id="payroll-datasharing-section" class="gov-admin-section" style="margin-top:1.5rem;">
+        <summary>📡 Settle Data Sharing Rewards</summary>
+        <div class="gov-admin-section-body">
+          <p style="font-size:0.85rem;color:#aacfdd;margin:0 0 0.75rem;">
+            Manually enter wallet addresses to reward for data-sharing opt-in contributions.
+            Uses <code>batchRewardDataSharing()</code> on the Treasury contract — emits
+            <code>DataSharingRewarded</code> events for on-chain auditability.
+          </p>
+          <div id="payroll-ds-entries">
+            <div class="payroll-ds-entry">
+              <input type="text"   class="payroll-ds-wallet payroll-ds-input" placeholder="0x… wallet address" />
+              <input type="number" class="payroll-ds-amount payroll-ds-input" placeholder="BNUT amount" min="1" />
+              <input type="text"   class="payroll-ds-ref    payroll-ds-input" placeholder="ref (e.g. data-sharing:week:1)" />
+            </div>
+          </div>
+          <div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+            <button id="payroll-ds-add-row" class="gov-admin-action-btn" style="padding:0.35rem 0.75rem;font-size:0.8rem;">+ Add Row</button>
+            <button id="payroll-ds-settle-btn" class="gov-admin-action-btn" style="padding:0.35rem 0.9rem;font-size:0.8rem;">🚀 Send Rewards</button>
+          </div>
+          <p id="payroll-ds-status" class="gov-form-status" style="margin-top:0.5rem;"></p>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -1630,7 +1654,13 @@
 
         <div class="comm-datapool-intro">
           <h4 class="comm-chart-title">📡 Opt In to the Community Data Pool</h4>
-          <p>Contribute your anonymized health data to help the community understand trends and earn $BNUT rewards (programme launching soon).</p>
+          <p>Contribute your anonymized health data to help the community understand trends and earn $BNUT rewards. Payouts are batch-approved by the owner and traceable on-chain via the BigNuten Treasury contract.</p>
+        </div>
+
+        <!-- Revoke consent — prominent, placed first -->
+        <div class="comm-revoke-bar" id="cd-revoke-bar" style="display:none;">
+          <span class="comm-revoke-info">⚠️ You are currently opted in. Revoking consent will clear all opt-in state and end your streak.</span>
+          <button class="comm-revoke-btn" id="cd-revoke-btn" aria-label="Revoke all data sharing consent">🔴 Revoke All Consent</button>
         </div>
 
         <!-- Opt-in toggles -->
@@ -1675,14 +1705,52 @@
             <li>✅ Data is salted and hashed before any submission</li>
             <li>✅ Stored on IPFS — community pools are publicly auditable</li>
           </ul>
+          <p class="comm-privacy-policy-link">📄 Full privacy policy &amp; data usage details: <a href="docs/TOKENOMICS.md" target="_blank" rel="noopener noreferrer">TOKENOMICS.md → Data Sharing Rewards</a></p>
         </div>
 
-        <!-- Earn BNUT -->
-        <div class="comm-earn-card">
+        <!-- Earn BNUT — reward status card -->
+        <div class="comm-earn-card" id="cd-earn-card">
           <img src="img/BigNuten.png" alt="$BNUT" class="comm-earn-icon" />
-          <div>
+          <div class="comm-earn-body">
             <strong>Earn $BNUT for Contributing</strong>
-            <p>Each accepted data contribution will earn $BNUT once the earn programme launches.</p>
+
+            <!-- Shown when NOT opted in -->
+            <div id="cd-earn-no-optin">
+              <p>Enable at least one toggle above to start earning $BNUT. You'll receive <strong>50 BNUT</strong> for your first opt-in, <strong>25 BNUT/week</strong> for continuous sharing, plus streak bonuses at 1 and 3 months.</p>
+            </div>
+
+            <!-- Shown when opted in -->
+            <div id="cd-earn-status" style="display:none;">
+              <div class="comm-reward-row">
+                <span class="comm-reward-label">🔥 Streak</span>
+                <span class="comm-streak-badge" id="cd-streak-weeks">0 weeks</span>
+              </div>
+              <div class="comm-reward-row">
+                <span class="comm-reward-label">🪙 Earned</span>
+                <span class="comm-reward-value" id="cd-earned-bnut">0 BNUT</span>
+              </div>
+              <div class="comm-reward-row">
+                <span class="comm-reward-label">✅ Confirmed on-chain</span>
+                <span class="comm-reward-value" id="cd-confirmed-bnut">0 BNUT</span>
+              </div>
+              <div class="comm-reward-row">
+                <span class="comm-reward-label">⏳ Pending approval</span>
+                <span class="comm-reward-value comm-reward-pending" id="cd-pending-bnut">0 BNUT</span>
+              </div>
+              <div class="comm-reward-row" id="cd-milestone-row" style="display:none;">
+                <span class="comm-reward-label">🎯 Next milestone</span>
+                <span class="comm-reward-value comm-reward-milestone" id="cd-milestone-text"></span>
+              </div>
+              <p class="comm-reward-note">Payouts are batch-processed by the owner via the BigNuten Treasury contract. Once approved, your BNUT will appear on-chain instantly.</p>
+              <button class="comm-claim-btn" id="cd-claim-btn">📬 Request $BNUT Reward</button>
+              <p class="comm-claim-status" id="cd-claim-status" style="display:none;"></p>
+            </div>
+
+            <!-- On-chain history (shown when wallet connected and history exists) -->
+            <div id="cd-history-section" style="display:none;">
+              <h5 class="comm-history-title">📜 On-Chain Reward History</h5>
+              <div id="cd-history-list" class="comm-history-list"></div>
+            </div>
           </div>
         </div>
 

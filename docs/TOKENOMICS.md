@@ -262,14 +262,16 @@ Community governance proposals may cover:
 
 ## Data Sharing Rewards
 
-BigNuten users can opt in to share anonymised fitness and health data with the community. In return, they earn $BNUT.
+BigNuten users can opt in to share anonymised fitness and health data with the community. In return, they earn $BNUT, paid out from the **BigNutenTreasury** contract.
 
 ### Privacy Guarantees
 
 - Data is **aggregated and anonymised** — individual records are never exposed.
-- Users can **revoke consent at any time** via the in-app settings.
-- No personal identifiers (name, email, etc.) are linked to shared data.
-- Full data usage policy is published in the app and in-repo documentation.
+- Users can **revoke consent at any time** via the in-app Data Pool tab (prominent "Revoke All Consent" button).
+- No personal identifiers (name, email, wallet address, timestamps) are linked to shared data.
+- Opt-in state is stored in browser `localStorage` only — nothing is sent to a server.
+- Only aggregate counts and category trends are previewed or shared.
+- Full data usage policy: this document, section "Privacy Guarantees" above.
 
 ### Earning $BNUT via Data Sharing
 
@@ -277,11 +279,21 @@ BigNuten users can opt in to share anonymised fitness and health data with the c
 |---------------------------------|---------------|
 | Initial opt-in                  | 50 BNUT       |
 | Weekly data contribution        | 25 BNUT       |
-| 1-month sharing streak bonus    | 100 BNUT      |
-| 3-month sharing streak bonus    | 500 BNUT      |
+| 1-month sharing streak bonus    | +100 BNUT     |
+| 3-month sharing streak bonus    | +500 BNUT     |
 
-> Payouts are batch-processed by the owner via the Treasury contract.
-> See issue #49 for the opt-in UI implementation.
+### Payout Flow
+
+1. User enables one or more data-sharing toggles in the **Data Pool** tab.
+2. The app records the opt-in timestamp locally and calculates earned BNUT based on streak length.
+3. The user clicks **"Request $BNUT Reward"** to register their wallet for the next batch payout.
+4. The Treasury owner calls `batchRewardDataSharing()` on `BigNutenTreasury` to settle pending requests.
+5. Each payout emits a `DataSharingRewarded` event — fully traceable on Optimism via [Optimistic Etherscan](https://optimistic.etherscan.io).
+6. The **on-chain reward history** is displayed in the Data Pool tab when the user's wallet is connected.
+
+> Payouts are batch-processed by the owner via the BigNutenTreasury contract.
+> Contract ABI: `abis/BigNutenTreasury.json`
+> Related issue: #49 (opt-in UI implementation).
 
 ---
 
@@ -290,7 +302,7 @@ BigNuten users can opt in to share anonymised fitness and health data with the c
 | Contract                     | File                                    | Purpose                              |
 |------------------------------|-----------------------------------------|--------------------------------------|
 | BigNuten (ERC-20)            | `contracts/BigNuten.sol`                | $BNUT token                          |
-| BigNutenTreasury             | `contracts/BigNutenTreasury.sol`        | Holds reserves, pays contributors    |
+| BigNutenTreasury             | `contracts/BigNutenTreasury.sol`        | Holds reserves, pays contributors and data-sharing rewards (`rewardDataSharing`, `batchRewardDataSharing`) |
 | BigNutenSubscription         | `contracts/BigNutenSubscription.sol`    | Auxiliary subscription contract (ETH & $BNUT self-service). The live app uses **DecentEscrow** below. |
 | DecentEscrow v0.1            | External — [`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) | **Active subscription backend** — plan-based subscriptions for ETH (plan 0) and $BNUT (plan 1) |
 | BigNutenGovernance           | `contracts/BigNutenGovernance.sol`      | Community proposal voting            |

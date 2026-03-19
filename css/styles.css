@@ -2210,6 +2210,27 @@ svg text {
   max-width: 680px;
 }
 
+/* Payroll — data sharing reward entry inputs */
+.payroll-ds-entry {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+
+.payroll-ds-input {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.82rem;
+  background: #0a0a2e;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  color: #eee;
+  border-radius: 5px;
+}
+
+.payroll-ds-wallet { width: 55%; }
+.payroll-ds-amount { width: 20%; }
+.payroll-ds-ref    { width: 22%; }
+
 /* Proposals container */
 .gov-proposals-container {
   margin-top: 1rem;
@@ -3465,10 +3486,207 @@ svg text {
   font-family: 'Courier New', monospace;
 }
 
+/* Earn card body flex child */
+.comm-earn-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Revoke consent bar */
+.comm-revoke-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  background: rgba(255, 50, 50, 0.08);
+  border: 1px solid rgba(255, 80, 80, 0.3);
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.comm-revoke-info {
+  font-size: 0.78rem;
+  color: #ff9999;
+  flex: 1;
+}
+
+.comm-revoke-btn {
+  background: rgba(200, 30, 30, 0.75);
+  color: #fff;
+  border: 1px solid rgba(255, 80, 80, 0.5);
+  border-radius: 6px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.comm-revoke-btn:hover {
+  background: rgba(220, 50, 50, 0.9);
+}
+
+/* Reward status rows inside earn card */
+.comm-reward-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.3rem 0;
+}
+
+.comm-reward-label {
+  font-size: 0.78rem;
+  color: #aacfdd;
+  min-width: 160px;
+  flex-shrink: 0;
+}
+
+.comm-reward-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ffba08;
+}
+
+.comm-reward-pending {
+  color: #00e5ff;
+}
+
+.comm-reward-milestone {
+  color: #c9f566;
+}
+
+/* Streak badge */
+.comm-streak-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #ff6700, #ffba08);
+  color: #0a0a1e;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+}
+
+/* Reward note */
+.comm-reward-note {
+  margin: 0.5rem 0 0.6rem;
+  font-size: 0.75rem;
+  color: #7a9aa8;
+}
+
+/* Claim button */
+.comm-claim-btn {
+  background: linear-gradient(135deg, #00e5ff22, #00e5ff44);
+  color: #00e5ff;
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  border-radius: 7px;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  display: inline-block;
+  margin-top: 0.25rem;
+}
+
+.comm-claim-btn:hover {
+  background: rgba(0, 229, 255, 0.2);
+  border-color: rgba(0, 229, 255, 0.7);
+}
+
+/* Claim status message */
+.comm-claim-status {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  border-radius: 6px;
+  padding: 0.4rem 0.65rem;
+}
+
+.comm-claim-ok {
+  background: rgba(0, 229, 100, 0.08);
+  color: #73e6a0;
+  border: 1px solid rgba(0, 229, 100, 0.2);
+}
+
+.comm-claim-warn {
+  background: rgba(255, 186, 8, 0.08);
+  color: #ffba08;
+  border: 1px solid rgba(255, 186, 8, 0.25);
+}
+
+/* On-chain history section */
+.comm-history-title {
+  margin: 0.75rem 0 0.35rem;
+  color: #00e5ff;
+  font-size: 0.82rem;
+}
+
+.comm-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.comm-history-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.76rem;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem;
+}
+
+.comm-history-ref {
+  flex: 1;
+  color: #aacfdd;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comm-history-amount {
+  font-weight: 700;
+  color: #ffba08;
+  white-space: nowrap;
+}
+
+.comm-history-tx {
+  color: #00e5ff;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.comm-history-tx:hover {
+  text-decoration: underline;
+}
+
+/* Privacy policy link in anonymization box */
+.comm-privacy-policy-link {
+  margin: 0.5rem 0 0;
+  font-size: 0.76rem;
+  color: #7a9aa8;
+}
+
+.comm-privacy-policy-link a {
+  color: #00e5ff;
+  text-decoration: none;
+}
+
+.comm-privacy-policy-link a:hover {
+  text-decoration: underline;
+}
+
 /* ── Responsive ── */
 @media (max-width: 500px) {
   .comm-dashboard-modal { padding: 1rem 0.75rem; }
   .comm-stat-value { font-size: 1.15rem; }
   .comm-tabs { gap: 2px; }
   .comm-tab { font-size: 0.75rem; padding: 0.4rem 0.55rem; }
+  .comm-reward-label { min-width: 120px; }
+  .comm-revoke-bar { flex-direction: column; align-items: flex-start; }
 }

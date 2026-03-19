@@ -8,13 +8,20 @@
  *   1. Exercise & Fitness
  *   2. Nutrition
  *   3. $BNUT & Ledger
- *   4. Data Pool (opt-in controls)
+ *   4. Data Pool (opt-in controls + $BNUT reward status)
  *
  * Privacy model (prototype):
  *   - No wallet addresses or user IDs are displayed anywhere.
  *   - Only aggregate counts and trends are shown.
  *   - The "Data Pool" tab shows a sanitized preview of what *would* be shared.
  */
+
+import {
+  getDataSharingStatus,
+  onUserOptIn,
+  revokeDataConsent,
+  DATA_SHARING_REWARDS,
+} from './dataSharing.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -522,6 +529,67 @@ function refreshDataPreview(data, optIn) {
   }
 }
 
+/**
+ * Render the reward-status section of the Data Pool tab.
+ * Reads on-chain history if a wallet is connected.
+ */
+async function renderRewardStatus() {
+  const walletAddress = window.ethereum
+    ? (await new ethers.BrowserProvider(window.ethereum)
+        .send('eth_accounts', []).catch(() => []))[0] || null
+    : null;
+
+  const status = await getDataSharingStatus(walletAddress);
+
+  const revokeBar       = document.getElementById('cd-revoke-bar');
+  const earnNoOptin     = document.getElementById('cd-earn-no-optin');
+  const earnStatus      = document.getElementById('cd-earn-status');
+  const historySection  = document.getElementById('cd-history-section');
+
+  if (revokeBar) revokeBar.style.display = status.optedIn ? 'flex' : 'none';
+  if (earnNoOptin) earnNoOptin.style.display = status.optedIn ? 'none' : 'block';
+  if (earnStatus)  earnStatus.style.display  = status.optedIn ? 'block' : 'none';
+
+  if (status.optedIn) {
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('cd-streak-weeks',  `${status.streakWeeks} week${status.streakWeeks !== 1 ? 's' : ''}`);
+    set('cd-earned-bnut',   `${status.earnedBnut.toLocaleString()} BNUT`);
+    set('cd-confirmed-bnut', `${status.confirmedBnut.toLocaleString()} BNUT`);
+    set('cd-pending-bnut',  `${status.pendingBnut.toLocaleString()} BNUT`);
+
+    const milestoneRow  = document.getElementById('cd-milestone-row');
+    const milestoneText = document.getElementById('cd-milestone-text');
+    if (milestoneRow && milestoneText) {
+      if (status.nextMilestone) {
+        milestoneText.textContent =
+          `+${status.nextMilestone.bonus} BNUT for ${status.nextMilestone.label} ` +
+          `(${status.nextMilestone.weeksRemaining} week${status.nextMilestone.weeksRemaining !== 1 ? 's' : ''} away)`;
+        milestoneRow.style.display = 'flex';
+      } else {
+        milestoneRow.style.display = 'none';
+      }
+    }
+  }
+
+  // On-chain history
+  if (historySection && status.onChainHistory.length > 0) {
+    historySection.style.display = 'block';
+    const listEl = document.getElementById('cd-history-list');
+    if (listEl) {
+      listEl.innerHTML = status.onChainHistory.map(h => `
+        <div class="comm-history-row">
+          <span class="comm-history-ref">${escHtml(h.ref)}</span>
+          <span class="comm-history-amount">+${h.amount.toLocaleString()} BNUT</span>
+          <a class="comm-history-tx" href="https://optimistic.etherscan.io/tx/${escHtml(h.txHash)}"
+             target="_blank" rel="noopener noreferrer">↗ tx</a>
+        </div>
+      `).join('');
+    }
+  } else if (historySection) {
+    historySection.style.display = 'none';
+  }
+}
+
 // ─── Tab Switcher ─────────────────────────────────────────────────────────────
 
 function initTabs(modal) {
@@ -601,6 +669,7 @@ export function initCommunityDashboard() {
     // Data Pool tab
     renderDataPoolTab(data, optIn);
     wireOptInToggles(data);
+    await renderRewardStatus();
   }
 
   function wireOptInToggles(data) {
@@ -616,8 +685,60 @@ export function initCommunityDashboard() {
         const current = loadOptIn();
         current[key] = checkbox.checked;
         saveOptIn(current);
+        // Record first-consent timestamp when any toggle is switched on
+        if (checkbox.checked) onUserOptIn();
         refreshDataPreview(data, loadOptIn());
+        renderRewardStatus();
       });
+    });
+  }
+
+  function wireRevokeButton() {
+    const revokeBtn = document.getElementById('cd-revoke-btn');
+    if (!revokeBtn || revokeBtn.dataset.wired) return;
+    revokeBtn.dataset.wired = '1';
+    revokeBtn.addEventListener('click', () => {
+      if (!confirm('Revoke all data-sharing consent? This will clear your opt-in state and end your current streak.')) return;
+      revokeDataConsent();
+      // Un-tick all toggles
+      ['exercise', 'nutrition', 'weight', 'supplements'].forEach(key => {
+        const cb = document.getElementById(`cd-opt-${key}`);
+        if (cb) cb.checked = false;
+      });
+      const data = loadLocalData() || {};
+      refreshDataPreview(data, {});
+      renderRewardStatus();
+    });
+  }
+
+  function wireClaimButton() {
+    const claimBtn    = document.getElementById('cd-claim-btn');
+    const claimStatus = document.getElementById('cd-claim-status');
+    if (!claimBtn || claimBtn.dataset.wired) return;
+    claimBtn.dataset.wired = '1';
+    claimBtn.addEventListener('click', async () => {
+      if (!claimStatus) return;
+
+      let addr = null;
+      if (window.ethereum) {
+        try {
+          const accounts = await new ethers.BrowserProvider(window.ethereum).send('eth_accounts', []);
+          addr = (accounts && accounts[0]) ? accounts[0] : null;
+        } catch (_) { /* wallet not ready */ }
+      }
+
+      if (!addr) {
+        claimStatus.style.display = 'block';
+        claimStatus.textContent = '⚠️ Please connect your wallet (MetaMask) to request a reward.';
+        claimStatus.className = 'comm-claim-status comm-claim-warn';
+        return;
+      }
+      claimStatus.style.display = 'block';
+      claimStatus.className = 'comm-claim-status comm-claim-ok';
+      claimStatus.textContent =
+        `✅ Reward request noted! Your wallet (${addr.slice(0, 6)}…${addr.slice(-4)}) ` +
+        `has been registered for the next batch payout. ` +
+        `The owner will process pending requests periodically via the Treasury contract.`;
     });
   }
 
@@ -641,4 +762,8 @@ export function initCommunityDashboard() {
 
   // Tab switching
   initTabs(modal);
+
+  // Wire revoke consent + claim buttons (safe to call multiple times — guarded by dataset.wired)
+  wireRevokeButton();
+  wireClaimButton();
 }
