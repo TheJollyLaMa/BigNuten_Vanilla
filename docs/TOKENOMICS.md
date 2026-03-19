@@ -97,7 +97,7 @@ The bounty system rewards open-source contributors for closing GitHub issues.
 
 ### How It Works
 
-1. The repo owner adds a label like **`bounty: 500 BNUT`** to an issue.
+1. The repo owner runs the **Bounty Label** workflow (`.github/workflows/bounty-label.yml`) to add a label like **`bounty: 500 BNUT`** to an issue.
 2. When the issue is assigned, the **Bounty Bot** (`.github/workflows/bounty-bot.yml`) posts a comment announcing the reward.
 3. The contributor opens a PR that closes the issue (`Closes #N` in the PR body).
 4. When the PR is merged, the bot posts a payout request tagging `@TheJollyLaMa`.
@@ -105,7 +105,20 @@ The bounty system rewards open-source contributors for closing GitHub issues.
    - Contributor wallet address
    - BNUT amount
    - Issue number
-6. The workflow calls `payContributor()` on the `BigNutenTreasury` contract, sending BNUT to the contributor's wallet.
+6. The payout is queued in `payroll-queue.json` and settled via the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) Payroll panel.
+
+### Applying a Bounty Label
+
+Maintainers can label any open issue with a bounty amount in two ways:
+
+**Option A — GitHub Actions UI (recommended):**
+1. Go to **Actions → Bounty Label → Run workflow**.
+2. Enter the issue number and BNUT amount.
+3. The workflow creates the label (if new) and posts an announcement comment.
+
+**Option B — Manual:**
+1. Create a label in the repo following the exact format (see [Label Format](#label-format)).
+2. Apply it to the issue from the issue sidebar.
 
 ### Label Format
 
@@ -129,6 +142,43 @@ Examples:
 | Feature (small)| 500–1000 BNUT   |
 | Feature (large)| 1000–5000 BNUT  |
 | Audit / Security| 5000+ BNUT     |
+
+---
+
+## Contributor Accounts
+
+All registered contributors are tracked in `contributor-accounts.json` at the root of the repository.
+
+### What is tracked
+
+| Field            | Description                                              |
+|------------------|----------------------------------------------------------|
+| `github`         | GitHub username                                          |
+| `displayName`    | Human-readable name                                      |
+| `role`           | `owner` or `contributor`                                 |
+| `walletAddress`  | Optimism Mainnet address for $BNUT payouts               |
+| `bnutEarned`     | Cumulative BNUT received (updated manually by owner)     |
+| `bnutPending`    | BNUT queued but not yet settled                          |
+| `issuesClosed`   | List of issue references credited to this contributor    |
+
+### Initial Accounts
+
+The system starts with two accounts for early testing:
+
+| GitHub         | Role        | Purpose                              |
+|----------------|-------------|--------------------------------------|
+| `@TheJollyLaMa`| owner       | Repo maintainer — test payroll flow  |
+| `@copilot`     | contributor | GitHub Copilot RoboSoul — AI contributions |
+
+> 💡 **Wallet addresses are required** before any payout can be queued. Edit `contributor-accounts.json` to add or update wallet addresses.
+
+### Inviting New Contributors
+
+Once the initial two accounts are active and a test payout has been settled, new contributors can be invited by:
+
+1. Adding an entry to `contributor-accounts.json`.
+2. Assigning them to a bounty-labelled issue.
+3. The Bounty Bot will announce the reward automatically.
 
 ---
 
@@ -239,7 +289,7 @@ Deployed addresses are set in `.env` after running `npm run deploy:<network>`.
 | 2     | Build crypto subscription payment flow (Issue #43)                | 🔵 Planned  |
 | 2     | Accept $BNUT for discounted subscriptions (Issue #44)             | 🔵 Planned  |
 | 3     | Build GitHub bounty bot (Issue #45)                               | ✅ Done     |
-| 3     | Add bounty label system to issues (Issue #46)                     | 🔵 Planned  |
+| 3     | Add bounty label system to issues (Issue #46)                     | ✅ Done     |
 | 3     | Deploy community governance (Issue #47)                           | 🔵 Planned  |
 | 4     | Build community data dashboard (Issue #48)                        | 🔵 Planned  |
 | 4     | Build opt-in data sharing UI (Issue #49)                          | 🔵 Planned  |

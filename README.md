@@ -173,13 +173,27 @@ $BNUT holders can vote on platform decisions via the on-chain governance system.
 
 BigNuten uses a **bounty system** powered by $BNUT to reward contributors.
 
+### Claiming a Bounty
+
 - Issues labeled `bounty: N BNUT` are open for community contributors
 - To claim a bounty:
   1. Comment on the issue expressing interest
   2. Get assigned by a maintainer
-  3. Open a PR referencing the issue
+  3. Open a PR referencing the issue (`Closes #N` in the PR body)
   4. Get merged → get paid in $BNUT 🪙
-- **All contributors must have a MetaMask wallet address** to receive $BNUT payouts
+- **All contributors must have a MetaMask wallet address** (Optimism Mainnet) to receive $BNUT payouts
+
+### Applying a Bounty Label (maintainers)
+
+Use the **Bounty Label** workflow: **Actions → Bounty Label → Run workflow**, then enter the issue number and BNUT amount. The workflow creates the standardised label and posts an announcement comment automatically.
+
+Label format: `bounty: <amount> BNUT` (e.g. `bounty: 500 BNUT`)
+
+### Contributor Accounts
+
+Registered contributors are tracked in [`contributor-accounts.json`](contributor-accounts.json). The initial accounts are `@TheJollyLaMa` and `@copilot` (the AI RoboSoul). Once a test payout cycle is verified, additional contributors will be invited.
+
+See [`docs/TOKENOMICS.md`](docs/TOKENOMICS.md) for the full bounty process.
 
 ---
 
