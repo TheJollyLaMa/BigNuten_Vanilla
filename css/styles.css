@@ -2016,10 +2016,22 @@ svg text {
   position: relative;
 }
 
-#app-title-left {
+#aesculapius-left {
+  cursor: pointer;
+  display: inline-block;
+  transition: text-shadow 0.2s ease, transform 0.2s ease;
+}
+#aesculapius-left:hover,
+#aesculapius-left:focus {
+  text-shadow: 0 0 20px #ff9f43, 0 0 40px #e74c3c, 0 0 60px #ff6b6b;
+  transform: scale(1.15);
+  outline: none;
+}
+
+#app-title-name {
   cursor: pointer;
 }
-#app-title-left:hover {
+#app-title-name:hover {
   text-shadow: 0 0 16px #00ff66, 0 0 32px #00e5ff;
 }
 
@@ -2053,6 +2065,36 @@ svg text {
 }
 .aesculapius-dropdown.hidden {
   display: none;
+}
+
+/* Admin dropdown — left ⚕︎ */
+.admin-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  transform: translateX(-25%);
+  min-width: 200px;
+  background: rgba(30, 0, 20, 0.97);
+  border: 2px solid #ff9f43;
+  border-radius: 10px;
+  box-shadow: 0 0 24px #ff9f43, 0 0 8px #e74c3c;
+  z-index: 200000;
+  padding: 0.75rem 0.5rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-dropdown.hidden {
+  display: none;
+}
+.admin-menu-item {
+  color: #ffe0b2 !important;
+}
+.admin-menu-item:hover,
+.admin-menu-item:focus {
+  background: rgba(255, 159, 67, 0.15) !important;
+  border-color: #ff9f43 !important;
+  color: #ff9f43 !important;
 }
 
 .aes-bnut-balance {

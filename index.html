@@ -31,8 +31,14 @@
     </div>
     <div id="header-center">
       <h1 id="app-title">
-        <span id="app-title-left"
-              title="About BigNuten — click to learn more">⚕︎ Big Nuten </span><span
+        <span id="aesculapius-left"
+              title="Admin Panel — click to open menu"
+              aria-haspopup="true"
+              aria-expanded="false"
+              tabindex="0"
+              role="button">⚕︎</span><span
+              id="app-title-name"
+              title="About BigNuten — click to learn more"> Big Nuten </span><span
               id="aesculapius-right"
               title="$BNUT Features — click to open menu"
               aria-haspopup="true"
@@ -42,7 +48,18 @@
       </h1>
       <h3 id="app-subtitle">(Another Decent Frankenstein)</h3>
 
-      <!-- Staff of Aesculapius Dropdown (right ⚕︎) -->
+      <!-- Admin Dropdown (left ⚕︎) — staff admin panel -->
+      <div id="admin-dropdown" class="admin-dropdown hidden" role="menu" aria-label="Admin menu">
+        <div class="aes-bnut-balance">
+          <img src="img/BigNuten.png" alt="Admin" class="aes-bnut-icon" />
+          <span class="aes-bnut-amount" style="color:#ff9f43;">⚙️ Staff</span>
+        </div>
+        <hr class="aes-divider" />
+        <button class="aes-menu-item admin-menu-item" id="admin-panel-btn" role="menuitem">⚙️ Admin Panel</button>
+        <button class="aes-menu-item admin-menu-item" id="admin-payroll-btn" role="menuitem">💸 Payroll</button>
+      </div>
+
+      <!-- Staff of Aesculapius Dropdown (right ⚕︎) — user-facing features -->
       <div id="aesculapius-dropdown" class="aesculapius-dropdown hidden" role="menu" aria-label="$BNUT Features menu">
         <div id="aes-bnut-balance" class="aes-bnut-balance">
           <img src="img/BigNuten.png" alt="$BNUT" class="aes-bnut-icon" />
@@ -55,8 +72,6 @@
         <button class="aes-menu-item" id="aes-gov-btn"       role="menuitem">🗳️ Governance</button>
         <button class="aes-menu-item" id="aes-data-btn"      role="menuitem">📊 Data Sharing</button>
         <button class="aes-menu-item" id="aes-challenge-btn" role="menuitem">🏋️ Monthly Challenge</button>
-        <!-- Payroll button — shown only to treasury owner via JS -->
-        <button class="aes-menu-item" id="aes-payroll-btn" role="menuitem" style="display:none;">💸 Payroll</button>
       </div>
     </div>
     <div id="walletIconWrapper">
@@ -1240,42 +1255,22 @@
     </div>
   </div>
 
-  <!-- ── Governance Modal ──────────────────────────────────────────────── -->
-  <div id="governance-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="governance-modal-title">
+  <!-- ── Admin Panel Modal (left ⚕︎ — staff only) ────────────────────────── -->
+  <div id="admin-panel-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="admin-panel-modal-title">
     <div class="modal gov-modal">
-      <button class="modal-close" id="governance-modal-close" aria-label="Close Governance modal">×</button>
+      <button class="modal-close" id="admin-panel-modal-close" aria-label="Close Admin Panel">×</button>
 
       <!-- Header -->
       <div class="aes-stub-header">
         <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
-        <h2 id="governance-modal-title">🗳️ Governance</h2>
+        <h2 id="admin-panel-modal-title">⚙️ Admin Panel</h2>
       </div>
       <p class="aes-stub-desc">
-        $BNUT holders vote on feature roadmap, prize pools, and protocol changes.
-        1 wallet = 1 vote · Must hold ≥1 $BNUT · Quorum required for valid results.
+        Owner-only controls for the BigNuten platform. Connect MetaMask with the admin wallet to use these tools.
       </p>
 
-      <!-- Wallet BNUT balance (shown when connected) -->
-      <p id="gov-wallet-balance" class="gov-wallet-balance" style="display:none;"></p>
-
-      <!-- How to get $BNUT info box -->
-      <details class="gov-info-box">
-        <summary>💡 How to get $BNUT</summary>
-        <div class="gov-info-content">
-          <p>$BNUT is the BigNuten governance &amp; rewards token on <strong>Optimism Mainnet</strong>.</p>
-          <ul>
-            <li>🎟️ <strong>Buy a Supporter DNFT</strong> — DNFT holders earn $BNUT rewards and gain PROPOSER_ROLE.</li>
-            <li>💻 <strong>Contribute code</strong> — merged PRs can be rewarded with $BNUT by the admin.</li>
-            <li>📊 <strong>Share health data</strong> (opt-in) — earn $BNUT for community research contributions.</li>
-            <li>⚙️ <strong>Admin mint</strong> — TheJollyLaMa can mint $BNUT to wallets via the Admin Panel below.</li>
-          </ul>
-          <p class="gov-info-contract">Token: <code>0x733c4d2Aae900E608147dd89Fa93606f89722823</code> (Optimism)</p>
-        </div>
-      </details>
-
-      <!-- ── Admin Panel (visible to DEFAULT_ADMIN_ROLE only) ──────────── -->
-      <div id="gov-admin-panel" class="gov-admin-panel" style="display:none;">
-        <h3 class="gov-admin-panel-title">⚙️ Admin Panel</h3>
+      <!-- ── Admin Panel content ──────────────────────────────────────────── -->
+      <div id="gov-admin-panel" class="gov-admin-panel">
 
         <!-- Mint $BNUT -->
         <details class="gov-admin-section">
@@ -1484,6 +1479,42 @@
           </div>
         </details>
       </div>
+
+    </div>
+  </div>
+
+  <!-- ── Governance Modal ──────────────────────────────────────────────── -->
+  <div id="governance-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="governance-modal-title">
+    <div class="modal gov-modal">
+      <button class="modal-close" id="governance-modal-close" aria-label="Close Governance modal">×</button>
+
+      <!-- Header -->
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="governance-modal-title">🗳️ Governance</h2>
+      </div>
+      <p class="aes-stub-desc">
+        $BNUT holders vote on feature roadmap, prize pools, and protocol changes.
+        1 wallet = 1 vote · Must hold ≥1 $BNUT · Quorum required for valid results.
+      </p>
+
+      <!-- Wallet BNUT balance (shown when connected) -->
+      <p id="gov-wallet-balance" class="gov-wallet-balance" style="display:none;"></p>
+
+      <!-- How to get $BNUT info box -->
+      <details class="gov-info-box">
+        <summary>💡 How to get $BNUT</summary>
+        <div class="gov-info-content">
+          <p>$BNUT is the BigNuten governance &amp; rewards token on <strong>Optimism Mainnet</strong>.</p>
+          <ul>
+            <li>🎟️ <strong>Buy a Supporter DNFT</strong> — DNFT holders earn $BNUT rewards and gain PROPOSER_ROLE.</li>
+            <li>💻 <strong>Contribute code</strong> — merged PRs can be rewarded with $BNUT by the admin.</li>
+            <li>📊 <strong>Share health data</strong> (opt-in) — earn $BNUT for community research contributions.</li>
+            <li>⚙️ <strong>Admin tools</strong> — accessible via the ⚕︎ Staff menu on the left of the title.</li>
+          </ul>
+          <p class="gov-info-contract">Token: <code>0x733c4d2Aae900E608147dd89Fa93606f89722823</code> (Optimism)</p>
+        </div>
+      </details>
 
       <!-- Create Proposal button — shown only when PROPOSER_ROLE is confirmed -->
       <div id="gov-create-btn-wrapper" class="gov-create-btn-wrapper" style="display:none;">
