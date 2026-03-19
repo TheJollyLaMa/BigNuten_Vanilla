@@ -1,12 +1,15 @@
 {
-  "pending": [
+  "pending": [],
+  "settled": [
     {
       "issueRef": "TheJollyLaMa/BigNuten_Vanilla#77",
       "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
       "contributorGithub": "TheJollyLaMa",
       "amount": "1",
       "queuedAt": "2026-03-19T14:26:25.404Z",
-      "queuedBy": "TheJollyLaMa"
+      "queuedBy": "TheJollyLaMa",
+      "settledAt": "2026-03-19T17:00:00.000Z",
+      "settledBy": "TheJollyLaMa"
     },
     {
       "issueRef": "TheJollyLaMa/BigNuten_Vanilla#77",
@@ -14,8 +17,10 @@
       "contributorGithub": "copilot",
       "amount": "1",
       "queuedAt": "2026-03-19T15:07:12.139Z",
-      "queuedBy": "TheJollyLaMa"
+      "queuedBy": "TheJollyLaMa",
+      "settledAt": "2026-03-19T17:00:00.000Z",
+      "settledBy": "TheJollyLaMa"
     }
-  ],
-  "settled": []
+  ]
 }
+
