@@ -1,0 +1,401 @@
+/* Payroll Table Styles */
+.payroll-section {
+  background: #1e1e1e;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 32px;
+}
+
+.payroll-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 16px;
+}
+
+.payroll-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.payroll-stats {
+  display: flex;
+  gap: 24px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffd700;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #999;
+  margin-top: 4px;
+}
+
+/* Table Styles */
+.payroll-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+}
+
+.payroll-table th {
+  background: #2a2a2a;
+  color: #fff;
+  padding: 16px 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #444;
+}
+
+.payroll-table td {
+  padding: 16px 12px;
+  border-bottom: 1px solid #333;
+  vertical-align: middle;
+}
+
+.payroll-table tr {
+  background: #1a1a1a;
+  transition: background-color 0.2s ease;
+}
+
+.payroll-table tr:hover {
+  background: #252525;
+}
+
+.payroll-table tbody tr:nth-child(even) {
+  background: #1e1e1e;
+}
+
+.payroll-table tbody tr:nth-child(even):hover {
+  background: #272727;
+}
+
+/* Editable Input Styles */
+.editable-input {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  width: 100%;
+  min-width: 100px;
+}
+
+.editable-input:focus {
+  outline: none;
+  border-color: #ffd700;
+  background: #2a2a2a;
+}
+
+.editable-input:hover {
+  border-color: #555;
+  background: #222;
+}
+
+.editable-input.modified {
+  border-color: #ff8c00;
+  background: #2d1f00;
+}
+
+.amount-input {
+  text-align: right;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+}
+
+.wallet-input {
+  font-family: monospace;
+  font-size: 12px;
+}
+
+/* Status Badge Styles */
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  display: inline-block;
+  min-width: 80px;
+  text-align: center;
+}
+
+.status-pending {
+  background: rgba(255, 165, 0, 0.2);
+  color: #ffa500;
+  border: 1px solid rgba(255, 165, 0, 0.4);
+}
+
+.status-processing {
+  background: rgba(0, 123, 255, 0.2);
+  color: #007bff;
+  border: 1px solid rgba(0, 123, 255, 0.4);
+}
+
+.status-completed {
+  background: rgba(40, 167, 69, 0.2);
+  color: #28a745;
+  border: 1px solid rgba(40, 167, 69, 0.4);
+}
+
+.status-failed {
+  background: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+  border: 1px solid rgba(220, 53, 69, 0.4);
+}
+
+.status-cancelled {
+  background: rgba(108, 117, 125, 0.2);
+  color: #6c757d;
+  border: 1px solid rgba(108, 117, 125, 0.4);
+}
+
+/* Action Button Styles */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn-settle {
+  background: #28a745;
+  color: white;
+}
+
+.action-btn-settle:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.action-btn-cancel {
+  background: #dc3545;
+  color: white;
+}
+
+.action-btn-cancel:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.action-btn-retry {
+  background: #fd7e14;
+  color: white;
+}
+
+.action-btn-retry:hover:not(:disabled) {
+  background: #e76b00;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(253, 126, 20, 0.3);
+}
+
+.action-btn-view {
+  background: #6f42c1;
+  color: white;
+}
+
+.action-btn-view:hover:not(:disabled) {
+  background: #59359a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3);
+}
+
+/* Loading Indicators */
+.loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.action-btn.loading {
+  pointer-events: none;
+}
+
+.action-btn.loading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Progress Bar for Batch Operations */
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: #333;
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 16px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd700, #ffed4e);
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background-image: linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.2) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.2) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 50px 50px;
+  animation: move 2s linear infinite;
+}
+
+@keyframes move {
+  0% { background-position: 0 0; }
+  100% { background-position: 50px 50px; }
+}
+
+/* Bulk Actions */
+.bulk-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #2a2a2a;
+  border-radius: 8px;
+}
+
+.bulk-select-all {
+  margin-right: 16px;
+}
+
+.bulk-btn {
+  padding: 8px 16px;
+  background: #495057;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bulk-btn:hover:not(:disabled) {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.bulk-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Checkbox Styles */
+.row-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #ffd700;
+}
+
+/* Transaction Hash Display */
+.tx-hash {
+  font-family: monospace;
+  font-size: 12px;
+  color: #999;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-hash:hover {
+  color: #ffd700;
+  cursor: pointer;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .payroll-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .payroll-stats {
+    justify-content: space-around;
+  }
+  
+  .payroll-table {
+    font-size: 14px;
+  }
+  
+  .payroll-table th,
+  .payroll-table td {
+    padding: 8px 6px;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+  }
+  
+  .action-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+  
+  .bulk-actions {
+    flex-wrap: wrap;
+  }
+}
