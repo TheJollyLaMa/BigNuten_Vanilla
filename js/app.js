@@ -1,6 +1,7 @@
 import { initDnftPayPalPurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
 import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll } from './treasury.js';
+import { settleDataSharingRewards } from './dataSharing.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -4902,6 +4903,64 @@ document.addEventListener('DOMContentLoaded', () => {
           if (settleStatus) settleStatus.textContent = `❌ ${err.reason || err.message || err}`;
         } finally {
           settleBtn.disabled = false;
+        }
+      });
+    }
+
+    // ── Data Sharing Reward Settlement ────────────────────────────────────
+
+    const dsAddRowBtn   = document.getElementById('payroll-ds-add-row');
+    const dsSettleBtn   = document.getElementById('payroll-ds-settle-btn');
+    const dsStatusEl    = document.getElementById('payroll-ds-status');
+    const dsEntriesEl   = document.getElementById('payroll-ds-entries');
+
+    if (dsAddRowBtn && dsEntriesEl) {
+      dsAddRowBtn.addEventListener('click', () => {
+        const row = document.createElement('div');
+        row.className = 'payroll-ds-entry';
+        row.style.marginTop = '0.4rem';
+        row.innerHTML = `
+          <input type="text"   class="payroll-ds-wallet payroll-ds-input" placeholder="0x… wallet address" />
+          <input type="number" class="payroll-ds-amount payroll-ds-input" placeholder="BNUT amount" min="1" />
+          <input type="text"   class="payroll-ds-ref    payroll-ds-input" placeholder="ref" />
+        `;
+        dsEntriesEl.appendChild(row);
+      });
+    }
+
+    if (dsSettleBtn && dsEntriesEl) {
+      dsSettleBtn.addEventListener('click', async () => {
+        dsSettleBtn.disabled = true;
+        if (dsStatusEl) dsStatusEl.textContent = '⏳ Building batch…';
+
+        try {
+          const rows  = dsEntriesEl.querySelectorAll('.payroll-ds-entry');
+          const batch = [];
+
+          rows.forEach(row => {
+            const wallet = row.querySelector('.payroll-ds-wallet')?.value.trim();
+            const amount = parseFloat(row.querySelector('.payroll-ds-amount')?.value || '0');
+            const ref    = row.querySelector('.payroll-ds-ref')?.value.trim() || 'data-sharing:reward';
+            if (wallet && amount > 0) batch.push({ walletAddress: wallet, amount, ref });
+          });
+
+          if (batch.length === 0) {
+            if (dsStatusEl) dsStatusEl.textContent = '⚠️ No valid entries. Add wallet + amount.';
+            return;
+          }
+
+          if (dsStatusEl) dsStatusEl.textContent = `⏳ Sending ${batch.length} data-sharing reward(s) via MetaMask…`;
+
+          const txHash = await settleDataSharingRewards(batch);
+
+          if (dsStatusEl) {
+            const txUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+            dsStatusEl.innerHTML = `✅ Rewards sent! <a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View on Optimism Explorer ↗</a>`;
+          }
+        } catch (err) {
+          if (dsStatusEl) dsStatusEl.textContent = `❌ ${err.reason || err.message || err}`;
+        } finally {
+          dsSettleBtn.disabled = false;
         }
       });
     }

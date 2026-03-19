@@ -20,6 +20,16 @@
   {
     "anonymous": false,
     "inputs": [
+      { "indexed": true,  "internalType": "address", "name": "user",   "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "indexed": false, "internalType": "string",  "name": "ref",    "type": "string"  }
+    ],
+    "name": "DataSharingRewarded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
       { "indexed": true,  "internalType": "address", "name": "previousOwner", "type": "address" },
       { "indexed": true,  "internalType": "address", "name": "newOwner",       "type": "address" }
     ],
@@ -66,6 +76,28 @@
   },
   {
     "inputs": [
+      { "internalType": "address", "name": "user",   "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "internalType": "string",  "name": "ref",    "type": "string"  }
+    ],
+    "name": "rewardDataSharing",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address[]", "name": "users",   "type": "address[]" },
+      { "internalType": "uint256[]", "name": "amounts", "type": "uint256[]" },
+      { "internalType": "string[]",  "name": "refs",    "type": "string[]"  }
+    ],
+    "name": "batchRewardDataSharing",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
       { "internalType": "uint256", "name": "amount", "type": "uint256" }
     ],
     "name": "withdrawTokens",
@@ -77,6 +109,24 @@
     "inputs": [],
     "name": "getBalance",
     "outputs": [ { "internalType": "uint256", "name": "balance", "type": "uint256" } ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "user", "type": "address" }
+    ],
+    "name": "getDataSharingRewards",
+    "outputs": [ { "internalType": "uint256", "name": "total", "type": "uint256" } ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "user", "type": "address" }
+    ],
+    "name": "dataSharingRewards",
+    "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ],
     "stateMutability": "view",
     "type": "function"
   },

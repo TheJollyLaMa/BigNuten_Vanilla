@@ -4,11 +4,13 @@ pragma solidity ^0.8.20;
 /// @title BigNuten Treasury & Contributor Payout Contract
 /// @author TheJollyLaMa
 /// @notice Holds the $BNUT token reserve and pays out contributors for
-///         completing GitHub issues tagged with bounty amounts.
-///         Related issues: #39 (deploy), #45 (bounty bot integration).
+///         completing GitHub issues tagged with bounty amounts, and rewards
+///         users who opt in to share their anonymized health data.
+///         Related issues: #39 (deploy), #45 (bounty bot integration), #49 (data sharing).
 /// @dev The owner is the deployer (multisig recommended for production).
 ///      Only the owner can trigger payouts or emergency withdrawals.
-///      Integrates with the bounty-payout GitHub Actions workflow.
+///      Integrates with the bounty-payout GitHub Actions workflow and the
+///      in-app data sharing opt-in reward flow.
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -18,6 +20,9 @@ contract BigNutenTreasury is Ownable {
 
     /// @notice The $BNUT ERC-20 token managed by this treasury.
     IERC20 public immutable bnutToken;
+
+    /// @notice Cumulative BNUT rewarded to each address for data sharing.
+    mapping(address => uint256) public dataSharingRewards;
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -35,6 +40,16 @@ contract BigNutenTreasury is Ownable {
     /// @param to     Destination address for the withdrawn tokens.
     /// @param amount Amount withdrawn (18 decimals).
     event TokensWithdrawn(address indexed to, uint256 amount);
+
+    /// @notice Emitted when a user receives a BNUT reward for sharing health data.
+    /// @param user    Wallet address of the rewarded user.
+    /// @param amount  BNUT amount transferred (18 decimals).
+    /// @param ref     Human-readable reference, e.g. "data-sharing:week:4" or "data-sharing:streak:1month".
+    event DataSharingRewarded(
+        address indexed user,
+        uint256 amount,
+        string ref
+    );
 
     // ─── Constructor ──────────────────────────────────────────────────────────
 
@@ -123,11 +138,84 @@ contract BigNutenTreasury is Ownable {
         emit TokensWithdrawn(owner(), amount);
     }
 
+    /// @notice Reward a user with BNUT for opting in and sharing anonymised health data.
+    ///         Called by the owner after verifying opt-in status in the app.
+    ///         Emits DataSharingRewarded so the payout is traceable on-chain.
+    /// @param user    Wallet address of the user to reward.
+    /// @param amount  BNUT amount to send (18 decimals).
+    /// @param ref     Human-readable reference describing the reward, e.g.
+    ///                "data-sharing:optin", "data-sharing:week:4", or
+    ///                "data-sharing:streak:1month".
+    function rewardDataSharing(
+        address user,
+        uint256 amount,
+        string calldata ref
+    ) external onlyOwner {
+        require(user != address(0), "Treasury: zero user address");
+        require(amount > 0, "Treasury: amount must be > 0");
+        require(
+            bnutToken.balanceOf(address(this)) >= amount,
+            "Treasury: insufficient BNUT balance"
+        );
+
+        dataSharingRewards[user] += amount;
+
+        bool success = bnutToken.transfer(user, amount);
+        require(success, "Treasury: transfer failed");
+
+        emit DataSharingRewarded(user, amount, ref);
+    }
+
+    /// @notice Batch reward multiple users for data sharing in a single transaction.
+    /// @param users   Wallet addresses of users to reward.
+    /// @param amounts BNUT amounts to send (18 decimals), one per user.
+    /// @param refs    Human-readable references, one per user.
+    function batchRewardDataSharing(
+        address[] calldata users,
+        uint256[] calldata amounts,
+        string[]  calldata refs
+    ) external onlyOwner {
+        require(
+            users.length == amounts.length &&
+            amounts.length == refs.length,
+            "Treasury: array length mismatch"
+        );
+
+        // Pre-check: treasury must hold enough BNUT for the entire batch.
+        uint256 totalRequired = 0;
+        for (uint256 i = 0; i < amounts.length; i++) {
+            require(amounts[i] > 0, "Treasury: amount must be > 0");
+            totalRequired += amounts[i];
+        }
+        require(
+            bnutToken.balanceOf(address(this)) >= totalRequired,
+            "Treasury: insufficient BNUT balance for batch"
+        );
+
+        for (uint256 i = 0; i < users.length; i++) {
+            require(users[i] != address(0), "Treasury: zero user address");
+
+            dataSharingRewards[users[i]] += amounts[i];
+
+            bool success = bnutToken.transfer(users[i], amounts[i]);
+            require(success, "Treasury: transfer failed");
+
+            emit DataSharingRewarded(users[i], amounts[i], refs[i]);
+        }
+    }
+
     // ─── View Functions ───────────────────────────────────────────────────────
 
     /// @notice Returns the current BNUT balance held by this treasury contract.
     /// @return balance The BNUT balance in wei (18 decimals).
     function getBalance() public view returns (uint256 balance) {
         return bnutToken.balanceOf(address(this));
+    }
+
+    /// @notice Returns the total BNUT rewarded to a user for data sharing.
+    /// @param user Wallet address to query.
+    /// @return total Cumulative BNUT rewarded to that address (18 decimals).
+    function getDataSharingRewards(address user) public view returns (uint256 total) {
+        return dataSharingRewards[user];
     }
 }
