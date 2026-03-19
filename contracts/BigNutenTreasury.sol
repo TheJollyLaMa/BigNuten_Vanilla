@@ -73,7 +73,7 @@ contract BigNutenTreasury is Ownable {
 
     /// @notice Transfers BNUT to a contributor as a bounty for a completed issue.
     ///         Called by the GitHub Actions bounty-payout workflow after manual
-    ///         approval by @TheJollyLaMa.
+    ///         approval by TheJollyLaMa.
     /// @dev    Reverts if the treasury balance is insufficient.
     /// @param contributor Wallet address of the contributor to pay.
     /// @param amount      BNUT amount to send (18 decimals).
@@ -86,10 +86,7 @@ contract BigNutenTreasury is Ownable {
         require(contributor != address(0), "Treasury: zero contributor address");
         require(amount > 0, "Treasury: amount must be > 0");
         require(!issuePaid[issueRef], "Treasury: issue already paid");
-        require(
-            bnutToken.balanceOf(address(this)) >= amount,
-            "Treasury: insufficient BNUT balance"
-        );
+        require(bnutToken.balanceOf(address(this)) >= amount,"Treasury: insufficient BNUT balance");
 
         issuePaid[issueRef] = true;
         totalPaid[contributor] += amount;
