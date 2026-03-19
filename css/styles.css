@@ -2068,7 +2068,7 @@ svg text {
   height: 28px;
   object-fit: contain;
   filter: drop-shadow(0 0 6px #00e5ff);
-  animation: shimmer-spin 8s linear infinite;
+  animation: shimmer-spin-y 8s linear infinite;
 }
 
 .aes-bnut-amount {
@@ -2128,7 +2128,7 @@ svg text {
   height: 48px;
   object-fit: contain;
   filter: drop-shadow(0 0 8px #00e5ff);
-  animation: shimmer-spin 8s linear infinite;
+  animation: shimmer-spin-y 8s linear infinite;
 }
 
 .aes-stub-header h2 {
