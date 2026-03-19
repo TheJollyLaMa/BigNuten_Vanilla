@@ -1493,22 +1493,206 @@
     </div>
   </div>
 
-  <!-- ── Data Sharing Modal (stub) ──────────────────────────────────────── -->
+  <!-- ── Community Data Dashboard Modal ────────────────────────────────── -->
   <div id="data-sharing-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="data-sharing-modal-title">
-    <div class="modal aes-stub-modal">
-      <button class="modal-close" id="data-sharing-modal-close" aria-label="Close Data Sharing modal">×</button>
+    <div class="modal comm-dashboard-modal">
+      <button class="modal-close" id="data-sharing-modal-close" aria-label="Close Community Dashboard">×</button>
+
+      <!-- Header -->
       <div class="aes-stub-header">
         <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
-        <h2 id="data-sharing-modal-title">📊 Data Sharing</h2>
+        <h2 id="data-sharing-modal-title">📊 Community Dashboard</h2>
       </div>
-      <p class="aes-stub-desc">Earn $BNUT by anonymously contributing your health data to community research pools.</p>
-      <ul class="aes-stub-list">
-        <li>🔒 Fully anonymised before sharing</li>
-        <li>💰 Earn $BNUT per data contribution</li>
-        <li>📈 Help build community health insights</li>
-        <li>🌐 Stored on IPFS — you own your data</li>
-      </ul>
-      <p class="aes-stub-coming-soon">🚧 Data sharing &amp; earn programme coming soon!</p>
+      <p class="comm-dash-subtitle">Anonymized aggregate insights from the BigNuten community</p>
+      <div class="comm-privacy-badge">🔒 All data is anonymized — no individual IDs are visible</div>
+
+      <!-- Tab navigation -->
+      <div class="comm-tabs" role="tablist">
+        <button class="comm-tab active" data-tab="exercise"  role="tab" aria-selected="true"  aria-controls="comm-tab-exercise">🏃 Exercise</button>
+        <button class="comm-tab"        data-tab="nutrition" role="tab" aria-selected="false" aria-controls="comm-tab-nutrition">🥗 Nutrition</button>
+        <button class="comm-tab"        data-tab="bnut"      role="tab" aria-selected="false" aria-controls="comm-tab-bnut">💰 $BNUT</button>
+        <button class="comm-tab"        data-tab="datapool"  role="tab" aria-selected="false" aria-controls="comm-tab-datapool">📡 Data Pool</button>
+      </div>
+
+      <!-- ── Tab: Exercise & Fitness ──────────────────────────────────── -->
+      <div class="comm-tab-content" id="comm-tab-exercise" role="tabpanel" aria-labelledby="comm-tab-btn-exercise">
+
+        <div class="comm-stats-row">
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-total-workouts">—</span>
+            <span class="comm-stat-label">Total Sessions</span>
+          </div>
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-total-exercises">—</span>
+            <span class="comm-stat-label">Exercise Entries</span>
+          </div>
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-exercise-types">—</span>
+            <span class="comm-stat-label">Activity Types</span>
+          </div>
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-avg-weekly">—</span>
+            <span class="comm-stat-label">Avg / Week</span>
+          </div>
+        </div>
+
+        <div class="comm-chart-section">
+          <h4 class="comm-chart-title">🔥 Most Popular Activities</h4>
+          <div class="comm-chart-wrap" style="height:220px;">
+            <canvas id="cd-exercise-chart"></canvas>
+          </div>
+        </div>
+
+        <div class="comm-chart-section">
+          <h4 class="comm-chart-title">📅 Workout Activity by Day of Week</h4>
+          <div class="comm-chart-wrap" style="height:160px;">
+            <canvas id="cd-frequency-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab: Nutrition ──────────────────────────────────────────── -->
+      <div class="comm-tab-content comm-hidden" id="comm-tab-nutrition" role="tabpanel" aria-labelledby="comm-tab-btn-nutrition">
+
+        <div class="comm-stats-row">
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-total-foods">—</span>
+            <span class="comm-stat-label">Food Entries</span>
+          </div>
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-unique-foods">—</span>
+            <span class="comm-stat-label">Unique Foods</span>
+          </div>
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-total-supps">—</span>
+            <span class="comm-stat-label">Supplement Logs</span>
+          </div>
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-unique-supps">—</span>
+            <span class="comm-stat-label">Supplement Types</span>
+          </div>
+        </div>
+
+        <div class="comm-chart-section">
+          <h4 class="comm-chart-title">🍽️ Most Logged Foods</h4>
+          <div class="comm-chart-wrap" style="height:220px;">
+            <canvas id="cd-foods-chart"></canvas>
+          </div>
+        </div>
+
+        <div class="comm-chart-section">
+          <h4 class="comm-chart-title">💊 Most Used Supplements</h4>
+          <div class="comm-chart-wrap" style="height:180px;">
+            <canvas id="cd-supps-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab: $BNUT & Ledger ─────────────────────────────────────── -->
+      <div class="comm-tab-content comm-hidden" id="comm-tab-bnut" role="tabpanel" aria-labelledby="comm-tab-btn-bnut">
+
+        <div class="comm-stats-row">
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-total-bnut">0</span>
+            <span class="comm-stat-label">BNUT Issued</span>
+          </div>
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-contributors">—</span>
+            <span class="comm-stat-label">Contributors</span>
+          </div>
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-bounties">—</span>
+            <span class="comm-stat-label">Bounties Settled</span>
+          </div>
+          <div class="comm-stat-card">
+            <span class="comm-stat-value" id="cd-avg-bounty">—</span>
+            <span class="comm-stat-label">Avg Bounty</span>
+          </div>
+        </div>
+
+        <div class="comm-chart-section">
+          <h4 class="comm-chart-title">🪙 BNUT Distribution by Role</h4>
+          <div class="comm-chart-wrap" style="height:200px;">
+            <canvas id="cd-bnut-dist-chart"></canvas>
+          </div>
+        </div>
+
+        <div class="comm-chart-section">
+          <h4 class="comm-chart-title">📋 Contributor Ledger</h4>
+          <div id="cd-ledger-table" class="comm-ledger-wrap">
+            <p class="comm-loading">Loading ledger…</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab: Data Pool ─────────────────────────────────────────── -->
+      <div class="comm-tab-content comm-hidden" id="comm-tab-datapool" role="tabpanel" aria-labelledby="comm-tab-btn-datapool">
+
+        <div class="comm-datapool-intro">
+          <h4 class="comm-chart-title">📡 Opt In to the Community Data Pool</h4>
+          <p>Contribute your anonymized health data to help the community understand trends and earn $BNUT rewards (programme launching soon).</p>
+        </div>
+
+        <!-- Opt-in toggles -->
+        <div class="comm-optin-card">
+          <div class="comm-optin-row">
+            <span class="comm-optin-label">🏃 Exercise &amp; Workout Data</span>
+            <label class="comm-toggle" aria-label="Toggle exercise data sharing">
+              <input type="checkbox" id="cd-opt-exercise" />
+              <span class="comm-toggle-slider"></span>
+            </label>
+          </div>
+          <div class="comm-optin-row">
+            <span class="comm-optin-label">🥗 Nutrition &amp; Food Logs</span>
+            <label class="comm-toggle" aria-label="Toggle nutrition data sharing">
+              <input type="checkbox" id="cd-opt-nutrition" />
+              <span class="comm-toggle-slider"></span>
+            </label>
+          </div>
+          <div class="comm-optin-row">
+            <span class="comm-optin-label">⚖️ Weight &amp; Measurements</span>
+            <label class="comm-toggle" aria-label="Toggle weight data sharing">
+              <input type="checkbox" id="cd-opt-weight" />
+              <span class="comm-toggle-slider"></span>
+            </label>
+          </div>
+          <div class="comm-optin-row">
+            <span class="comm-optin-label">💊 Supplement Usage</span>
+            <label class="comm-toggle" aria-label="Toggle supplement data sharing">
+              <input type="checkbox" id="cd-opt-supplements" />
+              <span class="comm-toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Anonymization info -->
+        <div class="comm-privacy-info">
+          <h5>🔒 How Anonymization Works</h5>
+          <ul class="comm-privacy-list">
+            <li>✅ Only aggregate counts and trends are shared — never raw entries</li>
+            <li>✅ No timestamps, wallet addresses, or user IDs included</li>
+            <li>✅ Food and exercise names are generalized into categories</li>
+            <li>✅ Data is salted and hashed before any submission</li>
+            <li>✅ Stored on IPFS — community pools are publicly auditable</li>
+          </ul>
+        </div>
+
+        <!-- Earn BNUT -->
+        <div class="comm-earn-card">
+          <img src="img/BigNuten.png" alt="$BNUT" class="comm-earn-icon" />
+          <div>
+            <strong>Earn $BNUT for Contributing</strong>
+            <p>Each accepted data contribution will earn $BNUT once the earn programme launches.</p>
+          </div>
+        </div>
+
+        <!-- Live data preview -->
+        <div class="comm-chart-section">
+          <h5 class="comm-chart-title">👁️ Preview: What Would Be Shared (Your Data)</h5>
+          <pre id="cd-data-preview" class="comm-data-preview"></pre>
+        </div>
+      </div>
+
     </div>
   </div>
 

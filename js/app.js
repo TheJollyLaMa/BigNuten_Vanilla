@@ -808,6 +808,7 @@ window.addEventListener('DOMContentLoaded', () => {
 import { connectW3upClient, tryAutoRestoreW3upClient } from './w3upClient.js';
 import { uploadDataToIPFS } from './uploadToIPFS.js';
 import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
+import { initCommunityDashboard } from './communityDashboard.js';
 
 // Supplements form logic (now unified in fitnessTrackerData)
 // --- Raw Intake Modal (New Modal) Logic ---
@@ -3828,6 +3829,8 @@ document.addEventListener('DOMContentLoaded', () => {
     aesDropdown.classList.add('hidden');
     aesRight && aesRight.setAttribute('aria-expanded', 'false');
   }
+  // Expose for external modules (e.g. communityDashboard.js)
+  window.closeAesDropdown = closeAesDropdown;
 
   function toggleAesDropdown(e) {
     e.stopPropagation();
@@ -3893,7 +3896,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const stubModals = [
     { btnId: 'aes-achieve-btn',   modalId: 'achievements-modal', closeId: 'achievements-modal-close' },
-    { btnId: 'aes-data-btn',      modalId: 'data-sharing-modal', closeId: 'data-sharing-modal-close' },
+    // aes-data-btn is now handled by initCommunityDashboard() (communityDashboard.js)
     { btnId: 'aes-challenge-btn', modalId: 'challenge-modal',    closeId: 'challenge-modal-close' },
   ];
 
@@ -4934,4 +4937,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   })();
+
+  // ── Community Data Dashboard ──────────────────────────────────────────────
+  initCommunityDashboard();
 });
