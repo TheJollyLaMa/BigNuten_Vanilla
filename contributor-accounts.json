@@ -1,0 +1,27 @@
+{
+  "_comment": "Registered contributor accounts for the $BNUT bounty system. Each entry tracks a contributor's GitHub username, optional Optimism Mainnet wallet address, and cumulative BNUT earnings. Wallet addresses are required before any payout can be queued. Add new contributors by appending to the 'contributors' array.",
+  "contributors": [
+    {
+      "github": "TheJollyLaMa",
+      "displayName": "TheJollyLaMa",
+      "role": "owner",
+      "walletAddress": null,
+      "bnutEarned": 0,
+      "bnutPending": 0,
+      "issuesClosed": [],
+      "registeredAt": "2026-03-19T08:55:31.049Z",
+      "notes": "Repo owner and maintainer. Update walletAddress to your Optimism Mainnet address to receive test payouts."
+    },
+    {
+      "github": "copilot",
+      "displayName": "Copilot RoboSoul",
+      "role": "contributor",
+      "walletAddress": null,
+      "bnutEarned": 0,
+      "bnutPending": 0,
+      "issuesClosed": [],
+      "registeredAt": "2026-03-19T08:55:31.049Z",
+      "notes": "GitHub Copilot AI contributor. Assign a designated wallet address to receive $BNUT rewards for closed issues."
+    }
+  ]
+}
