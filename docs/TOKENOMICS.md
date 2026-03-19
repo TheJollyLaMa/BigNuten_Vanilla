@@ -115,11 +115,13 @@ The bounty system rewards open-source contributors for closing GitHub issues.
 2. When the issue is assigned, the **Bounty Bot** (`.github/workflows/bounty-bot.yml`) posts a comment announcing the reward.
 3. The contributor opens a PR that closes the issue (`Closes #N` in the PR body).
 4. When the PR is merged, the bot posts a payout request tagging `@TheJollyLaMa`.
-5. The owner runs the **Bounty Payout** workflow (`.github/workflows/bounty-payout.yml`) with:
-   - Contributor wallet address
+5. The owner looks up the contributor's whitelisted wallet address in `contributor-accounts.json` and runs the **Bounty Payout** workflow (`.github/workflows/bounty-payout.yml`) with:
+   - Contributor wallet address (from the whitelist)
    - BNUT amount
    - Issue number
 6. The payout is queued in `payroll-queue.json` and settled via the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) Payroll panel.
+
+> ⚠️ **Whitelist required:** Only contributors registered in `contributor-accounts.json` by `@TheJollyLaMa` can receive $BNUT payouts. See [Whitelist Onboarding](#whitelist-onboarding) below.
 
 ### Applying a Bounty Label
 
@@ -184,15 +186,22 @@ The system starts with two accounts for early testing:
 | `@TheJollyLaMa`| owner       | Repo maintainer — test payroll flow  |
 | `@copilot`     | contributor | GitHub Copilot RoboSoul — AI contributions |
 
-> 💡 **Wallet addresses are required** before any payout can be queued. Edit `contributor-accounts.json` to add or update wallet addresses.
+> 💡 **Wallet addresses are required** before any payout can be queued. Wallet addresses are registered by the maintainer — see [Whitelist Onboarding](#whitelist-onboarding) below.
 
-### Inviting New Contributors
+### Whitelist Onboarding
 
-Once the initial two accounts are active and a test payout has been settled, new contributors can be invited by:
+> ⚠️ Wallet addresses are **not** self-registered by contributors via PR. Only the maintainer (`@TheJollyLaMa`) can add new entries to `contributor-accounts.json`.
 
-1. Adding an entry to `contributor-accounts.json`.
-2. Assigning them to a bounty-labelled issue.
-3. The Bounty Bot will announce the reward automatically.
+New contributors are onboarded through a personal, whitelist-based process to prevent impersonation and phishing:
+
+1. The contributor expresses interest on a bounty issue or contacts `@TheJollyLaMa` directly.
+2. The maintainer arranges a brief **video call or direct conversation** to verify the contributor's identity and collect their wallet address.
+3. The maintainer adds the contributor's GitHub username and **Optimism Mainnet** wallet address to `contributor-accounts.json`.
+4. The contributor is assigned to the bounty issue and work begins.
+
+Contributors should **never share their wallet address publicly** in issues or PRs — always provide it privately to the maintainer during onboarding.
+
+See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the full onboarding guide.
 
 ---
 

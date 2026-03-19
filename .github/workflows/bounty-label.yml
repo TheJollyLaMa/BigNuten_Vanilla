@@ -96,10 +96,13 @@ jobs:
               '1. Comment on this issue expressing your interest.',
               '2. Get assigned by a maintainer (`@TheJollyLaMa`).',
               '3. Open a Pull Request that closes this issue (include `Closes #' + issueNumber + '` in the PR body).',
-              '4. Once your PR is merged, provide your **Optimism Mainnet** wallet address.',
-              '5. The maintainer will queue your $BNUT payout via the Bounty Payout workflow.',
+              '4. Once your PR is merged, the maintainer will queue your $BNUT payout.',
               '',
-              `> See [TOKENOMICS.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/docs/TOKENOMICS.md) for the full bounty process and contributor account registration.`,
+              '> ⚠️ **Whitelist registration required:** Payouts are only sent to wallets registered in the',
+              '> contributor whitelist by `@TheJollyLaMa`. If you are not yet registered, reach out to',
+              '> `@TheJollyLaMa` directly (via video call or DM) to complete onboarding before your payout',
+              '> can be processed.',
+              `> See [CONTRIBUTING.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CONTRIBUTING.md) for onboarding instructions.`,
             ].join('\n');
 
             await github.rest.issues.createComment({
