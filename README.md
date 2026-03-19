@@ -195,7 +195,7 @@ BigNuten uses a **bounty system** powered by $BNUT to reward contributors.
   2. Get assigned by a maintainer
   3. Open a PR referencing the issue (`Closes #N` in the PR body)
   4. Get merged → get paid in $BNUT 🪙
-- **All contributors must have a MetaMask wallet address** (Optimism Mainnet) to receive $BNUT payouts
+- **Whitelist registration required:** All contributors must be personally onboarded by `@TheJollyLaMa` (via video call or direct contact) before a payout can be processed. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for onboarding details.
 
 ### Applying a Bounty Label (maintainers)
 
@@ -205,7 +205,7 @@ Label format: `bounty: <amount> BNUT` (e.g. `bounty: 500 BNUT`)
 
 ### Contributor Accounts
 
-Registered contributors are tracked in [`contributor-accounts.json`](contributor-accounts.json). The initial accounts are `@TheJollyLaMa` and `@copilot` (the AI RoboSoul). Once a test payout cycle is verified, additional contributors will be invited.
+Registered contributors are tracked in [`contributor-accounts.json`](contributor-accounts.json). Wallet addresses are added by the maintainer after personal onboarding — contributors should **not** open PRs to self-register. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for whitelist onboarding instructions.
 
 See [`docs/TOKENOMICS.md`](docs/TOKENOMICS.md) for the full bounty process.
 
