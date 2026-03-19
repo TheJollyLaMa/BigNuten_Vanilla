@@ -1,1468 +1,343 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
-    <title>⚕︎ BigNuten ⚕︎</title>
-    <link rel="icon" type="image/png" href="img/BigNuten.png" />
-
-    <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/styles.css" />
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Payroll</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
-  
-  <header>
-    <div id="header-left">
-      <div id="ipfs-status">
-        <div class="ticker-wrapper">
-          <div class="ticker-circle-ipfs" id="ticker-circle"></div>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-lg">
+            <!-- Header -->
+            <div class="bg-blue-600 text-white p-6 rounded-t-lg">
+                <h1 class="text-2xl font-bold flex items-center">
+                    <i class="fas fa-money-bill-wave mr-3"></i>
+                    Payroll Management
+                </h1>
+                <p class="mt-2 opacity-90">Manage $BNUT bounty payments and settlement queue</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                    <button class="tab-btn border-b-2 border-blue-500 py-2 px-1 text-blue-600 font-medium text-sm" data-tab="payroll">
+                        <i class="fas fa-coins mr-2"></i>Payroll Queue
+                    </button>
+                    <button class="tab-btn border-b-2 border-transparent py-2 px-1 text-gray-500 hover:text-gray-700 font-medium text-sm" data-tab="completed">
+                        <i class="fas fa-check-circle mr-2"></i>Completed Payments
+                    </button>
+                    <button class="tab-btn border-b-2 border-transparent py-2 px-1 text-gray-500 hover:text-gray-700 font-medium text-sm" data-tab="settings">
+                        <i class="fas fa-cog mr-2"></i>Settings
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="payroll" class="tab-content p-6">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-clock text-yellow-600 text-2xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-yellow-800">Pending</p>
+                                <p class="text-2xl font-bold text-yellow-900">12</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-coins text-blue-600 text-2xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-blue-800">Total Amount</p>
+                                <p class="text-2xl font-bold text-blue-900">24,500 $BNUT</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-check-circle text-green-600 text-2xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-green-800">Processed Today</p>
+                                <p class="text-2xl font-bold text-green-900">8</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions Bar -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+                    <div class="flex space-x-3">
+                        <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-sync mr-2"></i>Refresh Queue
+                        </button>
+                        <button class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                            <i class="fas fa-play mr-2"></i>Process All
+                        </button>
+                        <button class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                            <i class="fas fa-download mr-2"></i>Export CSV
+                        </button>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3">
+                        <select class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option>All Status</option>
+                            <option>Pending</option>
+                            <option>Processing</option>
+                            <option>Failed</option>
+                        </select>
+                        <input type="text" placeholder="Search by GitHub handle..." class="border border-gray-300 rounded-lg px-3 py-2 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <!-- Payroll Table -->
+                <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        GitHub Handle
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Issue/PR
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Amount
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Wallet Address
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Status
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Created
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <img class="h-8 w-8 rounded-full" src="https://avatars.githubusercontent.com/u/12345?v=4" alt="">
+                                            <div class="ml-3">
+                                                <div class="text-sm font-medium text-gray-900">@developer1</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">#123 - Fix payment bug</div>
+                                        <div class="text-sm text-gray-500">nutspayout/core</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">2,500 $BNUT</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900 font-mono">0x1234...abcd</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                            Pending
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        2 hours ago
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button class="text-green-600 hover:text-green-900 mr-3" title="Process Payment">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        <button class="text-blue-600 hover:text-blue-900 mr-3" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="text-red-600 hover:text-red-900" title="Cancel">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <img class="h-8 w-8 rounded-full" src="https://avatars.githubusercontent.com/u/67890?v=4" alt="">
+                                            <div class="ml-3">
+                                                <div class="text-sm font-medium text-gray-900">@coder2</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">#456 - Add new feature</div>
+                                        <div class="text-sm text-gray-500">nutspayout/api</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">5,000 $BNUT</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900 font-mono">0x5678...efgh</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                            Processing
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        1 day ago
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button class="text-gray-400 cursor-not-allowed mr-3" title="Processing">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                        </button>
+                                        <button class="text-blue-600 hover:text-blue-900 mr-3" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="text-red-600 hover:text-red-900" title="Cancel">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <img class="h-8 w-8 rounded-full" src="https://avatars.githubusercontent.com/u/11111?v=4" alt="">
+                                            <div class="ml-3">
+                                                <div class="text-sm font-medium text-gray-900">@maintainer3</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">#789 - Security patch</div>
+                                        <div class="text-sm text-gray-500">nutspayout/security</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">10,000 $BNUT</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-red-600">Not provided</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                            Failed
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        3 days ago
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button class="text-yellow-600 hover:text-yellow-900 mr-3" title="Retry">
+                                            <i class="fas fa-redo"></i>
+                                        </button>
+                                        <button class="text-blue-600 hover:text-blue-900 mr-3" title="Contact User">
+                                            <i class="fas fa-envelope"></i>
+                                        </button>
+                                        <button class="text-red-600 hover:text-red-900" title="Remove">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <div class="flex items-center justify-between mt-6">
+                    <div class="text-sm text-gray-700">
+                        Showing <span class="font-medium">1</span> to <span class="font-medium">3</span> of <span class="font-medium">12</span> results
+                    </div>
+                    <div class="flex space-x-2">
+                        <button class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            Previous
+                        </button>
+                        <button class="px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700">
+                            1
+                        </button>
+                        <button class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            2
+                        </button>
+                        <button class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Completed Payments Tab -->
+            <div id="completed" class="tab-content p-6 hidden">
+                <div class="text-center py-12">
+                    <i class="fas fa-check-circle text-green-500 text-6xl mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Completed Payments</h3>
+                    <p class="text-gray-500">View history of successfully processed bounty payments</p>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings" class="tab-content p-6 hidden">
+                <div class="text-center py-12">
+                    <i class="fas fa-cog text-gray-400 text-6xl mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Payroll Settings</h3>
+                    <p class="text-gray-500">Configure automatic payment rules and thresholds</p>
+                </div>
+            </div>
         </div>
-        <div id="ipfsIconWrapper">
-          <img id="ipfsIcon" src="img/IPFS_Logo.png" alt="IPFS Connected" />
-          <div id="ipfsHoverPopup" class="hover-popup"></div>
-        </div>
-      </div>
-      <div id="current-weight-display"></div>
     </div>
-    <div id="header-center">
-      <h1 id="app-title">
-        <span id="app-title-left"
-              title="About BigNuten — click to learn more">⚕︎ Big Nuten </span><span
-              id="aesculapius-right"
-              title="$BNUT Features — click to open menu"
-              aria-haspopup="true"
-              aria-expanded="false"
-              tabindex="0"
-              role="button">⚕︎</span>
-      </h1>
-      <h3 id="app-subtitle">(Another Decent Frankenstein)</h3>
 
-      <!-- Staff of Aesculapius Dropdown (right ⚕︎) -->
-      <div id="aesculapius-dropdown" class="aesculapius-dropdown hidden" role="menu" aria-label="$BNUT Features menu">
-        <div id="aes-bnut-balance" class="aes-bnut-balance">
-          <img src="img/BigNuten.png" alt="$BNUT" class="aes-bnut-icon" />
-          <span id="aes-bnut-amount" class="aes-bnut-amount">Connect wallet</span>
-        </div>
-        <hr class="aes-divider" />
-        <button class="aes-menu-item" id="aes-dnft-btn"      role="menuitem">🎟️ Supporter DNFT</button>
-        <button class="aes-menu-item" id="aes-sub-btn"       role="menuitem">💳 Subscription</button>
-        <button class="aes-menu-item" id="aes-achieve-btn"   role="menuitem">🏆 Achievements</button>
-        <button class="aes-menu-item" id="aes-gov-btn"       role="menuitem">🗳️ Governance</button>
-        <button class="aes-menu-item" id="aes-data-btn"      role="menuitem">📊 Data Sharing</button>
-        <button class="aes-menu-item" id="aes-challenge-btn" role="menuitem">🏋️ Monthly Challenge</button>
-        <!-- Payroll button — shown only to treasury owner via JS -->
-        <button class="aes-menu-item" id="aes-payroll-btn" role="menuitem" style="display:none;">💸 Payroll</button>
-      </div>
-    </div>
-    <div id="walletIconWrapper">
-      <div class="ticker-wrapper wallet-ticker">
-        <div class="ticker-circle-metamask" id="wallet-ticker-circle"></div>
-      </div>
-      <button id="wallet-connect" class="neon-button disconnected">
-        <img id="metamaskIcon" src="img/MetaMaskFox.png" alt="Connect Wallet" />
-      </button>
-      <div id="wallet-display"></div>
-      <div id="walletHoverDisplay" class="wallet-hover-display"></div>
-    </div>
-  </header>
+    <script>
+        // Tab switching functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
 
-  <!-- Left Panel Toolbar: Supplements & Raw Intake -->
-  <nav id="left-panel-toolbar" class="side-toolbar left-toolbar" aria-label="Left panel controls">
-    <button class="panel-toggle-btn" data-panel="recent-supplements-list" title="Supplements (7 days)">
-      <img src="img/Supplements.png" alt="Supplements">
-      <span>Supps</span>
-    </button>
-    <button class="panel-toggle-btn" data-panel="recent-foods-list" title="Raw Intake (7 days)">
-      <img src="img/Diet.png" alt="Raw Intake">
-      <span>Intake</span>
-    </button>
-  </nav>
-
-  <!-- Right Panel Toolbar: Exercises & Workout -->
-  <nav id="right-panel-toolbar" class="side-toolbar right-toolbar" aria-label="Right panel controls">
-    <button class="panel-toggle-btn" data-panel="recent-exercises-list" title="Exercises (7 days)">
-      <img src="img/Exercise.png" alt="Exercises">
-      <span>Exerc</span>
-    </button>
-    <button class="panel-toggle-btn" data-panel="workout-set-list" title="Workout Set List">
-      <span class="toolbar-emoji">🏋️</span>
-      <span>Workout</span>
-    </button>
-  </nav>
-
-  <div id="recent-exercises-list" class="dashboard-panel">
-    <div class="exercise-list-header">
-      <h4>Exercises (7 days)</h4>
-      <p style="font-size: 0.75rem;">
-        <span style="color: #ff3d3d;">● Today</span> &nbsp;
-        <span style="color: #aa00ff;">● 1 day ago</span> &nbsp;
-        <span style="color: #00bfff;">● 2 days ago</span> &nbsp;
-        <span style="color: #00ff66;">● 3 days ago</span> &nbsp;
-        <span style="color: #66ffcc;">● 4+ days ago</span>
-      </p>
-    </div>
-    <ul id="exercises-last7days">
-    </ul>
-  </div>
-  <div id="workout-set-list" class="dashboard-panel">
-    <div class="workout-header">
-      <label for="work-duration" style="color:white;font-size:0.8rem;margin-right:4px;">Work:</label>
-      <input type="number" id="work-duration" value="60" min="0" style="width:50px;margin-right:10px;" />
-      <label for="rest-duration" style="color:white;font-size:0.8rem;margin-right:4px;">Rest:</label>
-      <input type="number" id="rest-duration" value="120" min="0" style="width:50px;margin-right:10px;" />
-      <button id="start-workout-button" class="play-all-button">▶ Start Workout</button>
-      <h4>Workout Set List</h4>
-    </div>
-    <div id="estimated-total-time" style="font-size: 0.9rem; margin-bottom: 0.5rem;"></div>
-    <ul id="workout-set-items"></ul>
-  </div>
-
-  <main>
-    <div id="recent-supplements-list" class="dashboard-panel">
-      <h4>Supplements (7 days)</h4>
-      <ul id="supplements-last7days"></ul>
-    </div>
-    <div id="recent-foods-list" class="dashboard-panel">
-      <h4>Raw Intake (7 days)</h4>
-      <ul id="foods-last7days"></ul>
-    </div>
-    <div id="body-figure-wrapper">
-      <img src="img/BigNuten.png" id="landing-bg" alt="BigNuten Background">
-      <!-- Water Intake Tracker: upside-down semi-circle meter above BigNuten's head -->
-      <div id="water-tracker">
-        <div id="water-meter-container">
-          <!-- Empty drop on the left: click to open water log -->
-          <span class="water-drop-btn" id="water-drop-empty" title="Log water intake">🫧</span>
-          <svg id="water-meter-svg" viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="waterGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" style="stop-color:#0077cc" />
-                <stop offset="50%" style="stop-color:#00bfff" />
-                <stop offset="100%" style="stop-color:#87ceeb" />
-              </linearGradient>
-            </defs>
-            <!-- Background arc -->
-            <path d="M 10 100 A 90 90 0 0 1 190 100"
-                  stroke="#0a2a3a" stroke-width="14" fill="none" stroke-linecap="round"/>
-            <!-- Water fill arc (left to right) -->
-            <path id="water-meter-fill"
-                  d="M 10 100 A 90 90 0 0 1 190 100"
-                  stroke="url(#waterGradient)" stroke-width="14" fill="none"
-                  stroke-linecap="round"
-                  stroke-dasharray="0 283"/>
-          </svg>
-          <!-- Full drop + count on the right: click to open water log -->
-          <div id="water-drop-right">
-            <span class="water-drop-btn" id="water-drop-full" title="Log water intake">💧</span>
-            <span id="water-count-label">0/8</span>
-          </div>
-        </div>
-      </div>
-      <!-- Crown: Moon icon on top of figure's head -->
-      <span id="moon-icon">⚸</span>
-      <!-- Third Eye: Graph icon on the forehead -->
-      <img src="img/GraphIcon.png" id="graph-icon" alt="Graph" />
-      <!-- Throat Chakra -->
-      <span class="chakra-icon" id="chakra-throat" title="Throat Chakra">◉</span>
-      <!-- Heart Chakra -->
-      <span class="chakra-icon" id="chakra-heart" title="Heart Chakra">◉</span>
-      <!-- Solar Plexus: Emotion Wheel -->
-      <img src="img/EmotionWheel.png" id="emotion-icon" alt="Emotions" />
-      <!-- Sacral Chakra (below belly button) -->
-      <span class="chakra-icon" id="chakra-sacral" title="Sacral Chakra">◉</span>
-      <!-- Root Chakra (crotch) -->
-      <span class="chakra-icon" id="chakra-root" title="Root Chakra">◉</span>
-    </div>
-  <!-- Emotion Modal -->
-  <!-- Moon & Sun Tracker Modal -->
-  <div id="moon-modal" class="modal-overlay modal-hidden">
-    <div class="modal moon-tracker-modal">
-      <button class="modal-close" onclick="hideModal('moon-modal')">×</button>
-      <h2>🌙 Moon &amp; ☀️ Sun Tracker</h2>
-      <div class="tracker-card" id="moon-info-card">
-        <p id="moon-info"></p>
-      </div>
-      <div class="tracker-card tracker-location" id="location-info-card">
-        <p id="location-info"></p>
-      </div>
-      <div class="tracker-card tracker-ekadasi" id="ekadasi-info-card">
-        <p id="ekadasi-info"></p>
-      </div>
-      <div id="ekadasi-links"></div>
-      <button class="tracker-location-btn" onclick="requestLocation()">🔄 Link Location</button>
-    </div>
-  </div>
-
-  <!-- Water Intake Log Modal -->
-  <div id="water-modal" class="modal-overlay modal-hidden">
-    <div class="modal water-log-modal">
-      <button class="modal-close" id="water-modal-close">×</button>
-      <h2>💧 Water Intake</h2>
-      <div class="tracker-card">
-        <p id="water-modal-count" class="water-modal-count-display">0 / 8</p>
-        <p class="water-modal-subtitle">glasses today</p>
-      </div>
-      <div class="water-modal-buttons">
-        <button id="water-log-btn" class="neon-button water-add-btn">+ Log a Glass</button>
-        <button id="water-remove-btn" class="neon-button water-remove-btn">− Remove Last</button>
-      </div>
-    </div>
-  </div>
-  <div id="emotion-modal" class="modal-overlay modal-hidden">
-    <div class="modal" style="position:relative;">
-      <button class="modal-close">×</button>
-      <h2>Log Emotion</h2>
-      <div style="position: relative; width: 600px; height: 600px; margin: 0 auto;">
-        <img src="img/EmotionWheel.png" id="emotionWheelOverlayImage"
-             style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" alt="Emotion Wheel" />
-        <svg id="emotionWheelOverlaySVG"
-             width="600" height="600"
-             style="position: absolute; top: 0; left: 0; z-index: 10; pointer-events: none;"></svg>
-        <!-- Emotion Wheel SVG with inner and outer rings -->
-        <svg id="emotionWheelSVG" width="600" height="600" style="display:none;">
-          <g id="emotionSlices"></g>
-        </svg>
-      </div>
-      <div id="selectedEmotion" style="text-align:center; font-size:1.2rem; margin-top:1rem;">Selected emotion will appear here.</div>
-      <form id="emotion-form">
-        <label for="emotion-input">What are you feeling?</label>
-        <input type="text" id="emotion-input" name="emotion" required style="width:100%;margin-bottom:1rem;" />
-        <button type="submit">Submit</button>
-      </form>
-    </div>
-  </div>
-  </main>
-
-  <footer>
-    <button class="round-button" id="log-weight">
-      <img src="img/Scale.png" alt="Weight">
-    </button>
-    <button class="round-button" id="log-measurements">
-      <img src="img/MuscleMeasure.png" alt="Measurements">
-    </button>
-    <button class="round-button" id="log-supplements">
-      <img src="img/Supplements.png" alt="Supplements">
-    </button>
-    <button class="round-button" id="dietBtn" data-modal="dietModal">
-      <img src="img/Diet.png" alt="Diet">
-    </button>
-    <button class="round-button" id="log-exercise">
-      <img src="img/Exercise.png" alt="Exercise">
-    </button>
-  </footer>
-
-  <!-- Modal Structure -->
-
-  <!-- Raw Food Intake Modal (hidden by default, only shown via script) -->
-  <div id="rawFoodModal" class="modal hidden">
-    <div class="modal-content">
-      <span class="close" id="closeRawFoodModal">&times;</span>
-      <h2>Log Raw Food Intake</h2>
-      <form id="rawFoodForm">
-        <input type="text" id="rawFoodName" placeholder="Food name" required />
-        <input type="number" id="rawFoodAmount" placeholder="Amount" required />
-        <input type="text" id="rawFoodUnit" placeholder="Unit (e.g., cup, tbsp)" required />
-        <input type="number" id="rawFoodProtein" placeholder="Estimated protein (g)" required />
-        <button type="submit">Log Intake</button>
-      </form>
-    </div>
-  </div>
-  <div id="weight-modal" class="modal-overlay modal-hidden">
-    <div class="modal">
-      <button class="modal-close">×</button>
-      <h2>Log Your Weight</h2>
-      
-      <!-- Bluetooth Button -->
-      <button id="connectScaleBtn">Connect to Bluetooth Scale</button>
-      <p id="scaleStatus">Not connected</p>
-      <p id="weightReading">-- lbs</p>
-      <input type="hidden" id="weightInput" />
-
-      <!-- Manual Logging -->
-      <form id="manualWeightForm">
-        <label for="manualWeight">Enter Weight (lbs):</label>
-        <input type="number" id="manualWeight" step="0.01" min="50" max="1000" required />
-        <button type="submit">Log Weight</button>
-      </form>
-      <p id="weight-status" style="min-height:1.4em; font-weight:bold; color:#00e5ff;"></p>
-
-      <!-- Weight chart container -->
-      <div id="weight-chart-toggle">
-        <button>Day</button>
-        <button>Month</button>
-        <button>Year</button>
-        <button>Max</button>
-      </div>
-      <canvas id="weight-chart"></canvas>
-    </div>
-  </div>
-
-
-  <!-- Measurements Modal -->
-  <div id="measurements-modal" class="modal-overlay modal-hidden">
-    <div class="modal">
-      <button class="modal-close">×</button>
-      <h2>Log Measurements</h2>
-      <form id="measurement-form">
-        <label for="measurement-type">Type:</label>
-        <select id="measurement-type" name="measurement-type" required>
-          <option value="Bicep">Bicep</option>
-          <option value="Chest">Chest</option>
-          <option value="Waist">Waist</option>
-          <option value="Thigh">Thigh</option>
-          <option value="Calf">Calf</option>
-          <option value="add-new">+ Add New</option>
-        </select>
-
-        <label for="measurement">Measurement (inches/cm):</label>
-        <input type="number" id="measurement" name="measurement" step="0.01" required />
-
-        <label for="measurement-date">Date:</label>
-        <input type="date" id="measurement-date" name="measurement-date" required />
-
-        <label for="measurement-time">Time:</label>
-        <input type="time" id="measurement-time" name="measurement-time" required />
-
-        <button type="submit">Submit</button>
-      </form>
-      <div id="measurement-chart-toggle" style="margin-top: 1rem;">
-        <button>Day</button>
-        <button>Month</button>
-        <button>Year</button>
-        <button>Max</button>
-      </div>
-      <div id="measurement-chart-controls" style="margin-top: 1rem;">
-        <label for="measurement-chart-select">Select Type:</label>
-        <select id="measurement-chart-select">
-          <option value="all">All Measurements</option>
-          <option value="Bicep">Bicep</option>
-          <option value="Chest">Chest</option>
-          <option value="Waist">Waist</option>
-          <option value="Thigh">Thigh</option>
-          <option value="Calf">Calf</option>
-        </select>
-      </div>
-      <canvas id="measurement-chart" height="200"></canvas>
-    </div>
-  </div>
-
-  <!-- Supplements Modal -->
-  <div id="supplements-modal" class="modal-overlay modal-hidden">
-    <div class="modal">
-      <button class="modal-close">×</button>
-      <h2>Log Supplement Intake</h2>
-      <form id="supplement-form">
-        <label for="supplement-name">Supplement Name:</label>
-        <input type="text" id="supplement-name" placeholder="Supplement Name" required />
-        <label for="supplement-weight">Dosage (mg):</label>
-        <input type="number" id="supplement-weight" placeholder="Dosage (mg)" required />
-        <label for="supplement-date">Date:</label>
-        <input type="date" id="supplement-date" required />
-        <label for="supplement-time">Time:</label>
-        <input type="time" id="supplement-time" />
-        <label for="supplement-description">Description (optional):</label>
-        <input type="text" id="supplement-description" placeholder="Description (optional)" />
-        <button type="submit">Log Supplement</button>
-      </form>
-      <ul id="supplement-entries"></ul>
-    </div>
-  </div>
-
-  <!-- Diet Modal -->
-  <div id="dietModal" class="modal" style="display:none;">
-    <div class="modal-content">
-      <span class="close" id="closeDietModal">&times;</span>
-      <h2>Log Diet</h2>
-      <form id="dietForm">
-        <input type="text" id="dietFoodName" placeholder="Food Name" required>
-        <input type="number" id="dietFoodAmount" placeholder="Amount" required>
-        <input type="text" id="dietFoodUnit" placeholder="Unit (e.g., cup)" required>
-        <input type="number" id="dietFoodProtein" placeholder="Estimated Protein (g)" required>
-        <button type="submit">Log Diet</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Correlation Graph Modal -->
-  <div id="correlation-graph-modal" class="modal-overlay modal-hidden">
-    <div class="modal">
-      <button class="modal-close">×</button>
-      <h2>Correlation Graph</h2>
-      <label for="graph-data-select">Select Data Points:</label>
-      <select id="graph-data-select" multiple style="width:100%;margin-bottom:1rem;">
-        <option value="weight">Weight</option>
-        <option value="Push-ups:reps">Push-ups Reps</option>
-        <option value="Push-ups:weight">Push-ups Weight</option>
-        <option value="Sit-ups:reps">Sit-ups Reps</option>
-        <option value="Sit-ups:weight">Sit-ups Weight</option>
-        <option value="Pull-ups:reps">Pull-ups Reps</option>
-        <option value="Pull-ups:weight">Pull-ups Weight</option>
-        <option value="Bicep Curl:reps">Bicep Curl Reps</option>
-        <option value="Bicep Curl:weight">Bicep Curl Weight</option>
-        <option value="Forearm Curl (forward):reps">Forearm Curl (forward) Reps</option>
-        <option value="Forearm Curl (forward):weight">Forearm Curl (forward) Weight</option>
-        <option value="Squats:reps">Squats Reps</option>
-        <option value="Squats:weight">Squats Weight</option>
-        <option value="Bench Press (Incline):reps">Bench Press (Incline) Reps</option>
-        <option value="Bench Press (Incline):weight">Bench Press (Incline) Weight</option>
-        <option value="Calf Raises:reps">Calf Raises Reps</option>
-        <option value="Calf Raises:weight">Calf Raises Weight</option>
-        <option value="Leg Press:reps">Leg Press Reps</option>
-        <option value="Leg Press:weight">Leg Press Weight</option>
-        <option value="Bicep">Bicep (measurement)</option>
-        <option value="Forearm">Forearm (measurement)</option>
-        <!-- Add more as needed -->
-      </select>
-      <canvas id="correlationChart" height="300"></canvas>
-    </div>
-  </div>
-
-</main>
-
-  <!-- Exercise Modal -->
-  <div id="exercise-modal" class="modal-overlay modal-hidden">
-    <div class="modal">
-      <button class="modal-close">×</button>
-      <h2>Log Exercise</h2>
-      <form id="exercise-form">
-        <label for="exercise-type">Exercise:</label>
-        <select id="exercise-type" name="exercise-type" required>
-          <option value="">Select</option>
-          <option value="Push-ups">Push-ups</option>
-          <option value="Sit-ups">Sit-ups</option>
-          <option value="add-new">+ Add New</option>
-        </select>
-
-        <label for="exercise-sets">Sets:</label>
-        <input type="number" id="exercise-sets" name="exercise-sets" min="1" value="1" required />
-
-        <div id="exercise-set-inputs"></div>
-
-        <label for="exercise-description">Description:</label>
-        <input type="text" id="exercise-description" name="exercise-description" placeholder="e.g. Bowflex, Free weights, Bands..." />
-
-        <label for="exercise-date">Date:</label>
-        <input type="date" id="exercise-date" name="exercise-date" required />
-
-        <label for="exercise-time">Time:</label>
-        <input type="time" id="exercise-time" name="exercise-time" required />
-
-        <button type="submit">Add Exercise</button>
-      </form>
-    </div>
-  </div>
-
-</main>
-
-  <!-- Workout Timer Modal -->
-  <div id="workout-timer-modal" class="modal-overlay modal-hidden">
-    <div class="modal workout-modal">
-      <h2 id="workout-current-title">Workout</h2>
-      <p id="workout-current-info">Current: Push-ups - Set 1</p>
-      <h1 id="workout-timer-display">00:30</h1>
-      <p id="workout-next-info">Next: Rest 30s</p>
-      <button id="start-timer-button">Start</button>
-      <button id="pause-timer-button">Pause</button>
-    </div>
-  </div>
-  
-  <!-- @web3-storage browser.min.js hosted in JollySimSiddhi space on web3.Storage -->
-  <script src="https://bafybeicqxq54ncvkxvwdbov6ljgtyyrcpmek3ic2fxrwwsigmh4ud4s2mu.ipfs.w3s.link/browser.min.js"></script>
-
-  <!-- Contract addresses & token metadata — must load before ES modules -->
-  <script src="js/contracts.js"></script>
-
-  <script type="module" src="js/app.js"></script>
-
-
-  <style>
-#emotionWheelSVG {
-  position: relative;
-  z-index: 10;
-  pointer-events: auto;
-}
-#emotionSlices path {
-  cursor: pointer;
-  stroke: #222;
-  stroke-width: 2;
-  pointer-events: auto;
-}
-#emotionWheelSVG text {
-  font-size: 12px;
-  text-anchor: middle;
-  dominant-baseline: middle;
-  fill: #fff;
-  font-family: 'Bungee', sans-serif;
-  user-select: none;
-}
-  </style>
-
-  
-  <script>
-  // --- EMOTION WHEEL SVG PROGRAMMATIC GENERATION ---
-  document.addEventListener('DOMContentLoaded', function () {
-    const svg = document.getElementById('emotionWheelSVG');
-    const slicesGroup = document.getElementById('emotionSlices');
-    const selectedDiv = document.getElementById('selectedEmotion');
-    const emotionInput = document.getElementById('emotion-input');
-    if (svg && slicesGroup) {
-      // Full hierarchy of emotions (Plutchik-inspired, 3 rings, 8 base sectors)
-      const emotions = [
-        // Level 1: Core emotions (center) - corrected (Plutchik's wheel, 7 segments)
-        { label: 'Surprised', level: 1 },
-        { label: 'Bad', level: 1 },
-        { label: 'Fearful', level: 1 },
-        { label: 'Angry', level: 1 },
-        { label: 'Disgusted', level: 1 },
-        { label: 'Sad', level: 1 },
-        { label: 'Happy', level: 1 },
-
-        // Level 2: Second ring (children of each base)
-        // Happy
-        { label: 'Content', parent: 'Happy', level: 2 },
-        { label: 'Proud', parent: 'Happy', level: 2 },
-        { label: 'Optimistic', parent: 'Happy', level: 2 },
-        { label: 'Excited', parent: 'Happy', level: 2 },
-        // Trusting
-        { label: 'Respectful', parent: 'Trusting', level: 2 },
-        { label: 'Loyal', parent: 'Trusting', level: 2 },
-        { label: 'Intimate', parent: 'Trusting', level: 2 },
-        { label: 'Admiring', parent: 'Trusting', level: 2 },
-        // Fearful
-        { label: 'Anxious', parent: 'Fearful', level: 2 },
-        { label: 'Insecure', parent: 'Fearful', level: 2 },
-        { label: 'Scared', parent: 'Fearful', level: 2 },
-        { label: 'Terrified', parent: 'Fearful', level: 2 },
-        // Surprised
-        { label: 'Startled', parent: 'Surprised', level: 2 },
-        { label: 'Amazed', parent: 'Surprised', level: 2 },
-        { label: 'Confused', parent: 'Surprised', level: 2 },
-        { label: 'Disillusioned', parent: 'Surprised', level: 2 },
-        // Sad
-        { label: 'Disappointed', parent: 'Sad', level: 2 },
-        { label: 'Lonely', parent: 'Sad', level: 2 },
-        { label: 'Guilty', parent: 'Sad', level: 2 },
-        { label: 'Depressed', parent: 'Sad', level: 2 },
-        // Disgusted
-        { label: 'Disapproving', parent: 'Disgusted', level: 2 },
-        { label: 'Judgmental', parent: 'Disgusted', level: 2 },
-        { label: 'Repelled', parent: 'Disgusted', level: 2 },
-        { label: 'Contemptuous', parent: 'Disgusted', level: 2 },
-        // Angry
-        { label: 'Hurt', parent: 'Angry', level: 2 },
-        { label: 'Let down', parent: 'Angry', level: 2 },
-        { label: 'Bitter', parent: 'Angry', level: 2 },
-        { label: 'Mad', parent: 'Angry', level: 2 },
-        // Anticipating
-        { label: 'Hopeful', parent: 'Anticipating', level: 2 },
-        { label: 'Eager', parent: 'Anticipating', level: 2 },
-        { label: 'Enthusiastic', parent: 'Anticipating', level: 2 },
-        { label: 'Vigilant', parent: 'Anticipating', level: 2 },
-
-        // Level 3: Third ring (children of each level 2)
-        // Happy > Content
-        { label: 'Free', parent: 'Content', level: 3 },
-        { label: 'Joyful', parent: 'Content', level: 3 },
-        // Happy > Proud
-        { label: 'Successful', parent: 'Proud', level: 3 },
-        { label: 'Confident', parent: 'Proud', level: 3 },
-        // Happy > Optimistic
-        { label: 'Hopeful', parent: 'Optimistic', level: 3 },
-        { label: 'Inspired', parent: 'Optimistic', level: 3 },
-        // Happy > Excited
-        { label: 'Energetic', parent: 'Excited', level: 3 },
-        { label: 'Cheerful', parent: 'Excited', level: 3 },
-        // Trusting > Respectful
-        { label: 'Grateful', parent: 'Respectful', level: 3 },
-        { label: 'Appreciative', parent: 'Respectful', level: 3 },
-        // Trusting > Loyal
-        { label: 'Faithful', parent: 'Loyal', level: 3 },
-        { label: 'Devoted', parent: 'Loyal', level: 3 },
-        // Trusting > Intimate
-        { label: 'Affectionate', parent: 'Intimate', level: 3 },
-        { label: 'Loving', parent: 'Intimate', level: 3 },
-        // Trusting > Admiring
-        { label: 'Proud (of others)', parent: 'Admiring', level: 3 },
-        { label: 'Respectful (of others)', parent: 'Admiring', level: 3 },
-        // Fearful > Anxious
-        { label: 'Worried', parent: 'Anxious', level: 3 },
-        { label: 'Overwhelmed', parent: 'Anxious', level: 3 },
-        // Fearful > Insecure
-        { label: 'Inferior', parent: 'Insecure', level: 3 },
-        { label: 'Worthless', parent: 'Insecure', level: 3 },
-        // Fearful > Scared
-        { label: 'Frightened', parent: 'Scared', level: 3 },
-        { label: 'Helpless', parent: 'Scared', level: 3 },
-        // Fearful > Terrified
-        { label: 'Panic', parent: 'Terrified', level: 3 },
-        { label: 'Horrified', parent: 'Terrified', level: 3 },
-        // Surprised > Startled
-        { label: 'Shocked', parent: 'Startled', level: 3 },
-        { label: 'Dismayed', parent: 'Startled', level: 3 },
-        // Surprised > Amazed
-        { label: 'Astonished', parent: 'Amazed', level: 3 },
-        { label: 'Awe', parent: 'Amazed', level: 3 },
-        // Surprised > Confused
-        { label: 'Disillusioned', parent: 'Confused', level: 3 },
-        { label: 'Perplexed', parent: 'Confused', level: 3 },
-        // Surprised > Disillusioned
-        { label: 'Disappointed (expectation)', parent: 'Disillusioned', level: 3 },
-        { label: 'Betrayed', parent: 'Disillusioned', level: 3 },
-        // Sad > Disappointed
-        { label: 'Dismayed (let down)', parent: 'Disappointed', level: 3 },
-        { label: 'Regretful', parent: 'Disappointed', level: 3 },
-        // Sad > Lonely
-        { label: 'Abandoned', parent: 'Lonely', level: 3 },
-        { label: 'Isolated', parent: 'Lonely', level: 3 },
-        // Sad > Guilty
-        { label: 'Ashamed', parent: 'Guilty', level: 3 },
-        { label: 'Remorseful', parent: 'Guilty', level: 3 },
-        // Sad > Depressed
-        { label: 'Despair', parent: 'Depressed', level: 3 },
-        { label: 'Hopeless', parent: 'Depressed', level: 3 },
-        // Disgusted > Disapproving
-        { label: 'Disdainful', parent: 'Disapproving', level: 3 },
-        { label: 'Scornful', parent: 'Disapproving', level: 3 },
-        // Disgusted > Judgmental
-        { label: 'Critical', parent: 'Judgmental', level: 3 },
-        { label: 'Skeptical', parent: 'Judgmental', level: 3 },
-        // Disgusted > Repelled
-        { label: 'Aversion', parent: 'Repelled', level: 3 },
-        { label: 'Disturbed', parent: 'Repelled', level: 3 },
-        // Disgusted > Contemptuous
-        { label: 'Disdain', parent: 'Contemptuous', level: 3 },
-        { label: 'Disrespect', parent: 'Contemptuous', level: 3 },
-        // Angry > Hurt
-        { label: 'Aggrieved', parent: 'Hurt', level: 3 },
-        { label: 'Offended', parent: 'Hurt', level: 3 },
-        // Angry > Let down
-        { label: 'Betrayed (anger)', parent: 'Let down', level: 3 },
-        { label: 'Resentful', parent: 'Let down', level: 3 },
-        // Angry > Bitter
-        { label: 'Indignant', parent: 'Bitter', level: 3 },
-        { label: 'Jealous', parent: 'Bitter', level: 3 },
-        // Angry > Mad
-        { label: 'Furious', parent: 'Mad', level: 3 },
-        { label: 'Enraged', parent: 'Mad', level: 3 },
-        // Anticipating > Hopeful
-        { label: 'Expectant', parent: 'Hopeful', level: 3 },
-        { label: 'Confident (future)', parent: 'Hopeful', level: 3 },
-        // Anticipating > Eager
-        { label: 'Excited (future)', parent: 'Eager', level: 3 },
-        { label: 'Impatient', parent: 'Eager', level: 3 },
-        // Anticipating > Enthusiastic
-        { label: 'Motivated', parent: 'Enthusiastic', level: 3 },
-        { label: 'Inspired (future)', parent: 'Enthusiastic', level: 3 },
-        // Anticipating > Vigilant
-        { label: 'Alert', parent: 'Vigilant', level: 3 },
-        { label: 'Watchful', parent: 'Vigilant', level: 3 }
-      ];
-
-      // Assign colors for each base sector (8 base emotions)
-      const baseColors = [
-        '#f4d03f', // Joy (yellow)
-        '#27ae60', // Trust (green)
-        '#16a085', // Fear (teal)
-        '#5dade2', // Surprise (blue)
-        '#34495e', // Sadness (navy)
-        '#229954', // Disgust (dark green)
-        '#e74c3c', // Anger (red)
-        '#e67e22', // Anticipation (orange)
-      ];
-      // Helper: get sector index for each base emotion
-      const baseEmotions = ['Joy','Trust','Fear','Surprise','Sadness','Disgust','Anger','Anticipation'];
-      function getBaseIndex(label) {
-        return baseEmotions.indexOf(label);
-      }
-      // Color blending for secondary/tertiary
-      function shadeColor(color, percent) {
-        // color: "#rrggbb", percent: -0.2 (darker), +0.2 (lighter)
-        if (!color || typeof color !== 'string') return '#000000';
-        let R = parseInt(color.substring(1,3),16);
-        let G = parseInt(color.substring(3,5),16);
-        let B = parseInt(color.substring(5,7),16);
-        R = Math.round(R * (1 + percent));
-        G = Math.round(G * (1 + percent));
-        B = Math.round(B * (1 + percent));
-        R = Math.min(255,Math.max(0,R));
-        G = Math.min(255,Math.max(0,G));
-        B = Math.min(255,Math.max(0,B));
-        return "#" + ((1<<24)+(R<<16)+(G<<8)+B).toString(16).slice(1);
-      }
-
-      // Group emotions by level and by parent for each ring
-      const levels = [1,2,3];
-      const levelGroups = {};
-      for (const lvl of levels) {
-        levelGroups[lvl] = emotions.filter(e => e.level === lvl);
-      }
-      // For level 2, group by parent (base emotion)
-      const level2ByParent = {};
-      for (const e of levelGroups[2]) {
-        if (!level2ByParent[e.parent]) level2ByParent[e.parent] = [];
-        level2ByParent[e.parent].push(e);
-      }
-      // For level 3, group by parent (secondary emotion)
-      const level3ByParent = {};
-      for (const e of levelGroups[3]) {
-        if (!level3ByParent[e.parent]) level3ByParent[e.parent] = [];
-        level3ByParent[e.parent].push(e);
-      }
-
-      // Radii for rings
-      const cx = 300, cy = 300;
-      const r1 = 100;
-      const r2 = 150;
-      const r3 = 200;
-      const r4 = 290; // outermost
-
-      // --- Draw core (level 1) as sectors in the center ---
-      const N = levelGroups[1].length;
-      for (let i = 0; i < N; ++i) {
-        const base = levelGroups[1][i];
-        const startAngle = (2 * Math.PI * i) / N;
-        const endAngle = (2 * Math.PI * (i + 1)) / N;
-        // Draw donut sector from 0 to r1
-        const rInner = 0, rOuter = r1;
-        const x1 = cx + rOuter * Math.cos(startAngle - Math.PI/2);
-        const y1 = cy + rOuter * Math.sin(startAngle - Math.PI/2);
-        const x2 = cx + rOuter * Math.cos(endAngle - Math.PI/2);
-        const y2 = cy + rOuter * Math.sin(endAngle - Math.PI/2);
-        const x3 = cx + rInner * Math.cos(endAngle - Math.PI/2);
-        const y3 = cy + rInner * Math.sin(endAngle - Math.PI/2);
-        const x4 = cx + rInner * Math.cos(startAngle - Math.PI/2);
-        const y4 = cy + rInner * Math.sin(startAngle - Math.PI/2);
-        const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
-        const pathData = [
-          `M ${x1} ${y1}`,
-          `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2} ${y2}`,
-          `L ${x3} ${y3}`,
-          `A ${rInner} ${rInner} 0 ${largeArc} 0 ${x4} ${y4}`,
-          'Z'
-        ].join(' ');
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', pathData);
-        // Use a color palette for 7 segments (fallback to baseColors, repeating if needed)
-        path.setAttribute('fill', baseColors[i % baseColors.length]);
-        path.setAttribute('data-emotion', base.label);
-        path.style.zIndex = 10;
-        path.style.pointerEvents = 'auto';
-        path.addEventListener('click', function () {
-          const emotion = this.getAttribute('data-emotion');
-          if (selectedDiv) selectedDiv.textContent = `Selected Emotion: ${emotion}`;
-          if (emotionInput) emotionInput.value = emotion;
-        });
-        slicesGroup.appendChild(path);
-        // Add label in center of sector
-        const angle = (startAngle + endAngle) / 2 - Math.PI/2;
-        const labelR = r1 * 0.75;
-        const labelX = cx + labelR * Math.cos(angle);
-        const labelY = cy + labelR * Math.sin(angle);
-        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        text.setAttribute('x', labelX);
-        text.setAttribute('y', labelY);
-        text.textContent = base.label;
-        slicesGroup.appendChild(text);
-      }
-      // --- Draw secondary (level 2) ring ---
-      // For each sector, place its 2 children in the same angle span as the base
-      for (let i = 0; i < N; ++i) {
-        const base = levelGroups[1][i];
-        const baseStart = (2 * Math.PI * i) / N;
-        const baseEnd = (2 * Math.PI * (i + 1)) / N;
-        const children = level2ByParent[base.label] || [];
-        const count = children.length;
-        for (let j = 0; j < count; ++j) {
-          const child = children[j];
-          // Each child gets half the sector
-          const startAngle = baseStart + ((baseEnd - baseStart) * j) / count;
-          const endAngle = baseStart + ((baseEnd - baseStart) * (j+1)) / count;
-          const rInner = r1, rOuter = r2;
-          const x1 = cx + rOuter * Math.cos(startAngle - Math.PI/2);
-          const y1 = cy + rOuter * Math.sin(startAngle - Math.PI/2);
-          const x2 = cx + rOuter * Math.cos(endAngle - Math.PI/2);
-          const y2 = cy + rOuter * Math.sin(endAngle - Math.PI/2);
-          const x3 = cx + rInner * Math.cos(endAngle - Math.PI/2);
-          const y3 = cy + rInner * Math.sin(endAngle - Math.PI/2);
-          const x4 = cx + rInner * Math.cos(startAngle - Math.PI/2);
-          const y4 = cy + rInner * Math.sin(startAngle - Math.PI/2);
-          const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
-          // Color: shade of base color
-          const baseIdx = getBaseIndex(base.label);
-          const color = shadeColor(baseColors[baseIdx], 0.15*(j===0?-1:1));
-          const pathData = [
-            `M ${x1} ${y1}`,
-            `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2} ${y2}`,
-            `L ${x3} ${y3}`,
-            `A ${rInner} ${rInner} 0 ${largeArc} 0 ${x4} ${y4}`,
-            'Z'
-          ].join(' ');
-          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-          path.setAttribute('d', pathData);
-          path.setAttribute('fill', color);
-          path.setAttribute('data-emotion', child.label);
-          path.style.zIndex = 10;
-          path.style.pointerEvents = 'auto';
-          path.addEventListener('click', function () {
-            const emotion = this.getAttribute('data-emotion');
-            if (selectedDiv) selectedDiv.textContent = `Selected Emotion: ${emotion}`;
-            if (emotionInput) emotionInput.value = emotion;
-          });
-          slicesGroup.appendChild(path);
-          // Add label in middle of arc
-          const angle = (startAngle + endAngle) / 2 - Math.PI/2;
-          const labelR = (r1 + r2) / 2;
-          const labelX = cx + labelR * Math.cos(angle);
-          const labelY = cy + labelR * Math.sin(angle);
-          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          text.setAttribute('x', labelX);
-          text.setAttribute('y', labelY);
-          text.textContent = child.label;
-          slicesGroup.appendChild(text);
-        }
-      }
-      // --- Draw tertiary (level 3) ring ---
-      // For each level2 emotion, place its 1 child in the correct sector (16 in total)
-      let tertiaryIndex = 0;
-      for (let i = 0; i < N; ++i) {
-        const base = levelGroups[1][i];
-        const baseStart = (2 * Math.PI * i) / N;
-        const baseEnd = (2 * Math.PI * (i + 1)) / N;
-        const children = level2ByParent[base.label] || [];
-        const count = children.length;
-        for (let j = 0; j < count; ++j) {
-          const child = children[j];
-          const tertiaries = level3ByParent[child.label] || [];
-          // Each tertiary gets the same sector as its parent (half sector)
-          for (let k = 0; k < tertiaries.length; ++k) {
-            const t = tertiaries[k];
-            const startAngle = baseStart + ((baseEnd - baseStart) * j) / count;
-            const endAngle = baseStart + ((baseEnd - baseStart) * (j+1)) / count;
-            const rInner = r2, rOuter = r3;
-            const x1 = cx + rOuter * Math.cos(startAngle - Math.PI/2);
-            const y1 = cy + rOuter * Math.sin(startAngle - Math.PI/2);
-            const x2 = cx + rOuter * Math.cos(endAngle - Math.PI/2);
-            const y2 = cy + rOuter * Math.sin(endAngle - Math.PI/2);
-            const x3 = cx + rInner * Math.cos(endAngle - Math.PI/2);
-            const y3 = cy + rInner * Math.sin(endAngle - Math.PI/2);
-            const x4 = cx + rInner * Math.cos(startAngle - Math.PI/2);
-            const y4 = cy + rInner * Math.sin(startAngle - Math.PI/2);
-            const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
-            // Color: further shade of base
-            const baseIdx = getBaseIndex(base.label);
-            const color = shadeColor(baseColors[baseIdx], 0.25*(j===0?-1:1));
-            const pathData = [
-              `M ${x1} ${y1}`,
-              `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2} ${y2}`,
-              `L ${x3} ${y3}`,
-              `A ${rInner} ${rInner} 0 ${largeArc} 0 ${x4} ${y4}`,
-              'Z'
-            ].join(' ');
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', pathData);
-            path.setAttribute('fill', color);
-            path.setAttribute('data-emotion', t.label);
-            path.style.zIndex = 10;
-            path.style.pointerEvents = 'auto';
-            path.addEventListener('click', function () {
-              const emotion = this.getAttribute('data-emotion');
-              if (selectedDiv) selectedDiv.textContent = `Selected Emotion: ${emotion}`;
-              if (emotionInput) emotionInput.value = emotion;
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetTab = button.getAttribute('data-tab');
+                    
+                    // Remove active classes from all tabs
+                    tabButtons.forEach(btn => {
+                        btn.classList.remove('border-blue-500', 'text-blue-600');
+                        btn.classList.add('border-transparent', 'text-gray-500');
+                    });
+                    
+                    // Hide all tab contents
+                    tabContents.forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    
+                    // Activate clicked tab
+                    button.classList.remove('border-transparent', 'text-gray-500');
+                    button.classList.add('border-blue-500', 'text-blue-600');
+                    
+                    // Show target tab content
+                    document.getElementById(targetTab).classList.remove('hidden');
+                });
             });
-            slicesGroup.appendChild(path);
-            // Add label in middle of arc
-            const angle = (startAngle + endAngle) / 2 - Math.PI/2;
-            const labelR = (r2 + r3) / 2;
-            const labelX = cx + labelR * Math.cos(angle);
-            const labelY = cy + labelR * Math.sin(angle);
-            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text.setAttribute('x', labelX);
-            text.setAttribute('y', labelY);
-            text.textContent = t.label;
-            slicesGroup.appendChild(text);
-          }
-        }
-      }
-    }
-  });
-  </script>
-  </style>
-  <script>
-  // --- Weight Modal Bluetooth Logging ---
-  document.getElementById('connectScaleBtn')?.addEventListener('click', async () => {
-    try {
-      const device = await navigator.bluetooth.requestDevice({
-        filters: [{ namePrefix: 'Health' }],
-        optionalServices: ['0000fff0-0000-1000-8000-00805f9b34fb']
-      });
-
-      document.getElementById('scaleStatus').textContent = `✅ Connected to ${device.name}`;
-
-      const server = await device.gatt.connect();
-      const service = await server.getPrimaryService('0000fff0-0000-1000-8000-00805f9b34fb');
-      const characteristic = await service.getCharacteristic('0000fff4-0000-1000-8000-00805f9b34fb');
-
-      await characteristic.startNotifications();
-      characteristic.addEventListener('characteristicvaluechanged', (event) => {
-        const value = event.target.value;
-        const weightKg = (value.getUint8(3) + value.getUint8(4) * 256) / 100;
-        const weightLbs = weightKg * 2.20462;
-        // Update the live reading display and pre-fill the input as the scale settles.
-        // The user reviews the settled value and clicks "Log Weight" to confirm.
-        document.getElementById('weightReading').textContent = `${weightLbs.toFixed(2)} lbs`;
-        document.getElementById('weightInput').value = weightLbs.toFixed(2);
-        const manualInput = document.getElementById('manualWeight');
-        if (manualInput) manualInput.value = weightLbs.toFixed(2);
-      });
-
-    } catch (error) {
-      console.error('Bluetooth connection failed:', error);
-      document.getElementById('scaleStatus').textContent = `❌ Connection failed`;
-    }
-  });
-  </script>
-
-  <!-- About Modal -->
-  <div id="about-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="about-modal-title">
-    <div class="modal about-modal">
-      <button class="modal-close" id="about-modal-close" aria-label="Close About modal">×</button>
-
-      <div class="about-header">
-        <img src="img/BigNuten.png" alt="BigNuten Logo" class="about-logo" />
-        <div>
-          <h2 id="about-modal-title" class="about-title">⚕︎ BigNuten ⚕︎</h2>
-          <p class="about-subtitle">Another Decent Frankenstein</p>
-          <p class="about-version">v1.0.0 &nbsp;·&nbsp; MIT License</p>
-        </div>
-      </div>
-
-      <section class="about-section">
-        <h3>About the Project</h3>
-        <p>BigNuten helps you track the combined effects of regular exercise, vitamins, and supplements on your body over time. Log workouts, weight, nutrition, and emotions — all in one place, stored locally and optionally on IPFS for decentralized persistence.</p>
-      </section>
-
-      <!-- ── Subscription / Support Section ─────────────────────────── -->
-      <section class="about-section subscribe-section">
-        <h3>🌟 Support &amp; Subscribe</h3>
-        <p class="about-payment-desc">Unlock premium features with a recurring subscription or become an early supporter with a BigNuten DNFT.</p>
-
-        <!-- Premium features teaser -->
-        <ul class="premium-features-list">
-          <li>⚡ Priority IPFS sync &amp; cloud backup</li>
-          <li>📊 Advanced analytics &amp; trend charts</li>
-          <li>🤖 AI-powered nutrition &amp; supplement tips</li>
-          <li>🎨 Custom themes &amp; UI skins</li>
-        </ul>
-
-        <!-- Plan toggle -->
-        <div class="plan-toggle" id="plan-toggle" role="tablist" aria-label="Subscription plan">
-          <button class="plan-btn plan-btn-active" role="tab" aria-selected="true" aria-controls="paypal-monthly-form" data-plan="monthly">Monthly · $10</button>
-          <button class="plan-btn" role="tab" aria-selected="false" aria-controls="paypal-annual-form" data-plan="annual">Annual · $99 <span class="plan-save-badge">Save 17%</span></button>
-        </div>
-
-        <!-- Payment method buttons -->
-        <div class="about-payment-row subscribe-btns">
-
-          <!-- PayPal — monthly -->
-          <form id="paypal-monthly-form" role="tabpanel" aria-label="Monthly PayPal subscription" action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="paypal-form">
-            <input type="hidden" name="cmd" value="_xclick-subscriptions" />
-            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
-            <input type="hidden" name="item_name" value="BigNuten Monthly Subscription" />
-            <input type="hidden" name="currency_code" value="USD" />
-            <input type="hidden" name="a3" value="10.00" />
-            <input type="hidden" name="p3" value="1" />
-            <input type="hidden" name="t3" value="M" />
-            <input type="hidden" name="src" value="1" />
-            <input type="hidden" name="no_note" value="1" />
-            <button type="submit" class="about-pay-btn paypal-btn" title="Subscribe $10/month via PayPal">
-              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" alt="Subscribe via PayPal" style="height:32px;vertical-align:middle;" />
-            </button>
-          </form>
-
-          <!-- PayPal — annual (hidden until annual plan selected) -->
-          <form id="paypal-annual-form" role="tabpanel" aria-label="Annual PayPal subscription" action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="paypal-form" style="display:none;" aria-hidden="true">
-            <input type="hidden" name="cmd" value="_xclick-subscriptions" />
-            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
-            <input type="hidden" name="item_name" value="BigNuten Annual Subscription" />
-            <input type="hidden" name="currency_code" value="USD" />
-            <input type="hidden" name="a3" value="99.00" />
-            <input type="hidden" name="p3" value="1" />
-            <input type="hidden" name="t3" value="Y" />
-            <input type="hidden" name="src" value="1" />
-            <input type="hidden" name="no_note" value="1" />
-            <button type="submit" class="about-pay-btn paypal-btn" title="Subscribe $99/year via PayPal">
-              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" alt="Subscribe via PayPal" style="height:32px;vertical-align:middle;" />
-            </button>
-          </form>
-
-          <!-- Stripe (Coming Soon) -->
-          <button class="about-pay-btn stripe-btn" aria-disabled="true" title="Coming Soon — Credit/debit card payments via Stripe"
-                  onclick="alert('💳 Stripe card payments are coming soon! Check back after the next update.')">
-            💳 Pay with Card <span class="coming-soon-badge">Coming Soon</span>
-          </button>
-
-          <!-- Crypto (Coming Soon) -->
-          <button class="about-pay-btn crypto-btn" aria-disabled="true" title="Coming Soon — Crypto subscription via Decent contract"
-                  onclick="alert('🔗 Crypto payments are coming soon! The Decent escrow contract is being finalized.')">
-            🔗 Pay with Crypto <span class="coming-soon-badge">Coming Soon</span>
-          </button>
-
-        </div>
-
-        <!-- ⚠️ Cancel is EASY to see and do -->
-        <div class="cancel-subscription-row">
-          <a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer" class="cancel-sub-link">
-            ❌ Cancel / Manage Your PayPal Subscription
-          </a>
-        </div>
-
-        <!-- BigNuten DNFT Early Supporter — matches DecentHead buy-section standard -->
-        <div class="dnft-buy-section" id="dnft-supporter-section">
-          <h3 class="dnft-buy-heading">🎟️ Own a Piece of Web3 History</h3>
-          <p class="dnft-buy-subheading">BigNuten v1.0.0 — 100 genesis DNFTs · ERC-1155 · Optimism</p>
-
-          <ul class="dnft-perks-list dnft-perks-compact">
-            <li>🏅 Permanent on-chain proof of founding support</li>
-            <li>🔓 Lifetime access to all premium features &amp; tiers</li>
-            <li>🗳️ Governance voting rights on roadmap &amp; integrations</li>
-            <li>🎨 Exclusive DNFT holder UI skin &amp; badge</li>
-            <li>📣 Optional hall-of-fame listing</li>
-            <li>🪙 Stake in the $BNUT ecosystem from day one</li>
-          </ul>
-
-          <div class="dnft-buy-options">
-
-            <!-- ── Crypto option — on-chain escrow buy ────────────────────── -->
-            <div class="dnft-buy-option-card dnft-crypto-option">
-              <div class="dnft-option-title">🔗 Buy with Crypto</div>
-              <div class="dnft-option-price">USDC on Optimism — instant &amp; trustless</div>
-              <div id="dnft-buy-cards">
-                <p class="dnft-buy-loading">⏳ Loading available editions…</p>
-              </div>
-              <div id="dnft-buy-status"></div>
-              <p class="dnft-escrow-note">
-                Sold via <a href="https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e" target="_blank" rel="noopener noreferrer">DecentEscrow on Optimism</a> — instant, trustless, on-chain.
-              </p>
-            </div>
-
-            <!-- ── PayPal option ───────────────────────────────────────────── -->
-            <div class="dnft-buy-option-card dnft-paypal-option">
-              <div class="dnft-option-title">💳 Buy with PayPal</div>
-              <div class="dnft-option-price">$100 one-time payment</div>
-              <p class="dnft-option-desc">Pay with a card or PayPal balance — admin will transfer your DNFT after verifying payment. Fiat-friendly, no crypto required.</p>
-
-              <!-- Step 1: wallet address input -->
-              <div class="dnft-wallet-input-row">
-                <label for="dnft-paypal-wallet" class="dnft-wallet-label">Your wallet address (to receive the DNFT)</label>
-                <input id="dnft-paypal-wallet" type="text" class="dnft-wallet-input"
-                       placeholder="0x… or ENS name" autocomplete="off" spellcheck="false" />
-                <p id="dnft-paypal-wallet-err" class="dnft-wallet-err" aria-live="polite"></p>
-              </div>
-
-              <!-- Step 2: PayPal one-time payment form -->
-              <form id="dnft-paypal-form"
-                    action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank"
-                    class="paypal-form dnft-paypal-form">
-                <input type="hidden" name="cmd" value="_xclick" />
-                <input type="hidden" name="business" value="jrlamanna@gmail.com" />
-                <input type="hidden" name="item_name" value="BigNuten v1.0.0 Early Supporter DNFT" />
-                <input type="hidden" name="amount" value="100.00" />
-                <input type="hidden" name="currency_code" value="USD" />
-                <input type="hidden" name="no_note" value="0" />
-                <!-- wallet address is embedded in the PayPal "custom" field by the submit handler -->
-                <input type="hidden" id="dnft-paypal-custom" name="custom" value="" />
-                <button type="submit" class="dnft-buy-btn dnft-paypal-btn" title="Buy BigNuten DNFT — $100 via PayPal">
-                  💳 Buy with PayPal — $100
-                </button>
-              </form>
-
-              <p id="dnft-paypal-confirm" class="dnft-paypal-confirm" style="display:none;"></p>
-            </div>
-
-          </div>
-
-          <p class="dnft-buy-footer-note">
-            💬 Questions? Open an issue or DM <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer">@TheJollyLaMa</a> on GitHub.
-          </p>
-        </div>
-
-      </section>
-      <!-- ── End Subscription Section ────────────────────────────────── -->
-
-      <section class="about-section">
-        <h3>Technologies</h3>
-        <ul class="about-tech-list">
-          <li>🌐 Vanilla HTML / CSS / JavaScript</li>
-          <li>📦 IPFS (InterPlanetary File System)</li>
-          <li>🦊 MetaMask &amp; Ethereum wallet integration</li>
-          <li>📊 Chart.js for data visualization</li>
-          <li>🌙 Moon &amp; Sun astronomical tracking</li>
-        </ul>
-      </section>
-
-      <section class="about-section">
-        <h3>Roadmap</h3>
-        <ul class="about-tech-list">
-          <li>✅ Local data logging (weight, supplements, food, exercise)</li>
-          <li>✅ IPFS snapshot persistence</li>
-          <li>✅ Emotion wheel tracking</li>
-          <li>🔜 Crypto subscription via Decent contract</li>
-          <li>🔜 AI-powered nutrition recommendations</li>
-          <li>🔜 Social sharing &amp; community challenges</li>
-        </ul>
-      </section>
-
-      <section class="about-section about-links">
-        <a href="https://github.com/TheJollyLaMa/BigNuten_Vanilla" target="_blank" rel="noopener noreferrer" class="about-link-btn github-link">
-          <svg class="about-gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.729.083-.729 1.205.084 1.84 1.236 1.84 1.236 1.07 1.835 2.807 1.305 3.492.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.468-2.38 1.235-3.22-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.3 1.23A11.51 11.51 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.29-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.12 3.176.77.84 1.233 1.91 1.233 3.22 0 4.61-2.807 5.625-5.479 5.92.43.372.823 1.102.823 2.222 0 1.606-.015 2.898-.015 3.293 0 .322.216.694.825.576C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"/></svg>
-          View on GitHub
-        </a>
-        <a href="mailto:jrlamanna@gmail.com" class="about-link-btn email-link">
-          ✉️ jrlamanna@gmail.com
-        </a>
-      </section>
-
-      <section class="about-section">
-        <h3>💖 Donate</h3>
-        <p class="about-payment-desc">Love BigNuten? A one-time donation goes a long way!</p>
-        <div class="about-payment-row">
-          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="paypal-form">
-            <input type="hidden" name="cmd" value="_donations" />
-            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
-            <input type="hidden" name="item_name" value="Donation to BigNuten" />
-            <input type="hidden" name="currency_code" value="USD" />
-            <input type="hidden" name="no_note" value="0" />
-            <button type="submit" class="about-pay-btn paypal-btn" title="Donate via PayPal">
-              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" alt="Donate via PayPal" style="height:32px;vertical-align:middle;" />
-            </button>
-          </form>
-          <button class="about-pay-btn crypto-btn disabled" disabled title="Coming Soon — Crypto donation via Decent contract">
-            🔗 Donate with Crypto <span class="coming-soon-badge">Coming Soon</span>
-          </button>
-        </div>
-      </section>
-
-      <footer class="about-footer">
-        <p>BigNuten is open-source and community-driven. Built with ❤️ by <a href="https://github.com/TheJollyLaMa" target="_blank" rel="noopener noreferrer">TheJollyLaMa</a>.</p>
-        <p class="about-license">MIT License &nbsp;·&nbsp; © 2024 BigNuten Contributors</p>
-      </footer>
-    </div>
-  </div>
-  <script>
-  // ── Dashboard Panel Toggle Logic ───────────────────────────────
-  document.addEventListener('DOMContentLoaded', () => {
-    const panels = document.querySelectorAll('.dashboard-panel');
-    const toggleBtns = document.querySelectorAll('.panel-toggle-btn');
-    let activePanel = null;
-
-    toggleBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const panelId = btn.dataset.panel;
-        const panel = document.getElementById(panelId);
-        if (!panel) return;
-
-        if (activePanel === panelId) {
-          // Toggle off: hide the current panel
-          panel.classList.remove('panel-visible');
-          btn.classList.remove('active');
-          activePanel = null;
-        } else {
-          // Hide all panels and deactivate all buttons
-          panels.forEach(p => p.classList.remove('panel-visible'));
-          toggleBtns.forEach(b => b.classList.remove('active'));
-
-          // Show the selected panel
-          panel.classList.add('panel-visible');
-          btn.classList.add('active');
-          activePanel = panelId;
-        }
-      });
-    });
-
-    // ── Subscription Plan Toggle ───────────────────────────────
-    const planToggle = document.getElementById('plan-toggle');
-    if (planToggle) {
-      const planBtns = planToggle.querySelectorAll('.plan-btn');
-      const monthlyForm = document.getElementById('paypal-monthly-form');
-      const annualForm  = document.getElementById('paypal-annual-form');
-
-      planBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          planBtns.forEach(b => {
-            b.classList.remove('plan-btn-active');
-            b.setAttribute('aria-selected', 'false');
-          });
-          btn.classList.add('plan-btn-active');
-          btn.setAttribute('aria-selected', 'true');
-
-          const plan = btn.dataset.plan;
-          if (monthlyForm && annualForm) {
-            if (plan === 'annual') {
-              monthlyForm.style.display = 'none';
-              monthlyForm.setAttribute('aria-hidden', 'true');
-              annualForm.style.display  = 'inline-flex';
-              annualForm.setAttribute('aria-hidden', 'false');
-            } else {
-              annualForm.style.display  = 'none';
-              annualForm.setAttribute('aria-hidden', 'true');
-              monthlyForm.style.display = 'inline-flex';
-              monthlyForm.setAttribute('aria-hidden', 'false');
-            }
-          }
         });
-      });
-    }
-  });
-  </script>
-
-  <!-- ── Achievements Modal (stub) ─────────────────────────────────────── -->
-  <div id="achievements-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="achievements-modal-title">
-    <div class="modal aes-stub-modal">
-      <button class="modal-close" id="achievements-modal-close" aria-label="Close Achievements modal">×</button>
-      <div class="aes-stub-header">
-        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
-        <h2 id="achievements-modal-title">🏆 Achievements</h2>
-      </div>
-      <p class="aes-stub-desc">Track your fitness milestones and earn $BNUT rewards for hitting goals.</p>
-      <ul class="aes-stub-list">
-        <li>🥇 First Workout Logged</li>
-        <li>💧 7-Day Hydration Streak</li>
-        <li>⚖️ Reach Goal Weight</li>
-        <li>🌙 30-Day Sleep Tracker</li>
-        <li>🏋️ 100 Workouts Completed</li>
-      </ul>
-      <p class="aes-stub-coming-soon">🚧 Full achievement tracking &amp; $BNUT rewards coming soon!</p>
-    </div>
-  </div>
-
-  <!-- ── Governance Modal ──────────────────────────────────────────────── -->
-  <div id="governance-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="governance-modal-title">
-    <div class="modal gov-modal">
-      <button class="modal-close" id="governance-modal-close" aria-label="Close Governance modal">×</button>
-
-      <!-- Header -->
-      <div class="aes-stub-header">
-        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
-        <h2 id="governance-modal-title">🗳️ Governance</h2>
-      </div>
-      <p class="aes-stub-desc">
-        $BNUT holders vote on feature roadmap, prize pools, and protocol changes.
-        1 wallet = 1 vote · Must hold ≥1 $BNUT · Quorum required for valid results.
-      </p>
-
-      <!-- Wallet BNUT balance (shown when connected) -->
-      <p id="gov-wallet-balance" class="gov-wallet-balance" style="display:none;"></p>
-
-      <!-- How to get $BNUT info box -->
-      <details class="gov-info-box">
-        <summary>💡 How to get $BNUT</summary>
-        <div class="gov-info-content">
-          <p>$BNUT is the BigNuten governance &amp; rewards token on <strong>Optimism Mainnet</strong>.</p>
-          <ul>
-            <li>🎟️ <strong>Buy a Supporter DNFT</strong> — DNFT holders earn $BNUT rewards and gain PROPOSER_ROLE.</li>
-            <li>💻 <strong>Contribute code</strong> — merged PRs can be rewarded with $BNUT by the admin.</li>
-            <li>📊 <strong>Share health data</strong> (opt-in) — earn $BNUT for community research contributions.</li>
-            <li>⚙️ <strong>Admin mint</strong> — TheJollyLaMa can mint $BNUT to wallets via the Admin Panel below.</li>
-          </ul>
-          <p class="gov-info-contract">Token: <code>0x733c4d2Aae900E608147dd89Fa93606f89722823</code> (Optimism)</p>
-        </div>
-      </details>
-
-      <!-- ── Admin Panel (visible to DEFAULT_ADMIN_ROLE only) ──────────── -->
-      <div id="gov-admin-panel" class="gov-admin-panel" style="display:none;">
-        <h3 class="gov-admin-panel-title">⚙️ Admin Panel</h3>
-
-        <!-- Mint $BNUT -->
-        <details class="gov-admin-section">
-          <summary>🪙 Mint $BNUT to Wallet</summary>
-          <div class="gov-admin-section-body">
-            <p class="gov-admin-hint">Caller must hold <strong>MINTER_ROLE</strong> on the $BNUT contract.</p>
-            <label class="gov-label">Recipient address
-              <input id="gov-mint-addr" class="gov-input" type="text" placeholder="0x…" />
-            </label>
-            <label class="gov-label">Amount (whole $BNUT)
-              <input id="gov-mint-amount" class="gov-input gov-input-short" type="number" min="1" placeholder="100" />
-            </label>
-            <label class="gov-label">Reason (on-chain note)
-              <input id="gov-mint-reason" class="gov-input" type="text" placeholder="e.g. Governance test mint" />
-            </label>
-            <button id="gov-mint-btn" class="gov-admin-action-btn">🚀 Mint $BNUT</button>
-            <p id="gov-mint-status" class="gov-form-status"></p>
-          </div>
-        </details>
-
-        <!-- Add Proposer -->
-        <details class="gov-admin-section">
-          <summary>🎟️ Grant PROPOSER_ROLE</summary>
-          <div class="gov-admin-section-body">
-            <p class="gov-admin-hint">Grant a DNFT holder the ability to create proposals.</p>
-            <label class="gov-label">Wallet address
-              <input id="gov-add-proposer-addr" class="gov-input" type="text" placeholder="0x…" />
-            </label>
-            <button id="gov-add-proposer-btn" class="gov-admin-action-btn">✅ Grant Role</button>
-            <p id="gov-add-proposer-status" class="gov-form-status"></p>
-          </div>
-        </details>
-
-        <!-- Remove Proposer -->
-        <details class="gov-admin-section">
-          <summary>🚫 Revoke PROPOSER_ROLE</summary>
-          <div class="gov-admin-section-body">
-            <label class="gov-label">Wallet address
-              <input id="gov-rm-proposer-addr" class="gov-input" type="text" placeholder="0x…" />
-            </label>
-            <button id="gov-rm-proposer-btn" class="gov-admin-action-btn gov-admin-danger-btn">🗑️ Revoke Role</button>
-            <p id="gov-rm-proposer-status" class="gov-form-status"></p>
-          </div>
-        </details>
-      </div>
-
-      <!-- Create Proposal button — shown only when PROPOSER_ROLE is confirmed -->
-      <div id="gov-create-btn-wrapper" class="gov-create-btn-wrapper" style="display:none;">
-        <button id="gov-create-btn" class="gov-create-btn">✏️ Create Proposal</button>
-      </div>
-
-      <!-- Create Proposal form (hidden until button clicked) -->
-      <div id="gov-create-form" class="gov-create-form" style="display:none;">
-        <h3 class="gov-form-title">New Proposal</h3>
-        <label class="gov-label">
-          Title
-          <input id="gov-input-title" class="gov-input" type="text" maxlength="80" placeholder="Short title (max 80 chars)…" />
-        </label>
-        <label class="gov-label">
-          Description
-          <textarea id="gov-input-desc" class="gov-input gov-textarea" rows="3" placeholder="Full description of what's being decided…"></textarea>
-        </label>
-        <label class="gov-label">
-          Yes Option Label
-          <input id="gov-input-yes" class="gov-input" type="text" maxlength="60" placeholder="e.g. Run the lottery" />
-        </label>
-        <label class="gov-label">
-          No Option Label
-          <input id="gov-input-no" class="gov-input" type="text" maxlength="60" placeholder="e.g. Let funds grow" />
-        </label>
-        <label class="gov-label">
-          Voting Duration (days, 0 = default 7 days)
-          <input id="gov-input-duration" class="gov-input gov-input-short" type="number" min="0" max="30" value="7" />
-        </label>
-        <div class="gov-form-actions">
-          <button id="gov-submit-btn" class="gov-submit-btn">🚀 Submit Proposal</button>
-          <button id="gov-cancel-btn" class="gov-cancel-btn">Cancel</button>
-        </div>
-        <p id="gov-form-status" class="gov-form-status"></p>
-      </div>
-
-      <!-- Proposals list container -->
-      <div id="gov-proposals-container" class="gov-proposals-container">
-        <p class="gov-loading">Connect wallet or wait for proposals to load…</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Data Sharing Modal (stub) ──────────────────────────────────────── -->
-  <!-- ── Payroll Modal (treasury owner only) ────────────────────────────── -->
-  <div id="payroll-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="payroll-modal-title">
-    <div class="modal gov-modal">
-      <button class="modal-close" id="payroll-modal-close" aria-label="Close Payroll modal">×</button>
-
-      <!-- Header -->
-      <div class="aes-stub-header">
-        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
-        <h2 id="payroll-modal-title">💸 Weekly Payroll</h2>
-      </div>
-      <p class="aes-stub-desc">
-        Review and settle all pending $BNUT contributor payouts directly from your wallet.
-        No private key required — MetaMask signs each settlement.
-      </p>
-
-      <!-- Treasury balance -->
-      <p id="payroll-treasury-balance" class="gov-wallet-balance" style="display:none;"></p>
-
-      <!-- Info box -->
-      <details class="gov-info-box">
-        <summary>💡 How payroll works</summary>
-        <div class="gov-info-content">
-          <ol>
-            <li>When a contributor's PR is merged, run the <strong>Bounty Payout</strong> GitHub Actions workflow to queue their payout (no private key needed — just fill in their wallet &amp; BNUT amount).</li>
-            <li>The payout is added to <code>payroll-queue.json</code> in the repo.</li>
-            <li>Come back here once a week, connect MetaMask, and click <strong>Settle Payroll</strong>.</li>
-            <li>MetaMask will ask you to sign a single batch transaction — all contributors are paid at once.</li>
-          </ol>
-          <p>Network: <strong>Optimism Mainnet</strong> · Token: <strong>$BNUT</strong></p>
-        </div>
-      </details>
-
-      <!-- Pending payouts table -->
-      <div id="payroll-pending-section">
-        <h3 class="gov-admin-panel-title">⏳ Pending Payouts</h3>
-        <div id="payroll-pending-list">
-          <p class="gov-loading">Loading queue…</p>
-        </div>
-
-        <div id="payroll-actions" style="display:none; margin-top:1rem; text-align:center;">
-          <button id="payroll-settle-btn" class="gov-admin-action-btn" style="font-size:1rem; padding:0.6rem 1.4rem;">
-            🚀 Settle Payroll
-          </button>
-          <p id="payroll-settle-status" class="gov-form-status" style="margin-top:0.5rem;"></p>
-        </div>
-      </div>
-
-      <!-- Recently settled -->
-      <details id="payroll-settled-section" class="gov-admin-section" style="margin-top:1.5rem;">
-        <summary>✅ Recently Settled</summary>
-        <div id="payroll-settled-list" class="gov-admin-section-body">
-          <p class="gov-loading">Loading…</p>
-        </div>
-      </details>
-    </div>
-  </div>
-
-  <!-- ── Data Sharing Modal (stub) ──────────────────────────────────────── -->
-  <div id="data-sharing-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="data-sharing-modal-title">
-    <div class="modal aes-stub-modal">
-      <button class="modal-close" id="data-sharing-modal-close" aria-label="Close Data Sharing modal">×</button>
-      <div class="aes-stub-header">
-        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
-        <h2 id="data-sharing-modal-title">📊 Data Sharing</h2>
-      </div>
-      <p class="aes-stub-desc">Earn $BNUT by anonymously contributing your health data to community research pools.</p>
-      <ul class="aes-stub-list">
-        <li>🔒 Fully anonymised before sharing</li>
-        <li>💰 Earn $BNUT per data contribution</li>
-        <li>📈 Help build community health insights</li>
-        <li>🌐 Stored on IPFS — you own your data</li>
-      </ul>
-      <p class="aes-stub-coming-soon">🚧 Data sharing &amp; earn programme coming soon!</p>
-    </div>
-  </div>
-
-  <!-- ── Monthly Challenge Modal (stub) ─────────────────────────────────── -->
-  <div id="challenge-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="challenge-modal-title">
-    <div class="modal aes-stub-modal">
-      <button class="modal-close" id="challenge-modal-close" aria-label="Close Monthly Challenge modal">×</button>
-      <div class="aes-stub-header">
-        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
-        <h2 id="challenge-modal-title">🏋️ Monthly Challenge</h2>
-      </div>
-      <p class="aes-stub-desc">Enter the monthly fitness lottery! Log workouts &amp; healthy habits to earn tickets. Winners share the $BNUT prize pool.</p>
-      <ul class="aes-stub-list">
-        <li>🎟️ 1 ticket per logged workout</li>
-        <li>💧 Bonus ticket for daily hydration goal</li>
-        <li>⚖️ Bonus ticket for weight check-in</li>
-        <li>🏆 Top 3 wallets share the prize pool</li>
-      </ul>
-      <div class="aes-stub-prize-pool">
-        <img src="img/BigNuten.png" alt="$BNUT" class="aes-stub-pool-icon" />
-        <span>Prize Pool: <strong>TBD $BNUT</strong></span>
-      </div>
-      <p class="aes-stub-coming-soon">🚧 Monthly challenge lottery launching soon!</p>
-    </div>
-  </div>
-
+    </script>
 </body>
 </html>
