@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - BNUT</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1>Admin Panel</h1>
+            <div class="admin-nav">
+                <button class="nav-tab active" data-tab="overview">Overview</button>
+                <button class="nav-tab" data-tab="users">Users</button>
+                <button class="nav-tab" data-tab="bounties">Bounties</button>
+                <button class="nav-tab" data-tab="payroll">Payroll</button>
+                <button class="nav-tab" data-tab="settings">Settings</button>
+            </div>
+        </header>
+
+        <main class="admin-main">
+            <div class="tab-content active" id="overview">
+                <h2>Dashboard Overview</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total Users</h3>
+                        <span class="stat-number">1,247</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Active Bounties</h3>
+                        <span class="stat-number">89</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Pending Payouts</h3>
+                        <span class="stat-number">$12,450</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total $BNUT Distributed</h3>
+                        <span class="stat-number">2.5M</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="users">
+                <h2>User Management</h2>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>$BNUT Balance</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>001</td>
+                                <td>developer123</td>
+                                <td>dev@example.com</td>
+                                <td>1,500</td>
+                                <td><span class="status active">Active</span></td>
+                                <td>
+                                    <button class="btn-small">Edit</button>
+                                    <button class="btn-small danger">Suspend</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-content" id="bounties">
+                <h2>Bounty Management</h2>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Bounty ID</th>
+                                <th>Title</th>
+                                <th>Reward</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>#BNT-001</td>
+                                <td>Fix login bug</td>
+                                <td>500 $BNUT</td>
+                                <td><span class="status pending">Pending</span></td>
+                                <td>2024-01-15</td>
+                                <td>
+                                    <button class="btn-small">View</button>
+                                    <button class="btn-small">Edit</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-content" id="payroll">
+                <h2>Payroll Management</h2>
+                <div class="payroll-section">
+                    <div class="payroll-header">
+                        <div class="payroll-stats">
+                            <div class="stat-item">
+                                <span class="label">Pending Settlements:</span>
+                                <span class="value">23</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="label">Total Queue Value:</span>
+                                <span class="value">18,750 $BNUT</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="label">Auto-Settlement:</span>
+                                <span class="value status active">Enabled</span>
+                            </div>
+                        </div>
+                        <div class="payroll-actions">
+                            <button class="btn-primary">Settle All Pending</button>
+                            <button class="btn-secondary">Export Report</button>
+                        </div>
+                    </div>
+
+                    <div class="payroll-filters">
+                        <select class="filter-select">
+                            <option value="all">All Statuses</option>
+                            <option value="pending">Pending Settlement</option>
+                            <option value="processing">Processing</option>
+                            <option value="completed">Completed</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                        <select class="filter-select">
+                            <option value="7">Last 7 days</option>
+                            <option value="30">Last 30 days</option>
+                            <option value="90">Last 90 days</option>
+                            <option value="all">All time</option>
+                        </select>
+                        <input type="search" placeholder="Search by user or bounty..." class="search-input">
+                    </div>
+
+                    <div class="payroll-queue">
+                        <h3>Settlement Queue</h3>
+                        <div class="table-container">
+                            <table class="admin-table payroll-table">
+                                <thead>
+                                    <tr>
+                                        <th>
+                                            <input type="checkbox" id="select-all">
+                                        </th>
+                                        <th>Settlement ID</th>
+                                        <th>Bounty</th>
+                                        <th>User</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Submitted</th>
+                                        <th>Priority</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" class="row-select">
+                                        </td>
+                                        <td>#SET-001</td>
+                                        <td>
+                                            <div class="bounty-info">
+                                                <span class="bounty-title">API Authentication Fix</span>
+                                                <span class="bounty-id">#BNT-045</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="user-info">
+                                                <span class="username">@dev_alice</span>
+                                                <span class="user-id">ID: 1247</span>
+                                            </div>
+                                        </td>
+                                        <td class="amount">1,200 $BNUT</td>
+                                        <td><span class="status pending">Pending</span></td>
+                                        <td>2024-01-20 14:30</td>
+                                        <td><span class="priority high">High</span></td>
+                                        <td class="actions">
+                                            <button class="btn-small success" title="Settle Now">Settle</button>
+                                            <button class="btn-small" title="View Details">View</button>
+                                            <button class="btn-small danger" title="Reject">Reject</button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" class="row-select">
+                                        </td>
+                                        <td>#SET-002</td>
+                                        <td>
+                                            <div class="bounty-info">
+                                                <span class="bounty-title">Database Migration Script</span>
+                                                <span class="bounty-id">#BNT-042</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="user-info">
+                                                <span class="username">@backend_bob</span>
+                                                <span class="user-id">ID: 0892</span>
+                                            </div>
+                                        </td>
+                                        <td class="amount">2,500 $BNUT</td>
+                                        <td><span class="status processing">Processing</span></td>
+                                        <td>2024-01-20 12:15</td>
+                                        <td><span class="priority medium">Medium</span></td>
+                                        <td class="actions">
+                                            <button class="btn-small" disabled>Processing...</button>
+                                            <button class="btn-small" title="View Details">View</button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" class="row-select">
+                                        </td>
+                                        <td>#SET-003</td>
+                                        <td>
+                                            <div class="bounty-info">
+                                                <span class="bounty-title">UI Component Library</span>
+                                                <span class="bounty-id">#BNT-038</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="user-info">
+                                                <span class="username">@frontend_carol</span>
+                                                <span class="user-id">ID: 1156</span>
+                                            </div>
+                                        </td>
+                                        <td class="amount">3,000 $BNUT</td>
+                                        <td><span class="status pending">Pending</span></td>
+                                        <td>2024-01-19 16:45</td>
+                                        <td><span class="priority low">Low</span></td>
+                                        <td class="actions">
+                                            <button class="btn-small success" title="Settle Now">Settle</button>
+                                            <button class="btn-small" title="View Details">View</button>
+                                            <button class="btn-small danger" title="Reject">Reject</button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" class="row-select">
+                                        </td>
+                                        <td>#SET-004</td>
+                                        <td>
+                                            <div class="bounty-info">
+                                                <span class="bounty-title">Security Audit Report</span>
+                                                <span class="bounty-id">#BNT-035</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="user-info">
+                                                <span class="username">@security_dave</span>
+                                                <span class="user-id">ID: 0734</span>
+                                            </div>
+                                        </td>
+                                        <td class="amount">5,000 $BNUT</td>
+                                        <td><span class="status completed">Completed</span></td>
+                                        <td>2024-01-19 09:20</td>
+                                        <td><span class="priority high">High</span></td>
+                                        <td class="actions">
+                                            <button class="btn-small" title="View Transaction">View</button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" class="row-select">
+                                        </td>
+                                        <td>#SET-005</td>
+                                        <td>
+                                            <div class="bounty-info">
+                                                <span class="bounty-title">Performance Optimization</span>
+                                                <span class="bounty-id">#BNT-031</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="user-info">
+                                                <span class="username">@perf_eve</span>
+                                                <span class="user-id">ID: 1923</span>
+                                            </div>
+                                        </td>
+                                        <td class="amount">1,800 $BNUT</td>
+                                        <td><span class="status failed">Failed</span></td>
+                                        <td>2024-01-18 13:10</td>
+                                        <td><span class="priority medium">Medium</span></td>
+                                        <td class="actions">
+                                            <button class="btn-small" title="Retry Settlement">Retry</button>
+                                            <button class="btn-small" title="View Details">View</button>
+                                            <button class="btn-small danger" title="Cancel">Cancel</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="table-footer">
+                            <div class="bulk-actions">
+                                <button class="btn-secondary" disabled>Settle Selected</button>
+                                <button class="btn-secondary" disabled>Reject Selected</button>
+                            </div>
+                            <div class="pagination">
+                                <button class="page-btn" disabled>Previous</button>
+                                <span class="page-info">Page 1 of 5</span>
+                                <button class="page-btn">Next</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="settings">
+                <h2>System Settings</h2>
+                <div class="settings-grid">
+                    <div class="setting-card">
+                        <h3>Auto-Settlement</h3>
+                        <label class="switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-card">
+                        <h3>Settlement Delay</h3>
+                        <select>
+                            <option>Immediate</option>
+                            <option>24 hours</option>
+                            <option>48 hours</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
