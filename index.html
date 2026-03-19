@@ -1320,6 +1320,63 @@
             <p id="gov-rm-proposer-status" class="gov-form-status"></p>
           </div>
         </details>
+
+        <!-- DecentEscrow Subscription Plans -->
+        <details id="escrow-plans-section" class="gov-admin-section">
+          <summary>📋 Subscription Plans (DecentEscrow) <span id="escrow-plans-count" style="color:#aaa; font-weight:normal;"></span></summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">
+              Manage subscription plans on the deployed
+              <a href="https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e"
+                 target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">
+                DecentEscrow contract
+              </a>.
+              BigNuten uses <strong>Plan 0 (ETH)</strong> and <strong>Plan 1 ($BNUT)</strong>.
+            </p>
+
+            <!-- Current plans list -->
+            <div id="escrow-plans-list" style="margin-bottom:0.75rem;">
+              <p class="gov-loading">Open this section to load plans.</p>
+            </div>
+            <button id="escrow-plans-refresh-btn" class="gov-admin-action-btn" style="margin-bottom:1rem;">🔄 Refresh Plans</button>
+
+            <!-- Create Plan -->
+            <details class="gov-admin-section" style="margin-top:0.5rem;">
+              <summary>➕ Create New Plan</summary>
+              <div class="gov-admin-section-body">
+                <p class="gov-admin-hint">Caller must be the <strong>owner</strong> of the DecentEscrow contract.</p>
+                <label class="gov-label">Plan name
+                  <input id="escrow-plan-name" class="gov-input" type="text" placeholder="e.g. BigNuten Monthly ETH" />
+                </label>
+                <label class="gov-label">Payment token address
+                  <input id="escrow-plan-token" class="gov-input" type="text" placeholder="0x0000…0000 for ETH, or BNUT/USDC address" />
+                </label>
+                <label class="gov-label">Price per period (ETH/BNUT = whole tokens; USDC = dollars)
+                  <input id="escrow-plan-price" class="gov-input gov-input-short" type="number" min="0" step="any" placeholder="0.01" />
+                </label>
+                <label class="gov-label">Period length (seconds)
+                  <input id="escrow-plan-period" class="gov-input gov-input-short" type="number" min="1" placeholder="2592000 (30 days)" />
+                </label>
+                <button id="escrow-create-plan-btn" class="gov-admin-action-btn">🚀 Create Plan</button>
+                <p id="escrow-create-plan-status" class="gov-form-status"></p>
+              </div>
+            </details>
+
+            <!-- Deactivate Plan -->
+            <details class="gov-admin-section" style="margin-top:0.5rem;">
+              <summary>🚫 Deactivate Plan</summary>
+              <div class="gov-admin-section-body">
+                <p class="gov-admin-hint">Deactivated plans stop accepting new subscriptions. Existing active subs remain valid.</p>
+                <label class="gov-label">Plan ID
+                  <input id="escrow-deactivate-plan-id" class="gov-input gov-input-short" type="number" min="0" placeholder="0" />
+                </label>
+                <button id="escrow-deactivate-plan-btn" class="gov-admin-action-btn gov-admin-danger-btn">🚫 Deactivate Plan</button>
+                <p id="escrow-deactivate-plan-status" class="gov-form-status"></p>
+              </div>
+            </details>
+
+          </div>
+        </details>
       </div>
 
       <!-- Create Proposal button — shown only when PROPOSER_ROLE is confirmed -->

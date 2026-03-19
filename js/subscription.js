@@ -48,8 +48,11 @@ const DECENT_ESCROW_SUBSCRIPTION_ABI = [
   "function getPlan(uint256 planId) view returns (tuple(string name, address paymentToken, uint256 pricePerPeriod, uint256 periodSeconds, bool active))",
   "function subscriptions(address subscriber, uint256 planId) view returns (uint256)",
   "function nextPlanId() view returns (uint256)",
-  // State-changing function
+  // User function
   "function subscribe(uint256 planId) payable",
+  // Owner-only admin functions
+  "function createPlan(string name, address paymentToken, uint256 pricePerPeriod, uint256 periodSeconds) returns (uint256 planId)",
+  "function deactivatePlan(uint256 planId)",
 ];
 
 /** Minimal ABI for the BigNuten ERC-20 token contract. */
@@ -554,4 +557,96 @@ export async function loadCryptoPrices() {
   } catch (err) {
     console.warn("[subscription.js] loadCryptoPrices: could not fetch prices:", err.message);
   }
+}
+
+// ─── Admin Functions (DecentEscrow owner only) ────────────────────────────────
+
+/**
+ * Fetches all plans from DecentEscrow and returns them as an array of objects.
+ * Uses a read-only public RPC so this works without MetaMask.
+ *
+ * @returns {Promise<Array<{id: number, name: string, paymentToken: string,
+ *   pricePerPeriod: bigint, periodSeconds: bigint, active: boolean}>>}
+ */
+export async function listDecentEscrowPlans() {
+  const ethers = window.ethers;
+  if (!ethers) throw new Error("ethers.js not loaded");
+
+  const provider = new ethers.JsonRpcProvider("https://mainnet.optimism.io");
+  const contract = new ethers.Contract(
+    DECENT_ESCROW_ADDRESS,
+    DECENT_ESCROW_SUBSCRIPTION_ABI,
+    provider
+  );
+
+  const count = Number(await contract.nextPlanId());
+  if (count === 0) return [];
+
+  const plans = await Promise.all(
+    Array.from({ length: count }, (_, i) =>
+      contract.getPlan(i).then(p => ({
+        id:             i,
+        name:           p.name,
+        paymentToken:   p.paymentToken,
+        pricePerPeriod: p.pricePerPeriod,
+        periodSeconds:  p.periodSeconds,
+        active:         p.active,
+      }))
+    )
+  );
+  return plans;
+}
+
+/**
+ * Creates a new subscription plan on DecentEscrow. Owner-only on-chain call.
+ *
+ * @param {string}  name           - Human-readable plan name (e.g. "BigNuten Monthly ETH").
+ * @param {string}  paymentToken   - ERC-20 address, or "0x0000000000000000000000000000000000000000" for ETH.
+ * @param {string}  pricePerPeriod - Price in the payment token's smallest unit (wei for ETH).
+ * @param {number}  periodSeconds  - Duration of one subscription period in seconds.
+ * @returns {Promise<{txHash: string, planId: number}>}
+ */
+export async function createDecentEscrowPlan(name, paymentToken, pricePerPeriod, periodSeconds) {
+  await _ensureOptimism();
+  const signer = await _getSigner();
+  const contract = new ethers.Contract(
+    DECENT_ESCROW_ADDRESS,
+    DECENT_ESCROW_SUBSCRIPTION_ABI,
+    signer
+  );
+
+  console.log("[subscription.js] Creating plan:", { name, paymentToken, pricePerPeriod, periodSeconds });
+  const tx = await contract.createPlan(name, paymentToken, pricePerPeriod, periodSeconds);
+  const receipt = await tx.wait();
+
+  // Parse planId from the PlanCreated event (topic 1 = indexed planId)
+  const planCreatedTopic = ethers.id("PlanCreated(uint256,string,address,uint256,uint256)");
+  const log = receipt.logs.find(l => l.topics[0] === planCreatedTopic);
+  const planId = log ? Number(BigInt(log.topics[1])) : -1;
+
+  console.log(`[subscription.js] Plan created: planId=${planId} tx=${tx.hash}`);
+  return { txHash: tx.hash, planId };
+}
+
+/**
+ * Deactivates an existing plan on DecentEscrow. Owner-only on-chain call.
+ * Deactivated plans cannot receive new subscriptions, but existing ones remain valid.
+ *
+ * @param {number} planId - The plan ID to deactivate.
+ * @returns {Promise<string>} The transaction hash.
+ */
+export async function deactivateDecentEscrowPlan(planId) {
+  await _ensureOptimism();
+  const signer = await _getSigner();
+  const contract = new ethers.Contract(
+    DECENT_ESCROW_ADDRESS,
+    DECENT_ESCROW_SUBSCRIPTION_ABI,
+    signer
+  );
+
+  console.log(`[subscription.js] Deactivating plan ${planId}…`);
+  const tx = await contract.deactivatePlan(planId);
+  await tx.wait();
+  console.log(`[subscription.js] Plan ${planId} deactivated. Tx: ${tx.hash}`);
+  return tx.hash;
 }
