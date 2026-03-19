@@ -137,11 +137,11 @@ cd BigNuten_Vanilla
 - [#39](../../issues/39) — Deploy BigNuten Treasury/Payout Smart Contract
 
 ### 💳 Subscription & Payments
-- [#40](../../issues/40) — Integrate PayPal Subscription Payments
-- [#41](../../issues/41) — Integrate Stripe Credit/Debit Card Subscriptions
-- [#42](../../issues/42) — Build Subscription Status UI
-- [#43](../../issues/43) — Build Crypto Subscription Payment Flow (ETH/USDC/$BNUT)
-- [#44](../../issues/44) — Accept $BNUT Token for Subscriptions (Discounted rate)
+- ✅ [#40](../../issues/40) — Integrate PayPal Subscription Payments
+- ✅ [#41](../../issues/41) — Integrate Stripe Credit/Debit Card Subscriptions
+- ✅ [#42](../../issues/42) — Build Subscription Status UI
+- ✅ [#43](../../issues/43) — Build Crypto Subscription Payment Flow (ETH/USDC/$BNUT)
+- ✅ [#44](../../issues/44) — Accept $BNUT Token for Subscriptions (Discounted rate)
 
 ### 🤖 Bounty Bot & Contributor Rewards
 - [#45](../../issues/45) — Build GitHub Issue Bounty Bot for Automated $BNUT Payouts
@@ -162,10 +162,24 @@ cd BigNuten_Vanilla
 |---|---|
 | Token Name | BigNuten |
 | Symbol | $BNUT |
-| Network | Polygon / Base / Optimism (TBD) |
+| Network | Optimism Mainnet |
+| Contract | [`0x733c4d2Aae900E608147dd89Fa93606f89722823`](https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823) |
 | Purpose | Subscription payments (discounted), contributor bounty rewards, data sharing rewards, governance voting |
 
 $BNUT holders can vote on platform decisions via the on-chain governance system. Earning $BNUT is as simple as contributing code, sharing data (opt-in), or being an early subscriber.
+
+### Subscribing with $BNUT (Discounted Rate)
+
+BigNuten accepts `$BNUT` for subscriptions at a **~50% discount** vs ETH:
+
+| Method | Price |
+|--------|-------|
+| ETH    | ~0.01 ETH / month |
+| **$BNUT** | **~500 $BNUT / month** |
+
+Open the **🔓 Subscribe** modal in the app, click the **🌰 $BNUT** tab, and follow the on-screen steps (approve + subscribe in two MetaMask transactions on Optimism Mainnet).
+
+📖 See the full guide: [`docs/BNUT_SUBSCRIPTION.md`](docs/BNUT_SUBSCRIPTION.md)
 
 ---
 

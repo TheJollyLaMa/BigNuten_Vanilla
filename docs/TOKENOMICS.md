@@ -83,11 +83,25 @@ BigNuten offers three payment methods for subscriptions. Paying with $BNUT provi
 
 ### How Subscriptions Work
 
-1. **Fiat (PayPal / Stripe):** User pays via the payment SDK. The backend verifies payment, then calls `subscribe(user, durationDays)` on the `BigNutenSubscription` contract — granting on-chain access.
-2. **ETH:** User calls `subscribeWithEth()` via MetaMask. The contract validates payment and sets the expiry directly.
-3. **$BNUT:** User approves the subscription contract to spend BNUT, then calls `subscribeWithBnut()`. BNUT is transferred to the contract; expiry is set.
+Subscription management is handled by the **DecentEscrow** contract deployed on Optimism Mainnet at
+[`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e).
 
-Active subscription status is always readable on-chain via `isSubscribed(address)`.
+Plans are pre-created by the owner via `createPlan()` on DecentEscrow:
+
+| Plan ID | Payment Token | Plan Name                   |
+|---------|---------------|-----------------------------|
+| 0       | ETH           | BigNuten Monthly ETH        |
+| 1       | $BNUT (ERC-20)| BigNuten Monthly BNUT       |
+
+1. **Fiat (PayPal / Stripe):** User pays via the payment SDK. The backend verifies payment, then calls `subscribe(user, durationDays)` on the `BigNutenSubscription` contract — granting on-chain access.
+2. **ETH:** User clicks **Ξ Pay with ETH** in the subscription modal. The app reads the live plan price from DecentEscrow, then calls `subscribe(planId=0)` with that ETH value via MetaMask.
+3. **$BNUT (discounted):** User clicks **🌰 Pay with $BNUT** in the subscription modal. The app:
+   1. Reads the live plan price from DecentEscrow plan 1.
+   2. Checks the user's $BNUT balance (must be ≥ plan price).
+   3. Requests an ERC-20 `approve()` for DecentEscrow to spend the $BNUT (if current allowance is insufficient).
+   4. Calls `subscribe(planId=1)` on DecentEscrow — BNUT is transferred and the subscription is activated on-chain.
+
+Active subscription status is always readable on-chain via `isSubscribed(planId, address)` on the DecentEscrow contract, and both the ETH plan and the $BNUT plan are checked simultaneously by the app.
 
 ---
 
@@ -268,10 +282,11 @@ BigNuten users can opt in to share anonymised fitness and health data with the c
 |------------------------------|-----------------------------------------|--------------------------------------|
 | BigNuten (ERC-20)            | `contracts/BigNuten.sol`                | $BNUT token                          |
 | BigNutenTreasury             | `contracts/BigNutenTreasury.sol`        | Holds reserves, pays contributors    |
-| BigNutenSubscription         | `contracts/BigNutenSubscription.sol`    | Subscription management on-chain     |
+| BigNutenSubscription         | `contracts/BigNutenSubscription.sol`    | Auxiliary subscription contract (ETH & $BNUT self-service). The live app uses **DecentEscrow** below. |
+| DecentEscrow v0.1            | External — [`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) | **Active subscription backend** — plan-based subscriptions for ETH (plan 0) and $BNUT (plan 1) |
 | BigNutenGovernance           | `contracts/BigNutenGovernance.sol`      | Community proposal voting            |
 
-All contracts use **Solidity ^0.8.20** and **OpenZeppelin Contracts v5**.
+All custom contracts use **Solidity ^0.8.20** and **OpenZeppelin Contracts v5**.
 
 Deployed addresses are set in `.env` after running `npm run deploy:<network>`.
 
@@ -283,11 +298,11 @@ Deployed addresses are set in `.env` after running `npm run deploy:<network>`.
 |-------|--------------------------------------------------------------------|-------------|
 | 1     | Deploy ERC-20 $BNUT contract (Issue #38) — *scaffolded in this PR*    | 🟡 Needs deployment |
 | 1     | Deploy Treasury contract (Issue #39) — *scaffolded in this PR*        | 🟡 Needs deployment |
-| 2     | Integrate PayPal subscriptions (Issue #40)                        | 🔵 Planned  |
-| 2     | Integrate Stripe subscriptions (Issue #41)                        | 🔵 Planned  |
-| 2     | Build subscription status UI (Issue #42)                          | 🔵 Planned  |
-| 2     | Build crypto subscription payment flow (Issue #43)                | 🔵 Planned  |
-| 2     | Accept $BNUT for discounted subscriptions (Issue #44)             | 🔵 Planned  |
+| 2     | Integrate PayPal subscriptions (Issue #40)                        | ✅ Done     |
+| 2     | Integrate Stripe subscriptions (Issue #41)                        | ✅ Done     |
+| 2     | Build subscription status UI (Issue #42)                          | ✅ Done     |
+| 2     | Build crypto subscription payment flow (Issue #43)                | ✅ Done     |
+| 2     | Accept $BNUT for discounted subscriptions (Issue #44)             | ✅ Done     |
 | 3     | Build GitHub bounty bot (Issue #45)                               | ✅ Done     |
 | 3     | Add bounty label system to issues (Issue #46)                     | ✅ Done     |
 | 3     | Deploy community governance (Issue #47)                           | 🔵 Planned  |
