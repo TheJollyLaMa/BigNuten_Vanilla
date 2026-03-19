@@ -2231,6 +2231,132 @@ svg text {
 .payroll-ds-amount { width: 20%; }
 .payroll-ds-ref    { width: 22%; }
 
+/* ── Payroll Bounty Queue Table ─────────────────────────────────────────── */
+.payroll-table-wrap {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+
+.payroll-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  color: #dde8f0;
+}
+
+.payroll-table th {
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.3);
+  color: #00e5ff;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.payroll-table td {
+  padding: 0.5rem 0.6rem;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.payroll-row--needs-wallet td {
+  opacity: 0.78;
+}
+
+.payroll-table .payroll-amount-input {
+  width: 60px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 4px;
+  color: #fff;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.82rem;
+}
+
+.payroll-wallet-addr {
+  font-size: 0.75em;
+  color: #aacfdd;
+  word-break: break-all;
+}
+
+.payroll-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.payroll-badge--needs-wallet {
+  background: rgba(255, 165, 0, 0.18);
+  border: 1px solid rgba(255, 165, 0, 0.45);
+  color: #ffaa33;
+}
+
+.payroll-status {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.payroll-status--pending {
+  background: rgba(0, 160, 255, 0.18);
+  border: 1px solid rgba(0, 160, 255, 0.45);
+  color: #55aaff;
+}
+
+.payroll-status--needs-wallet {
+  background: rgba(255, 165, 0, 0.18);
+  border: 1px solid rgba(255, 165, 0, 0.45);
+  color: #ffaa33;
+}
+
+.payroll-status--settled {
+  background: rgba(0, 200, 80, 0.18);
+  border: 1px solid rgba(0, 200, 80, 0.45);
+  color: #44dd88;
+}
+
+.payroll-issue-link {
+  color: #00e5ff;
+  text-decoration: none;
+}
+
+.payroll-issue-link:hover {
+  text-decoration: underline;
+}
+
+.payroll-needs-wallet-notice {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: #ffaa33;
+  line-height: 1.5;
+}
+
+.payroll-needs-wallet-notice .gov-admin-action-btn {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.68rem;
+  margin-left: 0.25rem;
+  vertical-align: middle;
+}
+
+.payroll-row-actions {
+  white-space: nowrap;
+  min-width: 90px;
+}
+
+.payroll-row-msg {
+  font-size: 0.72rem;
+  margin-top: 0.3rem;
+  color: #aacfdd;
+  word-break: break-all;
+  white-space: normal;
+}
+
 /* Proposals container */
 .gov-proposals-container {
   margin-top: 1rem;
