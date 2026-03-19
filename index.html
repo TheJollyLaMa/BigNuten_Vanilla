@@ -72,6 +72,7 @@
         <button class="aes-menu-item" id="aes-gov-btn"       role="menuitem">🗳️ Governance</button>
         <button class="aes-menu-item" id="aes-data-btn"      role="menuitem">📊 Data Sharing</button>
         <button class="aes-menu-item" id="aes-challenge-btn" role="menuitem">🏋️ Monthly Challenge</button>
+        <button class="aes-menu-item" id="aes-bounty-register-btn" role="menuitem">💰 Bounty Register</button>
       </div>
     </div>
     <div id="walletIconWrapper">
@@ -493,6 +494,38 @@
   <script src="js/contracts.js"></script>
 
   <script type="module" src="js/app.js"></script>
+  <script type="module">
+    import { initAdminContributors, initAddContributorModal, initBountyRegister } from './js/admin.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      initAdminContributors();
+      initAddContributorModal();
+      initBountyRegister();
+
+      // Wire bounty-register button in the right dropdown
+      const brBtn       = document.getElementById('aes-bounty-register-btn');
+      const brModal     = document.getElementById('bounty-register-modal');
+      const brModalClose= document.getElementById('bounty-register-modal-close');
+
+      function openBrModal() {
+        if (window.closeAesDropdown) window.closeAesDropdown();
+        if (brModal) {
+          brModal.classList.remove('modal-hidden');
+          document.body.classList.add('modal-active');
+        }
+      }
+      function closeBrModal() {
+        if (brModal) {
+          brModal.classList.add('modal-hidden');
+          if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
+            document.body.classList.remove('modal-active');
+          }
+        }
+      }
+      if (brBtn)        brBtn.addEventListener('click', openBrModal);
+      if (brModalClose) brModalClose.addEventListener('click', closeBrModal);
+      if (brModal)      brModal.addEventListener('click', e => { if (e.target === brModal) closeBrModal(); });
+    });
+  </script>
 
 
   <style>
@@ -1387,6 +1420,43 @@
           </div>
         </details>
 
+        <!-- 👥 Contributors -->
+        <details id="admin-contributors-section" class="gov-admin-section">
+          <summary>👥 Contributors <span id="admin-contrib-count" style="color:#aaa; font-weight:normal;"></span></summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">
+              Manage registered contributors. Wallet edits are applied locally — click
+              <strong>💾 Save / Download JSON</strong> then commit the file to persist changes.
+            </p>
+
+            <!-- Actions toolbar -->
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+              <button id="admin-contrib-add-btn" class="gov-admin-action-btn">➕ Add Contributor</button>
+              <button id="admin-contrib-save-btn" class="gov-admin-action-btn">💾 Save / Download JSON</button>
+            </div>
+            <p id="admin-contrib-status" class="gov-form-status"></p>
+
+            <!-- Contributors table -->
+            <div style="overflow-x:auto;">
+              <table class="contrib-table">
+                <thead>
+                  <tr>
+                    <th>GitHub</th>
+                    <th>Wallet (Optimism)</th>
+                    <th>Total Paid</th>
+                    <th>Issues Completed</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-contrib-table-body">
+                  <tr><td colspan="6" class="gov-loading">Open this section to load contributors.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+
         <!-- 🏦 Treasury -->
         <details id="treasury-section" class="gov-admin-section">
           <summary>🏦 Treasury — $BNUT Supply &amp; Mint History</summary>
@@ -2081,6 +2151,66 @@
         <span>Prize Pool: <strong>TBD $BNUT</strong></span>
       </div>
       <p class="aes-stub-coming-soon">🚧 Monthly challenge lottery launching soon!</p>
+    </div>
+  </div>
+
+  <!-- ── Add Contributor Modal (admin) ──────────────────────────────────── -->
+  <div id="admin-add-contributor-overlay" class="contrib-modal-overlay hidden" aria-hidden="true"></div>
+  <div id="admin-add-contributor-modal" class="contrib-modal hidden" role="dialog" aria-modal="true" aria-labelledby="admin-add-contrib-title">
+    <button class="modal-close" id="admin-add-contrib-close" aria-label="Close add contributor dialog">×</button>
+    <h3 id="admin-add-contrib-title" style="margin:0 0 0.75rem; color:#c8b8ff;">➕ Add Contributor</h3>
+    <label class="gov-label">GitHub username
+      <input id="admin-add-contrib-github" class="gov-input" type="text" placeholder="e.g. octocat" />
+    </label>
+    <label class="gov-label">Optimism wallet address <span style="color:#aaa;font-weight:normal;">(optional — can be added later)</span>
+      <input id="admin-add-contrib-wallet" class="gov-input" type="text" placeholder="0x…" />
+    </label>
+    <button id="admin-add-contrib-submit" class="gov-admin-action-btn" style="margin-top:0.5rem;">✅ Add</button>
+    <p id="admin-add-contrib-status" class="gov-form-status"></p>
+  </div>
+
+  <!-- ── Bounty Register Modal (public — self-registration) ─────────────── -->
+  <div id="bounty-register-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="bounty-register-title">
+    <div class="modal gov-modal">
+      <button class="modal-close" id="bounty-register-modal-close" aria-label="Close Bounty Register">×</button>
+
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="bounty-register-title">💰 Bounty Register</h2>
+      </div>
+      <p class="aes-stub-desc">
+        Register your Optimism Mainnet wallet to receive $BNUT bounty payouts for your GitHub contributions.
+        Connect MetaMask, enter your GitHub username, sign a proof-of-ownership message, and download the
+        updated <code>contributor-accounts.json</code> to share with the maintainer.
+      </p>
+
+      <div id="bounty-register-section">
+        <!-- Step 1: Connect wallet -->
+        <div class="br-step">
+          <p class="br-step-label">Step 1 — Connect your Optimism wallet</p>
+          <button id="br-connect-btn" class="gov-admin-action-btn">🦊 Connect MetaMask</button>
+          <p id="br-wallet-display" class="br-wallet-addr"></p>
+        </div>
+
+        <!-- Step 2: Registration form (hidden until wallet connected) -->
+        <div id="br-register-form" class="br-step hidden">
+          <p class="br-step-label">Step 2 — Confirm your GitHub username &amp; wallet</p>
+          <label class="gov-label">GitHub username
+            <input id="br-github-input" class="gov-input" type="text" placeholder="e.g. octocat" />
+          </label>
+          <label class="gov-label">Optimism wallet address
+            <input id="br-wallet-input" class="gov-input" type="text" placeholder="0x…" />
+          </label>
+          <button id="br-submit-btn" class="gov-admin-action-btn" style="margin-top:0.5rem;">✍️ Sign &amp; Download JSON</button>
+        </div>
+
+        <p id="br-status" class="gov-form-status" style="margin-top:0.75rem;"></p>
+
+        <p class="gov-admin-hint" style="margin-top:1rem;">
+          ℹ️ Your wallet address is stored only in <code>contributor-accounts.json</code> in the public repo.
+          No private data is collected. The signature proves you control the wallet — it is never transmitted.
+        </p>
+      </div>
     </div>
   </div>
 
