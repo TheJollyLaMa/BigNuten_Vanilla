@@ -1006,10 +1006,10 @@
             💳 Pay with Card <span class="coming-soon-badge">Coming Soon</span>
           </button>
 
-          <!-- Crypto (Coming Soon) -->
-          <button class="about-pay-btn crypto-btn" aria-disabled="true" title="Coming Soon — Crypto subscription via Decent contract"
-                  onclick="alert('🔗 Crypto payments are coming soon! The Decent escrow contract is being finalized.')">
-            🔗 Pay with Crypto <span class="coming-soon-badge">Coming Soon</span>
+          <!-- Crypto — opens subscription modal on the ETH tab -->
+          <button class="about-pay-btn crypto-btn" title="Pay with ETH or $BNUT via MetaMask"
+                  onclick="if(window.openSubscriptionModal){window.openSubscriptionModal('eth');}else{alert('Loading wallet connection…');}">
+            🔗 Pay with Crypto
           </button>
 
         </div>
@@ -1111,7 +1111,7 @@
           <li>✅ Local data logging (weight, supplements, food, exercise)</li>
           <li>✅ IPFS snapshot persistence</li>
           <li>✅ Emotion wheel tracking</li>
-          <li>🔜 Crypto subscription via Decent contract</li>
+          <li>✅ Crypto subscription via ETH &amp; $BNUT (BigNutenSubscription contract)</li>
           <li>🔜 AI-powered nutrition recommendations</li>
           <li>🔜 Social sharing &amp; community challenges</li>
         </ul>
@@ -1551,16 +1551,16 @@
 
         <!-- ETH panel -->
         <div id="sub-panel-eth" class="sub-method-panel" style="display:none;">
-          <p class="sub-method-desc">Pay with ETH via MetaMask. Subscription recorded on-chain.</p>
+          <p class="sub-method-desc">Pay with ETH via MetaMask. Subscription recorded on-chain on Optimism.</p>
           <div class="sub-crypto-price-row">
             <span class="sub-crypto-label">Price:</span>
-            <span id="sub-eth-price" class="sub-crypto-price">~0.005 ETH / month</span>
+            <span id="sub-eth-price" class="sub-crypto-price">~0.01 ETH / month</span>
           </div>
           <button id="sub-eth-btn" class="sub-pay-btn sub-eth-btn-style">
             Ξ Pay with ETH
           </button>
           <p id="sub-eth-status" class="sub-method-status"></p>
-          <p class="sub-sandbox-note">🧪 Sandbox mode — Optimism Sepolia testnet</p>
+          <p class="sub-sandbox-note">⛓️ Optimism Mainnet — MetaMask will prompt to switch network if needed</p>
         </div>
 
         <!-- $BNUT panel -->
@@ -1574,7 +1574,7 @@
             🌰 Pay with $BNUT
           </button>
           <p id="sub-bnut-status" class="sub-method-status"></p>
-          <p class="sub-sandbox-note">🧪 Sandbox mode — Optimism Sepolia testnet</p>
+          <p class="sub-sandbox-note">⛓️ Optimism Mainnet — MetaMask will prompt to switch network if needed</p>
         </div>
       </div>
 

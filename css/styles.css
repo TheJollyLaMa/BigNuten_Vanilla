@@ -3096,6 +3096,8 @@ svg text {
 .sub-history-amount { color: #00e5ff; font-weight: 700; flex-shrink: 0; }
 .sub-history-status-ok  { color: #00e564; flex-shrink: 0; }
 .sub-history-status-fail { color: #ff6b6b; flex-shrink: 0; }
+.sub-history-tx { color: #00e5ff; font-size: 0.78rem; margin-left: 0.3em; text-decoration: none; }
+.sub-history-tx:hover { text-decoration: underline; }
 
 /* ── Footer Links ── */
 .sub-footer-links {

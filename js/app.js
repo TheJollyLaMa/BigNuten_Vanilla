@@ -4187,11 +4187,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── helpers ──
 
-    function openSubModal() {
+    function openSubModal(method) {
       subModal.classList.remove('modal-hidden');
       document.body.classList.add('modal-active');
       loadSubscriptionStatus();
       renderPaymentHistory();
+      // Load live ETH / BNUT prices from the on-chain contract.
+      import('./subscription.js').then(({ loadCryptoPrices }) => loadCryptoPrices()).catch((err) => {
+        console.warn('[subscription] could not load crypto prices:', err.message);
+      });
+      // Optionally switch to a specific payment tab (e.g. 'eth' or 'bnut')
+      if (method) {
+        const targetTab = subModal.querySelector(`.sub-method-tab[data-method="${method}"]`);
+        if (targetTab) targetTab.click();
+      }
     }
 
     function closeSubModal() {
@@ -4268,6 +4277,13 @@ document.addEventListener('DOMContentLoaded', () => {
               manageLink.href = 'https://www.paypal.com/myaccount/autopay/';
             } else if (method.toLowerCase().includes('stripe') || method.toLowerCase().includes('card')) {
               manageLink.href = 'https://billing.stripe.com/p/login/test_00000';
+            } else if (method.toLowerCase().includes('eth') || method.toLowerCase().includes('bnut')) {
+              // On-chain subscription — link to Optimism Etherscan for the contract
+              const subscriptionAddress = (window.CONTRACTS && window.CONTRACTS.subscription) || '';
+              manageLink.href = subscriptionAddress && subscriptionAddress !== '0x0000000000000000000000000000000000000000'
+                ? `https://optimistic.etherscan.io/address/${subscriptionAddress}`
+                : '#';
+              manageLink.textContent = '🔍 View on Optimism Explorer';
             } else {
               manageLink.href = '#';
             }
@@ -4369,8 +4385,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const { payCryptoSubscription } = await import('./subscription.js');
           const txHash = await payCryptoSubscription();
-          if (ethStatus) ethStatus.textContent = `✅ Subscribed! Tx: ${txHash.slice(0, 14)}…`;
-          _saveSubscriptionLocal('ETH / MetaMask', currentPlan);
+          const explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+          if (ethStatus) ethStatus.innerHTML =
+            `✅ Subscribed! <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer">View Tx ↗</a>`;
+          _saveSubscriptionLocal('ETH / MetaMask', currentPlan, txHash);
           await loadSubscriptionStatus();
           renderPaymentHistory();
         } catch (err) {
@@ -4392,8 +4410,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const { payBNUTSubscription } = await import('./subscription.js');
           const txHash = await payBNUTSubscription();
-          if (bnutStatus) bnutStatus.textContent = `✅ Subscribed! Tx: ${txHash.slice(0, 14)}…`;
-          _saveSubscriptionLocal('$BNUT Token', currentPlan);
+          const explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+          if (bnutStatus) bnutStatus.innerHTML =
+            `✅ Subscribed! <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer">View Tx ↗</a>`;
+          _saveSubscriptionLocal('$BNUT Token', currentPlan, txHash);
           await loadSubscriptionStatus();
           renderPaymentHistory();
         } catch (err) {
@@ -4447,7 +4467,7 @@ document.addEventListener('DOMContentLoaded', () => {
       listEl.innerHTML = raw.slice().reverse().map(p => `
         <div class="sub-history-item">
           <span class="sub-history-date">${new Date(p.date).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' })}</span>
-          <span class="sub-history-desc">${p.description || 'Subscription'}</span>
+          <span class="sub-history-desc">${p.description || 'Subscription'}${p.txHash ? ` <a href="https://optimistic.etherscan.io/tx/${p.txHash}" target="_blank" rel="noopener noreferrer" class="sub-history-tx">↗ Tx</a>` : ''}</span>
           <span class="sub-history-amount">${p.amount || ''}</span>
           <span class="${p.ok ? 'sub-history-status-ok' : 'sub-history-status-fail'}">${p.ok ? '✔' : '✖'}</span>
         </div>
@@ -4456,16 +4476,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Helpers ──
 
-    function _saveSubscriptionLocal(method, plan) {
+    function _saveSubscriptionLocal(method, plan, txHash) {
       const expiry = new Date();
       if (plan === 'annual') expiry.setFullYear(expiry.getFullYear() + 1);
       else expiry.setMonth(expiry.getMonth() + 1);
 
+      const isCrypto = method.toLowerCase().includes('eth') || method.toLowerCase().includes('bnut');
+
       localStorage.setItem('bignuten_subscription', JSON.stringify({
         status: 'active',
         method,
-        plan: plan === 'annual' ? 'Annual · $99' : 'Monthly · $10',
+        plan: isCrypto ? 'Monthly · On-Chain' : (plan === 'annual' ? 'Annual · $99' : 'Monthly · $10'),
         expiry: expiry.toISOString(),
+        txHash: txHash || null,
       }));
 
       // Append to history
@@ -4475,9 +4498,10 @@ document.addEventListener('DOMContentLoaded', () => {
       })();
       history.push({
         date:        new Date().toISOString(),
-        description: `${plan === 'annual' ? 'Annual' : 'Monthly'} plan via ${method}`,
-        amount:      plan === 'annual' ? '$99' : '$10',
+        description: `${isCrypto ? 'Monthly (30 days)' : (plan === 'annual' ? 'Annual' : 'Monthly')} plan via ${method}`,
+        amount:      isCrypto ? '—' : (plan === 'annual' ? '$99' : '$10'),
         ok:          true,
+        txHash:      txHash || null,
       });
       localStorage.setItem('bignuten_payment_history', JSON.stringify(history));
     }

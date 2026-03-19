@@ -62,6 +62,9 @@ const CONTRACT_ADDRESSES = {
     "0x0000000000000000000000000000000000000000",
 };
 
+/** Optimism Mainnet chain ID (10) and Optimism Sepolia chain ID (11155420). */
+const SUPPORTED_CHAIN_IDS = [10, 11155420];
+
 // ─── Internal Helpers ─────────────────────────────────────────────────────────
 
 /**
@@ -89,6 +92,67 @@ async function _getSigner() {
   const provider = await _getProvider();
   await provider.send("eth_requestAccounts", []);
   return provider.getSigner();
+}
+
+/**
+ * Ensures MetaMask is on Optimism (Mainnet or Sepolia).
+ * If not, prompts the user to switch.
+ * Throws if the user refuses to switch.
+ *
+ * @returns {Promise<void>}
+ */
+async function _ensureOptimism() {
+  const provider = await _getProvider();
+  const network = await provider.getNetwork();
+  const chainId = Number(network.chainId);
+  if (SUPPORTED_CHAIN_IDS.includes(chainId)) return;
+
+  // Ask MetaMask to switch to Optimism Mainnet.
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: "0xa" }], // 0xa = 10 (Optimism Mainnet)
+    });
+  } catch (switchErr) {
+    // EIP-1193 error 4902: chain not added — prompt to add it.
+    if (switchErr.code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: "0xa",
+            chainName: "Optimism",
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            rpcUrls: ["https://mainnet.optimism.io"],
+            blockExplorerUrls: ["https://optimistic.etherscan.io"],
+          },
+        ],
+      });
+    } else {
+      throw new Error(
+        "Please switch MetaMask to the Optimism network to pay with crypto."
+      );
+    }
+  }
+}
+
+/**
+ * Checks that the BigNutenSubscription contract address is set (not zero).
+ * Throws a descriptive error if it is still the zero placeholder.
+ *
+ * @returns {void}
+ */
+function _assertSubscriptionDeployed() {
+  if (
+    CONTRACT_ADDRESSES.subscription ===
+    "0x0000000000000000000000000000000000000000"
+  ) {
+    throw new Error(
+      "BigNutenSubscription contract is not yet deployed. " +
+        "Run `npx hardhat run scripts/deploy.js --network optimism` and update " +
+        "SUBSCRIPTION_CONTRACT_ADDRESS in js/contracts.js."
+    );
+  }
 }
 
 // ─── Exported Functions ───────────────────────────────────────────────────────
@@ -335,6 +399,8 @@ export function initDnftPayPalPurchase(
  *   console.log('Tx:', txHash);
  */
 export async function payCryptoSubscription(amountEth) {
+  _assertSubscriptionDeployed();
+  await _ensureOptimism();
   try {
     const signer = await _getSigner();
     const contract = new ethers.Contract(
@@ -382,6 +448,8 @@ export async function payCryptoSubscription(amountEth) {
  *   console.log('Tx:', txHash);
  */
 export async function payBNUTSubscription(amountBnut) {
+  _assertSubscriptionDeployed();
+  await _ensureOptimism();
   try {
     const signer = await _getSigner();
     const signerAddress = await signer.getAddress();
@@ -443,5 +511,49 @@ export async function payBNUTSubscription(amountBnut) {
   } catch (err) {
     console.error("[subscription.js] payBNUTSubscription error:", err);
     throw err;
+  }
+}
+
+/**
+ * Fetches the current ETH and BNUT subscription prices from the on-chain
+ * BigNutenSubscription contract and updates the price display elements in the
+ * subscription modal.
+ *
+ * Silently no-ops if the contract is not yet deployed (zero address) or if
+ * the subscription modal elements are absent.
+ *
+ * @returns {Promise<void>}
+ *
+ * @example
+ *   await loadCryptoPrices();
+ */
+export async function loadCryptoPrices() {
+  if (
+    CONTRACT_ADDRESSES.subscription ===
+    "0x0000000000000000000000000000000000000000"
+  ) {
+    return; // Contract not yet deployed — keep the static placeholder text.
+  }
+
+  try {
+    const provider = await _getProvider();
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.subscription,
+      SUBSCRIPTION_ABI,
+      provider
+    );
+
+    const [ethPrice, bnutPrice] = await Promise.all([
+      contract.ethPricePerMonth(),
+      contract.bnutPricePerMonth(),
+    ]);
+
+    const ethEl = document.getElementById("sub-eth-price");
+    const bnutEl = document.getElementById("sub-bnut-price");
+
+    if (ethEl) ethEl.textContent = `${ethers.formatEther(ethPrice)} ETH / month`;
+    if (bnutEl) bnutEl.textContent = `${ethers.formatEther(bnutPrice)} $BNUT / month`;
+  } catch (err) {
+    console.warn("[subscription.js] loadCryptoPrices: could not fetch prices:", err.message);
   }
 }
