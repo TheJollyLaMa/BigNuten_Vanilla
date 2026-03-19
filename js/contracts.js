@@ -35,10 +35,10 @@ const BNUT_CONTRACT_ADDRESS = '0x733c4d2Aae900E608147dd89Fa93606f89722823';
 /**
  * BigNutenTreasury — holds the $BNUT reserve and pays out contributor bounties.
  * Owner settles the weekly payroll queue directly via MetaMask in the app.
- * Deploy via: npx hardhat run scripts/deploy.js --network optimism
- * Placeholder until the contract is deployed on Optimism Mainnet.
+ * Deployed on Optimism Mainnet via Remix/Foundry (see docs/DEPLOYMENTS.md).
+ * Constructor args: _token = BNUT_CONTRACT_ADDRESS, initialOwner = deployer wallet.
  */
-const TREASURY_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000';
+const TREASURY_CONTRACT_ADDRESS = '0x143cC41AC075FFA40be1993827DA6ffB4638A363';
 
 /**
  * BigNuten subscription management — uses the already-deployed DecentEscrow
