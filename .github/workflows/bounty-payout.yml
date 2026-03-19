@@ -92,13 +92,17 @@ jobs:
             if (!Array.isArray(queue.pending))  queue.pending  = [];
             if (!Array.isArray(queue.settled))  queue.settled  = [];
 
-            const issueNumber = process.env.ISSUE_NUMBER;
-            const issueRef    = `TheJollyLaMa/BigNuten_Vanilla#${issueNumber}`;
+            const issueNumber       = process.env.ISSUE_NUMBER;
+            const contributorGithub = process.env.CONTRIBUTOR_GITHUB || '';
+            const repoFull          = `${context.repo.owner}/${context.repo.repo}`;
+            const issueRef          = `${repoFull}#${issueNumber}`;
 
-            // Prevent duplicate entries for the same issue.
-            const alreadyQueued = queue.pending.some(e => e.issueRef === issueRef);
+            // Prevent duplicate entries for the same issue AND contributor.
+            const alreadyQueued =
+              queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === contributorGithub) ||
+              queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === contributorGithub);
             if (alreadyQueued) {
-              console.log(`⚠️  Issue ${issueRef} is already in the pending queue.`);
+              console.log(`⚠️  Issue ${issueRef} for @${contributorGithub} is already in the pending queue.`);
               core.setOutput('already_queued', 'true');
               return;
             }
@@ -106,7 +110,7 @@ jobs:
             const entry = {
               issueRef,
               contributor: process.env.CONTRIBUTOR_ADDRESS,
-              contributorGithub: process.env.CONTRIBUTOR_GITHUB || '',
+              contributorGithub,
               amount: process.env.AMOUNT_BNUT,
               queuedAt: new Date().toISOString(),
               queuedBy: context.actor,
@@ -114,7 +118,7 @@ jobs:
 
             queue.pending.push(entry);
             fs.writeFileSync(path, JSON.stringify(queue, null, 2) + '\n');
-            console.log(`✅  Queued ${entry.amount} BNUT → ${entry.contributor} for ${issueRef}`);
+            console.log(`✅  Queued ${entry.amount} BNUT → ${entry.contributor} for ${issueRef} (@${contributorGithub || 'unknown'})`);
             core.setOutput('already_queued', 'false');
 
       # ── 4. Commit updated queue file ───────────────────────────────────────
@@ -133,31 +137,36 @@ jobs:
         env:
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
           CONTRIBUTOR_ADDRESS: ${{ github.event.inputs.contributor_address }}
+          CONTRIBUTOR_GITHUB: ${{ github.event.inputs.contributor_github }}
           AMOUNT_BNUT: ${{ github.event.inputs.amount_bnut }}
           ALREADY_QUEUED: ${{ steps.queue.outputs.already_queued }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const issueNumber = parseInt(process.env.ISSUE_NUMBER, 10);
-            const address     = process.env.CONTRIBUTOR_ADDRESS;
-            const amount      = process.env.AMOUNT_BNUT;
-            const approver    = context.actor;
-            const alreadyQueued = process.env.ALREADY_QUEUED === 'true';
+            const issueNumber       = parseInt(process.env.ISSUE_NUMBER, 10);
+            const address           = process.env.CONTRIBUTOR_ADDRESS;
+            const contributorGithub = process.env.CONTRIBUTOR_GITHUB || '';
+            const amount            = process.env.AMOUNT_BNUT;
+            const approver          = context.actor;
+            const alreadyQueued     = process.env.ALREADY_QUEUED === 'true';
+
+            const contributorDisplay = contributorGithub ? `@${contributorGithub}` : `\`${address}\``;
 
             const body = alreadyQueued
-              ? `⚠️ Issue #${issueNumber} was already in the payroll queue — no duplicate entry added.`
+              ? `⚠️ Issue #${issueNumber} for ${contributorDisplay} was already in the payroll queue — no duplicate entry added.`
               : [
                   `⏳ **$BNUT Payout Queued** by @${approver}`,
                   '',
                   `| | |`,
                   `|---|---|`,
                   `| 💰 Amount | **${amount} BNUT** |`,
+                  contributorGithub ? `| 👤 Contributor | ${contributorDisplay} |` : null,
                   `| 👛 Wallet | \`${address}\` |`,
                   `| 🌐 Network | Optimism Mainnet |`,
                   `| 📋 Status | Queued — will be settled in the next weekly payroll run |`,
                   '',
                   `> 💡 @${approver} — visit the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) and click **💸 Payroll** to settle all pending payouts with MetaMask. No private key required!`,
-                ].join('\n');
+                ].filter(l => l !== null).join('\n');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,

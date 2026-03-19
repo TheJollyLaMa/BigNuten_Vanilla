@@ -172,11 +172,10 @@ jobs:
             }
             if (!Array.isArray(accounts.contributors)) accounts.contributors = [];
 
-            const contributor = accounts.contributors.find(c => c.github === prAuthor);
             let filesChanged = false;
 
             for (const issueNumber of closedIssues) {
-              // Fetch the issue to check for a bounty label.
+              // Fetch the issue to check for a bounty label and get all assignees.
               let issue;
               try {
                 issue = (await github.rest.issues.get({
@@ -202,82 +201,95 @@ jobs:
 
               const issueRef = `${repoFull}#${issueNumber}`;
 
-              // Deduplication: skip if already in pending or settled.
-              const alreadyQueued =
-                queue.pending.some(e => e.issueRef === issueRef) ||
-                queue.settled.some(e => e.issueRef === issueRef);
-              if (alreadyQueued) {
-                console.log(`Issue ${issueRef} is already in the payroll queue. Skipping.`);
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  body: `⚠️ Payout for \`${issueRef}\` is already in the payroll queue — no duplicate entry added.`,
-                });
-                continue;
-              }
+              // Collect all contributors: PR author + all issue assignees (deduplicated).
+              const issueAssignees = (issue.assignees || []).map(a => a.login);
+              const allContributors = [...new Set([prAuthor, ...issueAssignees])];
 
-              const walletAddress = contributor ? (contributor.walletAddress || '') : '';
+              const queued = [];
+              const skipped = [];
+              const missing = [];
 
-              // Append entry to payroll queue.
-              queue.pending.push({
-                issueRef,
-                contributor: walletAddress,
-                contributorGithub: prAuthor,
-                amount,
-                queuedAt: new Date().toISOString(),
-                queuedBy: 'github-actions[bot]',
-              });
-              filesChanged = true;
-
-              // Update bnutPending and issuesClosed in contributor-accounts.json.
-              if (contributor) {
-                contributor.bnutPending = (contributor.bnutPending || 0) + parseInt(amount, 10);
-                if (!Array.isArray(contributor.issuesClosed)) contributor.issuesClosed = [];
-                if (!contributor.issuesClosed.includes(issueRef)) {
-                  contributor.issuesClosed.push(issueRef);
+              for (const contributorGithub of allContributors) {
+                // Deduplication: skip if this contributor is already in pending or settled for this issue.
+                const alreadyQueued =
+                  queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === contributorGithub) ||
+                  queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === contributorGithub);
+                if (alreadyQueued) {
+                  console.log(`Issue ${issueRef} for @${contributorGithub} is already in the payroll queue. Skipping.`);
+                  skipped.push(contributorGithub);
+                  continue;
                 }
+
+                const contribRecord = accounts.contributors.find(c => c.github === contributorGithub);
+                const walletAddress = contribRecord ? (contribRecord.walletAddress || '') : '';
+
+                if (!walletAddress) {
+                  missing.push(contributorGithub);
+                }
+
+                // Append entry to payroll queue.
+                queue.pending.push({
+                  issueRef,
+                  contributor: walletAddress,
+                  contributorGithub,
+                  amount,
+                  queuedAt: new Date().toISOString(),
+                  queuedBy: 'github-actions[bot]',
+                });
+                filesChanged = true;
+
+                // Update bnutPending and issuesClosed in contributor-accounts.json.
+                if (contribRecord) {
+                  contribRecord.bnutPending = (contribRecord.bnutPending || 0) + parseInt(amount, 10);
+                  if (!Array.isArray(contribRecord.issuesClosed)) contribRecord.issuesClosed = [];
+                  if (!contribRecord.issuesClosed.includes(issueRef)) {
+                    contribRecord.issuesClosed.push(issueRef);
+                  }
+                }
+
+                queued.push({ github: contributorGithub, wallet: walletAddress });
+                console.log(`Auto-queued ${amount} BNUT for @${contributorGithub} (${walletAddress || 'NO WALLET'}) — ${issueRef}`);
               }
 
-              // Post status comment.
-              const commentBody = walletAddress
-                ? [
-                    `🤖 **Payout Auto-Queued** by GitHub Actions`,
-                    '',
-                    `| | |`,
-                    `|---|---|`,
-                    `| 💰 Amount | **${amount} BNUT** |`,
-                    `| 👤 Contributor | @${prAuthor} |`,
-                    `| 👛 Wallet | \`${walletAddress}\` |`,
-                    `| 🌐 Network | Optimism Mainnet |`,
-                    `| 📋 Status | Queued — will be settled in the next weekly payroll run |`,
-                    '',
-                    `> 💡 @TheJollyLaMa — visit the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) and click **💸 Payroll** to settle all pending payouts with MetaMask. No private key required!`,
-                  ].join('\n')
-                : [
-                    `⚠️ **PR #${prNumber} merged** — @${prAuthor} is not yet registered in \`contributor-accounts.json\` or has no wallet address on file.`,
-                    '',
-                    `A queue entry has been created **without a wallet address** for \`${issueRef}\`.`,
-                    `@TheJollyLaMa — please complete onboarding for @${prAuthor}, add their wallet address to \`contributor-accounts.json\`, then update the queue entry or run the`,
-                    `[Bounty Payout workflow](../../actions/workflows/bounty-payout.yml) with:`,
-                    '',
-                    `| Input | Value |`,
-                    `|---|---|`,
-                    `| contributor_address | *(register @${prAuthor}'s wallet first)* |`,
-                    `| amount_bnut | ${amount} |`,
-                    `| issue_number | ${issueNumber} |`,
-                    '',
-                    `> ⚠️ Only registered wallets in the contributor whitelist can receive $BNUT payouts.`,
-                  ].join('\n');
+              // Build and post a single status comment for the issue.
+              const lines = [`🤖 **Payroll Auto-Queue Update** for \`${issueRef}\` (PR #${prNumber})`, ''];
+
+              if (queued.length > 0) {
+                lines.push(`| Contributor | Wallet | Amount | Status |`);
+                lines.push(`|---|---|---|---|`);
+                for (const { github: gh, wallet } of queued) {
+                  const walletDisplay = wallet ? `\`${wallet}\`` : '⚠️ *no wallet on file*';
+                  lines.push(`| @${gh} | ${walletDisplay} | **${amount} BNUT** | ⏳ Queued |`);
+                }
+                lines.push('');
+                lines.push(`> 💡 @TheJollyLaMa — visit the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) and click **💸 Payroll** to settle all pending payouts with MetaMask. No private key required!`);
+              }
+
+              if (skipped.length > 0) {
+                lines.push('');
+                lines.push(`ℹ️ Already queued (skipped): ${skipped.map(g => `@${g}`).join(', ')}`);
+              }
+
+              if (missing.length > 0) {
+                lines.push('');
+                lines.push(`⚠️ The following contributors are not yet registered or have no wallet address in \`contributor-accounts.json\`: ${missing.map(g => `@${g}`).join(', ')}`);
+                lines.push(`@TheJollyLaMa — please complete onboarding for these contributors and update their wallet addresses before the next payroll run.`);
+              }
+
+              if (queued.length === 0 && skipped.length > 0) {
+                // All contributors were already queued — replace comment with dedup notice.
+                lines.length = 0;
+                lines.push(`⚠️ Payout for \`${issueRef}\` is already in the payroll queue for all contributors — no duplicate entries added.`);
+              }
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                body: commentBody,
+                body: lines.join('\n'),
               });
 
-              console.log(`Auto-queue status posted on issue #${issueNumber} — ${amount} BNUT for @${prAuthor}`);
+              console.log(`Auto-queue status posted on issue #${issueNumber} — ${amount} BNUT for ${allContributors.map(g => '@'+g).join(', ')}`);
             }
 
             if (filesChanged) {
