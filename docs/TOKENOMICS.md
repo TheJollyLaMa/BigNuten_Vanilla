@@ -115,12 +115,12 @@ The bounty system rewards open-source contributors for closing GitHub issues.
 1. The repo owner runs the **Bounty Label** workflow (`.github/workflows/bounty-label.yml`) to add a label like **`bounty: 500 BNUT`** to an issue.
 2. When the issue is assigned, the **Bounty Bot** (`.github/workflows/bounty-bot.yml`) posts a comment announcing the reward.
 3. The contributor opens a PR that closes the issue (`Closes #N` in the PR body).
-4. When the PR is merged, the bot posts a payout request tagging `@TheJollyLaMa`.
-5. The owner looks up the contributor's whitelisted wallet address in `contributor-accounts.json` and runs the **Bounty Payout** workflow (`.github/workflows/bounty-payout.yml`) with:
-   - Contributor wallet address (from the whitelist)
-   - BNUT amount
-   - Issue number
-6. The payout is queued in `payroll-queue.json` and settled via the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) Payroll panel.
+4. When the PR is merged, the **Bounty Bot** automatically:
+   - Appends a correctly-formatted entry to `payroll-queue.json`.
+   - Increments `bnutPending` and records the issue in `issuesClosed` in `contributor-accounts.json`.
+   - Posts a confirmation comment on the closed issue.
+5. If the contributor is not yet registered (no wallet address), the bot posts a warning and @TheJollyLaMa can run the manual **Bounty Payout** workflow (`.github/workflows/bounty-payout.yml`) as a fallback.
+6. Once queued, payouts are settled via the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) Payroll panel.
 
 > ⚠️ **Whitelist required:** Only contributors registered in `contributor-accounts.json` by `@TheJollyLaMa` can receive $BNUT payouts. See [Whitelist Onboarding](#whitelist-onboarding) below.
 
