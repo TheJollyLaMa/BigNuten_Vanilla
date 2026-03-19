@@ -41,10 +41,18 @@ const BNUT_CONTRACT_ADDRESS = '0x733c4d2Aae900E608147dd89Fa93606f89722823';
 const TREASURY_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 /**
- * BigNutenSubscription — on-chain subscription management.
- * Accepts ETH and $BNUT. Not yet deployed; placeholder until live.
+ * BigNuten subscription management — uses the already-deployed DecentEscrow
+ * contract (DNFT_ESCROW_ADDRESS). Plans are created by the owner via
+ * `createPlan()` on DecentEscrow; the plan IDs are defined below.
+ *
+ * Plan IDs (set by owner calling createPlan() on DecentEscrow):
+ *   Plan 0 — ETH monthly subscription
+ *   Plan 1 — $BNUT discounted monthly subscription
+ *
+ * Override defaults via window.BIGNUTEN_ETH_PLAN_ID / window.BIGNUTEN_BNUT_PLAN_ID.
  */
-const SUBSCRIPTION_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000';
+const BIGNUTEN_ETH_PLAN_ID  = 0;   // planId for ETH monthly subscription
+const BIGNUTEN_BNUT_PLAN_ID = 1;   // planId for $BNUT discounted monthly subscription
 
 /**
  * BigNutenGovernance — community proposal voting powered by $BNUT.
@@ -85,15 +93,17 @@ const BNUT_TOKEN = {
  * Accessible globally as window.CONTRACTS from any script on the page.
  */
 const CONTRACTS = {
-  chainId:      OPTIMISM_CHAIN_ID,
-  rpcUrl:       OPTIMISM_RPC_URL,
-  bnut:         BNUT_CONTRACT_ADDRESS,
-  treasury:     TREASURY_CONTRACT_ADDRESS,
-  subscription: SUBSCRIPTION_CONTRACT_ADDRESS,
-  governance:   GOVERNANCE_CONTRACT_ADDRESS,
-  dnftEscrow:   DNFT_ESCROW_ADDRESS,
-  usdc:         USDC_ADDRESS,
-  bnutToken:    BNUT_TOKEN,
+  chainId:        OPTIMISM_CHAIN_ID,
+  rpcUrl:         OPTIMISM_RPC_URL,
+  bnut:           BNUT_CONTRACT_ADDRESS,
+  treasury:       TREASURY_CONTRACT_ADDRESS,
+  subscription:   DNFT_ESCROW_ADDRESS,   // DecentEscrow handles subscriptions
+  governance:     GOVERNANCE_CONTRACT_ADDRESS,
+  dnftEscrow:     DNFT_ESCROW_ADDRESS,
+  usdc:           USDC_ADDRESS,
+  bnutToken:      BNUT_TOKEN,
+  ethPlanId:      BIGNUTEN_ETH_PLAN_ID,
+  bnutPlanId:     BIGNUTEN_BNUT_PLAN_ID,
 };
 
 // ─── Expose as window globals ─────────────────────────────────────────────────
@@ -102,8 +112,10 @@ const CONTRACTS = {
 // via their  window.BNUT_CONTRACT_ADDRESS || "0x000…"  fallback pattern.
 window.BNUT_CONTRACT_ADDRESS         = BNUT_CONTRACT_ADDRESS;
 window.TREASURY_CONTRACT_ADDRESS     = TREASURY_CONTRACT_ADDRESS;
-window.SUBSCRIPTION_CONTRACT_ADDRESS = SUBSCRIPTION_CONTRACT_ADDRESS;
+window.SUBSCRIPTION_CONTRACT_ADDRESS = DNFT_ESCROW_ADDRESS;   // DecentEscrow
 window.GOVERNANCE_CONTRACT_ADDRESS   = GOVERNANCE_CONTRACT_ADDRESS;
+window.BIGNUTEN_ETH_PLAN_ID          = BIGNUTEN_ETH_PLAN_ID;
+window.BIGNUTEN_BNUT_PLAN_ID         = BIGNUTEN_BNUT_PLAN_ID;
 
 // Full CONTRACTS object for use in app.js and future modules.
 window.CONTRACTS = CONTRACTS;
