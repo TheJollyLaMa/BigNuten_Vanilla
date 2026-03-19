@@ -77,6 +77,9 @@ const BNUT_ADDRESS =
   window.BNUT_CONTRACT_ADDRESS ||
   "0x733c4d2Aae900E608147dd89Fa93606f89722823";
 
+/** Public read-only RPC for Optimism Mainnet (used for view-only calls). */
+const OPTIMISM_RPC_URL = "https://mainnet.optimism.io";
+
 /**
  * DecentEscrow plan IDs for BigNuten subscriptions.
  * Override by setting window.BIGNUTEN_ETH_PLAN_ID / BIGNUTEN_BNUT_PLAN_ID
@@ -148,7 +151,7 @@ async function _ensureOptimism() {
             chainId: "0xa",
             chainName: "Optimism",
             nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-            rpcUrls: ["https://mainnet.optimism.io"],
+            rpcUrls: [OPTIMISM_RPC_URL],
             blockExplorerUrls: ["https://optimistic.etherscan.io"],
           },
         ],
@@ -572,7 +575,7 @@ export async function listDecentEscrowPlans() {
   const ethers = window.ethers;
   if (!ethers) throw new Error("ethers.js not loaded");
 
-  const provider = new ethers.JsonRpcProvider("https://mainnet.optimism.io");
+  const provider = new ethers.JsonRpcProvider(OPTIMISM_RPC_URL);
   const contract = new ethers.Contract(
     DECENT_ESCROW_ADDRESS,
     DECENT_ESCROW_SUBSCRIPTION_ABI,
@@ -649,4 +652,83 @@ export async function deactivateDecentEscrowPlan(planId) {
   await tx.wait();
   console.log(`[subscription.js] Plan ${planId} deactivated. Tx: ${tx.hash}`);
   return tx.hash;
+}
+
+/**
+ * Returns the list of unique subscribers for a given plan, together with their
+ * live subscription status.
+ *
+ * Implementation: queries the `Subscribed(planId, subscriber, expiresAt)` event
+ * log on DecentEscrow, deduplicates addresses, then batch-fetches the current
+ * `isSubscribed` flag and expiry timestamp for each address.
+ *
+ * @param {number} planId
+ * @returns {Promise<Array<{address: string, active: boolean, expiresAt: number}>>}
+ */
+export async function getDecentEscrowSubscribers(planId) {
+  const ethers = window.ethers;
+  if (!ethers) throw new Error("ethers.js not loaded");
+
+  const provider = new ethers.JsonRpcProvider(OPTIMISM_RPC_URL);
+  const contract = new ethers.Contract(
+    DECENT_ESCROW_ADDRESS,
+    [
+      ...DECENT_ESCROW_SUBSCRIPTION_ABI,
+      "event Subscribed(uint256 indexed planId, address indexed subscriber, uint256 expiresAt)",
+    ],
+    provider
+  );
+
+  // Query event logs — planId is the first indexed topic so we can filter cheaply.
+  // Optimism's public RPC accepts large block ranges for sparse events.
+  let logs;
+  try {
+    const filter = contract.filters.Subscribed(planId);
+    logs = await contract.queryFilter(filter, 0, "latest");
+  } catch (err) {
+    // Some RPC providers impose block-range limits; re-throw with a helpful message.
+    throw new Error(
+      `Could not query subscriber events: ${err.message}. ` +
+      `You can view all events on ` +
+      `https://optimistic.etherscan.io/address/${DECENT_ESCROW_ADDRESS}#events`
+    );
+  }
+
+  // Deduplicate — keep each address once (most recent log wins for the initial view).
+  // Use the original checksum address from ethers.js for both dedup tracking and storage.
+  const seen = new Set();
+  const unique = [];
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const addr = logs[i].args.subscriber; // checksum address from ethers.js
+    const addrKey = addr.toLowerCase();   // case-insensitive dedup key
+    if (!seen.has(addrKey)) {
+      seen.add(addrKey);
+      unique.push(addr);
+    }
+  }
+
+  if (unique.length === 0) return [];
+
+  // Batch-fetch live status for every unique subscriber.
+  const results = await Promise.all(
+    unique.map(async addr => {
+      const [active, expiresAtBn] = await Promise.all([
+        contract.isSubscribed(planId, addr),
+        contract.subscriptions(addr, planId),
+      ]);
+      return {
+        address:   addr,
+        active,
+        expiresAt: Number(expiresAtBn),
+      };
+    })
+  );
+
+  // Sort: active first, then by expiry descending.
+  results.sort((a, b) => {
+    if (a.active !== b.active) return a.active ? -1 : 1;
+    return b.expiresAt - a.expiresAt;
+  });
+
+  return results;
 }

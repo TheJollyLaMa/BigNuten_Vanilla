@@ -1375,6 +1375,20 @@
               </div>
             </details>
 
+            <!-- Subscribers -->
+            <details class="gov-admin-section" style="margin-top:0.5rem;">
+              <summary>👥 Subscribers <span id="escrow-subs-count" style="color:#aaa; font-weight:normal;"></span></summary>
+              <div class="gov-admin-section-body">
+                <p class="gov-admin-hint">Queries on-chain <code>Subscribed</code> events then cross-checks live status.</p>
+                <label class="gov-label">Plan ID
+                  <input id="escrow-subs-plan-id" class="gov-input gov-input-short" type="number" min="0" value="0" placeholder="0" />
+                </label>
+                <button id="escrow-subs-load-btn" class="gov-admin-action-btn">🔍 Load Subscribers</button>
+                <p id="escrow-subs-status" class="gov-form-status"></p>
+                <div id="escrow-subs-list" style="margin-top:0.75rem;"></div>
+              </div>
+            </details>
+
           </div>
         </details>
       </div>

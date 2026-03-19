@@ -1,4 +1,4 @@
-import { initDnftPayPalPurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan } from './subscription.js';
+import { initDnftPayPalPurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
 import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll } from './treasury.js';
 
@@ -4332,6 +4332,75 @@ document.addEventListener('DOMContentLoaded', () => {
           deactivatePlanBtn.disabled = false;
         }
       });
+    }
+
+    // ── Subscribers List ───────────────────────────────────────────────────
+    const subsLoadBtn    = document.getElementById('escrow-subs-load-btn');
+    const subsStatus     = document.getElementById('escrow-subs-status');
+    const subsListEl     = document.getElementById('escrow-subs-list');
+    const subsCountEl    = document.getElementById('escrow-subs-count');
+
+    async function loadSubscribersList() {
+      const planId = Number(document.getElementById('escrow-subs-plan-id')?.value ?? 0);
+      if (isNaN(planId) || planId < 0) {
+        if (subsStatus) subsStatus.textContent = '⚠️ Enter a valid plan ID.';
+        return;
+      }
+
+      if (subsLoadBtn) subsLoadBtn.disabled = true;
+      if (subsStatus) subsStatus.textContent = `⏳ Querying on-chain events for plan ${planId}…`;
+      if (subsListEl) subsListEl.innerHTML = '';
+      if (subsCountEl) subsCountEl.textContent = '';
+
+      try {
+        const subscribers = await getDecentEscrowSubscribers(planId);
+        const activeCount = subscribers.filter(s => s.active).length;
+
+        if (subsCountEl) {
+          subsCountEl.textContent =
+            `(${subscribers.length} total · ${activeCount} active)`;
+        }
+        if (subsStatus) subsStatus.textContent = '';
+
+        if (subscribers.length === 0) {
+          if (subsListEl) subsListEl.innerHTML = '<p class="gov-loading">No subscribers found for this plan yet.</p>';
+          return;
+        }
+
+        const rows = subscribers.map((s, i) => {
+          const expiry = s.expiresAt
+            ? new Date(s.expiresAt * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+            : '—';
+          const badge = s.active
+            ? '<span style="color:#00e5ff; font-size:0.8em;">✅ Active</span>'
+            : '<span style="color:#ff8800; font-size:0.8em;">⏰ Expired</span>';
+          const explorerUrl = `https://optimistic.etherscan.io/address/${s.address}`;
+
+          return `
+            <div style="display:flex; align-items:center; gap:0.5rem; border:1px solid rgba(0,229,255,0.15);
+                        border-radius:6px; padding:0.4rem 0.75rem; margin-bottom:0.4rem; flex-wrap:wrap;">
+              <span style="color:#aaa; font-size:0.78em; min-width:1.5rem;">#${i + 1}</span>
+              <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer"
+                 style="color:#00e5ff; font-family:monospace; font-size:0.8em; word-break:break-all;">
+                ${s.address}
+              </a>
+              ${badge}
+              <span style="color:#888; font-size:0.78em; margin-left:auto;">expires ${expiry}</span>
+            </div>
+          `;
+        }).join('');
+
+        if (subsListEl) subsListEl.innerHTML = rows;
+      } catch (err) {
+        if (subsStatus) subsStatus.textContent = `❌ ${err.message}`;
+        if (subsCountEl) subsCountEl.textContent = '';
+      } finally {
+        if (subsLoadBtn) subsLoadBtn.disabled = false;
+      }
+    }
+
+    if (subsLoadBtn) {
+      subsLoadBtn.addEventListener('click', () => loadSubscribersList());
     }
   })();
 
