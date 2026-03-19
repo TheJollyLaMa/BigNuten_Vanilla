@@ -1441,6 +1441,161 @@
     </div>
   </div>
 
+  <!-- ── Subscription Status Modal ─────────────────────────────────────── -->
+  <div id="subscription-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="subscription-modal-title">
+    <div class="modal sub-modal">
+      <button class="modal-close" id="subscription-modal-close" aria-label="Close Subscription modal">×</button>
+
+      <!-- Header -->
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="subscription-modal-title">💳 My Subscription</h2>
+      </div>
+
+      <!-- ── Status Card ──────────────────────────────────────────────── -->
+      <div id="sub-status-card" class="sub-status-card">
+        <div class="sub-status-badge-row">
+          <span id="sub-status-badge" class="sub-status-badge sub-badge-inactive">⚪ No Active Plan</span>
+          <span id="sub-status-method" class="sub-status-method"></span>
+        </div>
+        <div id="sub-status-details" class="sub-status-details" style="display:none;">
+          <div class="sub-detail-row">
+            <span class="sub-detail-label">Plan</span>
+            <span id="sub-detail-plan" class="sub-detail-value">—</span>
+          </div>
+          <div class="sub-detail-row">
+            <span class="sub-detail-label">Payment Method</span>
+            <span id="sub-detail-method" class="sub-detail-value">—</span>
+          </div>
+          <div class="sub-detail-row">
+            <span class="sub-detail-label">Renewal Date</span>
+            <span id="sub-detail-renewal" class="sub-detail-value">—</span>
+          </div>
+          <div class="sub-detail-row">
+            <span class="sub-detail-label">Billing Status</span>
+            <span id="sub-detail-billing" class="sub-detail-value">—</span>
+          </div>
+        </div>
+        <!-- Manage / Cancel row (shown when active) -->
+        <div id="sub-manage-row" class="sub-manage-row" style="display:none;">
+          <a id="sub-manage-link" href="#" target="_blank" rel="noopener noreferrer" class="sub-action-btn sub-action-manage">⚙️ Manage</a>
+          <button id="sub-cancel-btn" class="sub-action-btn sub-action-cancel">❌ Cancel Subscription</button>
+        </div>
+      </div>
+
+      <!-- ── Subscribe / Upgrade Section ─────────────────────────────── -->
+      <div id="sub-new-section" class="sub-new-section">
+        <h3 class="sub-section-title">🌟 Subscribe or Upgrade</h3>
+
+        <!-- Plan toggle -->
+        <div class="sub-plan-toggle" id="sub-plan-toggle" role="tablist" aria-label="Select subscription plan">
+          <button class="sub-plan-btn sub-plan-active" role="tab" aria-selected="true" data-plan="monthly">Monthly · $10</button>
+          <button class="sub-plan-btn" role="tab" aria-selected="false" data-plan="annual">Annual · $99 <span class="sub-save-badge">Save 17%</span></button>
+        </div>
+
+        <!-- Payment method tabs -->
+        <div class="sub-method-tabs" role="tablist" aria-label="Payment method">
+          <button class="sub-method-tab sub-tab-active" role="tab" data-method="paypal">🅿️ PayPal</button>
+          <button class="sub-method-tab" role="tab" data-method="stripe">💳 Card</button>
+          <button class="sub-method-tab" role="tab" data-method="eth">Ξ ETH</button>
+          <button class="sub-method-tab" role="tab" data-method="bnut">🌰 $BNUT</button>
+        </div>
+
+        <!-- PayPal panel -->
+        <div id="sub-panel-paypal" class="sub-method-panel">
+          <p class="sub-method-desc">Pay securely via PayPal. A new tab will open for checkout.</p>
+          <!-- Monthly form -->
+          <form id="sub-paypal-monthly-form" action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="sub-paypal-form">
+            <input type="hidden" name="cmd" value="_xclick-subscriptions" />
+            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
+            <input type="hidden" name="item_name" value="BigNuten Monthly Subscription" />
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="hidden" name="a3" value="10.00" />
+            <input type="hidden" name="p3" value="1" />
+            <input type="hidden" name="t3" value="M" />
+            <input type="hidden" name="src" value="1" />
+            <input type="hidden" name="no_note" value="1" />
+            <button type="submit" class="sub-pay-btn sub-paypal-btn" title="Subscribe $10/month via PayPal">
+              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" alt="Subscribe via PayPal" style="height:36px;vertical-align:middle;" />
+            </button>
+          </form>
+          <!-- Annual form (hidden until annual tab active) -->
+          <form id="sub-paypal-annual-form" action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="sub-paypal-form" style="display:none;">
+            <input type="hidden" name="cmd" value="_xclick-subscriptions" />
+            <input type="hidden" name="business" value="jrlamanna@gmail.com" />
+            <input type="hidden" name="item_name" value="BigNuten Annual Subscription" />
+            <input type="hidden" name="currency_code" value="USD" />
+            <input type="hidden" name="a3" value="99.00" />
+            <input type="hidden" name="p3" value="1" />
+            <input type="hidden" name="t3" value="Y" />
+            <input type="hidden" name="src" value="1" />
+            <input type="hidden" name="no_note" value="1" />
+            <button type="submit" class="sub-pay-btn sub-paypal-btn" title="Subscribe $99/year via PayPal">
+              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" alt="Subscribe via PayPal" style="height:36px;vertical-align:middle;" />
+            </button>
+          </form>
+          <p class="sub-sandbox-note">🧪 Sandbox mode — use PayPal test credentials</p>
+        </div>
+
+        <!-- Stripe panel -->
+        <div id="sub-panel-stripe" class="sub-method-panel" style="display:none;">
+          <p class="sub-method-desc">Pay with any credit or debit card via Stripe.</p>
+          <div class="sub-stripe-price-row">
+            <span id="sub-stripe-price-label" class="sub-stripe-price">$10 / month</span>
+          </div>
+          <button id="sub-stripe-btn" class="sub-pay-btn sub-stripe-btn-style">
+            💳 Pay with Card (Stripe)
+          </button>
+          <p id="sub-stripe-status" class="sub-method-status"></p>
+          <p class="sub-sandbox-note">🧪 Sandbox mode — use card <code>4242 4242 4242 4242</code></p>
+        </div>
+
+        <!-- ETH panel -->
+        <div id="sub-panel-eth" class="sub-method-panel" style="display:none;">
+          <p class="sub-method-desc">Pay with ETH via MetaMask. Subscription recorded on-chain.</p>
+          <div class="sub-crypto-price-row">
+            <span class="sub-crypto-label">Price:</span>
+            <span id="sub-eth-price" class="sub-crypto-price">~0.005 ETH / month</span>
+          </div>
+          <button id="sub-eth-btn" class="sub-pay-btn sub-eth-btn-style">
+            Ξ Pay with ETH
+          </button>
+          <p id="sub-eth-status" class="sub-method-status"></p>
+          <p class="sub-sandbox-note">🧪 Sandbox mode — Optimism Sepolia testnet</p>
+        </div>
+
+        <!-- $BNUT panel -->
+        <div id="sub-panel-bnut" class="sub-method-panel" style="display:none;">
+          <p class="sub-method-desc">Pay with $BNUT tokens for a discounted rate. Approve &amp; subscribe in one flow.</p>
+          <div class="sub-crypto-price-row">
+            <span class="sub-crypto-label">Price:</span>
+            <span id="sub-bnut-price" class="sub-crypto-price">~500 $BNUT / month</span>
+          </div>
+          <button id="sub-bnut-btn" class="sub-pay-btn sub-bnut-btn-style">
+            🌰 Pay with $BNUT
+          </button>
+          <p id="sub-bnut-status" class="sub-method-status"></p>
+          <p class="sub-sandbox-note">🧪 Sandbox mode — Optimism Sepolia testnet</p>
+        </div>
+      </div>
+
+      <!-- ── Payment History ───────────────────────────────────────────── -->
+      <details class="sub-history-details">
+        <summary>📜 Payment History</summary>
+        <div id="sub-history-list" class="sub-history-list">
+          <p class="gov-loading" id="sub-history-empty">No payment records found.</p>
+        </div>
+      </details>
+
+      <!-- ── Footer links ──────────────────────────────────────────────── -->
+      <div class="sub-footer-links">
+        <a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer" class="sub-footer-link">🅿️ Manage PayPal Autopay</a>
+        <a href="https://billing.stripe.com/p/login/test_00000" target="_blank" rel="noopener noreferrer" class="sub-footer-link">💳 Manage Card / Stripe</a>
+        <a href="mailto:jrlamanna@gmail.com?subject=BigNuten%20Subscription%20Help" class="sub-footer-link">📧 Contact Support</a>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Monthly Challenge Modal (stub) ─────────────────────────────────── -->
   <div id="challenge-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="challenge-modal-title">
     <div class="modal aes-stub-modal">
