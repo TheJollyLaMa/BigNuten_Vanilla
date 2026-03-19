@@ -57,14 +57,8 @@ function downloadJSON(obj, filename) {
 // ─── Admin Contributors Panel ──────────────────────────────────────────────────
 
 export function initAdminContributors() {
-  const section = document.getElementById('admin-contributors-section');
-  if (!section) return;
-
-  // Open/close handler for the <details> element
-  section.addEventListener('toggle', async () => {
-    if (!section.open) return;
-    await loadContributorsTable();
-  });
+  // Expose the table loader globally so the modal onOpen callback in app.js can call it.
+  window.__loadContributorsTable = loadContributorsTable;
 
   // "Add contributor" button
   const addBtn = document.getElementById('admin-contrib-add-btn');

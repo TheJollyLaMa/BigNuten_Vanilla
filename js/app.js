@@ -3861,38 +3861,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ── Admin Panel modal (opened from admin dropdown) ───────────────────────
+  // ── Admin modals (opened from admin dropdown) ────────────────────────────
 
-  (function initAdminPanelModal() {
-    const adminPanelBtn   = document.getElementById('admin-panel-btn');
-    const adminPanelModal = document.getElementById('admin-panel-modal');
-    const adminPanelClose = document.getElementById('admin-panel-modal-close');
+  (function initAdminModals() {
+    // Helper: wire up a simple modal open/close
+    function wireModal(btnId, modalId, closeId, onOpen) {
+      const btn   = document.getElementById(btnId);
+      const modal = document.getElementById(modalId);
+      const close = document.getElementById(closeId);
+      if (!modal) return;
 
-    if (!adminPanelModal) return;
-
-    function openAdminPanelModal() {
-      closeAdminDropdown();
-      adminPanelModal.classList.remove('modal-hidden');
-      document.body.classList.add('modal-active');
-    }
-
-    function closeAdminPanelModal() {
-      adminPanelModal.classList.add('modal-hidden');
-      if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
-        document.body.classList.remove('modal-active');
+      function openModal() {
+        closeAdminDropdown();
+        modal.classList.remove('modal-hidden');
+        document.body.classList.add('modal-active');
+        if (onOpen) onOpen();
       }
+      function closeModal() {
+        modal.classList.add('modal-hidden');
+        if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
+          document.body.classList.remove('modal-active');
+        }
+      }
+      if (btn)   btn.addEventListener('click', openModal);
+      if (close) close.addEventListener('click', closeModal);
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
     }
 
-    if (adminPanelBtn) {
-      adminPanelBtn.addEventListener('click', openAdminPanelModal);
-    }
+    // 🪙 BigNuten ($BNUT)
+    wireModal('admin-bnut-btn', 'bnut-admin-modal', 'bnut-admin-modal-close');
 
-    if (adminPanelClose) {
-      adminPanelClose.addEventListener('click', closeAdminPanelModal);
-    }
+    // 🏦 Treasury — auto-load metrics on open
+    wireModal('admin-treasury-btn', 'treasury-admin-modal', 'treasury-admin-modal-close', () => {
+      if (typeof loadTreasuryMetrics === 'function') loadTreasuryMetrics();
+    });
 
-    adminPanelModal.addEventListener('click', (e) => {
-      if (e.target === adminPanelModal) closeAdminPanelModal();
+    // 📋 Subscription Plans — auto-load plans on open
+    wireModal('admin-escrow-btn', 'escrow-admin-modal', 'escrow-admin-modal-close', () => {
+      if (typeof refreshEscrowPlansList === 'function') refreshEscrowPlansList();
+    });
+
+    // 👥 Contributors — auto-load table on open
+    wireModal('admin-contributors-btn', 'contributors-admin-modal', 'contributors-admin-modal-close', () => {
+      if (typeof window.__loadContributorsTable === 'function') window.__loadContributorsTable();
     });
   })();
 
@@ -4303,13 +4314,9 @@ document.addEventListener('DOMContentLoaded', () => {
       escrowRefreshBtn.addEventListener('click', () => refreshEscrowPlansList());
     }
 
-    // Auto-load when admin section is opened (details toggle)
-    const escrowPlansSection = document.getElementById('escrow-plans-section');
-    if (escrowPlansSection) {
-      escrowPlansSection.addEventListener('toggle', () => {
-        if (escrowPlansSection.open) refreshEscrowPlansList();
-      });
-    }
+    // Expose globally so the escrow-admin-modal onOpen callback can call it.
+    // (The old details-toggle trigger is replaced by the modal open event in initAdminModals.)
+    window.refreshEscrowPlansList = refreshEscrowPlansList;
 
     // ── Create Plan ────────────────────────────────────────────────────────
     const createPlanBtn    = document.getElementById('escrow-create-plan-btn');
@@ -5386,13 +5393,9 @@ document.addEventListener('DOMContentLoaded', () => {
       loadMintsBtn.addEventListener('click', () => loadMintHistory());
     }
 
-    // Auto-load metrics when the treasury section is opened.
-    const treasurySection = document.getElementById('treasury-section');
-    if (treasurySection) {
-      treasurySection.addEventListener('toggle', () => {
-        if (treasurySection.open) loadTreasuryMetrics();
-      });
-    }
+    // Expose loadTreasuryMetrics globally so the admin modal onOpen callback can call it.
+    // (The old details-toggle trigger is replaced by the modal open event in initAdminModals.)
+    window.loadTreasuryMetrics = loadTreasuryMetrics;
 
     // Quick Mint form
     const quickMintBtn    = document.getElementById('treasury-quick-mint-btn');

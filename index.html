@@ -52,11 +52,14 @@
       <div id="admin-dropdown" class="admin-dropdown hidden" role="menu" aria-label="Admin menu">
         <div class="aes-bnut-balance">
           <img src="img/BigNuten.png" alt="Admin" class="aes-bnut-icon" />
-          <span class="aes-bnut-amount" style="color:#ff9f43;">⚙️ Staff</span>
+          <span class="aes-bnut-amount" style="color:#ff9f43;">⚙️ Admin</span>
         </div>
         <hr class="aes-divider" />
-        <button class="aes-menu-item admin-menu-item" id="admin-panel-btn" role="menuitem">⚙️ Admin Panel</button>
-        <button class="aes-menu-item admin-menu-item" id="admin-payroll-btn" role="menuitem">💸 Payroll</button>
+        <button class="aes-menu-item admin-menu-item" id="admin-bnut-btn"         role="menuitem">🪙 BigNuten ($BNUT)</button>
+        <button class="aes-menu-item admin-menu-item" id="admin-treasury-btn"     role="menuitem">🏦 Treasury</button>
+        <button class="aes-menu-item admin-menu-item" id="admin-escrow-btn"       role="menuitem">📋 Subscription Plans</button>
+        <button class="aes-menu-item admin-menu-item" id="admin-contributors-btn" role="menuitem">👥 Contributors</button>
+        <button class="aes-menu-item admin-menu-item" id="admin-payroll-btn"      role="menuitem">💸 Payroll</button>
       </div>
 
       <!-- Staff of Aesculapius Dropdown (right ⚕︎) — user-facing features -->
@@ -1288,22 +1291,20 @@
     </div>
   </div>
 
-  <!-- ── Admin Panel Modal (left ⚕︎ — staff only) ────────────────────────── -->
-  <div id="admin-panel-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="admin-panel-modal-title">
+  <!-- ── BigNuten ($BNUT) Admin Modal ─────────────────────────────────────── -->
+  <div id="bnut-admin-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="bnut-admin-modal-title">
     <div class="modal gov-modal">
-      <button class="modal-close" id="admin-panel-modal-close" aria-label="Close Admin Panel">×</button>
+      <button class="modal-close" id="bnut-admin-modal-close" aria-label="Close BigNuten Admin">×</button>
 
-      <!-- Header -->
       <div class="aes-stub-header">
         <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
-        <h2 id="admin-panel-modal-title">⚙️ Admin Panel</h2>
+        <h2 id="bnut-admin-modal-title">🪙 BigNuten ($BNUT)</h2>
       </div>
       <p class="aes-stub-desc">
-        Owner-only controls for the BigNuten platform. Connect MetaMask with the admin wallet to use these tools.
+        Manage the $BNUT token contract. Connect MetaMask with the admin wallet to use these tools.
       </p>
 
-      <!-- ── Admin Panel content ──────────────────────────────────────────── -->
-      <div id="gov-admin-panel" class="gov-admin-panel">
+      <div class="gov-admin-panel">
 
         <!-- Mint $BNUT -->
         <details class="gov-admin-section">
@@ -1324,7 +1325,7 @@
           </div>
         </details>
 
-        <!-- Add Proposer -->
+        <!-- Grant PROPOSER_ROLE -->
         <details class="gov-admin-section">
           <summary>🎟️ Grant PROPOSER_ROLE</summary>
           <div class="gov-admin-section-body">
@@ -1337,7 +1338,7 @@
           </div>
         </details>
 
-        <!-- Remove Proposer -->
+        <!-- Revoke PROPOSER_ROLE -->
         <details class="gov-admin-section">
           <summary>🚫 Revoke PROPOSER_ROLE</summary>
           <div class="gov-admin-section-body">
@@ -1349,228 +1350,249 @@
           </div>
         </details>
 
-        <!-- DecentEscrow Subscription Plans -->
-        <details id="escrow-plans-section" class="gov-admin-section">
-          <summary>📋 Subscription Plans (DecentEscrow) <span id="escrow-plans-count" style="color:#aaa; font-weight:normal;"></span></summary>
-          <div class="gov-admin-section-body">
-            <p class="gov-admin-hint">
-              Manage subscription plans on the deployed
-              <a href="https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e"
-                 target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">
-                DecentEscrow contract
-              </a>.
-              BigNuten uses <strong>Plan 0 (ETH)</strong> and <strong>Plan 1 ($BNUT)</strong>.
-            </p>
-
-            <!-- Current plans list -->
-            <div id="escrow-plans-list" style="margin-bottom:0.75rem;">
-              <p class="gov-loading">Open this section to load plans.</p>
-            </div>
-            <button id="escrow-plans-refresh-btn" class="gov-admin-action-btn" style="margin-bottom:1rem;">🔄 Refresh Plans</button>
-
-            <!-- Create Plan -->
-            <details class="gov-admin-section" style="margin-top:0.5rem;">
-              <summary>➕ Create New Plan</summary>
-              <div class="gov-admin-section-body">
-                <p class="gov-admin-hint">Caller must be the <strong>owner</strong> of the DecentEscrow contract.</p>
-                <label class="gov-label">Plan name
-                  <input id="escrow-plan-name" class="gov-input" type="text" placeholder="e.g. BigNuten Monthly ETH" />
-                </label>
-                <label class="gov-label">Payment token address
-                  <input id="escrow-plan-token" class="gov-input" type="text" placeholder="0x0000…0000 for ETH, or BNUT/USDC address" />
-                </label>
-                <label class="gov-label">Price per period (ETH/BNUT = whole tokens; USDC = dollars)
-                  <input id="escrow-plan-price" class="gov-input gov-input-short" type="number" min="0" step="any" placeholder="0.01" />
-                </label>
-                <label class="gov-label">Period length (seconds)
-                  <input id="escrow-plan-period" class="gov-input gov-input-short" type="number" min="1" placeholder="2592000 (30 days)" />
-                </label>
-                <button id="escrow-create-plan-btn" class="gov-admin-action-btn">🚀 Create Plan</button>
-                <p id="escrow-create-plan-status" class="gov-form-status"></p>
-              </div>
-            </details>
-
-            <!-- Deactivate Plan -->
-            <details class="gov-admin-section" style="margin-top:0.5rem;">
-              <summary>🚫 Deactivate Plan</summary>
-              <div class="gov-admin-section-body">
-                <p class="gov-admin-hint">Deactivated plans stop accepting new subscriptions. Existing active subs remain valid.</p>
-                <label class="gov-label">Plan ID
-                  <input id="escrow-deactivate-plan-id" class="gov-input gov-input-short" type="number" min="0" placeholder="0" />
-                </label>
-                <button id="escrow-deactivate-plan-btn" class="gov-admin-action-btn gov-admin-danger-btn">🚫 Deactivate Plan</button>
-                <p id="escrow-deactivate-plan-status" class="gov-form-status"></p>
-              </div>
-            </details>
-
-            <!-- Subscribers -->
-            <details class="gov-admin-section" style="margin-top:0.5rem;">
-              <summary>👥 Subscribers <span id="escrow-subs-count" style="color:#aaa; font-weight:normal;"></span></summary>
-              <div class="gov-admin-section-body">
-                <p class="gov-admin-hint">Queries on-chain <code>Subscribed</code> events then cross-checks live status.</p>
-                <label class="gov-label">Plan ID
-                  <input id="escrow-subs-plan-id" class="gov-input gov-input-short" type="number" min="0" value="0" placeholder="0" />
-                </label>
-                <button id="escrow-subs-load-btn" class="gov-admin-action-btn">🔍 Load Subscribers</button>
-                <p id="escrow-subs-status" class="gov-form-status"></p>
-                <div id="escrow-subs-list" style="margin-top:0.75rem;"></div>
-              </div>
-            </details>
-
-          </div>
-        </details>
-
-        <!-- 👥 Contributors -->
-        <details id="admin-contributors-section" class="gov-admin-section">
-          <summary>👥 Contributors <span id="admin-contrib-count" style="color:#aaa; font-weight:normal;"></span></summary>
-          <div class="gov-admin-section-body">
-            <p class="gov-admin-hint">
-              Manage registered contributors. Wallet edits are applied locally — click
-              <strong>💾 Save / Download JSON</strong> then commit the file to persist changes.
-            </p>
-
-            <!-- Actions toolbar -->
-            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem;">
-              <button id="admin-contrib-add-btn" class="gov-admin-action-btn">➕ Add Contributor</button>
-              <button id="admin-contrib-save-btn" class="gov-admin-action-btn">💾 Save / Download JSON</button>
-            </div>
-            <p id="admin-contrib-status" class="gov-form-status"></p>
-
-            <!-- Contributors table -->
-            <div style="overflow-x:auto;">
-              <table class="contrib-table">
-                <thead>
-                  <tr>
-                    <th>GitHub</th>
-                    <th>Wallet (Optimism)</th>
-                    <th>Total Paid</th>
-                    <th>Issues Completed</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="admin-contrib-table-body">
-                  <tr><td colspan="6" class="gov-loading">Open this section to load contributors.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </details>
-
-        <!-- 🏦 Treasury -->
-        <details id="treasury-section" class="gov-admin-section">
-          <summary>🏦 Treasury — $BNUT Supply &amp; Mint History</summary>
-          <div class="gov-admin-section-body">
-            <p class="gov-admin-hint">
-              Live on-chain data from the
-              <a href="https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823"
-                 target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">$BNUT contract</a>
-              on Optimism Mainnet.
-            </p>
-
-            <!-- Supply Metrics -->
-            <div id="treasury-metrics" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem 1rem; margin-bottom:1rem;">
-              <div class="treasury-metric">
-                <span class="treasury-metric-label">Total Supply</span>
-                <span id="treasury-total-supply" class="treasury-metric-value">—</span>
-              </div>
-              <div class="treasury-metric">
-                <span class="treasury-metric-label">Max Supply</span>
-                <span id="treasury-max-supply" class="treasury-metric-value">—</span>
-              </div>
-              <div class="treasury-metric">
-                <span class="treasury-metric-label">% Minted</span>
-                <span id="treasury-pct-minted" class="treasury-metric-value">—</span>
-              </div>
-              <div class="treasury-metric">
-                <span class="treasury-metric-label">Remaining Mintable</span>
-                <span id="treasury-remaining" class="treasury-metric-value">—</span>
-              </div>
-              <div class="treasury-metric">
-                <span class="treasury-metric-label">Admin Wallet Balance</span>
-                <span id="treasury-admin-bal" class="treasury-metric-value">—</span>
-              </div>
-              <div class="treasury-metric">
-                <span class="treasury-metric-label">Treasury Wallet Balance</span>
-                <span id="treasury-wallet-bal" class="treasury-metric-value">—</span>
-              </div>
-            </div>
-            <button id="treasury-refresh-btn" class="gov-admin-action-btn" style="margin-bottom:1rem;">🔄 Refresh Metrics</button>
-
-            <!-- Supply Allocation Bar -->
-            <div style="margin-bottom:1rem;">
-              <p style="margin:0 0 0.35rem; font-size:0.85rem; color:#aaa;">Supply Allocation (advisory)</p>
-              <div id="treasury-alloc-bar" style="display:flex; height:18px; border-radius:6px; overflow:hidden; border:1px solid rgba(0,229,255,0.2);">
-                <div style="flex:40; background:#27ae60;" title="🌿 Community Rewards 40%"></div>
-                <div style="flex:20; background:#2980b9;" title="🛠️ Dev Bounties 20%"></div>
-                <div style="flex:20; background:#8e44ad;" title="🏛️ Treasury/DAO 20%"></div>
-                <div style="flex:10; background:#f39c12;" title="👑 Founding Team 10%"></div>
-                <div style="flex:10; background:#e74c3c;" title="🎟️ Early Supporters 10%"></div>
-              </div>
-              <div style="display:flex; flex-wrap:wrap; gap:0.4rem 0.75rem; margin-top:0.35rem; font-size:0.75rem; color:#ccc;">
-                <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;border-radius:2px;"></span> 🌿 Community Rewards 40%</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:#2980b9;border-radius:2px;"></span> 🛠️ Dev Bounties 20%</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:#8e44ad;border-radius:2px;"></span> 🏛️ Treasury/DAO 20%</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:#f39c12;border-radius:2px;"></span> 👑 Founding Team 10%</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:#e74c3c;border-radius:2px;"></span> 🎟️ Early Supporters 10%</span>
-              </div>
-            </div>
-
-            <!-- Recent Mint Activity -->
-            <details class="gov-admin-section" style="margin-top:0.5rem;">
-              <summary>📋 Recent Mint Activity (last 50)</summary>
-              <div class="gov-admin-section-body">
-                <p class="gov-admin-hint">Reads <code>TokensMinted</code> events from the $BNUT contract.</p>
-                <button id="treasury-load-mints-btn" class="gov-admin-action-btn" style="margin-bottom:0.75rem;">🔍 Load Mint History</button>
-                <p id="treasury-mints-status" class="gov-form-status"></p>
-                <div id="treasury-mints-table" style="overflow-x:auto; font-size:0.82rem;"></div>
-              </div>
-            </details>
-
-            <!-- Quick Mint (Admin) -->
-            <details class="gov-admin-section" style="margin-top:0.5rem;">
-              <summary>⚡ Quick Mint (Admin)</summary>
-              <div class="gov-admin-section-body">
-                <p class="gov-admin-hint">Calls <code>mintReward()</code> on the $BNUT contract. Caller must hold <strong>MINTER_ROLE</strong>.</p>
-                <label class="gov-label">Recipient address
-                  <input id="treasury-quick-mint-addr" class="gov-input" type="text" placeholder="0x…" />
-                </label>
-                <label class="gov-label" style="flex-direction:row; align-items:center; gap:0.5rem; cursor:pointer;">
-                  <input id="treasury-mint-to-treasury" type="checkbox" style="width:16px;height:16px;cursor:pointer;" />
-                  <span>Mint directly to Treasury contract</span>
-                </label>
-                <label class="gov-label">Amount (whole $BNUT)
-                  <input id="treasury-quick-mint-amount" class="gov-input gov-input-short" type="number" min="1" placeholder="100" />
-                </label>
-                <label class="gov-label">Reason
-                  <input id="treasury-quick-mint-reason" class="gov-input" type="text" placeholder="e.g. airdrop, manual reward" />
-                </label>
-                <button id="treasury-quick-mint-btn" class="gov-admin-action-btn">🚀 Mint $BNUT</button>
-                <p id="treasury-quick-mint-status" class="gov-form-status"></p>
-              </div>
-            </details>
-
-            <!-- Transfer to Treasury -->
-            <details class="gov-admin-section" style="margin-top:0.5rem;">
-              <summary>🏦 Transfer $BNUT to Treasury</summary>
-              <div class="gov-admin-section-body">
-                <p class="gov-admin-hint">Transfers $BNUT from your connected wallet to the treasury contract. Uses ERC-20 <code>transfer()</code>.</p>
-                <div class="treasury-metric" style="margin-bottom:0.75rem;">
-                  <span class="treasury-metric-label">Treasury Address</span>
-                  <code style="font-size:0.78rem;color:#00e5ff;word-break:break-all;" id="treasury-transfer-addr-display"></code>
-                </div>
-                <label class="gov-label">Amount (whole $BNUT)
-                  <input id="treasury-transfer-amount" class="gov-input gov-input-short" type="number" min="1" placeholder="100" />
-                </label>
-                <button id="treasury-transfer-btn" class="gov-admin-action-btn">💸 Transfer to Treasury</button>
-                <p id="treasury-transfer-status" class="gov-form-status"></p>
-              </div>
-            </details>
-
-          </div>
-        </details>
       </div>
+    </div>
+  </div>
 
+  <!-- ── Treasury Admin Modal ───────────────────────────────────────────────── -->
+  <div id="treasury-admin-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="treasury-admin-modal-title">
+    <div class="modal gov-modal">
+      <button class="modal-close" id="treasury-admin-modal-close" aria-label="Close Treasury Admin">×</button>
+
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="treasury-admin-modal-title">🏦 Treasury</h2>
+      </div>
+      <p class="aes-stub-desc">
+        Live on-chain data from the
+        <a href="https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823"
+           target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">$BNUT contract</a>
+        on Optimism Mainnet.
+      </p>
+
+      <div class="gov-admin-panel">
+
+        <!-- Supply Metrics -->
+        <div id="treasury-metrics" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem 1rem; margin-bottom:1rem;">
+          <div class="treasury-metric">
+            <span class="treasury-metric-label">Total Supply</span>
+            <span id="treasury-total-supply" class="treasury-metric-value">—</span>
+          </div>
+          <div class="treasury-metric">
+            <span class="treasury-metric-label">Max Supply</span>
+            <span id="treasury-max-supply" class="treasury-metric-value">—</span>
+          </div>
+          <div class="treasury-metric">
+            <span class="treasury-metric-label">% Minted</span>
+            <span id="treasury-pct-minted" class="treasury-metric-value">—</span>
+          </div>
+          <div class="treasury-metric">
+            <span class="treasury-metric-label">Remaining Mintable</span>
+            <span id="treasury-remaining" class="treasury-metric-value">—</span>
+          </div>
+          <div class="treasury-metric">
+            <span class="treasury-metric-label">Admin Wallet Balance</span>
+            <span id="treasury-admin-bal" class="treasury-metric-value">—</span>
+          </div>
+          <div class="treasury-metric">
+            <span class="treasury-metric-label">Treasury Wallet Balance</span>
+            <span id="treasury-wallet-bal" class="treasury-metric-value">—</span>
+          </div>
+        </div>
+        <button id="treasury-refresh-btn" class="gov-admin-action-btn" style="margin-bottom:1rem;">🔄 Refresh Metrics</button>
+
+        <!-- Supply Allocation Bar -->
+        <div style="margin-bottom:1rem;">
+          <p style="margin:0 0 0.35rem; font-size:0.85rem; color:#aaa;">Supply Allocation (advisory)</p>
+          <div id="treasury-alloc-bar" style="display:flex; height:18px; border-radius:6px; overflow:hidden; border:1px solid rgba(0,229,255,0.2);">
+            <div style="flex:40; background:#27ae60;" title="🌿 Community Rewards 40%"></div>
+            <div style="flex:20; background:#2980b9;" title="🛠️ Dev Bounties 20%"></div>
+            <div style="flex:20; background:#8e44ad;" title="🏛️ Treasury/DAO 20%"></div>
+            <div style="flex:10; background:#f39c12;" title="👑 Founding Team 10%"></div>
+            <div style="flex:10; background:#e74c3c;" title="🎟️ Early Supporters 10%"></div>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:0.4rem 0.75rem; margin-top:0.35rem; font-size:0.75rem; color:#ccc;">
+            <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;border-radius:2px;"></span> 🌿 Community Rewards 40%</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#2980b9;border-radius:2px;"></span> 🛠️ Dev Bounties 20%</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#8e44ad;border-radius:2px;"></span> 🏛️ Treasury/DAO 20%</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#f39c12;border-radius:2px;"></span> 👑 Founding Team 10%</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#e74c3c;border-radius:2px;"></span> 🎟️ Early Supporters 10%</span>
+          </div>
+        </div>
+
+        <!-- Recent Mint Activity -->
+        <details class="gov-admin-section" style="margin-top:0.5rem;">
+          <summary>📋 Recent Mint Activity (last 50)</summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">Reads <code>TokensMinted</code> events from the $BNUT contract.</p>
+            <button id="treasury-load-mints-btn" class="gov-admin-action-btn" style="margin-bottom:0.75rem;">🔍 Load Mint History</button>
+            <p id="treasury-mints-status" class="gov-form-status"></p>
+            <div id="treasury-mints-table" style="overflow-x:auto; font-size:0.82rem;"></div>
+          </div>
+        </details>
+
+        <!-- Quick Mint (Admin) -->
+        <details class="gov-admin-section" style="margin-top:0.5rem;">
+          <summary>⚡ Quick Mint (Admin)</summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">Calls <code>mintReward()</code> on the $BNUT contract. Caller must hold <strong>MINTER_ROLE</strong>.</p>
+            <label class="gov-label">Recipient address
+              <input id="treasury-quick-mint-addr" class="gov-input" type="text" placeholder="0x…" />
+            </label>
+            <label class="gov-label" style="flex-direction:row; align-items:center; gap:0.5rem; cursor:pointer;">
+              <input id="treasury-mint-to-treasury" type="checkbox" style="width:16px;height:16px;cursor:pointer;" />
+              <span>Mint directly to Treasury contract</span>
+            </label>
+            <label class="gov-label">Amount (whole $BNUT)
+              <input id="treasury-quick-mint-amount" class="gov-input gov-input-short" type="number" min="1" placeholder="100" />
+            </label>
+            <label class="gov-label">Reason
+              <input id="treasury-quick-mint-reason" class="gov-input" type="text" placeholder="e.g. airdrop, manual reward" />
+            </label>
+            <button id="treasury-quick-mint-btn" class="gov-admin-action-btn">🚀 Mint $BNUT</button>
+            <p id="treasury-quick-mint-status" class="gov-form-status"></p>
+          </div>
+        </details>
+
+        <!-- Transfer to Treasury -->
+        <details class="gov-admin-section" style="margin-top:0.5rem;">
+          <summary>🏦 Transfer $BNUT to Treasury</summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">Transfers $BNUT from your connected wallet to the treasury contract. Uses ERC-20 <code>transfer()</code>.</p>
+            <div class="treasury-metric" style="margin-bottom:0.75rem;">
+              <span class="treasury-metric-label">Treasury Address</span>
+              <code style="font-size:0.78rem;color:#00e5ff;word-break:break-all;" id="treasury-transfer-addr-display"></code>
+            </div>
+            <label class="gov-label">Amount (whole $BNUT)
+              <input id="treasury-transfer-amount" class="gov-input gov-input-short" type="number" min="1" placeholder="100" />
+            </label>
+            <button id="treasury-transfer-btn" class="gov-admin-action-btn">💸 Transfer to Treasury</button>
+            <p id="treasury-transfer-status" class="gov-form-status"></p>
+          </div>
+        </details>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Subscription Plans (DecentEscrow) Admin Modal ─────────────────────── -->
+  <div id="escrow-admin-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="escrow-admin-modal-title">
+    <div class="modal gov-modal">
+      <button class="modal-close" id="escrow-admin-modal-close" aria-label="Close Subscription Plans Admin">×</button>
+
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="escrow-admin-modal-title">📋 Subscription Plans (DecentEscrow)</h2>
+      </div>
+      <p class="aes-stub-desc">
+        Manage subscription plans on the deployed
+        <a href="https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e"
+           target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">DecentEscrow contract</a>.
+        BigNuten uses <strong>Plan 0 (ETH)</strong> and <strong>Plan 1 ($BNUT)</strong>.
+      </p>
+
+      <div class="gov-admin-panel">
+
+        <!-- Current plans list -->
+        <div id="escrow-plans-list" style="margin-bottom:0.75rem;">
+          <p class="gov-loading">⏳ Loading plans…</p>
+        </div>
+        <button id="escrow-plans-refresh-btn" class="gov-admin-action-btn" style="margin-bottom:1rem;">🔄 Refresh Plans</button>
+
+        <!-- Create Plan -->
+        <details id="escrow-create-plan-section" class="gov-admin-section" style="margin-top:0.5rem;">
+          <summary>➕ Create New Plan <span id="escrow-plans-count" style="color:#aaa; font-weight:normal;"></span></summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">Caller must be the <strong>owner</strong> of the DecentEscrow contract.</p>
+            <label class="gov-label">Plan name
+              <input id="escrow-plan-name" class="gov-input" type="text" placeholder="e.g. BigNuten Monthly ETH" />
+            </label>
+            <label class="gov-label">Payment token address
+              <input id="escrow-plan-token" class="gov-input" type="text" placeholder="0x0000…0000 for ETH, or BNUT/USDC address" />
+            </label>
+            <label class="gov-label">Price per period (ETH/BNUT = whole tokens; USDC = dollars)
+              <input id="escrow-plan-price" class="gov-input gov-input-short" type="number" min="0" step="any" placeholder="0.01" />
+            </label>
+            <label class="gov-label">Period length (seconds)
+              <input id="escrow-plan-period" class="gov-input gov-input-short" type="number" min="1" placeholder="2592000 (30 days)" />
+            </label>
+            <button id="escrow-create-plan-btn" class="gov-admin-action-btn">🚀 Create Plan</button>
+            <p id="escrow-create-plan-status" class="gov-form-status"></p>
+          </div>
+        </details>
+
+        <!-- Deactivate Plan -->
+        <details class="gov-admin-section" style="margin-top:0.5rem;">
+          <summary>🚫 Deactivate Plan</summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">Deactivated plans stop accepting new subscriptions. Existing active subs remain valid.</p>
+            <label class="gov-label">Plan ID
+              <input id="escrow-deactivate-plan-id" class="gov-input gov-input-short" type="number" min="0" placeholder="0" />
+            </label>
+            <button id="escrow-deactivate-plan-btn" class="gov-admin-action-btn gov-admin-danger-btn">🚫 Deactivate Plan</button>
+            <p id="escrow-deactivate-plan-status" class="gov-form-status"></p>
+          </div>
+        </details>
+
+        <!-- Subscribers -->
+        <details class="gov-admin-section" style="margin-top:0.5rem;">
+          <summary>👥 Subscribers <span id="escrow-subs-count" style="color:#aaa; font-weight:normal;"></span></summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">Queries on-chain <code>Subscribed</code> events then cross-checks live status.</p>
+            <label class="gov-label">Plan ID
+              <input id="escrow-subs-plan-id" class="gov-input gov-input-short" type="number" min="0" value="0" placeholder="0" />
+            </label>
+            <button id="escrow-subs-load-btn" class="gov-admin-action-btn">🔍 Load Subscribers</button>
+            <p id="escrow-subs-status" class="gov-form-status"></p>
+            <div id="escrow-subs-list" style="margin-top:0.75rem;"></div>
+          </div>
+        </details>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Contributors Admin Modal ───────────────────────────────────────────── -->
+  <div id="contributors-admin-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="contributors-admin-modal-title">
+    <div class="modal gov-modal">
+      <button class="modal-close" id="contributors-admin-modal-close" aria-label="Close Contributors Admin">×</button>
+
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="contributors-admin-modal-title">👥 Contributors</h2>
+      </div>
+      <p class="aes-stub-desc">
+        Manage registered contributors. Wallet edits are applied locally — click
+        <strong>💾 Save / Download JSON</strong> then commit the file to persist changes.
+      </p>
+
+      <div class="gov-admin-panel">
+        <!-- Actions toolbar -->
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+          <button id="admin-contrib-add-btn" class="gov-admin-action-btn">➕ Add Contributor</button>
+          <button id="admin-contrib-save-btn" class="gov-admin-action-btn">💾 Save / Download JSON</button>
+        </div>
+        <p id="admin-contrib-status" class="gov-form-status"></p>
+
+        <!-- Contributors table -->
+        <div style="overflow-x:auto;">
+          <table class="contrib-table">
+            <thead>
+              <tr>
+                <th>GitHub</th>
+                <th>Wallet (Optimism)</th>
+                <th>Total Paid</th>
+                <th>Issues Completed</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-contrib-table-body">
+              <tr><td colspan="6" class="gov-loading">⏳ Loading contributors…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
