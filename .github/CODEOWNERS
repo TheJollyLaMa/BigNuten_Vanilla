@@ -1,3 +1,8 @@
 # CODEOWNERS — https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 # @TheJollyLaMa is the default reviewer for all files in this repository.
 * @TheJollyLaMa
+
+# Critical ledger files — explicit ownership to ensure CODEOWNER review flag
+# is always shown for these files, even if the global rule above is overridden.
+/contributor-accounts.json @TheJollyLaMa
+/payroll-queue.json @TheJollyLaMa
