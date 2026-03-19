@@ -1,4 +1,4 @@
-# 🌰 How to Subscribe with $BNUT
+# ⚕️ How to Subscribe with $BNUT
 
 > **Issue #44 — Accept $BNUT Token for Subscriptions (Discounted)**
 
@@ -40,9 +40,9 @@ Click the **🔓 Subscribe** button (or the subscription icon) anywhere in the B
 
 ### 2. Select the $BNUT Payment Tab
 
-In the **Payment method** row, click the **🌰 $BNUT** tab. You will see the current discounted price (loaded live from the DecentEscrow contract).
+In the **Payment method** row, click the **![BigNuten coin](../img/BigNuten.png) $BNUT** tab. You will see the current discounted price (loaded live from the DecentEscrow contract).
 
-### 3. Click "🌰 Pay with $BNUT"
+### 3. Click "Pay with $BNUT"
 
 The app will:
 1. **Connect your wallet** — MetaMask opens a "connect" prompt if not already connected.

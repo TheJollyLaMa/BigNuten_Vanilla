@@ -95,7 +95,7 @@ Plans are pre-created by the owner via `createPlan()` on DecentEscrow:
 
 1. **Fiat (PayPal / Stripe):** User pays via the payment SDK. The backend verifies payment, then calls `subscribe(user, durationDays)` on the `BigNutenSubscription` contract — granting on-chain access.
 2. **ETH:** User clicks **Ξ Pay with ETH** in the subscription modal. The app reads the live plan price from DecentEscrow, then calls `subscribe(planId=0)` with that ETH value via MetaMask.
-3. **$BNUT (discounted):** User clicks **🌰 Pay with $BNUT** in the subscription modal. The app:
+3. **$BNUT (discounted):** User clicks **Pay with $BNUT** (coin icon) in the subscription modal. The app:
    1. Reads the live plan price from DecentEscrow plan 1.
    2. Checks the user's $BNUT balance (must be ≥ plan price).
    3. Requests an ERC-20 `approve()` for DecentEscrow to spend the $BNUT (if current allowance is insufficient).

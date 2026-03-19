@@ -177,7 +177,7 @@ BigNuten accepts `$BNUT` for subscriptions at a **~50% discount** vs ETH:
 | ETH    | ~0.01 ETH / month |
 | **$BNUT** | **~500 $BNUT / month** |
 
-Open the **🔓 Subscribe** modal in the app, click the **🌰 $BNUT** tab, and follow the on-screen steps (approve + subscribe in two MetaMask transactions on Optimism Mainnet).
+Open the **🔓 Subscribe** modal in the app, click the **$BNUT** tab (BigNuten coin icon), and follow the on-screen steps (approve + subscribe in two MetaMask transactions on Optimism Mainnet).
 
 📖 See the full guide: [`docs/BNUT_SUBSCRIPTION.md`](docs/BNUT_SUBSCRIPTION.md)
 
