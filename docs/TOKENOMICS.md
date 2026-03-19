@@ -14,7 +14,8 @@
 6. [Governance](#governance)
 7. [Data Sharing Rewards](#data-sharing-rewards)
 8. [Smart Contracts](#smart-contracts)
-9. [Roadmap](#roadmap)
+9. [Deployment Steps](#deployment-steps)
+10. [Roadmap](#roadmap)
 
 ---
 
@@ -310,6 +311,68 @@ BigNuten users can opt in to share anonymised fitness and health data with the c
 All custom contracts use **Solidity ^0.8.20** and **OpenZeppelin Contracts v5**.
 
 Deployed addresses are set in `.env` after running `npm run deploy:<network>`.
+
+---
+
+## Deployment Steps
+
+### Prerequisites
+
+```bash
+cp .env.example .env
+# Fill in PRIVATE_KEY, OPTIMISM_RPC_URL, ETHERSCAN_API_KEY
+npm install
+```
+
+### 1. Deploy All Contracts
+
+```bash
+npx hardhat run scripts/deploy.js --network optimism
+```
+
+The deploy script will:
+1. Deploy `BigNuten.sol` (ERC-20 $BNUT) — mints `INITIAL_SUPPLY` to the deployer.
+2. Deploy `BigNutenTreasury.sol` — pass `bnutAddress` and `deployer.address` as constructor args.
+3. Deploy `BigNutenSubscription.sol`.
+4. Deploy `BigNutenGovernance.sol`.
+5. Transfer the entire initial BNUT supply to the Treasury contract.
+6. Grant `MINTER_ROLE` on the $BNUT token to the deployer (and optionally a CI bot wallet).
+
+### 2. Constructor Arguments
+
+| Contract | Arg 1 | Arg 2 |
+|---|---|---|
+| `BigNuten` | `initialOwner` (address) | — |
+| `BigNutenTreasury` | `_bnutToken` (address of deployed BigNuten) | `initialOwner` (address) |
+| `BigNutenSubscription` | `_bnutToken` | `_treasury` |
+| `BigNutenGovernance` | `_bnutToken` | `initialAdmin` |
+
+### 3. Fund the Treasury After Deploy
+
+```bash
+# Transfer BNUT from deployer to treasury (already done by deploy script)
+# Or top up later:
+cast send $BNUT_ADDRESS "transfer(address,uint256)" $TREASURY_ADDRESS 1000000000000000000 --private-key $PRIVATE_KEY --rpc-url $OPTIMISM_RPC_URL
+# Note: amounts are in wei (18 decimals). 1000000000000000000 = 1 BNUT; 1000000000000000000000 = 1000 BNUT
+```
+
+### 4. Update Contract Addresses in the App
+
+After deployment, update `js/contracts.js`:
+
+```js
+const TREASURY_CONTRACT_ADDRESS = '<deployed_treasury_address>';
+```
+
+### 5. BigNutenTreasury — Double-Pay Guard
+
+`BigNutenTreasury.sol` includes an `issuePaid` mapping that prevents the same GitHub
+issue reference (e.g. `"TheJollyLaMa/BigNuten_Vanilla#45"`) from being paid twice.
+Each payout also increments `totalPaid[contributor]` for canonical on-chain tracking.
+
+View helpers:
+- `getTotalPaid(address)` — cumulative BNUT paid to a contributor.
+- `isIssuePaid(string)` — whether an issue ref has already been settled.
 
 ---
 

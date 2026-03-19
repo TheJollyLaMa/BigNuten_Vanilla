@@ -1391,6 +1391,98 @@
 
           </div>
         </details>
+
+        <!-- 🏦 Treasury -->
+        <details id="treasury-section" class="gov-admin-section">
+          <summary>🏦 Treasury — $BNUT Supply &amp; Mint History</summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">
+              Live on-chain data from the
+              <a href="https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823"
+                 target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">$BNUT contract</a>
+              on Optimism Mainnet.
+            </p>
+
+            <!-- Supply Metrics -->
+            <div id="treasury-metrics" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem 1rem; margin-bottom:1rem;">
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">Total Supply</span>
+                <span id="treasury-total-supply" class="treasury-metric-value">—</span>
+              </div>
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">Max Supply</span>
+                <span id="treasury-max-supply" class="treasury-metric-value">—</span>
+              </div>
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">% Minted</span>
+                <span id="treasury-pct-minted" class="treasury-metric-value">—</span>
+              </div>
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">Remaining Mintable</span>
+                <span id="treasury-remaining" class="treasury-metric-value">—</span>
+              </div>
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">Admin Wallet Balance</span>
+                <span id="treasury-admin-bal" class="treasury-metric-value">—</span>
+              </div>
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">Treasury Wallet Balance</span>
+                <span id="treasury-wallet-bal" class="treasury-metric-value">—</span>
+              </div>
+            </div>
+            <button id="treasury-refresh-btn" class="gov-admin-action-btn" style="margin-bottom:1rem;">🔄 Refresh Metrics</button>
+
+            <!-- Supply Allocation Bar -->
+            <div style="margin-bottom:1rem;">
+              <p style="margin:0 0 0.35rem; font-size:0.85rem; color:#aaa;">Supply Allocation (advisory)</p>
+              <div id="treasury-alloc-bar" style="display:flex; height:18px; border-radius:6px; overflow:hidden; border:1px solid rgba(0,229,255,0.2);">
+                <div style="flex:40; background:#27ae60;" title="🌿 Community Rewards 40%"></div>
+                <div style="flex:20; background:#2980b9;" title="🛠️ Dev Bounties 20%"></div>
+                <div style="flex:20; background:#8e44ad;" title="🏛️ Treasury/DAO 20%"></div>
+                <div style="flex:10; background:#f39c12;" title="👑 Founding Team 10%"></div>
+                <div style="flex:10; background:#e74c3c;" title="🎟️ Early Supporters 10%"></div>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:0.4rem 0.75rem; margin-top:0.35rem; font-size:0.75rem; color:#ccc;">
+                <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;border-radius:2px;"></span> 🌿 Community Rewards 40%</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:#2980b9;border-radius:2px;"></span> 🛠️ Dev Bounties 20%</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:#8e44ad;border-radius:2px;"></span> 🏛️ Treasury/DAO 20%</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:#f39c12;border-radius:2px;"></span> 👑 Founding Team 10%</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:#e74c3c;border-radius:2px;"></span> 🎟️ Early Supporters 10%</span>
+              </div>
+            </div>
+
+            <!-- Recent Mint Activity -->
+            <details class="gov-admin-section" style="margin-top:0.5rem;">
+              <summary>📋 Recent Mint Activity (last 50)</summary>
+              <div class="gov-admin-section-body">
+                <p class="gov-admin-hint">Reads <code>TokensMinted</code> events from the $BNUT contract.</p>
+                <button id="treasury-load-mints-btn" class="gov-admin-action-btn" style="margin-bottom:0.75rem;">🔍 Load Mint History</button>
+                <p id="treasury-mints-status" class="gov-form-status"></p>
+                <div id="treasury-mints-table" style="overflow-x:auto; font-size:0.82rem;"></div>
+              </div>
+            </details>
+
+            <!-- Quick Mint (Admin) -->
+            <details class="gov-admin-section" style="margin-top:0.5rem;">
+              <summary>⚡ Quick Mint (Admin)</summary>
+              <div class="gov-admin-section-body">
+                <p class="gov-admin-hint">Calls <code>mintReward()</code> on the $BNUT contract. Caller must hold <strong>MINTER_ROLE</strong>.</p>
+                <label class="gov-label">Recipient address
+                  <input id="treasury-quick-mint-addr" class="gov-input" type="text" placeholder="0x…" />
+                </label>
+                <label class="gov-label">Amount (whole $BNUT)
+                  <input id="treasury-quick-mint-amount" class="gov-input gov-input-short" type="number" min="1" placeholder="100" />
+                </label>
+                <label class="gov-label">Reason
+                  <input id="treasury-quick-mint-reason" class="gov-input" type="text" placeholder="e.g. airdrop, manual reward" />
+                </label>
+                <button id="treasury-quick-mint-btn" class="gov-admin-action-btn">🚀 Mint $BNUT</button>
+                <p id="treasury-quick-mint-status" class="gov-form-status"></p>
+              </div>
+            </details>
+
+          </div>
+        </details>
       </div>
 
       <!-- Create Proposal button — shown only when PROPOSER_ROLE is confirmed -->

@@ -4997,6 +4997,207 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   })();
 
+  // ── Treasury Admin Panel ──────────────────────────────────────────────────
+
+  (function initTreasuryAdminPanel() {
+    const BNUT_ADDR = window.BNUT_CONTRACT_ADDRESS || '0x733c4d2Aae900E608147dd89Fa93606f89722823';
+    const TREASURY_ADDR = window.TREASURY_CONTRACT_ADDRESS || window.CONTRACTS?.treasury || '0x0000000000000000000000000000000000000000';
+    const RPC_URL = window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io';
+    // Optimism produces ~2 blocks/s; 2 000 000 blocks ≈ ~11.5 days of events.
+    const MINT_HISTORY_BLOCKS = 2_000_000;
+
+    const BNUT_ABI_MIN = [
+      'function totalSupply() view returns (uint256)',
+      'function MAX_SUPPLY() view returns (uint256)',
+      'function remainingSupply() view returns (uint256)',
+      'function balanceOf(address account) view returns (uint256)',
+      'function mintReward(address to, uint256 amount, string reason)',
+      'event TokensMinted(address indexed to, uint256 amount, string reason)',
+    ];
+
+    function fmt(wei) {
+      return Number(ethers.formatEther(wei)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    async function loadTreasuryMetrics() {
+      const refreshBtn = document.getElementById('treasury-refresh-btn');
+      if (refreshBtn) refreshBtn.disabled = true;
+
+      try {
+        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        const bnut = new ethers.Contract(BNUT_ADDR, BNUT_ABI_MIN, provider);
+
+        const [totalSupplyWei, maxSupplyWei, remainingWei] = await Promise.all([
+          bnut.totalSupply(),
+          bnut.MAX_SUPPLY(),
+          bnut.remainingSupply().catch(() => null),
+        ]);
+
+        const pctMinted = maxSupplyWei > 0n
+          ? ((Number(totalSupplyWei) / Number(maxSupplyWei)) * 100).toFixed(4)
+          : '—';
+
+        const remaining = remainingWei !== null
+          ? remainingWei
+          : (maxSupplyWei - totalSupplyWei);
+
+        const el = (id) => document.getElementById(id);
+        if (el('treasury-total-supply')) el('treasury-total-supply').textContent = fmt(totalSupplyWei) + ' BNUT';
+        if (el('treasury-max-supply')) el('treasury-max-supply').textContent = fmt(maxSupplyWei) + ' BNUT';
+        if (el('treasury-pct-minted')) el('treasury-pct-minted').textContent = pctMinted + '%';
+        if (el('treasury-remaining')) el('treasury-remaining').textContent = fmt(remaining) + ' BNUT';
+
+        // Admin wallet balance: connected MetaMask account (if any)
+        let adminBal = '—';
+        if (window.ethereum) {
+          try {
+            const wp = new ethers.BrowserProvider(window.ethereum);
+            const accounts = await wp.send('eth_accounts', []);
+            if (accounts && accounts.length > 0) {
+              const balWei = await bnut.balanceOf(accounts[0]);
+              adminBal = fmt(balWei) + ' BNUT';
+            }
+          } catch (_) { /* wallet not connected */ }
+        }
+        if (el('treasury-admin-bal')) el('treasury-admin-bal').textContent = adminBal;
+
+        // Treasury wallet balance
+        let treasuryBal = '—';
+        if (TREASURY_ADDR && TREASURY_ADDR !== '0x0000000000000000000000000000000000000000') {
+          try {
+            const balWei = await bnut.balanceOf(TREASURY_ADDR);
+            treasuryBal = fmt(balWei) + ' BNUT';
+          } catch (_) { /* treasury not deployed */ }
+        }
+        if (el('treasury-wallet-bal')) el('treasury-wallet-bal').textContent = treasuryBal;
+
+      } catch (err) {
+        console.warn('[treasury] loadTreasuryMetrics error:', err.message);
+      } finally {
+        if (refreshBtn) refreshBtn.disabled = false;
+      }
+    }
+
+    async function loadMintHistory() {
+      const loadBtn   = document.getElementById('treasury-load-mints-btn');
+      const statusEl  = document.getElementById('treasury-mints-status');
+      const tableEl   = document.getElementById('treasury-mints-table');
+      if (!tableEl) return;
+
+      if (loadBtn) loadBtn.disabled = true;
+      if (statusEl) statusEl.textContent = '⏳ Querying on-chain mint events…';
+      tableEl.innerHTML = '';
+
+      try {
+        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        const bnut = new ethers.Contract(BNUT_ADDR, BNUT_ABI_MIN, provider);
+
+        const latestBlock = await provider.getBlockNumber();
+        const fromBlock = Math.max(0, latestBlock - MINT_HISTORY_BLOCKS);
+        const events = await bnut.queryFilter('TokensMinted', fromBlock, 'latest');
+
+        const recent = events.slice(-50).reverse();
+
+        if (recent.length === 0) {
+          tableEl.innerHTML = '<p class="gov-loading">No mint events found in the scanned block range.</p>';
+          if (statusEl) statusEl.textContent = '';
+          return;
+        }
+
+        const rows = await Promise.all(recent.map(async (e) => {
+          let date = '—';
+          try {
+            const block = await provider.getBlock(e.blockNumber);
+            if (block) date = new Date(Number(block.timestamp) * 1000).toLocaleString();
+          } catch (_) { /* ignore */ }
+          const to     = e.args.to;
+          const amount = fmt(e.args.amount);
+          const reason = e.args.reason || '—';
+          const txHash = e.transactionHash;
+          const txLink = `<a href="https://optimistic.etherscan.io/tx/${txHash}" target="_blank" rel="noopener">${txHash.slice(0, 10)}…</a>`;
+          const toShort = `<code style="font-size:0.78em;">${to.slice(0, 8)}…${to.slice(-6)}</code>`;
+          return `<tr><td>${date}</td><td>${toShort}</td><td>${amount}</td><td>${reason}</td><td>${txLink}</td></tr>`;
+        }));
+
+        tableEl.innerHTML = `
+          <table class="treasury-mints-table">
+            <thead><tr><th>Date</th><th>To</th><th>Amount</th><th>Reason</th><th>TxHash</th></tr></thead>
+            <tbody>${rows.join('')}</tbody>
+          </table>`;
+
+        if (statusEl) statusEl.textContent = `✅ Showing ${recent.length} most recent mint event${recent.length !== 1 ? 's' : ''}.`;
+
+      } catch (err) {
+        if (statusEl) statusEl.textContent = `❌ ${err.message}`;
+        console.warn('[treasury] loadMintHistory error:', err);
+      } finally {
+        if (loadBtn) loadBtn.disabled = false;
+      }
+    }
+
+    const refreshBtn = document.getElementById('treasury-refresh-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => loadTreasuryMetrics());
+    }
+
+    const loadMintsBtn = document.getElementById('treasury-load-mints-btn');
+    if (loadMintsBtn) {
+      loadMintsBtn.addEventListener('click', () => loadMintHistory());
+    }
+
+    // Auto-load metrics when the treasury section is opened.
+    const treasurySection = document.getElementById('treasury-section');
+    if (treasurySection) {
+      treasurySection.addEventListener('toggle', () => {
+        if (treasurySection.open) loadTreasuryMetrics();
+      });
+    }
+
+    // Quick Mint form
+    const quickMintBtn    = document.getElementById('treasury-quick-mint-btn');
+    const quickMintStatus = document.getElementById('treasury-quick-mint-status');
+
+    if (quickMintBtn) {
+      quickMintBtn.addEventListener('click', async () => {
+        const toAddr = (document.getElementById('treasury-quick-mint-addr')?.value || '').trim();
+        const amount = Number(document.getElementById('treasury-quick-mint-amount')?.value || 0);
+        const reason = (document.getElementById('treasury-quick-mint-reason')?.value || '').trim();
+
+        if (!toAddr || !toAddr.startsWith('0x') || toAddr.length !== 42) {
+          if (quickMintStatus) quickMintStatus.textContent = '⚠️ Enter a valid wallet address.';
+          return;
+        }
+        if (!amount || amount <= 0) {
+          if (quickMintStatus) quickMintStatus.textContent = '⚠️ Enter a positive amount.';
+          return;
+        }
+
+        quickMintBtn.disabled = true;
+        if (quickMintStatus) quickMintStatus.textContent = '⏳ Minting via MetaMask…';
+
+        try {
+          const txHash = await mintBnutToAddress(toAddr, amount, reason || 'Quick mint');
+          if (quickMintStatus) {
+            const txUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+            quickMintStatus.innerHTML = `✅ Minted ${amount} $BNUT! <a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View tx ↗</a>`;
+          }
+          const addrEl   = document.getElementById('treasury-quick-mint-addr');
+          const amtEl    = document.getElementById('treasury-quick-mint-amount');
+          const reasonEl = document.getElementById('treasury-quick-mint-reason');
+          if (addrEl)   addrEl.value   = '';
+          if (amtEl)    amtEl.value    = '';
+          if (reasonEl) reasonEl.value = '';
+          // Refresh metrics after mint
+          await loadTreasuryMetrics();
+        } catch (err) {
+          if (quickMintStatus) quickMintStatus.textContent = `❌ Mint failed: ${err.reason || err.message || err}`;
+        } finally {
+          quickMintBtn.disabled = false;
+        }
+      });
+    }
+  })();
+
   // ── Community Data Dashboard ──────────────────────────────────────────────
   initCommunityDashboard();
 });

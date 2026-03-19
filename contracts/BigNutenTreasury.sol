@@ -24,6 +24,14 @@ contract BigNutenTreasury is Ownable {
     /// @notice Cumulative BNUT rewarded to each address for data sharing.
     mapping(address => uint256) public dataSharingRewards;
 
+    /// @notice Double-pay guard: true if the given GitHub issue reference has
+    ///         already been settled via payContributor or batchPayContributors.
+    mapping(string => bool) public issuePaid;
+
+    /// @notice Canonical on-chain total BNUT paid out to each contributor
+    ///         across all bounty payouts (does not include data-sharing rewards).
+    mapping(address => uint256) public totalPaid;
+
     // ─── Events ───────────────────────────────────────────────────────────────
 
     /// @notice Emitted when a contributor receives a BNUT bounty payout.
@@ -77,10 +85,14 @@ contract BigNutenTreasury is Ownable {
     ) external onlyOwner {
         require(contributor != address(0), "Treasury: zero contributor address");
         require(amount > 0, "Treasury: amount must be > 0");
+        require(!issuePaid[issueRef], "Treasury: issue already paid");
         require(
             bnutToken.balanceOf(address(this)) >= amount,
             "Treasury: insufficient BNUT balance"
         );
+
+        issuePaid[issueRef] = true;
+        totalPaid[contributor] += amount;
 
         // Transfer BNUT directly from treasury to the contributor.
         bool success = bnutToken.transfer(contributor, amount);
@@ -110,10 +122,14 @@ contract BigNutenTreasury is Ownable {
         for (uint256 i = 0; i < contributors.length; i++) {
             require(contributors[i] != address(0), "Treasury: zero contributor address");
             require(amounts[i] > 0, "Treasury: amount must be > 0");
+            require(!issuePaid[issueRefs[i]], "Treasury: issue already paid");
             require(
                 bnutToken.balanceOf(address(this)) >= amounts[i],
                 "Treasury: insufficient BNUT balance"
             );
+
+            issuePaid[issueRefs[i]] = true;
+            totalPaid[contributors[i]] += amounts[i];
 
             bool success = bnutToken.transfer(contributors[i], amounts[i]);
             require(success, "Treasury: transfer failed");
@@ -217,5 +233,19 @@ contract BigNutenTreasury is Ownable {
     /// @return total Cumulative BNUT rewarded to that address (18 decimals).
     function getDataSharingRewards(address user) public view returns (uint256 total) {
         return dataSharingRewards[user];
+    }
+
+    /// @notice Returns the total BNUT paid to a contributor across all bounty payouts.
+    /// @param contributor Wallet address to query.
+    /// @return total Cumulative BNUT paid to that address (18 decimals).
+    function getTotalPaid(address contributor) public view returns (uint256 total) {
+        return totalPaid[contributor];
+    }
+
+    /// @notice Returns whether the given GitHub issue reference has already been paid.
+    /// @param issueRef GitHub issue reference, e.g. "TheJollyLaMa/BigNuten_Vanilla#45".
+    /// @return paid True if the issue has been settled.
+    function isIssuePaid(string calldata issueRef) public view returns (bool paid) {
+        return issuePaid[issueRef];
     }
 }
