@@ -4174,11 +4174,323 @@ document.addEventListener('DOMContentLoaded', () => {
   if (aesSubBtn) {
     aesSubBtn.addEventListener('click', () => {
       closeAesDropdown();
-      openAboutModal(false);
+      openSubscriptionModal();
     });
   }
 
-  // ── Payroll Modal (treasury owner only) ──────────────────────────────────
+  // ── Subscription Status Modal ─────────────────────────────────────────────
+
+  (function initSubscriptionModal() {
+    const subModal  = document.getElementById('subscription-modal');
+    const subClose  = document.getElementById('subscription-modal-close');
+    if (!subModal) return;
+
+    // ── helpers ──
+
+    function openSubModal() {
+      subModal.classList.remove('modal-hidden');
+      document.body.classList.add('modal-active');
+      loadSubscriptionStatus();
+      renderPaymentHistory();
+    }
+
+    function closeSubModal() {
+      subModal.classList.add('modal-hidden');
+      if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
+        document.body.classList.remove('modal-active');
+      }
+    }
+
+    // Expose so the button above can call it
+    window.openSubscriptionModal = openSubModal;
+
+    if (subClose) subClose.addEventListener('click', closeSubModal);
+    subModal.addEventListener('click', (e) => {
+      if (e.target === subModal) closeSubModal();
+    });
+
+    // ── Subscription status ──
+
+    async function loadSubscriptionStatus() {
+      const statusBadge   = document.getElementById('sub-status-badge');
+      const statusMethod  = document.getElementById('sub-status-method');
+      const statusDetails = document.getElementById('sub-status-details');
+      const manageRow     = document.getElementById('sub-manage-row');
+      const statusCard    = document.getElementById('sub-status-card');
+
+      // Read persisted state from localStorage (set after a successful payment)
+      const stored = (() => {
+        try { return JSON.parse(localStorage.getItem('bignuten_subscription') || 'null'); }
+        catch { return null; }
+      })();
+
+      // Also try on-chain if wallet connected
+      let onChain = null;
+      if (window.connectedWallet) {
+        try {
+          const { checkSubscriptionStatus } = await import('./subscription.js');
+          onChain = await checkSubscriptionStatus(window.connectedWallet);
+        } catch (err) { console.warn('[subscription] on-chain status check skipped:', err.message); }
+      }
+
+      const isActive = onChain?.isSubscribed || (stored && stored.status === 'active' && new Date(stored.expiry) > new Date());
+      const expiry   = onChain?.expiry ? onChain.expiry : (stored?.expiry ? new Date(stored.expiry) : null);
+      const method   = stored?.method || null;
+      const plan     = stored?.plan   || null;
+
+      if (isActive) {
+        statusBadge.textContent = '🟢 Active';
+        statusBadge.className   = 'sub-status-badge sub-badge-active';
+        statusBadge.setAttribute('aria-label', 'Subscription status: Active');
+        statusCard.classList.add('sub-card-active');
+
+        if (method) statusMethod.textContent = method;
+
+        if (statusDetails) {
+          statusDetails.style.display = 'block';
+          const planEl    = document.getElementById('sub-detail-plan');
+          const methodEl  = document.getElementById('sub-detail-method');
+          const renewalEl = document.getElementById('sub-detail-renewal');
+          const billEl    = document.getElementById('sub-detail-billing');
+
+          if (planEl)    planEl.textContent    = plan   || 'Monthly · $10';
+          if (methodEl)  methodEl.textContent  = method || '—';
+          if (renewalEl) renewalEl.textContent = expiry ? expiry.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' }) : '—';
+          if (billEl)    billEl.textContent    = '✅ Paid';
+        }
+
+        if (manageRow) {
+          manageRow.style.display = 'flex';
+          // Point manage link to the right portal
+          const manageLink = document.getElementById('sub-manage-link');
+          if (manageLink && method) {
+            if (method.toLowerCase().includes('paypal')) {
+              manageLink.href = 'https://www.paypal.com/myaccount/autopay/';
+            } else if (method.toLowerCase().includes('stripe') || method.toLowerCase().includes('card')) {
+              manageLink.href = 'https://billing.stripe.com/p/login/test_00000';
+            } else {
+              manageLink.href = '#';
+            }
+          }
+        }
+      } else if (expiry && expiry < new Date()) {
+        statusBadge.textContent = '🔴 Expired';
+        statusBadge.className   = 'sub-status-badge sub-badge-expired';
+        statusBadge.setAttribute('aria-label', 'Subscription status: Expired');
+        statusCard.classList.remove('sub-card-active');
+        if (statusDetails) statusDetails.style.display = 'none';
+        if (manageRow)     manageRow.style.display      = 'none';
+      } else {
+        statusBadge.textContent = '⚪ No Active Plan';
+        statusBadge.className   = 'sub-status-badge sub-badge-inactive';
+        statusBadge.setAttribute('aria-label', 'Subscription status: No active plan');
+        statusCard.classList.remove('sub-card-active');
+        if (statusDetails) statusDetails.style.display = 'none';
+        if (manageRow)     manageRow.style.display      = 'none';
+      }
+    }
+
+    // ── Plan toggle (Monthly / Annual) ──
+
+    const planBtns = subModal.querySelectorAll('.sub-plan-btn');
+    let currentPlan = 'monthly';
+
+    planBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        planBtns.forEach(b => { b.classList.remove('sub-plan-active'); b.setAttribute('aria-selected', 'false'); });
+        btn.classList.add('sub-plan-active');
+        btn.setAttribute('aria-selected', 'true');
+        currentPlan = btn.dataset.plan;
+
+        // Swap PayPal forms
+        const monthlyForm = document.getElementById('sub-paypal-monthly-form');
+        const annualForm  = document.getElementById('sub-paypal-annual-form');
+        if (monthlyForm) monthlyForm.style.display = currentPlan === 'monthly' ? '' : 'none';
+        if (annualForm)  annualForm.style.display  = currentPlan === 'annual'  ? '' : 'none';
+
+        // Update Stripe price label
+        const stripePriceLabel = document.getElementById('sub-stripe-price-label');
+        if (stripePriceLabel) stripePriceLabel.textContent = currentPlan === 'annual' ? '$99 / year' : '$10 / month';
+      });
+    });
+
+    // ── Payment method tabs ──
+
+    const methodTabs   = subModal.querySelectorAll('.sub-method-tab');
+    const methodPanels = {
+      paypal: document.getElementById('sub-panel-paypal'),
+      stripe: document.getElementById('sub-panel-stripe'),
+      eth:    document.getElementById('sub-panel-eth'),
+      bnut:   document.getElementById('sub-panel-bnut'),
+    };
+
+    methodTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        methodTabs.forEach(t => { t.classList.remove('sub-tab-active'); t.setAttribute('aria-selected', 'false'); });
+        tab.classList.add('sub-tab-active');
+        tab.setAttribute('aria-selected', 'true');
+
+        Object.values(methodPanels).forEach(p => { if (p) p.style.display = 'none'; });
+        const activePanel = methodPanels[tab.dataset.method];
+        if (activePanel) activePanel.style.display = '';
+      });
+    });
+
+    // ── Stripe button ──
+
+    const stripeBtn    = document.getElementById('sub-stripe-btn');
+    const stripeStatus = document.getElementById('sub-stripe-status');
+    if (stripeBtn) {
+      stripeBtn.addEventListener('click', async () => {
+        stripeBtn.disabled = true;
+        if (stripeStatus) stripeStatus.textContent = '⏳ Redirecting to Stripe…';
+        try {
+          const { initStripeSubscription } = await import('./subscription.js');
+          const priceId = currentPlan === 'annual'
+            ? (window.STRIPE_ANNUAL_PRICE_ID  || 'price_annual_placeholder')
+            : (window.STRIPE_MONTHLY_PRICE_ID || 'price_monthly_placeholder');
+          await initStripeSubscription(priceId);
+        } catch (err) {
+          if (stripeStatus) stripeStatus.textContent = `❌ ${err.message || 'Stripe unavailable'}`;
+        } finally {
+          stripeBtn.disabled = false;
+        }
+      });
+    }
+
+    // ── ETH button ──
+
+    const ethBtn    = document.getElementById('sub-eth-btn');
+    const ethStatus = document.getElementById('sub-eth-status');
+    if (ethBtn) {
+      ethBtn.addEventListener('click', async () => {
+        ethBtn.disabled = true;
+        if (ethStatus) ethStatus.textContent = '⏳ Opening MetaMask…';
+        try {
+          const { payCryptoSubscription } = await import('./subscription.js');
+          const txHash = await payCryptoSubscription();
+          if (ethStatus) ethStatus.textContent = `✅ Subscribed! Tx: ${txHash.slice(0, 14)}…`;
+          _saveSubscriptionLocal('ETH / MetaMask', currentPlan);
+          await loadSubscriptionStatus();
+          renderPaymentHistory();
+        } catch (err) {
+          if (ethStatus) ethStatus.textContent = `❌ ${err.message || 'Transaction failed'}`;
+        } finally {
+          ethBtn.disabled = false;
+        }
+      });
+    }
+
+    // ── $BNUT button ──
+
+    const bnutBtn    = document.getElementById('sub-bnut-btn');
+    const bnutStatus = document.getElementById('sub-bnut-status');
+    if (bnutBtn) {
+      bnutBtn.addEventListener('click', async () => {
+        bnutBtn.disabled = true;
+        if (bnutStatus) bnutStatus.textContent = '⏳ Opening MetaMask…';
+        try {
+          const { payBNUTSubscription } = await import('./subscription.js');
+          const txHash = await payBNUTSubscription();
+          if (bnutStatus) bnutStatus.textContent = `✅ Subscribed! Tx: ${txHash.slice(0, 14)}…`;
+          _saveSubscriptionLocal('$BNUT Token', currentPlan);
+          await loadSubscriptionStatus();
+          renderPaymentHistory();
+        } catch (err) {
+          if (bnutStatus) bnutStatus.textContent = `❌ ${err.message || 'Transaction failed'}`;
+        } finally {
+          bnutBtn.disabled = false;
+        }
+      });
+    }
+
+    // ── Cancel button ──
+
+    const cancelBtn = document.getElementById('sub-cancel-btn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        const stored = (() => {
+          try { return JSON.parse(localStorage.getItem('bignuten_subscription') || 'null'); }
+          catch { return null; }
+        })();
+
+        const methodLower = (stored?.method || '').toLowerCase();
+        let cancelUrl = 'https://www.paypal.com/myaccount/autopay/';
+        if (methodLower.includes('stripe') || methodLower.includes('card')) {
+          cancelUrl = 'https://billing.stripe.com/p/login/test_00000';
+        } else if (methodLower.includes('eth') || methodLower.includes('bnut')) {
+          // On-chain — clear local record and refresh
+          localStorage.removeItem('bignuten_subscription');
+          loadSubscriptionStatus();
+          return;
+        }
+        window.open(cancelUrl, '_blank', 'noopener,noreferrer');
+      });
+    }
+
+    // ── Payment History ──
+
+    function renderPaymentHistory() {
+      const listEl = document.getElementById('sub-history-list');
+      if (!listEl) return;
+
+      const raw = (() => {
+        try { return JSON.parse(localStorage.getItem('bignuten_payment_history') || '[]'); }
+        catch { return []; }
+      })();
+
+      if (!raw.length) {
+        listEl.innerHTML = '<p class="gov-loading" id="sub-history-empty">No payment records found.</p>';
+        return;
+      }
+
+      listEl.innerHTML = raw.slice().reverse().map(p => `
+        <div class="sub-history-item">
+          <span class="sub-history-date">${new Date(p.date).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' })}</span>
+          <span class="sub-history-desc">${p.description || 'Subscription'}</span>
+          <span class="sub-history-amount">${p.amount || ''}</span>
+          <span class="${p.ok ? 'sub-history-status-ok' : 'sub-history-status-fail'}">${p.ok ? '✔' : '✖'}</span>
+        </div>
+      `).join('');
+    }
+
+    // ── Helpers ──
+
+    function _saveSubscriptionLocal(method, plan) {
+      const expiry = new Date();
+      if (plan === 'annual') expiry.setFullYear(expiry.getFullYear() + 1);
+      else expiry.setMonth(expiry.getMonth() + 1);
+
+      localStorage.setItem('bignuten_subscription', JSON.stringify({
+        status: 'active',
+        method,
+        plan: plan === 'annual' ? 'Annual · $99' : 'Monthly · $10',
+        expiry: expiry.toISOString(),
+      }));
+
+      // Append to history
+      const history = (() => {
+        try { return JSON.parse(localStorage.getItem('bignuten_payment_history') || '[]'); }
+        catch { return []; }
+      })();
+      history.push({
+        date:        new Date().toISOString(),
+        description: `${plan === 'annual' ? 'Annual' : 'Monthly'} plan via ${method}`,
+        amount:      plan === 'annual' ? '$99' : '$10',
+        ok:          true,
+      });
+      localStorage.setItem('bignuten_payment_history', JSON.stringify(history));
+    }
+
+    // Record successful PayPal redirects by detecting query param ?paypal=success
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('paypal') === 'success') {
+      const savedPlan = urlParams.get('plan') === 'annual' ? 'annual' : 'monthly';
+      _saveSubscriptionLocal('PayPal', savedPlan);
+      history.replaceState({}, '', window.location.pathname);
+    }
+
+  }());
 
   (function initPayrollModal() {
     const payrollBtn   = document.getElementById('aes-payroll-btn');
