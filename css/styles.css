@@ -2071,9 +2071,9 @@ svg text {
 .admin-dropdown {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
-  transform: translateX(-25%);
-  min-width: 200px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 220px;
   background: rgba(30, 0, 20, 0.97);
   border: 2px solid #ff9f43;
   border-radius: 10px;

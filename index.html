@@ -1465,6 +1465,10 @@
                 <label class="gov-label">Recipient address
                   <input id="treasury-quick-mint-addr" class="gov-input" type="text" placeholder="0x…" />
                 </label>
+                <label class="gov-label" style="flex-direction:row; align-items:center; gap:0.5rem; cursor:pointer;">
+                  <input id="treasury-mint-to-treasury" type="checkbox" style="width:16px;height:16px;cursor:pointer;" />
+                  <span>Mint directly to Treasury contract</span>
+                </label>
                 <label class="gov-label">Amount (whole $BNUT)
                   <input id="treasury-quick-mint-amount" class="gov-input gov-input-short" type="number" min="1" placeholder="100" />
                 </label>
@@ -1473,6 +1477,23 @@
                 </label>
                 <button id="treasury-quick-mint-btn" class="gov-admin-action-btn">🚀 Mint $BNUT</button>
                 <p id="treasury-quick-mint-status" class="gov-form-status"></p>
+              </div>
+            </details>
+
+            <!-- Transfer to Treasury -->
+            <details class="gov-admin-section" style="margin-top:0.5rem;">
+              <summary>🏦 Transfer $BNUT to Treasury</summary>
+              <div class="gov-admin-section-body">
+                <p class="gov-admin-hint">Transfers $BNUT from your connected wallet to the treasury contract. Uses ERC-20 <code>transfer()</code>.</p>
+                <div class="treasury-metric" style="margin-bottom:0.75rem;">
+                  <span class="treasury-metric-label">Treasury Address</span>
+                  <code style="font-size:0.78rem;color:#00e5ff;word-break:break-all;" id="treasury-transfer-addr-display"></code>
+                </div>
+                <label class="gov-label">Amount (whole $BNUT)
+                  <input id="treasury-transfer-amount" class="gov-input gov-input-short" type="number" min="1" placeholder="100" />
+                </label>
+                <button id="treasury-transfer-btn" class="gov-admin-action-btn">💸 Transfer to Treasury</button>
+                <p id="treasury-transfer-status" class="gov-form-status"></p>
               </div>
             </details>
 
