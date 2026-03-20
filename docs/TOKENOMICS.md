@@ -1,6 +1,6 @@
-# BigNuten Tokenomics
+# BigNuten Tokenomics — v2.0.0
 
-> **Token:** BigNuten | **Symbol:** $BNUT | **Decimals:** 18
+> **Token:** BigNuten | **Symbol:** $BNUT | **Decimals:** 18 | **Network:** Optimism Mainnet
 
 ---
 
@@ -8,14 +8,16 @@
 
 1. [Overview](#overview)
 2. [Token Details](#token-details)
-3. [Supply Allocation](#supply-allocation)
+3. [Supply & Inflation](#supply--inflation)
 4. [Subscription Tiers](#subscription-tiers)
 5. [Contributor Bounty System](#contributor-bounty-system)
-6. [Governance](#governance)
-7. [Data Sharing Rewards](#data-sharing-rewards)
-8. [Smart Contracts](#smart-contracts)
-9. [Deployment Steps](#deployment-steps)
-10. [Roadmap](#roadmap)
+6. [Payroll Queue & Settle Cycles](#payroll-queue--settle-cycles)
+7. [Governance](#governance)
+8. [Data Sharing Rewards](#data-sharing-rewards)
+9. [Admin Mints](#admin-mints)
+10. [Smart Contracts](#smart-contracts)
+11. [Deployment Steps](#deployment-steps)
+12. [Roadmap Status](#roadmap-status)
 
 ---
 
@@ -23,86 +25,92 @@
 
 $BNUT is the native utility and governance token of the **BigNuten** fitness ecosystem. It aligns the interests of users, contributors, and the platform by rewarding participation, funding development, and enabling community governance.
 
-Users can earn $BNUT by:
-- Completing GitHub bounty issues
-- Opting in to share anonymised fitness/health data
-- Participating in the community dashboard
+As of v2.0.0, $BNUT is **live on Optimism Mainnet** and actively used for:
 
-$BNUT can be used for:
-- Discounted subscriptions (vs paying with ETH or fiat)
-- Voting on governance proposals
-- Future in-app purchases and premium features
+- Contributor bounty payouts via `BigNutenTreasury`
+- Discounted subscriptions (vs paying with ETH or fiat) via `DecentEscrow`
+- Data-sharing rewards (opt-in fitness data contributions)
+- Governance voting on platform decisions
+- Admin mints for test distributions and ecosystem seeding
 
 ---
 
 ## Token Details
 
-| Property       | Value                                   |
-|----------------|-----------------------------------------|
-| Name           | BigNuten                                |
-| Symbol         | $BNUT                                   |
-| Decimals       | 18                                      |
-| Standard       | ERC-20                                  |
-| Networks       | Polygon, Base, Optimism (configurable)  |
-| Initial Supply | 100,000,000 BNUT (100 million)          |
-| Contract       | `contracts/BigNuten.sol`                |
-| Mintable       | Yes — owner only (Treasury/multisig)    |
-| Burnable       | Yes — any holder can burn their tokens  |
+| Property | Value |
+|---|---|
+| Name | BigNuten |
+| Symbol | $BNUT |
+| Decimals | 18 |
+| Standard | ERC-20 |
+| Network | Optimism Mainnet (Chain ID: 10) |
+| Contract | [`0x733c4d2Aae900E608147dd89Fa93606f89722823`](https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823) |
+| Max Supply | 1,000,000,000 BNUT (1 billion) |
+| Mintable | Yes — `MINTER_ROLE` only (owner / treasury-authorised wallet) |
+| Burnable | Yes — any holder can burn their own tokens |
 
 ---
 
-## Supply Allocation
+## Supply & Inflation
 
-The initial supply of **100,000,000 BNUT** is minted to the deployer address and immediately transferred to the BigNutenTreasury contract. Allocation is as follows:
+### Max Supply
 
-| Category                    | % of Supply | Amount (BNUT)  | Purpose                                        |
-|-----------------------------|-------------|----------------|------------------------------------------------|
-| Treasury / Ecosystem Fund   | 50%         | 50,000,000     | Bounties, contributor rewards, partnerships    |
-| Data Sharing Rewards        | 20%         | 20,000,000     | Opt-in health/fitness data sharing incentives  |
-| Team & Advisors             | 15%         | 15,000,000     | Vested over 24 months (to be implemented)      |
-| Community Reserve           | 10%         | 10,000,000     | Governance-controlled community fund           |
-| Initial Liquidity           | 5%          | 5,000,000      | DEX liquidity pool seeding                     |
+The $BNUT token has a **maximum supply of 1,000,000,000 BNUT**. Tokens are minted on-demand by wallets holding `MINTER_ROLE` — there is no fixed initial mint. This approach allows the ecosystem to grow supply in line with actual activity (bounties, rewards, liquidity) rather than front-loading all tokens.
 
-> 💡 All allocations are subject to community governance votes after the governance system is deployed.
+### Planned Allocation
+
+| Category | % of Max | Amount (BNUT) | Purpose |
+|---|---|---|---|
+| Treasury / Ecosystem Fund | 50% | 500,000,000 | Bounties, contributor rewards, partnerships |
+| Data Sharing Rewards | 20% | 200,000,000 | Opt-in health/fitness data sharing incentives |
+| Team & Advisors | 15% | 150,000,000 | Vested over 24 months (to be implemented) |
+| Community Reserve | 10% | 100,000,000 | Governance-controlled community fund |
+| Initial Liquidity | 5% | 50,000,000 | DEX liquidity pool seeding |
+
+> Allocations are guidance only. The community can vote to adjust distribution via governance proposals.
+
+### Inflation Model
+
+- New tokens are **only minted when a `MINTER_ROLE` wallet calls `mint()`** on the ERC-20 contract.
+- `MINTER_ROLE` is held by the deployer (`@TheJollyLaMa`) and can be granted to the treasury contract or a multisig.
+- Mints are traceable on-chain via `Transfer` events from the zero address.
+- The Admin Panel → $BNUT Admin → Quick Mint UI provides a human-readable mint interface for the owner.
 
 ---
 
 ## Subscription Tiers
 
-BigNuten offers three payment methods for subscriptions. Paying with $BNUT provides a discount over ETH or fiat.
+BigNuten offers multiple payment methods. Paying with $BNUT provides a discount over ETH or fiat.
 
 ### Monthly Subscription
 
-| Plan           | Payment Method | Price          | Duration |
-|----------------|----------------|----------------|----------|
-| Fiat — PayPal  | USD (PayPal)   | $9.99 / month  | 30 days  |
-| Fiat — Stripe  | USD (Stripe)   | $9.99 / month  | 30 days  |
-| Crypto — ETH   | ETH via MetaMask | ~0.01 ETH   | 30 days  |
-| Crypto — $BNUT | BNUT via MetaMask | 500 BNUT   | 30 days  |
-
-> Prices are approximate and may change based on market conditions. The BNUT discount (~50% off ETH equivalent) incentivises token adoption and rewards long-term holders.
+| Plan | Payment Method | Price | Duration |
+|---|---|---|---|
+| Fiat — PayPal | USD (PayPal) | $9.99 / month | 30 days |
+| Fiat — Stripe | USD (Stripe) | $9.99 / month | 30 days |
+| Crypto — ETH | ETH via MetaMask | ~0.01 ETH | 30 days |
+| Crypto — $BNUT | BNUT via MetaMask | 500 BNUT | 30 days |
 
 ### How Subscriptions Work
 
-Subscription management is handled by the **DecentEscrow** contract deployed on Optimism Mainnet at
-[`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e).
+Subscription management is handled by the **DecentEscrow** contract on Optimism Mainnet:
+[`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e)
 
-Plans are pre-created by the owner via `createPlan()` on DecentEscrow:
+Plans are pre-created by the owner via Admin Panel → Escrow Admin → Create Plan:
 
-| Plan ID | Payment Token | Plan Name                   |
-|---------|---------------|-----------------------------|
-| 0       | ETH           | BigNuten Monthly ETH        |
-| 1       | $BNUT (ERC-20)| BigNuten Monthly BNUT       |
+| Plan ID | Payment Token | Plan Name |
+|---|---|---|
+| 0 | ETH | BigNuten Monthly ETH |
+| 1 | $BNUT (ERC-20) | BigNuten Monthly BNUT |
 
-1. **Fiat (PayPal / Stripe):** User pays via the payment SDK. The backend verifies payment, then calls `subscribe(user, durationDays)` on the `BigNutenSubscription` contract — granting on-chain access.
-2. **ETH:** User clicks **Ξ Pay with ETH** in the subscription modal. The app reads the live plan price from DecentEscrow, then calls `subscribe(planId=0)` with that ETH value via MetaMask.
-3. **$BNUT (discounted):** User clicks **Pay with $BNUT** (coin icon) in the subscription modal. The app:
-   1. Reads the live plan price from DecentEscrow plan 1.
-   2. Checks the user's $BNUT balance (must be ≥ plan price).
-   3. Requests an ERC-20 `approve()` for DecentEscrow to spend the $BNUT (if current allowance is insufficient).
-   4. Calls `subscribe(planId=1)` on DecentEscrow — BNUT is transferred and the subscription is activated on-chain.
+**Flow:**
+1. **Fiat (PayPal / Stripe):** User pays via payment SDK; on-chain status is tracked via `BigNutenSubscription` contract.
+2. **ETH:** User clicks **Ξ Pay with ETH** in subscription modal → app reads live plan price from DecentEscrow → calls `subscribe(planId=0)` with ETH value via MetaMask.
+3. **$BNUT (discounted):** User clicks **Pay with $BNUT** → app reads plan 1 price → checks BNUT balance → requests `approve()` → calls `subscribe(planId=1)` on DecentEscrow.
 
-Active subscription status is always readable on-chain via `isSubscribed(planId, address)` on the DecentEscrow contract, and both the ETH plan and the $BNUT plan are checked simultaneously by the app.
+Active subscription status is checked on-chain via `isSubscribed(planId, address)` on DecentEscrow.
+
+Full guide: [`docs/BNUT_SUBSCRIPTION.md`](BNUT_SUBSCRIPTION.md)
 
 ---
 
@@ -110,23 +118,30 @@ Active subscription status is always readable on-chain via `isSubscribed(planId,
 
 The bounty system rewards open-source contributors for closing GitHub issues.
 
-### How It Works
+### How It Works (v2.0.0)
 
-1. The repo owner runs the **Bounty Label** workflow (`.github/workflows/bounty-label.yml`) to add a label like **`bounty: 500 BNUT`** to an issue.
-2. When the issue is assigned, the **Bounty Bot** (`.github/workflows/bounty-bot.yml`) posts a comment announcing the reward.
+1. The repo owner runs **Actions → Bounty Label → Run workflow** to add a label like **`bounty: 500 BNUT`** to an issue.
+2. When the issue is assigned, the **Bounty Bot** (`.github/workflows/bounty-bot.yml`) posts a reward announcement comment.
 3. The contributor opens a PR that closes the issue (`Closes #N` in the PR body).
 4. When the PR is merged, the **Bounty Bot** automatically:
-   - Appends a correctly-formatted entry to `payroll-queue.json`.
+   - Appends a correctly-formatted entry to `payroll-queue.json` (in the `pending[]` array).
    - Increments `bnutPending` and records the issue in `issuesClosed` in `contributor-accounts.json`.
    - Posts a confirmation comment on the closed issue.
-5. If the contributor is not yet registered (no wallet address), the bot posts a warning and @TheJollyLaMa can run the manual **Bounty Payout** workflow (`.github/workflows/bounty-payout.yml`) as a fallback.
-6. Once queued, payouts are settled via the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) Payroll panel.
+5. Once queued, payouts are settled via the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) **Admin Panel → Payroll**.
 
-> ⚠️ **Whitelist required:** Only contributors registered in `contributor-accounts.json` by `@TheJollyLaMa` can receive $BNUT payouts. See [Whitelist Onboarding](#whitelist-onboarding) below.
+> ⚠️ **Whitelist required:** Only contributors registered in `contributor-accounts.json` by `@TheJollyLaMa` can receive $BNUT payouts.
 
-### Applying a Bounty Label
+### Bounty Tiers
 
-Maintainers can label any open issue with a bounty amount in two ways:
+| Complexity | Suggested Bounty |
+|---|---|
+| Documentation | 100–250 BNUT |
+| Bug Fix | 250–500 BNUT |
+| Feature (small) | 500–1,000 BNUT |
+| Feature (large) | 1,000–5,000 BNUT |
+| Audit / Security | 5,000+ BNUT |
+
+### Applying a Bounty Label (Maintainers)
 
 **Option A — GitHub Actions UI (recommended):**
 1. Go to **Actions → Bounty Label → Run workflow**.
@@ -134,88 +149,90 @@ Maintainers can label any open issue with a bounty amount in two ways:
 3. The workflow creates the label (if new) and posts an announcement comment.
 
 **Option B — Manual:**
-1. Create a label in the repo following the exact format (see [Label Format](#label-format)).
-2. Apply it to the issue from the issue sidebar.
-
-### Label Format
-
-Labels must follow the exact format (case-insensitive):
-
-```
-bounty: <amount> BNUT
-```
-
-Examples:
-- `bounty: 100 BNUT`
-- `bounty: 500 BNUT`
-- `bounty: 2000 BNUT`
-
-### Bounty Tiers (Suggested)
-
-| Complexity     | Suggested Bounty |
-|----------------|-----------------|
-| Documentation  | 100–250 BNUT    |
-| Bug Fix        | 250–500 BNUT    |
-| Feature (small)| 500–1000 BNUT   |
-| Feature (large)| 1000–5000 BNUT  |
-| Audit / Security| 5000+ BNUT     |
+Create a label following the format `bounty: <amount> BNUT` (e.g. `bounty: 500 BNUT`) and apply it to the issue.
 
 ---
 
-## Contributor Accounts
+## Payroll Queue & Settle Cycles
+
+### The Queue
+
+`payroll-queue.json` is the off-chain ledger that tracks all $BNUT payouts.
+
+```jsonc
+{
+  "pending": [
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#45",
+      "contributor": "0xABC...",
+      "contributorGithub": "octocat",
+      "amount": "500",
+      "queuedAt": "2026-03-20T12:00:00.000Z",
+      "queuedBy": "bounty-bot"
+    }
+  ],
+  "settled": [
+    {
+      // same fields as pending, plus:
+      "settledAt": "2026-03-20T18:00:00.000Z",
+      "settledBy": "TheJollyLaMa",
+      "txHash": "0x..."
+    }
+  ]
+}
+```
+
+### Settle Cycle
+
+A **settle cycle** is the process by which the admin moves entries from `pending[]` → `settled[]` after paying contributors on-chain.
+
+**Steps:**
+1. The admin opens the BigNuten app and connects MetaMask as the owner wallet.
+2. Admin Panel → Payroll → **Settle All Pending** triggers `batchPayContributors()` on `BigNutenTreasury`.
+3. Each pending entry becomes one `payContributor(address, issueRef, amount)` call in the batch.
+4. MetaMask signs and broadcasts the transaction on Optimism.
+5. `ContributorPaid(contributor, issueRef, amount)` events are emitted on-chain.
+6. After confirmation, the admin runs **Actions → Settle Payroll → Run workflow** (`.github/workflows/settle-payroll.yml`), providing:
+   - A comma-separated list of `issueRef` values to settle
+   - Optionally: the on-chain `txHash` for the payout transaction
+7. The workflow moves matched entries from `pending[]` to `settled[]`, adds `settledAt`, `settledBy`, and the optional `txHash`, and commits the updated file.
+
+### Double-Pay Guard
+
+`BigNutenTreasury.sol` includes an `issuePaid` mapping that **prevents the same issue reference from being paid twice**. If a payout for `"TheJollyLaMa/BigNuten_Vanilla#45"` has already been executed on-chain, a second call will revert. This is independent of the off-chain queue state.
+
+View helpers on the contract:
+- `getTotalPaid(address)` — cumulative BNUT paid to a contributor
+- `isIssuePaid(string)` — whether an issue ref has already been settled on-chain
+
+### Contributor Accounts
 
 All registered contributors are tracked in `contributor-accounts.json` at the root of the repository.
 
-### What is tracked
+| Field | Description |
+|---|---|
+| `github` | GitHub username |
+| `displayName` | Human-readable name |
+| `role` | `owner` or `contributor` |
+| `walletAddress` | Optimism Mainnet address for $BNUT payouts |
+| `bnutEarned` | Cumulative BNUT received (updated by owner after each settle cycle) |
+| `bnutPending` | BNUT queued but not yet settled (incremented by Bounty Bot on PR merge) |
+| `issuesClosed` | List of issue references credited to this contributor |
 
-| Field            | Description                                              |
-|------------------|----------------------------------------------------------|
-| `github`         | GitHub username                                          |
-| `displayName`    | Human-readable name                                      |
-| `role`           | `owner` or `contributor`                                 |
-| `walletAddress`  | Optimism Mainnet address for $BNUT payouts               |
-| `bnutEarned`     | Cumulative BNUT received (updated manually by owner)     |
-| `bnutPending`    | BNUT queued but not yet settled                          |
-| `issuesClosed`   | List of issue references credited to this contributor    |
-
-### Initial Accounts
-
-The system starts with two accounts for early testing:
-
-| GitHub         | Role        | Purpose                              |
-|----------------|-------------|--------------------------------------|
-| `@TheJollyLaMa`| owner       | Repo maintainer — test payroll flow  |
-| `@copilot`     | contributor | GitHub Copilot RoboSoul — AI contributions |
-
-> 💡 **Wallet addresses are required** before any payout can be queued. Wallet addresses are registered by the maintainer — see [Whitelist Onboarding](#whitelist-onboarding) below.
-
-### Whitelist Onboarding
-
-> ⚠️ Wallet addresses are **not** self-registered by contributors via PR. Only the maintainer (`@TheJollyLaMa`) can add new entries to `contributor-accounts.json`.
-
-New contributors are onboarded through a personal, whitelist-based process to prevent impersonation and phishing:
-
-1. The contributor expresses interest on a bounty issue or contacts `@TheJollyLaMa` directly.
-2. The maintainer arranges a brief **video call or direct conversation** to verify the contributor's identity and collect their wallet address.
-3. The maintainer adds the contributor's GitHub username and **Optimism Mainnet** wallet address to `contributor-accounts.json`.
-4. The contributor is assigned to the bounty issue and work begins.
-
-Contributors should **never share their wallet address publicly** in issues or PRs — always provide it privately to the maintainer during onboarding.
-
-See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the full onboarding guide.
+> Wallet addresses are registered by the maintainer — contributors should never open PRs to self-register. See [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ---
 
 ## Governance
 
-BigNuten uses simple on-chain governance via the `BigNutenGov` contract deployed on **Optimism Mainnet**.
+BigNuten uses simple on-chain governance via the `BigNutenGov` contract on **Optimism Mainnet**.
 
 ### Model
 
-- **Voting**: 1 wallet = 1 vote (sybil-resistant for the early community)
+- **Voting**: 1 wallet = 1 vote
 - **Eligibility**: Must hold ≥ 1 $BNUT token to vote
 - **Proposers**: Only wallets with `PROPOSER_ROLE` (DNFT holders granted by the admin) can create proposals
-- **Admin veto**: `DEFAULT_ADMIN_ROLE` (TheJollyLaMa) has final say — can `enact` or `veto` any finalized result
+- **Admin veto**: `DEFAULT_ADMIN_ROLE` (`@TheJollyLaMa`) has final say — can `enact` or `veto` any finalised result
 - **No auto-execution**: All outcomes are advisory — the admin confirms and acts
 
 ### Contract
@@ -223,7 +240,7 @@ BigNuten uses simple on-chain governance via the `BigNutenGov` contract deployed
 | Field | Detail |
 |---|---|
 | Contract | `BigNutenGov.sol` |
-| Address (Optimism) | `0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD` |
+| Address (Optimism) | [`0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD`](https://optimistic.etherscan.io/address/0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD) |
 | $BNUT Token | `0x733c4d2Aae900E608147dd89Fa93606f89722823` |
 | Min BNUT to vote | 1 $BNUT |
 | Default voting window | 7 days |
@@ -238,79 +255,81 @@ BigNuten uses simple on-chain governance via the `BigNutenGov` contract deployed
 
 ### What Can Be Voted On
 
-Community governance proposals may cover:
-
 - Feature prioritisation and product roadmap
 - Prize pool and payout rate changes
 - Community data use policies
 - Token reward rates for contributors
 - Protocol parameter changes (e.g. quorum, voting duration)
 
-### What Cannot Be Voted On
-
-- Core security and access control (admin-only)
-- Smart contract upgrades (require deployment)
-- Individual user data
-
-### How to Get $BNUT
-
-- 🎟️ **Buy a Supporter DNFT** — earns $BNUT rewards and grants `PROPOSER_ROLE`
-- 💻 **Contribute code** — merged PRs rewarded by the admin via `mintReward()`
-- 📊 **Share health data** (opt-in) — earn $BNUT for community research contributions
-- ⚙️ **Admin mint** — during startup, TheJollyLaMa can mint test $BNUT to any wallet via the Governance modal Admin Panel
-
-
+---
 
 ## Data Sharing Rewards
 
-BigNuten users can opt in to share anonymised fitness and health data with the community. In return, they earn $BNUT, paid out from the **BigNutenTreasury** contract.
+BigNuten users can opt in to share anonymised fitness and health data with the community. In return, they earn $BNUT from the **BigNutenTreasury** contract.
 
 ### Privacy Guarantees
 
 - Data is **aggregated and anonymised** — individual records are never exposed.
-- Users can **revoke consent at any time** via the in-app Data Pool tab (prominent "Revoke All Consent" button).
-- No personal identifiers (name, email, wallet address, timestamps) are linked to shared data.
-- Opt-in state is stored in browser `localStorage` only — nothing is sent to a server.
-- Only aggregate counts and category trends are previewed or shared.
-- Full data usage policy: this document, section "Privacy Guarantees" above.
+- Users can **revoke consent at any time** via the in-app Data Pool tab.
+- No personal identifiers (name, email, wallet address) are linked to shared data.
+- Opt-in state is stored in browser `localStorage` only.
 
 ### Earning $BNUT via Data Sharing
 
-| Action                          | Reward (BNUT) |
-|---------------------------------|---------------|
-| Initial opt-in                  | 50 BNUT       |
-| Weekly data contribution        | 25 BNUT       |
-| 1-month sharing streak bonus    | +100 BNUT     |
-| 3-month sharing streak bonus    | +500 BNUT     |
+| Action | Reward (BNUT) |
+|---|---|
+| Initial opt-in | 50 BNUT |
+| Weekly data contribution | 25 BNUT |
+| 1-month sharing streak bonus | +100 BNUT |
+| 3-month sharing streak bonus | +500 BNUT |
 
 ### Payout Flow
 
-1. User enables one or more data-sharing toggles in the **Data Pool** tab.
+1. User enables data-sharing toggles in the **Data Pool** tab.
 2. The app records the opt-in timestamp locally and calculates earned BNUT based on streak length.
 3. The user clicks **"Request $BNUT Reward"** to register their wallet for the next batch payout.
 4. The Treasury owner calls `batchRewardDataSharing()` on `BigNutenTreasury` to settle pending requests.
-5. Each payout emits a `DataSharingRewarded` event — fully traceable on Optimism via [Optimistic Etherscan](https://optimistic.etherscan.io).
-6. The **on-chain reward history** is displayed in the Data Pool tab when the user's wallet is connected.
+5. Each payout emits a `DataSharingRewarded(user, amount, ref)` event — traceable on Optimism.
+6. On-chain reward history is shown in the Data Pool tab when the user's wallet is connected.
 
-> Payouts are batch-processed by the owner via the BigNutenTreasury contract.
-> Contract ABI: `abis/BigNutenTreasury.json`
-> Related issue: #49 (opt-in UI implementation).
+---
+
+## Admin Mints
+
+The owner (and any wallet granted `MINTER_ROLE`) can mint $BNUT at any time via:
+
+### Admin Panel → $BNUT Admin → Quick Mint
+
+- **Recipient address** — who receives the minted tokens
+- **Amount** — how many $BNUT to mint (whole tokens)
+- **Reason** — free-text label for auditability (emitted in the `Mint` transaction notes)
+- **Mint-to-Treasury** checkbox — if checked, the tokens are sent directly to the BigNutenTreasury contract instead of the recipient
+
+### CLI (Hardhat)
+
+```bash
+npx hardhat run scripts/payContributor.js --network optimism
+```
+
+### On-Chain Verification
+
+All mints produce a `Transfer` event from the zero address (`0x000...000`) to the recipient. These are visible on Optimistic Etherscan under the $BNUT token contract's **Events** tab.
 
 ---
 
 ## Smart Contracts
 
-| Contract                     | File                                    | Purpose                              |
-|------------------------------|-----------------------------------------|--------------------------------------|
-| BigNuten (ERC-20)            | `contracts/BigNuten.sol`                | $BNUT token                          |
-| BigNutenTreasury             | `contracts/BigNutenTreasury.sol`        | Holds reserves, pays contributors and data-sharing rewards (`rewardDataSharing`, `batchRewardDataSharing`) |
-| BigNutenSubscription         | `contracts/BigNutenSubscription.sol`    | Auxiliary subscription contract (ETH & $BNUT self-service). The live app uses **DecentEscrow** below. |
-| DecentEscrow v0.1            | External — [`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) | **Active subscription backend** — plan-based subscriptions for ETH (plan 0) and $BNUT (plan 1) |
-| BigNutenGovernance           | `contracts/BigNutenGovernance.sol`      | Community proposal voting            |
+| Contract | File | Address | Purpose |
+|---|---|---|---|
+| BigNuten (ERC-20) | `contracts/BigNuten.sol` | [`0x733c…2823`](https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823) | $BNUT token |
+| BigNutenTreasury | `contracts/BigNutenTreasury.sol` | [`0x143c…363`](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363) | Holds reserves; pays contributors and data-sharing rewards |
+| BigNutenSubscription | `contracts/BigNutenSubscription.sol` | — | Auxiliary subscription contract (app uses DecentEscrow instead) |
+| DecentEscrow v0.1 | External | [`0x23A4…350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) | Active subscription backend — plan-based ETH + $BNUT subscriptions |
+| BigNutenGov | `contracts/BigNutenGov.sol` | [`0x58c2…2cD`](https://optimistic.etherscan.io/address/0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD) | Community proposal voting |
 
 All custom contracts use **Solidity ^0.8.20** and **OpenZeppelin Contracts v5**.
 
-Deployed addresses are set in `.env` after running `npm run deploy:<network>`.
+Full addresses: [`docs/DEPLOYMENTS.md`](DEPLOYMENTS.md)
 
 ---
 
@@ -320,7 +339,7 @@ Deployed addresses are set in `.env` after running `npm run deploy:<network>`.
 
 ```bash
 cp .env.example .env
-# Fill in PRIVATE_KEY, OPTIMISM_RPC_URL, ETHERSCAN_API_KEY
+# Fill in: PRIVATE_KEY, OPTIMISM_RPC_URL, ETHERSCAN_API_KEY
 npm install
 ```
 
@@ -331,32 +350,28 @@ npx hardhat run scripts/deploy.js --network optimism
 ```
 
 The deploy script will:
-1. Deploy `BigNuten.sol` (ERC-20 $BNUT) — mints `INITIAL_SUPPLY` to the deployer.
+1. Deploy `BigNuten.sol` (ERC-20 $BNUT).
 2. Deploy `BigNutenTreasury.sol` — pass `bnutAddress` and `deployer.address` as constructor args.
 3. Deploy `BigNutenSubscription.sol`.
 4. Deploy `BigNutenGovernance.sol`.
-5. Transfer the entire initial BNUT supply to the Treasury contract.
-6. Grant `MINTER_ROLE` on the $BNUT token to the deployer (and optionally a CI bot wallet).
+5. Grant `MINTER_ROLE` on the $BNUT token to the deployer.
 
-### 2. Constructor Arguments
-
-| Contract | Arg 1 | Arg 2 |
-|---|---|---|
-| `BigNuten` | `initialOwner` (address) | — |
-| `BigNutenTreasury` | `_bnutToken` (address of deployed BigNuten) | `initialOwner` (address) |
-| `BigNutenSubscription` | `_bnutToken` | `_treasury` |
-| `BigNutenGovernance` | `_bnutToken` | `initialAdmin` |
-
-### 3. Fund the Treasury After Deploy
+### 2. Fund the Treasury
 
 ```bash
-# Transfer BNUT from deployer to treasury (already done by deploy script)
-# Or top up later:
-cast send $BNUT_ADDRESS "transfer(address,uint256)" $TREASURY_ADDRESS 1000000000000000000 --private-key $PRIVATE_KEY --rpc-url $OPTIMISM_RPC_URL
-# Note: amounts are in wei (18 decimals). 1000000000000000000 = 1 BNUT; 1000000000000000000000 = 1000 BNUT
+# Mint BNUT to yourself first (via Admin Panel or CLI), then transfer to Treasury:
+cast send $BNUT_ADDRESS \
+  "transfer(address,uint256)" \
+  $TREASURY_ADDRESS \
+  <amount_in_wei> \
+  --private-key $PRIVATE_KEY \
+  --rpc-url https://mainnet.optimism.io
+# 1 BNUT = 1000000000000000000 wei (18 decimals)
 ```
 
-### 4. Update Contract Addresses in the App
+Or use **Admin Panel → $BNUT Admin → Quick Mint** with the Mint-to-Treasury checkbox.
+
+### 3. Update Contract Addresses in the App
 
 After deployment, update `js/contracts.js`:
 
@@ -364,36 +379,37 @@ After deployment, update `js/contracts.js`:
 const TREASURY_CONTRACT_ADDRESS = '<deployed_treasury_address>';
 ```
 
-### 5. BigNutenTreasury — Double-Pay Guard
+### 4. Create Subscription Plans
 
-`BigNutenTreasury.sol` includes an `issuePaid` mapping that prevents the same GitHub
-issue reference (e.g. `"TheJollyLaMa/BigNuten_Vanilla#45"`) from being paid twice.
-Each payout also increments `totalPaid[contributor]` for canonical on-chain tracking.
-
-View helpers:
-- `getTotalPaid(address)` — cumulative BNUT paid to a contributor.
-- `isIssuePaid(string)` — whether an issue ref has already been settled.
+Open the app → Admin Panel → Escrow Admin → Create Plan:
+- Plan 0: ETH, 0.01 ETH/month
+- Plan 1: $BNUT, 500 BNUT/month
 
 ---
 
-## Roadmap
+## Roadmap Status
 
-| Phase | Milestone                                                          | Status      |
-|-------|--------------------------------------------------------------------|-------------|
-| 1     | Deploy ERC-20 $BNUT contract (Issue #38) — *scaffolded in this PR*    | 🟡 Needs deployment |
-| 1     | Deploy Treasury contract (Issue #39) — *scaffolded in this PR*        | 🟡 Needs deployment |
-| 2     | Integrate PayPal subscriptions (Issue #40)                        | ✅ Done     |
-| 2     | Integrate Stripe subscriptions (Issue #41)                        | ✅ Done     |
-| 2     | Build subscription status UI (Issue #42)                          | ✅ Done     |
-| 2     | Build crypto subscription payment flow (Issue #43)                | ✅ Done     |
-| 2     | Accept $BNUT for discounted subscriptions (Issue #44)             | ✅ Done     |
-| 3     | Build GitHub bounty bot (Issue #45)                               | ✅ Done     |
-| 3     | Add bounty label system to issues (Issue #46)                     | ✅ Done     |
-| 3     | Deploy community governance (Issue #47)                           | 🔵 Planned  |
-| 4     | Build community data dashboard (Issue #48)                        | 🔵 Planned  |
-| 4     | Build opt-in data sharing UI (Issue #49)                          | 🔵 Planned  |
-| 5     | DEX liquidity (Uniswap/QuickSwap), CEX listing, staking           | 🔮 Future   |
+| Phase | Milestone | Status |
+|---|---|---|
+| 1 | Deploy ERC-20 $BNUT contract | ✅ Live on Optimism |
+| 1 | Deploy Treasury contract | ✅ Live on Optimism |
+| 2 | Integrate PayPal subscriptions | ✅ Done |
+| 2 | Integrate Stripe subscriptions | ✅ Done |
+| 2 | Build subscription status UI | ✅ Done |
+| 2 | Build crypto subscription payment flow | ✅ Done |
+| 2 | Accept $BNUT for discounted subscriptions | ✅ Done |
+| 3 | Build GitHub bounty bot | ✅ Done |
+| 3 | Add bounty label system | ✅ Done |
+| 3 | Payroll queue + settle workflow | ✅ Done |
+| 3 | Admin Panel (5 modals) | ✅ Done |
+| 3 | Branch protection + CODEOWNERS policy | ✅ Done |
+| 4 | Deploy community governance | ✅ Done |
+| 4 | Build community data dashboard | ✅ Done |
+| 4 | Build opt-in data sharing UI | ✅ Done |
+| 5 | DEX liquidity (Uniswap/Velodrome), CEX listing, staking | 🔮 Future |
+| 5 | Multisig treasury (Safe/Gnosis) | 🔮 Future |
+| 5 | Vested team allocation (24-month cliff) | 🔮 Future |
 
 ---
 
-*This document will be updated as contracts are deployed and features are shipped.*
+*This document reflects the live v2.0.0 system. Last updated: 2026-03-20.*
