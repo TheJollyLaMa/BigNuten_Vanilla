@@ -394,16 +394,99 @@
 
   <!-- Diet Modal -->
   <div id="dietModal" class="modal" style="display:none;">
-    <div class="modal-content">
-      <span class="close" id="closeDietModal">&times;</span>
-      <h2>Log Diet</h2>
-      <form id="dietForm">
-        <input type="text" id="dietFoodName" placeholder="Food Name" required>
-        <input type="number" id="dietFoodAmount" placeholder="Amount" required>
-        <input type="text" id="dietFoodUnit" placeholder="Unit (e.g., cup)" required>
-        <input type="number" id="dietFoodProtein" placeholder="Estimated Protein (g)" required>
-        <button type="submit">Log Diet</button>
+    <div class="diet-modal-content">
+      <button class="diet-modal-close" id="closeDietModal">&times;</button>
+      <h2 class="diet-modal-title">🥗 Log Diet</h2>
+
+      <!-- Input Form -->
+      <form id="dietForm" class="diet-form" autocomplete="off">
+        <div class="diet-form-row">
+          <div class="diet-form-group diet-form-group--wide">
+            <label class="diet-label" for="dietFoodName">Food</label>
+            <input type="text" id="dietFoodName" class="diet-input" placeholder="e.g. Banana, Peanuts…" list="diet-food-suggestions" required autocomplete="off">
+            <datalist id="diet-food-suggestions"></datalist>
+          </div>
+        </div>
+
+        <div class="diet-form-row">
+          <div class="diet-form-group">
+            <label class="diet-label" for="dietFoodAmount">Amount</label>
+            <input type="number" id="dietFoodAmount" class="diet-input" placeholder="1.5" min="0" step="0.25" required>
+          </div>
+          <div class="diet-form-group">
+            <label class="diet-label" for="dietFoodUnit">Unit</label>
+            <select id="dietFoodUnit" class="diet-input diet-select" required>
+              <option value="">— select —</option>
+              <option value="piece">piece</option>
+              <option value="serving">serving</option>
+              <option value="cup">cup</option>
+              <option value="g">g</option>
+              <option value="oz">oz</option>
+              <option value="tbsp">tbsp</option>
+              <option value="tsp">tsp</option>
+              <option value="ml">ml</option>
+              <option value="fl oz">fl oz</option>
+              <option value="slice">slice</option>
+              <option value="handful">handful</option>
+              <option value="scoop">scoop</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Nutritional Info Card -->
+        <div class="diet-nutr-card" id="dietNutrCard">
+          <div class="diet-nutr-card__header">
+            <span class="diet-nutr-card__icon">📊</span>
+            <span class="diet-nutr-card__title">Nutritional Info <em>(per serving)</em></span>
+          </div>
+          <div class="diet-nutr-grid">
+            <div class="diet-nutr-field">
+              <label class="diet-label" for="dietNutrCalories">Calories</label>
+              <input type="number" id="dietNutrCalories" class="diet-input diet-input--nutr" placeholder="kcal" min="0" step="1">
+            </div>
+            <div class="diet-nutr-field">
+              <label class="diet-label" for="dietNutrProtein">Protein (g)</label>
+              <input type="number" id="dietNutrProtein" class="diet-input diet-input--nutr" placeholder="g" min="0" step="0.1">
+            </div>
+            <div class="diet-nutr-field">
+              <label class="diet-label" for="dietNutrCarbs">Carbs (g)</label>
+              <input type="number" id="dietNutrCarbs" class="diet-input diet-input--nutr" placeholder="g" min="0" step="0.1">
+            </div>
+            <div class="diet-nutr-field">
+              <label class="diet-label" for="dietNutrFat">Fat (g)</label>
+              <input type="number" id="dietNutrFat" class="diet-input diet-input--nutr" placeholder="g" min="0" step="0.1">
+            </div>
+            <div class="diet-nutr-field">
+              <label class="diet-label" for="dietNutrFiber">Fiber (g)</label>
+              <input type="number" id="dietNutrFiber" class="diet-input diet-input--nutr" placeholder="g" min="0" step="0.1">
+            </div>
+            <div class="diet-nutr-field">
+              <label class="diet-label" for="dietNutrPotassium">Potassium (%DV)</label>
+              <input type="number" id="dietNutrPotassium" class="diet-input diet-input--nutr" placeholder="%" min="0" step="1">
+            </div>
+            <div class="diet-nutr-field">
+              <label class="diet-label" for="dietNutrSodium">Sodium (mg)</label>
+              <input type="number" id="dietNutrSodium" class="diet-input diet-input--nutr" placeholder="mg" min="0" step="1">
+            </div>
+            <div class="diet-nutr-field">
+              <label class="diet-label" for="dietNutrSugar">Sugar (g)</label>
+              <input type="number" id="dietNutrSugar" class="diet-input diet-input--nutr" placeholder="g" min="0" step="0.1">
+            </div>
+          </div>
+          <div class="diet-nutr-card__note">Nutritional fields pre-fill from previous entries &amp; update as you go.</div>
+        </div>
+
+        <button type="submit" class="diet-submit-btn">
+          <span class="diet-submit-shine"></span>
+          🥗 Log Entry
+        </button>
       </form>
+
+      <!-- All-Time Log -->
+      <div class="diet-log-section">
+        <h3 class="diet-log-title">📋 All-Time Log</h3>
+        <ul id="dietAllTimeLog" class="diet-log-list"></ul>
+      </div>
     </div>
   </div>
 

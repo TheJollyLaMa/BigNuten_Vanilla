@@ -817,6 +817,82 @@ import { initCommunityDashboard } from './communityDashboard.js';
 // Raw Intake Modal logic
 // Remove any previous food logging button event listeners and restore Diet button logic
 // Diet Modal Logic
+
+/** Returns the nutritional info stored for a food name, or null if unknown */
+function getDietNutrCache(foodName) {
+  const cache = JSON.parse(localStorage.getItem('dietNutrCache') || '{}');
+  return cache[foodName.toLowerCase()] || null;
+}
+
+/** Saves nutritional info for a food name into the cache */
+function setDietNutrCache(foodName, nutr) {
+  const cache = JSON.parse(localStorage.getItem('dietNutrCache') || '{}');
+  cache[foodName.toLowerCase()] = nutr;
+  localStorage.setItem('dietNutrCache', JSON.stringify(cache));
+}
+
+/** Populates the diet nutritional fields from cache for the given food name */
+function prefillDietNutr(foodName) {
+  const nutr = getDietNutrCache(foodName);
+  const fields = ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar'];
+  fields.forEach(f => {
+    const el = document.getElementById(`dietNutr${f}`);
+    if (el) el.value = (nutr && nutr[f.toLowerCase()] != null) ? nutr[f.toLowerCase()] : '';
+  });
+}
+
+/** Renders all-time diet log inside #dietAllTimeLog (latest first) */
+function renderDietAllTimeLog() {
+  const list = document.getElementById('dietAllTimeLog');
+  if (!list) return;
+  const data = getFitnessData();
+  const entries = (data.foods || []).slice().reverse();
+  list.innerHTML = '';
+  if (!entries.length) {
+    list.innerHTML = '<li style="color:rgba(180,220,240,0.45);font-size:0.82rem;text-align:center;">No entries yet — log your first meal!</li>';
+    return;
+  }
+  entries.forEach(food => {
+    const li = document.createElement('li');
+    li.className = 'diet-log-entry';
+    const dateStr = food.date ? (food.date.length > 10 ? new Date(food.date).toLocaleString() : food.date) : '';
+    const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '';
+    let nutrHtml = '';
+    if (food.nutr) {
+      const pills = [];
+      if (food.nutr.calories != null)   pills.push(`🔥 ${food.nutr.calories} kcal`);
+      if (food.nutr.protein != null)    pills.push(`💪 ${food.nutr.protein}g protein`);
+      if (food.nutr.carbs != null)      pills.push(`🌾 ${food.nutr.carbs}g carbs`);
+      if (food.nutr.fat != null)        pills.push(`🫙 ${food.nutr.fat}g fat`);
+      if (food.nutr.fiber != null)      pills.push(`🌿 ${food.nutr.fiber}g fiber`);
+      if (food.nutr.potassium != null)  pills.push(`🍌 ${food.nutr.potassium}% K`);
+      if (food.nutr.sodium != null)     pills.push(`🧂 ${food.nutr.sodium}mg Na`);
+      if (food.nutr.sugar != null)      pills.push(`🍬 ${food.nutr.sugar}g sugar`);
+      if (pills.length) {
+        nutrHtml = `<div class="diet-log-entry__nutr">${pills.map(p => `<span class="diet-log-entry__nutr-pill">${p}</span>`).join('')}</div>`;
+      }
+    }
+    li.innerHTML = `
+      <div class="diet-log-entry__top">
+        <span class="diet-log-entry__name">${food.name}</span>
+        <span class="diet-log-entry__amount">${amountStr}</span>
+      </div>
+      <div class="diet-log-entry__date">${dateStr}</div>
+      ${nutrHtml}
+    `;
+    list.appendChild(li);
+  });
+}
+
+/** Refreshes the datalist suggestions for the diet food name field */
+function refreshDietFoodSuggestions() {
+  const dl = document.getElementById('diet-food-suggestions');
+  if (!dl) return;
+  const data = getFitnessData();
+  const names = [...new Set((data.foods || []).map(f => f.name).filter(Boolean))];
+  dl.innerHTML = names.map(n => `<option value="${n}"></option>`).join('');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Diet button opens the diet modal
   const dietBtn = document.getElementById('dietBtn');
@@ -829,9 +905,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (dietBtn && dietModal) {
     dietBtn.addEventListener('click', function () {
-      // Use modal style: show as flex (CSS will override to modal look)
       dietModal.style.display = 'block';
       dietModal.setAttribute('aria-modal', 'true');
+      refreshDietFoodSuggestions();
+      renderDietAllTimeLog();
     });
   }
   if (closeDietModal && dietModal) {
@@ -847,6 +924,20 @@ document.addEventListener('DOMContentLoaded', () => {
       dietModal.removeAttribute('aria-modal');
     }
   });
+
+  // Pre-fill nutritional info when user selects/types a known food name
+  const dietFoodNameEl = document.getElementById('dietFoodName');
+  if (dietFoodNameEl) {
+    dietFoodNameEl.addEventListener('input', function () {
+      const name = this.value.trim();
+      if (name.length >= 2) prefillDietNutr(name);
+    });
+    dietFoodNameEl.addEventListener('change', function () {
+      const name = this.value.trim();
+      if (name) prefillDietNutr(name);
+    });
+  }
+
   // Diet form submission
   const dietForm = document.getElementById('dietForm');
   if (dietForm) {
@@ -855,26 +946,39 @@ document.addEventListener('DOMContentLoaded', () => {
       const name = document.getElementById('dietFoodName').value.trim();
       const amount = parseFloat(document.getElementById('dietFoodAmount').value);
       const unit = document.getElementById('dietFoodUnit').value.trim();
-      const protein = parseFloat(document.getElementById('dietFoodProtein').value);
-      if (name && amount && unit && protein >= 0) {
-        const intake = {
-          type: 'diet',
-          name,
-          amount,
-          unit,
-          protein,
-          date: new Date().toISOString()
-        };
-        // Add to foods list in fitness data
-        const data = getFitnessData();
-        data.foods.push(intake);
-        saveFitnessData(data);
-        // Optionally re-render recent food list if you have a function
-        if (typeof displayRecentFoods === 'function') displayRecentFoods();
-        dietForm.reset();
-        dietModal.style.display = 'none';
-        dietModal.removeAttribute('aria-modal');
-      }
+      if (!name || isNaN(amount) || !unit) return;
+
+      // Collect nutritional info
+      const nutr = {};
+      const nutrMap = { calories: 'Calories', protein: 'Protein', carbs: 'Carbs', fat: 'Fat',
+                        fiber: 'Fiber', potassium: 'Potassium', sodium: 'Sodium', sugar: 'Sugar' };
+      let hasNutr = false;
+      Object.entries(nutrMap).forEach(([key, id]) => {
+        const val = document.getElementById(`dietNutr${id}`)?.value;
+        if (val !== '' && val != null) { nutr[key] = parseFloat(val); hasNutr = true; }
+      });
+
+      const intake = {
+        type: 'diet',
+        name,
+        amount,
+        unit,
+        nutr: hasNutr ? nutr : undefined,
+        date: new Date().toISOString()
+      };
+      // Cache nutritional info so it pre-fills next time
+      if (hasNutr) setDietNutrCache(name, nutr);
+
+      // Add to foods list in fitness data
+      const data = getFitnessData();
+      data.foods.push(intake);
+      saveFitnessData(data);
+      // Re-render recent food list on main dashboard
+      if (typeof displayRecentFoods === 'function') displayRecentFoods();
+      // Update the all-time log and suggestions inside the modal
+      refreshDietFoodSuggestions();
+      renderDietAllTimeLog();
+      dietForm.reset();
     });
   }
 });
@@ -977,7 +1081,9 @@ function displayRecentFoods() {
   foods.forEach(food => {
     const li = document.createElement('li');
     let desc = food.description ? ` (${food.description})` : '';
-    li.innerHTML = `<span class="supplement-name-hover">${food.name}</span>${desc} - ${food.amount} on ${food.date}`;
+    const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '';
+    const dateStr = food.date ? (food.date.length > 10 ? new Date(food.date).toLocaleDateString() : food.date) : '';
+    li.innerHTML = `<span class="supplement-name-hover">${food.name}</span>${desc} — ${amountStr} on ${dateStr}`;
     
     li.addEventListener('mouseenter', () => showFoodGraphPopup(food.name, li));
     li.addEventListener('mouseleave', hideSupplementGraphPopup);
@@ -985,16 +1091,16 @@ function displayRecentFoods() {
     li.addEventListener('click', () => {
       const entries = getFitnessData().foods.filter(f => f.name === food.name);
       const last = entries.at(-1);
-      const confirmSame = confirm(`Log same intake: "${last.amount}" for ${last.name}? Click cancel to change.`);
+      const confirmSame = confirm(`Log same intake: "${last.amount}${last.unit ? ' ' + last.unit : ''}" for ${last.name}? Click cancel to change.`);
       const now = new Date();
       const date = now.toISOString().split('T')[0];
       const time = now.toTimeString().slice(0, 5);
       if (confirmSame) {
-        getFitnessData().foods.push({ ...last, date, time });
+        getFitnessData().foods.push({ ...last, date: now.toISOString(), time });
       } else {
         const newAmount = prompt(`Enter new amount for ${last.name}:`, last.amount);
         if (newAmount) {
-          getFitnessData().foods.push({ name: last.name, amount: newAmount, date, time });
+          getFitnessData().foods.push({ name: last.name, amount: parseFloat(newAmount) || newAmount, unit: last.unit, nutr: last.nutr, date: now.toISOString(), time });
         }
       }
       saveFitnessData(getFitnessData());
