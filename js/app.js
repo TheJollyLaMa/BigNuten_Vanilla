@@ -2,6 +2,7 @@ import { initDnftPayPalPurchase, listDecentEscrowPlans, createDecentEscrowPlan, 
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
 import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
+import { initAiChat } from './aiChat.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -5527,4 +5528,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Community Data Dashboard ──────────────────────────────────────────────
   initCommunityDashboard();
+
+  // ── AI Chat ───────────────────────────────────────────────────────────────
+  initAiChat();
 });

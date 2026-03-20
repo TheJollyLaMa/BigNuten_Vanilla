@@ -90,7 +90,7 @@
     </div>
   </header>
 
-  <!-- Left Panel Toolbar: Supplements & Raw Intake -->
+  <!-- Left Panel Toolbar: Supplements & Raw Intake & AI Chat -->
   <nav id="left-panel-toolbar" class="side-toolbar left-toolbar" aria-label="Left panel controls">
     <button class="panel-toggle-btn" data-panel="recent-supplements-list" title="Supplements (7 days)">
       <img src="img/Supplements.png" alt="Supplements">
@@ -99,6 +99,10 @@
     <button class="panel-toggle-btn" data-panel="recent-foods-list" title="Raw Intake (7 days)">
       <img src="img/Diet.png" alt="Raw Intake">
       <span>Intake</span>
+    </button>
+    <button class="panel-toggle-btn" data-panel="ai-chat-sessions-panel" title="AI Chat">
+      <span class="toolbar-emoji">💬</span>
+      <span>Chat</span>
     </button>
   </nav>
 
@@ -150,6 +154,16 @@
       <h4>Raw Intake (7 days)</h4>
       <ul id="foods-last7days"></ul>
     </div>
+
+    <!-- AI Chat Sessions Panel -->
+    <div id="ai-chat-sessions-panel" class="dashboard-panel ai-chat-sessions-panel">
+      <div class="ai-chat-panel-header">
+        <h4>💬 AI Chat</h4>
+        <button id="ai-chat-new-btn" class="ai-chat-new-btn" title="New conversation">＋</button>
+      </div>
+      <div id="ai-chat-session-list" class="ai-chat-session-list"></div>
+    </div>
+
     <div id="body-figure-wrapper">
       <img src="img/BigNuten.png" id="landing-bg" alt="BigNuten Background">
       <!-- Water Intake Tracker: upside-down semi-circle meter above BigNuten's head -->
@@ -2232,6 +2246,27 @@
           ℹ️ Your wallet address is stored only in <code>contributor-accounts.json</code> in the public repo.
           No private data is collected. The signature proves you control the wallet — it is never transmitted.
         </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── AI Chat Conversation Modal ──────────────────────────────────────── -->
+  <div id="ai-chat-modal" class="modal-overlay modal-hidden ai-chat-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="ai-chat-modal-title">
+    <div class="modal ai-chat-modal">
+      <div class="ai-chat-modal-header">
+        <h3 id="ai-chat-modal-title" class="ai-chat-modal-title">💬 AI Chat</h3>
+        <button class="modal-close" id="ai-chat-modal-close" aria-label="Close chat">×</button>
+      </div>
+      <div id="ai-chat-messages" class="ai-chat-messages" aria-live="polite" aria-label="Conversation messages"></div>
+      <div class="ai-chat-input-row">
+        <textarea
+          id="ai-chat-input"
+          class="ai-chat-input"
+          placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
+          rows="2"
+          aria-label="Chat message input"
+        ></textarea>
+        <button id="ai-chat-send-btn" class="ai-chat-send-btn" aria-label="Send message">Send ➤</button>
       </div>
     </div>
   </div>
