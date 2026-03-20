@@ -227,16 +227,16 @@
         <p class="water-modal-subtitle">glasses today</p>
       </div>
       <div class="water-modal-buttons">
-        <button id="water-log-btn" class="neon-button water-add-btn">+ Log a Glass</button>
-        <button id="water-remove-btn" class="neon-button water-remove-btn">− Remove Last</button>
+        <button id="water-log-btn" class="water-add-btn">+ Log a Glass</button>
+        <button id="water-remove-btn" class="water-remove-btn">− Remove Last</button>
       </div>
     </div>
   </div>
   <div id="emotion-modal" class="modal-overlay modal-hidden">
-    <div class="modal" style="position:relative;">
+    <div class="modal emotion-log-modal" style="position:relative;">
       <button class="modal-close">×</button>
-      <h2>Log Emotion</h2>
-      <div style="position: relative; width: 600px; height: 600px; margin: 0 auto;">
+      <h2>😊 Log Emotion</h2>
+      <div class="emotion-wheel-container">
         <img src="img/EmotionWheel.png" id="emotionWheelOverlayImage"
              style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" alt="Emotion Wheel" />
         <svg id="emotionWheelOverlaySVG"
@@ -247,11 +247,11 @@
           <g id="emotionSlices"></g>
         </svg>
       </div>
-      <div id="selectedEmotion" style="text-align:center; font-size:1.2rem; margin-top:1rem;">Selected emotion will appear here.</div>
+      <div id="selectedEmotion" style="text-align:center; font-size:1.1rem; margin-top:1rem; color:#00e5ff;">Selected emotion will appear here.</div>
       <form id="emotion-form">
         <label for="emotion-input">What are you feeling?</label>
-        <input type="text" id="emotion-input" name="emotion" required style="width:100%;margin-bottom:1rem;" />
-        <button type="submit">Submit</button>
+        <input type="text" id="emotion-input" name="emotion" required />
+        <button type="submit">Log Emotion</button>
       </form>
     </div>
   </div>
@@ -294,21 +294,21 @@
   <div id="weight-modal" class="modal-overlay modal-hidden">
     <div class="modal">
       <button class="modal-close">×</button>
-      <h2>Log Your Weight</h2>
+      <h2>⚖️ Log Your Weight</h2>
       
       <!-- Bluetooth Button -->
-      <button id="connectScaleBtn">Connect to Bluetooth Scale</button>
-      <p id="scaleStatus">Not connected</p>
-      <p id="weightReading">-- lbs</p>
+      <button id="connectScaleBtn" class="modal-action-btn">🔵 Connect to Bluetooth Scale</button>
+      <p id="scaleStatus" class="modal-status-text">Not connected</p>
+      <p id="weightReading" class="modal-reading-display">-- lbs</p>
       <input type="hidden" id="weightInput" />
 
       <!-- Manual Logging -->
       <form id="manualWeightForm">
         <label for="manualWeight">Enter Weight (lbs):</label>
         <input type="number" id="manualWeight" step="0.01" min="50" max="1000" required />
-        <button type="submit">Log Weight</button>
+        <button type="submit">⚖️ Log Weight</button>
       </form>
-      <p id="weight-status" style="min-height:1.4em; font-weight:bold; color:#00e5ff;"></p>
+      <p id="weight-status" class="modal-feedback-text"></p>
 
       <!-- Weight chart container -->
       <div id="weight-chart-toggle">
@@ -326,7 +326,7 @@
   <div id="measurements-modal" class="modal-overlay modal-hidden">
     <div class="modal">
       <button class="modal-close">×</button>
-      <h2>Log Measurements</h2>
+      <h2>📏 Log Measurements</h2>
       <form id="measurement-form">
         <label for="measurement-type">Type:</label>
         <select id="measurement-type" name="measurement-type" required>
@@ -347,15 +347,15 @@
         <label for="measurement-time">Time:</label>
         <input type="time" id="measurement-time" name="measurement-time" required />
 
-        <button type="submit">Submit</button>
+        <button type="submit">📏 Log Measurement</button>
       </form>
-      <div id="measurement-chart-toggle" style="margin-top: 1rem;">
+      <div id="measurement-chart-toggle">
         <button>Day</button>
         <button>Month</button>
         <button>Year</button>
         <button>Max</button>
       </div>
-      <div id="measurement-chart-controls" style="margin-top: 1rem;">
+      <div id="measurement-chart-controls">
         <label for="measurement-chart-select">Select Type:</label>
         <select id="measurement-chart-select">
           <option value="all">All Measurements</option>
@@ -374,19 +374,19 @@
   <div id="supplements-modal" class="modal-overlay modal-hidden">
     <div class="modal">
       <button class="modal-close">×</button>
-      <h2>Log Supplement Intake</h2>
+      <h2>💊 Log Supplement Intake</h2>
       <form id="supplement-form">
         <label for="supplement-name">Supplement Name:</label>
-        <input type="text" id="supplement-name" placeholder="Supplement Name" required />
+        <input type="text" id="supplement-name" placeholder="e.g. Vitamin D, Magnesium…" required />
         <label for="supplement-weight">Dosage (mg):</label>
-        <input type="number" id="supplement-weight" placeholder="Dosage (mg)" required />
+        <input type="number" id="supplement-weight" placeholder="e.g. 500" required />
         <label for="supplement-date">Date:</label>
         <input type="date" id="supplement-date" required />
         <label for="supplement-time">Time:</label>
         <input type="time" id="supplement-time" />
         <label for="supplement-description">Description (optional):</label>
-        <input type="text" id="supplement-description" placeholder="Description (optional)" />
-        <button type="submit">Log Supplement</button>
+        <input type="text" id="supplement-description" placeholder="Notes (optional)" />
+        <button type="submit">💊 Log Supplement</button>
       </form>
       <ul id="supplement-entries"></ul>
     </div>
@@ -530,7 +530,7 @@
   <div id="exercise-modal" class="modal-overlay modal-hidden">
     <div class="modal">
       <button class="modal-close">×</button>
-      <h2>Log Exercise</h2>
+      <h2>💪 Log Exercise</h2>
       <form id="exercise-form">
         <label for="exercise-type">Exercise:</label>
         <select id="exercise-type" name="exercise-type" required>
@@ -554,7 +554,7 @@
         <label for="exercise-time">Time:</label>
         <input type="time" id="exercise-time" name="exercise-time" required />
 
-        <button type="submit">Add Exercise</button>
+        <button type="submit">💪 Add Exercise</button>
       </form>
     </div>
   </div>
