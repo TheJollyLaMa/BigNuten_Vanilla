@@ -130,7 +130,8 @@ jobs:
             const repoFull = `${context.repo.owner}/${context.repo.repo}`;
 
             // Parse "Closes #N", "Fixes #N", "Resolves #N" from PR body.
-            const closePattern = /(?:closes?|fixes?|resolves?)\s+#(\d+)/gi;
+            // Also handles cross-repo format: "Fixes owner/repo#N"
+            const closePattern = /(?:closes?|fixes?|resolves?)\s+(?:[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+)?#(\d+)/gi;
             const closedIssues = [];
             let m;
             while ((m = closePattern.exec(prBody)) !== null) {
@@ -210,28 +211,34 @@ jobs:
               const missing = [];
 
               for (const contributorGithub of allContributors) {
+                // Case-insensitive lookup so e.g. "Copilot" matches "copilot" in contributor-accounts.json.
+                const contribRecord = accounts.contributors.find(
+                  c => c.github.toLowerCase() === contributorGithub.toLowerCase()
+                );
+                // Use the canonical name from the account record (preserves stored casing).
+                const canonicalGithub = contribRecord ? contribRecord.github : contributorGithub;
+
                 // Deduplication: skip if this contributor is already in pending or settled for this issue.
                 const alreadyQueued =
-                  queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === contributorGithub) ||
-                  queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === contributorGithub);
+                  queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub) ||
+                  queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub);
                 if (alreadyQueued) {
-                  console.log(`Issue ${issueRef} for @${contributorGithub} is already in the payroll queue. Skipping.`);
-                  skipped.push(contributorGithub);
+                  console.log(`Issue ${issueRef} for @${canonicalGithub} is already in the payroll queue. Skipping.`);
+                  skipped.push(canonicalGithub);
                   continue;
                 }
 
-                const contribRecord = accounts.contributors.find(c => c.github === contributorGithub);
                 const walletAddress = contribRecord ? (contribRecord.walletAddress || '') : '';
 
                 if (!walletAddress) {
-                  missing.push(contributorGithub);
+                  missing.push(canonicalGithub);
                 }
 
-                // Append entry to payroll queue.
+                // Append entry to payroll queue using canonical github name.
                 queue.pending.push({
                   issueRef,
                   contributor: walletAddress,
-                  contributorGithub,
+                  contributorGithub: canonicalGithub,
                   amount,
                   queuedAt: new Date().toISOString(),
                   queuedBy: 'github-actions[bot]',
@@ -247,8 +254,8 @@ jobs:
                   }
                 }
 
-                queued.push({ github: contributorGithub, wallet: walletAddress });
-                console.log(`Auto-queued ${amount} BNUT for @${contributorGithub} (${walletAddress || 'NO WALLET'}) — ${issueRef}`);
+                queued.push({ github: canonicalGithub, wallet: walletAddress });
+                console.log(`Auto-queued ${amount} BNUT for @${canonicalGithub} (${walletAddress || 'NO WALLET'}) — ${issueRef}`);
               }
 
               // Build and post a single status comment for the issue.
