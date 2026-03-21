@@ -2544,6 +2544,33 @@ svg text {
   color: #ffffff;
 }
 
+/* ── Desktop: half-width panels anchored to their side (> 700px) ─ */
+@media (min-width: 701px) {
+  .dashboard-panel.panel-visible {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    max-width: 50%;
+    overflow-y: auto;
+    z-index: 1090; /* below .side-toolbar (1100) so toolbar stays on top */
+  }
+
+  /* Left-side panels anchor to the left */
+  #recent-supplements-list.panel-visible,
+  #recent-foods-list.panel-visible {
+    left: 0;
+    right: auto;
+  }
+
+  /* Right-side panels anchor to the right */
+  #recent-exercises-list.panel-visible,
+  #workout-set-list.panel-visible {
+    right: 0;
+    left: auto;
+  }
+}
+
 /* ── Mobile: bottom bar layout (≤ 700px) ──────────────────────── */
 @media (max-width: 700px) {
   /* Panels become full-width fixed overlays above the toolbar bar */

@@ -1328,6 +1328,16 @@
       });
     });
 
+    // ── Outside-click: close active panel when clicking off the panel/toolbar ─
+    document.addEventListener('click', (e) => {
+      if (!activePanel) return;
+      if (e.target.closest('.dashboard-panel') || e.target.closest('.side-toolbar')) return;
+      const panel = document.getElementById(activePanel);
+      if (panel) panel.classList.remove('panel-visible');
+      toggleBtns.forEach(b => b.classList.remove('active'));
+      activePanel = null;
+    });
+
     // ── Subscription Plan Toggle ───────────────────────────────
     const planToggle = document.getElementById('plan-toggle');
     if (planToggle) {
