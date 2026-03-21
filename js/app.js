@@ -5387,6 +5387,105 @@ document.addEventListener('DOMContentLoaded', () => {
       if (markBtn) markBtn.disabled = true;
     }
 
+    // ── Render batch preview: per-wallet tally with issue breakdown ───────
+    function renderBatchPreview(pending, paidOnChain) {
+      const previewEl = document.getElementById('payroll-batch-preview');
+      if (!previewEl) return;
+
+      const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+      const eligible  = pending.filter(p =>
+        p.contributor && p.contributor !== ZERO_ADDR && !paidOnChain.has(p.issueRef)
+      );
+      const skipped   = pending.filter(p =>
+        (!p.contributor || p.contributor === ZERO_ADDR) && !paidOnChain.has(p.issueRef)
+      );
+      const alreadyPaidCount = pending.filter(p => paidOnChain.has(p.issueRef)).length;
+
+      if (eligible.length === 0) {
+        let html = '<div class="payroll-batch-preview-card">';
+        if (skipped.length > 0) {
+          const githubs = [...new Set(skipped.map(p => p.contributorGithub).filter(Boolean))];
+          html += `<p class="payroll-batch-warning">⚠️ All pending payouts are skipped — no wallet registered for: ${githubs.map(g => `@${g}`).join(', ')}</p>`;
+        } else {
+          html += '<p class="payroll-batch-info">✅ No eligible payouts to batch.</p>';
+        }
+        html += '</div>';
+        previewEl.innerHTML = html;
+        return;
+      }
+
+      // Group by wallet address (case-insensitive key)
+      const walletMap = new Map();
+      for (const p of eligible) {
+        const key = p.contributor.toLowerCase();
+        if (!walletMap.has(key)) {
+          walletMap.set(key, {
+            contributor: p.contributor,
+            github:      p.contributorGithub || '',
+            total:       0,
+            entries:     [],
+          });
+        }
+        const w = walletMap.get(key);
+        w.total += parseFloat(p.amount || '1');
+        w.entries.push(p);
+      }
+
+      const totalBNUT = eligible.reduce((s, p) => s + parseFloat(p.amount || '1'), 0);
+
+      let html = `
+        <div class="payroll-batch-preview-card">
+          <div class="payroll-batch-preview-header">
+            <strong>📋 Batch Preview</strong>
+            <span class="payroll-batch-summary">${walletMap.size} wallet(s) · ${eligible.length} payout(s) · ${totalBNUT.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNUT total</span>
+          </div>
+          <div class="payroll-table-wrap">
+            <table class="payroll-tally-table">
+              <thead>
+                <tr>
+                  <th>Wallet</th>
+                  <th>GitHub</th>
+                  <th>Issues Covered</th>
+                  <th>Total BNUT</th>
+                </tr>
+              </thead>
+              <tbody>
+      `;
+
+      for (const [, w] of walletMap) {
+        const walletShort = `${w.contributor.slice(0, 10)}…${w.contributor.slice(-4)}`;
+        const issueLinks  = w.entries.map(p => {
+          const issueNum = (p.issueRef || '').match(/#(\d+)/)?.[1];
+          const repo     = (p.issueRef || '').split('#')[0] || REPO_SLUG;
+          return issueNum
+            ? `<a href="https://github.com/${repo}/issues/${issueNum}" target="_blank" rel="noopener" class="payroll-issue-link" title="${p.issueRef} — ${p.amount} BNUT">#${issueNum}&nbsp;(${p.amount})</a>`
+            : (p.issueRef || '—');
+        }).join(' · ');
+
+        html += `
+              <tr>
+                <td><code class="payroll-wallet-addr" title="${w.contributor}">${walletShort}</code></td>
+                <td>@${w.github || '—'}</td>
+                <td class="payroll-tally-issues">${issueLinks}</td>
+                <td class="payroll-tally-total">${w.total.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNUT</td>
+              </tr>
+        `;
+      }
+
+      html += '</tbody></table></div>';
+
+      if (skipped.length > 0) {
+        const githubs = [...new Set(skipped.map(p => p.contributorGithub).filter(Boolean))];
+        html += `<p class="payroll-batch-warning">⚠️ ${skipped.length} payout(s) skipped — no wallet registered for: ${githubs.map(g => `@${g}`).join(', ')}</p>`;
+      }
+      if (alreadyPaidCount > 0) {
+        html += `<p class="payroll-batch-info">ℹ️ ${alreadyPaidCount} payout(s) already settled on-chain and excluded from batch.</p>`;
+      }
+
+      html += '</div>';
+      previewEl.innerHTML = html;
+    }
+
     // ── Render pending payouts as a full table ────────────────────────────
     function renderPendingList(pending, paidOnChain = new Set()) {
       const listEl    = document.getElementById('payroll-pending-list');
@@ -5484,6 +5583,9 @@ document.addEventListener('DOMContentLoaded', () => {
       listEl.innerHTML = html;
 
       if (actionsEl) actionsEl.style.display = 'block';
+
+      // Populate per-wallet batch preview
+      renderBatchPreview(_pendingQueue, _paidOnChain);
 
       // ── Per-row "Send" button — uses treasury.settlePayroll() ────────────
       listEl.querySelectorAll('.payroll-send-btn').forEach(btn => {
@@ -5668,32 +5770,65 @@ document.addEventListener('DOMContentLoaded', () => {
     if (settleBtn) {
       settleBtn.addEventListener('click', async () => {
         settleBtn.disabled = true;
-        if (settleStatus) settleStatus.textContent = '⏳ Preparing batch…';
+        if (settleStatus) settleStatus.textContent = '⏳ Verifying payment status on-chain…';
 
         const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 
-        // Only include entries that have a wallet and are NOT already paid on-chain.
+        // ── Fresh double-pay guard: re-verify all issueRefs on-chain ────────
+        // Start from the cached set and add any newly-paid refs found now.
+        const freshPaidOnChain = new Set(_paidOnChain);
+        const eligibleForCheck = _pendingQueue.filter(p =>
+          p.contributor && p.contributor !== ZERO_ADDR
+        );
+        const uniqueRefs = [...new Set(eligibleForCheck.map(p => p.issueRef).filter(Boolean))];
+        await Promise.all(uniqueRefs.map(async ref => {
+          try { if (await isIssuePaid(ref)) freshPaidOnChain.add(ref); } catch (_) {}
+        }));
+
+        // ── Build eligible set (has wallet, not already paid) ────────────────
         const toSettle = _pendingQueue
           .map((p, i) => ({ p, i }))
           .filter(({ p }) =>
             p.contributor &&
             p.contributor !== ZERO_ADDR &&
-            !_paidOnChain.has(p.issueRef)
+            !freshPaidOnChain.has(p.issueRef)
           );
 
+        // Warn about skipped wallets
+        const skippedWallets = _pendingQueue.filter(p =>
+          (!p.contributor || p.contributor === ZERO_ADDR) && !freshPaidOnChain.has(p.issueRef)
+        );
+
         if (toSettle.length === 0) {
-          if (settleStatus) settleStatus.textContent = '🎉 No pending payouts to settle!';
+          let msg = '🎉 No pending payouts to settle!';
+          if (skippedWallets.length > 0) {
+            const githubs = [...new Set(skippedWallets.map(p => p.contributorGithub).filter(Boolean))];
+            msg += ` (${skippedWallets.length} skipped — no wallet registered for: ${githubs.map(g => `@${g}`).join(', ')})`;
+          }
+          if (settleStatus) settleStatus.textContent = msg;
           settleBtn.disabled = false;
           return;
         }
 
-        // Build the payout batch.
+        // ── Build per-wallet tally for audit notes ───────────────────────────
+        const walletTally = new Map();
+        for (const { p } of toSettle) {
+          const key = p.contributor.toLowerCase();
+          if (!walletTally.has(key)) {
+            walletTally.set(key, { contributor: p.contributor, github: p.contributorGithub || '', total: 0, issues: [] });
+          }
+          const w = walletTally.get(key);
+          w.total += parseFloat(p.amount || '1');
+          w.issues.push(p.issueRef);
+        }
+
+        // ── Build the payout batch (one entry per issue to preserve per-issue tracking) ──
         const payouts = toSettle.map(({ p }) => {
           const amount = Math.max(1, parseInt(p.amount || '1', 10));
           return { contributor: p.contributor, amount: String(amount), issueRef: p.issueRef };
         });
 
-        // Treasury balance pre-check — never fall back to mint.
+        // ── Treasury balance pre-check — never fall back to mint ─────────────
         const totalNeeded = payouts.reduce((sum, p) => sum + parseFloat(p.amount), 0);
         try {
           const bal = await getTreasuryBalance();
@@ -5715,7 +5850,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (settleStatus) {
           settleStatus.textContent =
-            `⏳ Settling ${payouts.length} payout(s) via batchPayContributors — MetaMask will prompt…`;
+            `⏳ Settling ${payouts.length} payout(s) for ${walletTally.size} wallet(s) — MetaMask will prompt…`;
+        }
+
+        let skippedMsg = '';
+        if (skippedWallets.length > 0) {
+          const githubs = [...new Set(skippedWallets.map(p => p.contributorGithub).filter(Boolean))];
+          skippedMsg = ` · ${skippedWallets.length} skipped (no wallet: ${githubs.map(g => `@${g}`).join(', ')})`;
         }
 
         try {
@@ -5724,12 +5865,24 @@ document.addEventListener('DOMContentLoaded', () => {
           // Mark all settled rows in the UI.
           toSettle.forEach(({ i }) => markRowSettled(i, txHash));
 
+          // Refresh the batch preview to reflect the new on-chain state
+          const newPaid = new Set(freshPaidOnChain);
+          toSettle.forEach(({ p }) => newPaid.add(p.issueRef));
+          _paidOnChain = newPaid;
+          renderBatchPreview(_pendingQueue, _paidOnChain);
+
           if (settleStatus) {
             const txUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+            // Build per-wallet audit summary
+            const auditLines = [...walletTally.values()]
+              .map(w => `• @${w.github || w.contributor.slice(0, 10)}…${w.contributor.slice(-4)}: ${w.total} BNUT — ${w.issues.join(', ')}`)
+              .join('<br>');
             settleStatus.innerHTML =
-              `✅ All ${payouts.length} payout(s) settled! ` +
-              `<a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View on Optimism Explorer ↗</a>` +
-              `<br><small>Settled payouts will appear in the "Recently Settled" section after chain confirmation.</small>`;
+              `✅ ${payouts.length} payout(s) settled for ${walletTally.size} wallet(s)${skippedMsg}!<br>` +
+              `<a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View on Optimism Explorer ↗</a><br>` +
+              `<details style="margin-top:0.4rem;font-size:0.8rem;"><summary style="cursor:pointer;color:#aacfdd;">📋 Audit trail — click to expand</summary>` +
+              `<div style="margin-top:0.4rem;line-height:1.8;">${auditLines}</div></details>` +
+              `<small style="color:#aaa;">Settled payouts will appear in "Recently Settled" after chain confirmation.</small>`;
           }
           // Refresh the settled list from chain after a short delay for indexing
           setTimeout(async () => {

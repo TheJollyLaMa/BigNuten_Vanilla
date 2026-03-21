@@ -3190,6 +3190,109 @@ svg text {
   white-space: normal;
 }
 
+/* ── Batch Preview Card ──────────────────────────────────────────────────── */
+
+.payroll-batch-preview-card {
+  background: rgba(0, 229, 255, 0.06);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.payroll-batch-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.payroll-batch-preview-header strong {
+  color: #00e5ff;
+  font-size: 0.9rem;
+}
+
+.payroll-batch-summary {
+  font-size: 0.78rem;
+  color: #aacfdd;
+  background: rgba(0, 229, 255, 0.1);
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+}
+
+.payroll-tally-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  color: #dde8f0;
+  margin-bottom: 0.4rem;
+}
+
+.payroll-tally-table th {
+  text-align: left;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+  color: #00e5ff;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.payroll-tally-table td {
+  padding: 0.4rem 0.5rem;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.payroll-tally-issues {
+  line-height: 1.7;
+}
+
+.payroll-tally-total {
+  font-weight: 700;
+  color: #55ffaa;
+  white-space: nowrap;
+}
+
+.payroll-batch-warning {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: #ffaa33;
+  background: rgba(255, 165, 0, 0.08);
+  border: 1px solid rgba(255, 165, 0, 0.3);
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+}
+
+.payroll-batch-info {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  color: #aacfdd;
+}
+
+/* Prominent settle button */
+.payroll-settle-btn-prominent {
+  font-size: 1.05rem;
+  padding: 0.65rem 1.8rem;
+  background: linear-gradient(135deg, rgba(0, 180, 80, 0.35), rgba(0, 229, 255, 0.2));
+  border: 1px solid rgba(0, 200, 80, 0.6);
+  box-shadow: 0 0 12px rgba(0, 200, 80, 0.2);
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+.payroll-settle-btn-prominent:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(0, 200, 90, 0.5), rgba(0, 229, 255, 0.3));
+  box-shadow: 0 0 20px rgba(0, 200, 80, 0.35);
+}
+
+.payroll-settle-btn-prominent:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 /* Proposals container */
 .gov-proposals-container {
   margin-top: 1rem;

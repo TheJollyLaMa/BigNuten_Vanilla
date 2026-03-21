@@ -262,11 +262,22 @@ export async function getContributorPaidEvents() {
 // ─── Exported: settlePayroll ──────────────────────────────────────────────────
 
 /**
- * Settle all pending payouts in a single `batchPayContributors()` call.
+ * Settle a batch of payouts in a single `batchPayContributors()` call.
  * The owner signs the transaction with MetaMask — no private key stored anywhere.
  *
+ * Each element in `payouts` maps to one entry in the batch:
+ *   - `contributor` — recipient wallet address
+ *   - `amount`      — BNUT to transfer (whole tokens, not wei)
+ *   - `issueRef`    — GitHub issue reference (e.g. "org/repo#123") used as the
+ *                     per-issue double-pay key in the contract's `issuePaid` mapping.
+ *
+ * The caller is responsible for:
+ *   1. Filtering out entries where `isIssuePaid(issueRef)` is already true.
+ *   2. Ensuring every `contributor` is a valid (non-zero) Optimism address.
+ *   3. Passing one entry per issue — the contract guards duplicates via `issuePaid`.
+ *
  * @param {Array<{contributor: string, amount: string, issueRef: string}>} payouts
- *   Subset of pending queue entries to settle (defaults to all pending).
+ *   Entries from the pending queue to include in the batch.
  * @returns {Promise<string>} Transaction hash of the batch settlement.
  */
 export async function settlePayroll(payouts) {

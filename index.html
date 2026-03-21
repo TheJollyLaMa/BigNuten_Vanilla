@@ -1807,10 +1807,11 @@
         <summary>💡 How payroll works</summary>
         <div class="gov-info-content">
           <ol>
-            <li>Open GitHub issues labelled <code>bounty: N BNUT</code> are automatically detected as pending payouts — no JSON file editing required.</li>
-            <li>Each pending payout is cross-checked on-chain via <code>isIssuePaid()</code>; already-paid issues are excluded.</li>
-            <li>Connect MetaMask and click <strong>Settle All Pending</strong> to send a single batch transaction paying all contributors at once.</li>
-            <li>After settlement, the <strong>Recently Settled</strong> section below is populated live from <code>ContributorPaid</code> events on the chain — no off-chain ledger needed.</li>
+            <li>All entries in <code>payroll-queue.json</code> are loaded as pending payouts — the queue is the authoritative source.</li>
+            <li>Each pending payout is cross-checked on-chain via <code>isIssuePaid()</code>; already-paid issues are automatically excluded.</li>
+            <li>The <strong>Batch Preview</strong> below groups payouts by wallet, tallies the total BNUT owed, and lists all covered issues per contributor.</li>
+            <li>Connect MetaMask and click <strong>Settle All Pending</strong> to send a single batch transaction. Wallets without a registered address are skipped with a warning.</li>
+            <li>After settlement, the <strong>Recently Settled</strong> section is populated live from <code>ContributorPaid</code> events on-chain.</li>
           </ol>
           <p>Network: <strong>Optimism Mainnet</strong> · Token: <strong>$BNUT</strong></p>
           <p>
@@ -1829,10 +1830,15 @@
           <p class="gov-loading">Loading queue…</p>
         </div>
 
-        <div id="payroll-actions" style="display:none; margin-top:1rem; text-align:center;">
-          <button id="payroll-settle-btn" class="gov-admin-action-btn" style="font-size:1rem; padding:0.6rem 1.4rem;">
-            ⚡ Settle All Pending
-          </button>
+        <div id="payroll-actions" style="display:none; margin-top:1rem;">
+          <!-- Per-wallet batch preview (populated by renderBatchPreview) -->
+          <div id="payroll-batch-preview"></div>
+
+          <div style="text-align:center; margin-top:0.75rem;">
+            <button id="payroll-settle-btn" class="gov-admin-action-btn payroll-settle-btn-prominent">
+              ⚡ Settle All Pending
+            </button>
+          </div>
           <p id="payroll-settle-status" class="gov-form-status" style="margin-top:0.5rem;"></p>
         </div>
       </div>
