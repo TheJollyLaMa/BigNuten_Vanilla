@@ -99,7 +99,7 @@ body.hide-icons #water-tracker {
 
 /* Water Log Modal */
 .water-log-modal {
-  max-width: 340px;
+  max-width: 380px;
   text-align: center;
 }
 
@@ -107,41 +107,64 @@ body.hide-icons #water-tracker {
   display: flex;
   gap: 1rem;
   justify-content: center;
-  margin-top: 1.2rem;
+  margin-top: 1.4rem;
+}
+
+.water-add-btn,
+.water-remove-btn {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.65rem 1.2rem;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: box-shadow 0.2s, transform 0.1s;
 }
 
 .water-add-btn {
-  background: #003a5c;
+  background: rgba(0, 58, 92, 0.8);
   color: #00e5ff;
-  border-color: #00bfff;
+  border-color: rgba(0, 191, 255, 0.6);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
 }
 
 .water-add-btn:hover {
-  background: #00bfff;
-  color: #000;
+  background: rgba(0, 191, 255, 0.25);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.6);
+  transform: translateY(-1px);
 }
 
 .water-remove-btn {
-  background: #1a0033;
-  color: #aa88ff;
-  border-color: #7722cc;
+  background: rgba(26, 0, 51, 0.8);
+  color: #cc99ff;
+  border-color: rgba(119, 34, 204, 0.6);
+  box-shadow: 0 0 10px rgba(119, 34, 204, 0.25);
 }
 
 .water-remove-btn:hover {
-  background: #7722cc;
-  color: #fff;
+  background: rgba(119, 34, 204, 0.25);
+  box-shadow: 0 0 18px rgba(119, 34, 204, 0.5);
+  transform: translateY(-1px);
 }
 
 .water-modal-count-display {
-  font-size: 2rem;
+  font-size: 2.5rem;
+  font-weight: 700;
   text-align: center;
   margin: 0.5rem 0;
+  color: #00e5ff;
+  text-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
 }
 
 .water-modal-subtitle {
   text-align: center;
-  color: #00bfff;
+  color: #7ecfef;
   font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 #moon-icon {
@@ -932,38 +955,215 @@ footer {
 
 /* General modal style for overlay modals */
 .modal {
-  background-color: rgba(0, 0, 50, 0.95);
-  padding: 2rem;
-  border-radius: 10px;
-  max-width: 600px;
+  background: linear-gradient(160deg, #0a0a2e 0%, #0d1a3a 50%, #061020 100%);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 20px;
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.3), 0 8px 40px rgba(0, 0, 0, 0.7);
+  padding: 2rem 1.8rem 1.8rem;
+  max-width: 520px;
   width: 90%;
-  max-height: 80vh;
+  max-height: 85vh;
   overflow-y: auto;
-  color: #fff;
-  box-shadow: 0 0 20px #00e5ff;
+  color: #e0f4ff;
   position: relative;
   z-index: 100001;
+  animation: diet-card-glow 4s ease-in-out infinite;
 }
 
 .modal-close {
   position: absolute;
-  top: 0.5rem;
+  top: 0.75rem;
   right: 1rem;
   background: transparent;
-  color: #fff;
   border: none;
-  font-size: 1.5rem;
+  color: rgba(0, 229, 255, 0.7);
+  font-size: 1.8rem;
+  line-height: 1;
   cursor: pointer;
+  transition: color 0.2s;
+}
+.modal-close:hover { color: #fff; }
+
+/* ── Uniform Logger Modal: title, form, labels, inputs, buttons ── */
+.modal h2 {
+  margin: 0 0 1.4rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #00e5ff;
+  text-align: center;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+  letter-spacing: 0.04em;
 }
 
-#modal button[type="submit"] {
-  margin-top: 1rem;
-  background-color: #00e5ff;
-  color: #000;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 8px;
+.modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.modal label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7ecfef;
+  margin-top: 0.6rem;
+  margin-bottom: 0.25rem;
+}
+
+.modal input[type="text"],
+.modal input[type="number"],
+.modal input[type="date"],
+.modal input[type="time"],
+.modal input[type="password"],
+.modal select,
+.modal textarea {
+  background: rgba(0, 30, 60, 0.7);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 10px;
+  color: #e0f4ff;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.modal input[type="text"]:focus,
+.modal input[type="number"]:focus,
+.modal input[type="date"]:focus,
+.modal input[type="time"]:focus,
+.modal input[type="password"]:focus,
+.modal select:focus,
+.modal textarea:focus {
+  border-color: #00e5ff;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+}
+
+.modal input::placeholder,
+.modal textarea::placeholder { color: rgba(180, 220, 240, 0.4); }
+
+.modal select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2300e5ff'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  padding-right: 2rem;
   cursor: pointer;
+}
+.modal select option { background: #0d1a3a; color: #e0f4ff; }
+
+.modal button[type="submit"] {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #005f80 0%, #00a3cc 50%, #005f80 100%);
+  background-size: 200% 100%;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.4);
+  transition: box-shadow 0.2s, transform 0.1s;
+  margin-top: 0.8rem;
+  width: 100%;
+}
+.modal button[type="submit"]:hover {
+  box-shadow: 0 0 22px rgba(0, 229, 255, 0.7);
+  transform: translateY(-1px);
+}
+.modal button[type="submit"]:active { transform: translateY(0); }
+
+/* Emotion modal: wider to accommodate the 600px emotion wheel */
+#emotion-modal .modal {
+  max-width: 660px;
+  overflow-x: auto;
+}
+
+/* Emotion wheel container - responsive wrapper */
+.emotion-wheel-container {
+  position: relative;
+  width: 600px;
+  height: 600px;
+  margin: 0 auto;
+}
+
+.emotion-log-modal {
+  position: relative;
+}
+
+.emotion-wheel-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.emotion-wheel-overlay-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+#selectedEmotion {
+  text-align: center;
+  font-size: 1.1rem;
+  margin-top: 1rem;
+  color: #00e5ff;
+}
+
+/* ── Shared utility styles for logger modals ── */
+.modal-action-btn {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 1.2rem;
+  background: rgba(0, 30, 60, 0.7);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  border-radius: 10px;
+  color: #00e5ff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  margin-bottom: 0.5rem;
+}
+.modal-action-btn:hover {
+  background: rgba(0, 229, 255, 0.12);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+.modal-status-text {
+  font-size: 0.8rem;
+  color: rgba(0, 229, 255, 0.6);
+  text-align: center;
+  margin: 0.3rem 0;
+}
+
+.modal-reading-display {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #00e5ff;
+  text-align: center;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+  margin: 0.5rem 0;
+}
+
+.modal-feedback-text {
+  min-height: 1.4em;
+  font-weight: 700;
+  color: #00e5ff;
+  text-align: center;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
 }
 
 /* Diet Modal overlay styling (legacy modal, uses style="display:none" toggle) */
@@ -992,7 +1192,7 @@ footer {
   height: 100%;
   background-color: rgba(0, 0, 40, 0.88);
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   z-index: 100001;
   overflow-y: auto;
   padding: 1.5rem 0;
@@ -1265,6 +1465,74 @@ footer {
   white-space: nowrap;
 }
 
+/* ── Add Nutrient row inside diet log entries ── */
+.diet-add-nutr-row {
+  margin-top: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.diet-add-nutr-btn {
+  background: transparent;
+  border: 1px dashed rgba(0, 229, 255, 0.35);
+  border-radius: 20px;
+  color: rgba(0, 229, 255, 0.6);
+  font-size: 0.68rem;
+  padding: 0.18rem 0.65rem;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: border-color 0.2s, color 0.2s;
+}
+.diet-add-nutr-btn:hover {
+  border-color: rgba(0, 229, 255, 0.75);
+  color: #00e5ff;
+}
+
+.diet-add-nutr-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.diet-nutr-name-input,
+.diet-nutr-val-input {
+  flex: 1;
+  min-width: 100px;
+  font-size: 0.78rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.diet-save-nutr-btn,
+.diet-cancel-nutr-btn {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.diet-save-nutr-btn {
+  background: rgba(0, 180, 100, 0.2);
+  border-color: rgba(0, 229, 100, 0.5);
+  color: #00e580;
+}
+.diet-save-nutr-btn:hover {
+  background: rgba(0, 229, 100, 0.25);
+}
+
+.diet-cancel-nutr-btn {
+  background: transparent;
+  border-color: rgba(180, 180, 180, 0.35);
+  color: rgba(180, 220, 240, 0.55);
+}
+.diet-cancel-nutr-btn:hover {
+  color: #fff;
+  border-color: rgba(180, 180, 180, 0.65);
+}
+
 /* ── responsive tweaks ── */
 @media (max-width: 420px) {
   .diet-nutr-grid { grid-template-columns: 1fr; }
@@ -1275,15 +1543,32 @@ footer {
   margin-top: 1rem;
   display: flex;
   justify-content: space-around;
+  gap: 0.5rem;
 }
 
-#weight-chart-toggle button {
-  background-color: transparent;
-  border: 1px solid #00e5ff;
+#weight-chart-toggle button,
+#measurement-chart-toggle button {
+  background: rgba(0, 30, 60, 0.6);
+  border: 1px solid rgba(0, 229, 255, 0.4);
   color: #00e5ff;
-  padding: 0.3rem 0.8rem;
-  border-radius: 6px;
+  padding: 0.35rem 0.9rem;
+  border-radius: 8px;
   cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+#weight-chart-toggle button:hover,
+#measurement-chart-toggle button:hover {
+  background: rgba(0, 229, 255, 0.15);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+#weight-chart-toggle button.active,
+#measurement-chart-toggle button.active {
+  background: rgba(0, 229, 255, 0.2);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
 }
 
 .round-button.active {
@@ -1295,6 +1580,48 @@ footer {
   margin-top: 1rem;
   width: 100%;
   height: 200px;
+}
+
+/* Supplement entries log list */
+#supplement-entries {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#supplement-entries li {
+  background: rgba(0, 20, 50, 0.55);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.85rem;
+  color: #e0f4ff;
+}
+
+#supplement-entries::-webkit-scrollbar { width: 4px; }
+#supplement-entries::-webkit-scrollbar-track { background: rgba(0, 30, 60, 0.4); border-radius: 4px; }
+#supplement-entries::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, 0.4); border-radius: 4px; }
+
+/* Measurement chart controls */
+#measurement-chart-toggle {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: space-around;
+  gap: 0.5rem;
+}
+
+#measurement-chart-controls {
+  margin-top: 0.8rem;
+}
+
+#measurement-chart {
+  margin-top: 1rem;
+  width: 100%;
 }
 #log-exercise {
   background-color: #00e5ff;
