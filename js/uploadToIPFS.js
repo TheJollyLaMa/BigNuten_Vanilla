@@ -14,6 +14,11 @@ export async function uploadDataToIPFS(data, client) {
     const previousCid = storedHistory.length > 0 ? storedHistory[0].cid : null;
     // Add snapshotHistory to the data (array of {cid, timestamp}, most recent first)
     data.snapshotHistory = storedHistory.map(entry => ({ cid: entry.cid, timestamp: entry.timestamp }));
+    // Stamp the user's selected timezone into the snapshot for portability
+    if (!data.timeZone && typeof localStorage !== 'undefined') {
+      const userTz = localStorage.getItem('userTimezone');
+      if (userTz) data.timeZone = userTz;
+    }
 
     // Create the blob after modifying the data
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });

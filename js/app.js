@@ -1071,7 +1071,7 @@ const supplementDateInput = document.getElementById('supplement-date');
 
 function setTodayForSupplementDate() {
   if (supplementDateInput) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayInUserTz();
     supplementDateInput.value = today;
   }
 }
@@ -1145,7 +1145,7 @@ function displayRecentFoods() {
   list.innerHTML = '';
 
   const data = getFitnessData();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayInUserTz();
   const past7 = new Date();
   past7.setDate(past7.getDate() - 6); // includes today
 
@@ -1177,7 +1177,7 @@ function displayRecentFoods() {
       const last = entries.at(-1);
       const confirmSame = confirm(`Log same intake: "${last.amount}${last.unit ? ' ' + last.unit : ''}" for ${last.name}? Click cancel to change.`);
       const now = new Date();
-      const date = now.toISOString().split('T')[0];
+      const date = getTodayInUserTz();
       const time = now.toTimeString().slice(0, 5);
       if (confirmSame) {
         getFitnessData().foods.push({ ...last, date: now.toISOString(), time });
@@ -1237,7 +1237,7 @@ function showFoodGraphPopup(foodName, anchorElement) {
     const amount = prompt("Enter amount (e.g., 1 cup, 28g):");
     if (!amount) return;
     const now = new Date();
-    const date = now.toISOString().split('T')[0];
+    const date = getTodayInUserTz();
     const time = now.toTimeString().slice(0, 5);
     const entry = { name, amount, date, time };
 
@@ -1253,7 +1253,7 @@ function displayRecentSupplements() {
   list.innerHTML = '';
 
   const data = getFitnessData();
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayInUserTz();
   const past7 = new Date();
   past7.setDate(past7.getDate() - 6); // includes today
 
@@ -1287,7 +1287,7 @@ function displayRecentSupplements() {
         const descriptionPart = last.description ? ` (${last.description})` : '';
         const confirmSame = confirm(`Log same dose of ${last.weight}mg${descriptionPart} for ${name}? Click "Cancel" to change.`);
         const now = new Date();
-        const date = now.toISOString().split('T')[0];
+        const date = getTodayInUserTz();
         const time = now.toTimeString().split(':').slice(0, 2).join(':');
         let dosage = last.weight;
         if (confirmSame) {
@@ -1320,7 +1320,7 @@ function displayRecentSupplements() {
   });
 // --- Supplement log coloring on page load (for supplement items) ---
 document.addEventListener('DOMContentLoaded', () => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayInUserTz();
   const supplementLogs = JSON.parse(localStorage.getItem('supplementLogs')) || {};
   document.querySelectorAll('.supplement-item').forEach(item => {
     const name = item.getAttribute('data-supplement-name');
@@ -1504,8 +1504,10 @@ function displayRecentExercises() {
   entries.forEach(entry => {
     const entryDate = new Date(entry.timestamp);
     // Use calendar day diff logic
-    const nowDateStr = now.toISOString().split('T')[0];
-    const entryDateStr = entryDate.toISOString().split('T')[0];
+    const nowDateStr = getTodayInUserTz();
+    // Convert entry timestamp to user's timezone for day comparison
+    const ep = {}; new Intl.DateTimeFormat('en-CA', { year:'numeric', month:'2-digit', day:'2-digit', timeZone: getUserTimezone() }).formatToParts(entryDate).forEach(({type,value}) => { ep[type] = value; });
+    const entryDateStr = `${ep.year}-${ep.month}-${ep.day}`;
     const diffDays = Math.floor((new Date(nowDateStr) - new Date(entryDateStr)) / (1000 * 60 * 60 * 24));
     if (diffDays <= 6) {
       if (!recent[entry.type] || new Date(recent[entry.type]) < entryDate) {
@@ -2190,12 +2192,12 @@ const LAST_SNAPSHOT_KEY = 'lastAutoSnapshotDate';
 
 function shouldTakeSnapshotToday() {
   const lastDate = localStorage.getItem(LAST_SNAPSHOT_KEY);
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayInUserTz();
   return lastDate !== today;
 }
 
 function markSnapshotTakenToday() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayInUserTz();
   localStorage.setItem(LAST_SNAPSHOT_KEY, today);
 }
 
@@ -2737,7 +2739,7 @@ const measurementTypeSelect = document.getElementById('measurement-type');
 const measurementDateInput = document.getElementById('measurement-date');
 
 if (measurementDateInput) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayInUserTz();
   measurementDateInput.value = today;
 }
 
@@ -2776,7 +2778,7 @@ if (measurementForm) {
     saveFitnessData(data);
     measurementForm.reset();
     if (measurementDateInput) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayInUserTz();
       measurementDateInput.value = today;
     }
     // Update measurement chart
@@ -3258,7 +3260,7 @@ if (measurementForm) {
 
   const weightDateInput = document.getElementById('date');
   if (weightDateInput) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayInUserTz();
     weightDateInput.value = today;
   }
 
@@ -3282,7 +3284,7 @@ if (measurementForm) {
 
     weightForm.reset();
     if (weightDateInput) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayInUserTz();
       weightDateInput.value = today;
     }
     Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
@@ -3405,7 +3407,7 @@ if (exerciseForm) {
   // Pre-fill date field with current date
   const dateInput = document.getElementById('exercise-date');
   if (dateInput) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayInUserTz();
     dateInput.value = today;
   }
 
@@ -3505,7 +3507,7 @@ if (exerciseForm) {
     exerciseForm.reset();
     // Re-fill date after reset
     if (dateInput) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayInUserTz();
       dateInput.value = today;
     }
     updateSetInputs();
