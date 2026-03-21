@@ -1138,11 +1138,108 @@ function displayCurrentWeight() {
   displayRecentExercises();
   displayRecentFoods();
 }
+// ── Daily Value Nutrition Card (Raw Intake side panel) ─────────────────────
+
+const INTAKE_DV_DAILY = {
+  calories:  { label: 'Calories',  unit: 'kcal', goal: 2000,  icon: '🔥' },
+  protein:   { label: 'Protein',   unit: 'g',    goal: 50,    icon: '💪' },
+  fat:       { label: 'Fat',       unit: 'g',    goal: 65,    icon: '🫙' },
+  sugar:     { label: 'Sugar',     unit: 'g',    goal: 25,    icon: '🍬' },
+  potassium: { label: 'Potassium', unit: 'mg',   goal: 3400,  icon: '🍌', factor: 34 }, // potassium stored as %DV; 1 %DV = 34 mg (3400 mg goal ÷ 100)
+  magnesium: { label: 'Magnesium', unit: 'mg',   goal: 400,   icon: '🔩' },
+  iron:      { label: 'Iron',      unit: 'mg',   goal: 18,    icon: '⚙️' },
+  calcium:   { label: 'Calcium',   unit: 'mg',   goal: 1000,  icon: '🦷' },
+};
+
+const INTAKE_PERIOD_DAYS = { daily: 1, weekly: 7, monthly: 30, annual: 365 };
+
+let _rawIntakePeriod = 'daily';
+
+/** Renders the DV summary card inside #dv-card-content */
+function renderRawIntakeDVCard() {
+  const card = document.getElementById('dv-card-content');
+  if (!card) return;
+
+  const days = INTAKE_PERIOD_DAYS[_rawIntakePeriod] || 1;
+  const data = getFitnessData();
+  // Set cutoff to the start of the earliest day in the selected period
+  // (e.g. daily = today only, weekly = today + previous 6 days = 7 days inclusive)
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days + 1);
+  cutoff.setHours(0, 0, 0, 0);
+
+  const foods = (data.foods || []).filter(food => {
+    const d = new Date(food.date || food.timestamp || '');
+    return !isNaN(d) && d >= cutoff;
+  });
+
+  // Sum nutrients across all entries in the period
+  const totals = {};
+  Object.keys(INTAKE_DV_DAILY).forEach(k => { totals[k] = 0; });
+  foods.forEach(food => {
+    if (!food.nutr) return;
+    Object.entries(INTAKE_DV_DAILY).forEach(([key, cfg]) => {
+      const raw = food.nutr[key];
+      if (raw != null && !isNaN(parseFloat(raw))) {
+        totals[key] += parseFloat(raw) * (cfg.factor || 1);
+      }
+    });
+  });
+
+  const goalMultiplier = days;
+  const calGoal = INTAKE_DV_DAILY.calories.goal * goalMultiplier;
+  // overallPct may exceed 100 when intake surpasses the daily calorie goal
+  const overallPct = calGoal > 0 ? Math.round((totals.calories / calGoal) * 100) : 0;
+
+  const periodLabel = { daily: 'Today', weekly: 'This Week', monthly: 'This Month', annual: 'This Year' }[_rawIntakePeriod] || '';
+
+  const rows = Object.entries(INTAKE_DV_DAILY).map(([key, cfg]) => {
+    const goal = cfg.goal * goalMultiplier;
+    const val = totals[key];
+    const pct = goal > 0 ? Math.min(100, Math.round((val / goal) * 100)) : 0; // capped at 100 for progress-bar display
+    const valFmt = val % 1 === 0 ? val.toLocaleString() : val.toFixed(1);
+    const goalFmt = goal % 1 === 0 ? goal.toLocaleString() : goal.toFixed(1);
+    const barColor = pct >= 100 ? '#00ff99' : pct >= 75 ? '#00e5ff' : pct >= 50 ? '#ffcc00' : '#ff6e6e';
+    return `<div class="dv-row">
+      <div class="dv-row__main">
+        <span class="dv-row__icon">${cfg.icon}</span>
+        <span class="dv-row__label">${cfg.label}</span>
+        <div class="dv-row__bar-wrap"><div class="dv-row__bar" style="width:${pct}%;background:${barColor};"></div></div>
+        <span class="dv-row__pct">${pct}%</span>
+      </div>
+      <div class="dv-row__vals">${valFmt} / ${goalFmt} ${cfg.unit}</div>
+    </div>`;
+  }).join('');
+
+  card.innerHTML = `
+    <div class="dv-summary-header">
+      <span class="dv-summary-period">${periodLabel}</span>
+      <span class="dv-summary-overpct">${overallPct}% DV</span>
+    </div>
+    <div class="dv-rows">${rows}</div>
+  `;
+}
+
+/** Wires up the period toggle buttons for the DV card (call once after DOM ready) */
+function initRawIntakeDVCard() {
+  const container = document.getElementById('raw-intake-dv-card');
+  if (!container) return;
+  container.addEventListener('click', e => {
+    const btn = e.target.closest('.dv-period-btn');
+    if (!btn) return;
+    _rawIntakePeriod = btn.dataset.period;
+    container.querySelectorAll('.dv-period-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderRawIntakeDVCard();
+  });
+  renderRawIntakeDVCard();
+}
+
 // Display recent foods (7 days)
 function displayRecentFoods() {
   const list = document.getElementById('foods-last7days');
   if (!list) return;
   list.innerHTML = '';
+  renderRawIntakeDVCard();
 
   const data = getFitnessData();
   const today = new Date().toISOString().split('T')[0];
@@ -6367,6 +6464,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Community Data Dashboard ──────────────────────────────────────────────
   initCommunityDashboard();
+
+  // ── Raw Intake DV Card ────────────────────────────────────────────────────
+  initRawIntakeDVCard();
 
   // ── Restore timezone from fitness data if previously saved ───────────────
   (function restoreTimezoneFromData() {

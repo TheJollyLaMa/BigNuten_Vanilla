@@ -379,6 +379,143 @@ body.hide-icons #water-tracker {
   list-style: disc;
 }
 
+/* ── Raw Intake Daily Value Card ────────────────────────────────── */
+#raw-intake-dv-card {
+  background: rgba(0, 0, 44, 0.85);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.dv-period-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dv-period-btn {
+  flex: 1 1 auto;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  border-radius: 5px;
+  color: rgba(0, 229, 255, 0.7);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.dv-period-btn:hover {
+  background: rgba(0, 229, 255, 0.12);
+  border-color: #00e5ff;
+  color: #ffffff;
+}
+
+.dv-period-btn.active {
+  background: rgba(0, 229, 255, 0.22);
+  border-color: #00e5ff;
+  color: #ffffff;
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.4);
+}
+
+.dv-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.25);
+}
+
+.dv-summary-period {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #00e5ff;
+  letter-spacing: 0.04em;
+}
+
+.dv-summary-overpct {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ffcc00;
+  text-shadow: 0 0 6px rgba(255, 204, 0, 0.5);
+}
+
+.dv-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dv-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.72rem;
+  color: rgba(200, 235, 255, 0.9);
+}
+
+.dv-row__main {
+  display: grid;
+  grid-template-columns: 1.4rem 5.5rem 1fr 2.6rem;
+  align-items: center;
+  gap: 4px;
+}
+
+.dv-row__icon {
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.dv-row__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.72rem;
+}
+
+.dv-row__bar-wrap {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.dv-row__bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.dv-row__pct {
+  text-align: right;
+  font-size: 0.68rem;
+  color: rgba(200, 235, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-row__vals {
+  font-size: 0.64rem;
+  color: rgba(160, 210, 240, 0.6);
+  padding-left: 1.4rem;
+}
+
+.dv-log-heading {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(0, 229, 255, 0.7);
+  margin: 0 0 0.4rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .supplement-name-hover {
   cursor: pointer;
   text-decoration: underline;

@@ -147,7 +147,18 @@
       <ul id="supplements-last7days"></ul>
     </div>
     <div id="recent-foods-list" class="dashboard-panel">
-      <h4>Raw Intake (7 days)</h4>
+      <h4>🥗 Raw Intake</h4>
+      <!-- Daily Value Nutrition Card -->
+      <div id="raw-intake-dv-card">
+        <div class="dv-period-toggle">
+          <button class="dv-period-btn active" data-period="daily">Daily</button>
+          <button class="dv-period-btn" data-period="weekly">Weekly</button>
+          <button class="dv-period-btn" data-period="monthly">Monthly</button>
+          <button class="dv-period-btn" data-period="annual">Annual</button>
+        </div>
+        <div id="dv-card-content"></div>
+      </div>
+      <h5 class="dv-log-heading">Recent Log (7 days)</h5>
       <ul id="foods-last7days"></ul>
     </div>
     <div id="body-figure-wrapper">
