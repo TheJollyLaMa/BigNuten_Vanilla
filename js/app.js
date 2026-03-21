@@ -5197,12 +5197,44 @@ document.addEventListener('DOMContentLoaded', () => {
             });
           }
         } else {
+          // No assignees on this issue — try to find the contributor from:
+          //   1. Issue comments: the bounty bot posts "@username" when announcing/queueing
+          //   2. Issue events: look for "assigned" events that may have since been removed
+          let resolvedGithub = '';
+          try {
+            // Fetch issue comments (first page, most bot comments appear early)
+            const cmtRes = await fetch(
+              `https://api.github.com/repos/${REPO_SLUG}/issues/${issue.number}/comments?per_page=30`
+            );
+            if (cmtRes.ok) {
+              const comments = await cmtRes.json();
+              for (const cmt of (Array.isArray(comments) ? comments : [])) {
+                // Bounty bot (github-actions[bot]) posts "Hey @username" or "Welcome back, @username"
+                if (
+                  cmt.user?.login === 'github-actions[bot]' ||
+                  cmt.user?.type  === 'Bot'
+                ) {
+                  // Match the exact phrases the bounty-bot.yml announce step posts
+                  const m = cmt.body?.match(/(?:Hey|Welcome back,)\s+@([\w-]+)/i);
+                  if (m && m[1]) {
+                    resolvedGithub = m[1];
+                    break;
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+
+          const account = resolvedGithub
+            ? contributorAccounts.find(c => c.github === resolvedGithub)
+            : undefined;
+
           pending.push({
             issueRef,
             issueTitle:        issue.title,
             issueNumber:       issue.number,
-            contributor:       _BIGNUTEN_ZERO_ADDRESS,
-            contributorGithub: '',
+            contributor:       account?.walletAddress || _BIGNUTEN_ZERO_ADDRESS,
+            contributorGithub: resolvedGithub,
             amount,
           });
         }
@@ -5502,8 +5534,21 @@ document.addEventListener('DOMContentLoaded', () => {
         renderPendingList(pendingResult.pending, pendingResult.paidOnChain);
 
         // Settled: query ContributorPaid events directly from the chain
-        const events = await getContributorPaidEvents();
-        renderSettledList(events);
+        let events = [];
+        let settledQueryFailed = false;
+        try {
+          events = await getContributorPaidEvents();
+        } catch (chainErr) {
+          settledQueryFailed = true;
+          if (settledListEl) {
+            settledListEl.innerHTML =
+              `<p style="color:#ff6b6b;">❌ On-chain query failed: ${chainErr.message}</p>` +
+              `<p style="color:#aaa;font-size:0.85rem;">Check your network connection and RPC availability, then reload.</p>`;
+          }
+        }
+        if (!settledQueryFailed) {
+          renderSettledList(events);
+        }
 
         // Treasury balance (read-only, no wallet needed)
         const bal = await getTreasuryBalance();

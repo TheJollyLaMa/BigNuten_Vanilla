@@ -182,8 +182,16 @@ export async function isIssuePaid(issueRef) {
 // ─── Exported: getContributorPaidEvents ──────────────────────────────────────
 
 /**
+ * Optimism block at which BigNutenTreasury was deployed (2026-03-19).
+ * Querying from this block avoids "block range too large" RPC errors on Optimism
+ * that occur when fromBlock is 0 and the range spans the entire chain history.
+ */
+const TREASURY_DEPLOY_BLOCK = 130000000;
+
+/**
  * Query all ContributorPaid events emitted by the BigNutenTreasury contract.
  * Returns events sorted most-recent first.
+ * Throws on RPC/ABI errors so callers can surface the error to the user.
  *
  * @returns {Promise<Array<{contributor: string, issueRef: string, amount: number, txHash: string, blockNumber: number, timestamp: number}>>}
  */
@@ -200,41 +208,38 @@ export async function getContributorPaidEvents() {
     return [];
   }
 
-  try {
-    const abi      = await loadTreasuryAbi();
-    const provider = new ethers.JsonRpcProvider(
-      window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
-    );
-    const treasury = new ethers.Contract(treasuryAddress, abi, provider);
-    const filter   = treasury.filters.ContributorPaid();
-    const logs     = await treasury.queryFilter(filter, 0, 'latest');
+  const abi      = await loadTreasuryAbi();
+  const provider = new ethers.JsonRpcProvider(
+    window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
+  );
+  const treasury = new ethers.Contract(treasuryAddress, abi, provider);
+  const filter   = treasury.filters.ContributorPaid();
+  // Query from the contract deployment block to avoid RPC range-too-large errors.
+  const logs     = await treasury.queryFilter(filter, TREASURY_DEPLOY_BLOCK, 'latest');
 
-    // Collect unique block numbers and batch-fetch block timestamps
-    const blockNums = [...new Set(logs.map(l => l.blockNumber))];
-    const blockTimestamps = new Map();
-    await Promise.all(blockNums.map(async (bn) => {
-      try {
-        const block = await provider.getBlock(bn);
-        blockTimestamps.set(bn, block?.timestamp || 0);
-      } catch (_) {
-        blockTimestamps.set(bn, 0);
-      }
-    }));
+  // Collect unique block numbers and batch-fetch block timestamps
+  const blockNums = [...new Set(logs.map(l => l.blockNumber))];
+  const blockTimestamps = new Map();
+  await Promise.all(blockNums.map(async (bn) => {
+    try {
+      const block = await provider.getBlock(bn);
+      blockTimestamps.set(bn, block?.timestamp || 0);
+    } catch (_) {
+      blockTimestamps.set(bn, 0);
+    }
+  }));
 
-    const events = logs.map((log) => ({
-      contributor: log.args.contributor,
-      issueRef:    log.args.issueRef,
-      amount:      Number(ethers.formatEther(log.args.amount)),
-      txHash:      log.transactionHash,
-      blockNumber: log.blockNumber,
-      timestamp:   blockTimestamps.get(log.blockNumber) || 0,
-    }));
+  const events = logs.map((log) => ({
+    contributor: log.args.contributor,
+    issueRef:    log.args.issueRef,
+    amount:      Number(ethers.formatEther(log.args.amount)),
+    txHash:      log.transactionHash,
+    blockNumber: log.blockNumber,
+    timestamp:   blockTimestamps.get(log.blockNumber) || 0,
+  }));
 
-    // Most recent first
-    return events.sort((a, b) => b.blockNumber - a.blockNumber);
-  } catch (_) {
-    return [];
-  }
+  // Most recent first
+  return events.sort((a, b) => b.blockNumber - a.blockNumber);
 }
 
 // ─── Exported: settlePayroll ──────────────────────────────────────────────────
