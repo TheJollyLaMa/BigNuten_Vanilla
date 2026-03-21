@@ -4104,7 +4104,9 @@ document.addEventListener('DOMContentLoaded', () => {
         data.timeZone = tz;
         saveFitnessData(data);
       }
-    } catch (_) { /* non-critical */ }
+    } catch (err) {
+      console.warn('[timezone] Could not persist timezone to fitness data:', err);
+    }
   });
 
   // ── Admin dropdown (left ⚕︎) ─────────────────────────────────────────────
@@ -5846,7 +5848,9 @@ document.addEventListener('DOMContentLoaded', () => {
             setUserTimezone(d.timeZone);
           }
         }
-      } catch (_) { /* non-critical */ }
+      } catch (err) {
+        console.warn('[timezone] Could not restore timezone from fitness data:', err);
+      }
     }
   })();
 });
