@@ -4800,11 +4800,34 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.classList.add('modal-active');
       loadSubscriptionStatus();
       renderPaymentHistory();
-      // Load live ETH / BNUT prices from the on-chain contract.
+
+      // Control visibility of PayPal/Stripe for crypto-only entry
+      const isCryptoEntry = method === 'crypto' || method === 'eth' || method === 'bnut' || method === 'usdc';
+      const paypalTab = document.getElementById('tab-paypal');
+      const stripeTab = document.getElementById('tab-stripe');
+      const paypalLink = document.getElementById('sub-link-paypal');
+      const stripeLink = document.getElementById('sub-link-stripe');
+
+      if (isCryptoEntry) {
+        if (paypalTab)  paypalTab.style.display = 'none';
+        if (stripeTab)  stripeTab.style.display = 'none';
+        if (paypalLink) paypalLink.style.display = 'none';
+        if (stripeLink) stripeLink.style.display = 'none';
+        // Force switch to eth if 'crypto' generic was passed
+        if (method === 'crypto') method = 'eth';
+      } else {
+        if (paypalTab)  paypalTab.style.display = '';
+        if (stripeTab)  stripeTab.style.display = '';
+        if (paypalLink) paypalLink.style.display = '';
+        if (stripeLink) stripeLink.style.display = '';
+      }
+
+      // Load live prices
       import('./subscription.js').then(({ loadCryptoPrices }) => loadCryptoPrices()).catch((err) => {
         console.warn('[subscription] could not load crypto prices:', err.message);
       });
-      // Optionally switch to a specific payment tab (e.g. 'eth' or 'bnut')
+
+      // Switch to specific tab
       if (method) {
         const targetTab = subModal.querySelector(`.sub-method-tab[data-method="${method}"]`);
         if (targetTab) targetTab.click();
@@ -4878,22 +4901,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (manageRow) {
           manageRow.style.display = 'flex';
-          // Point manage link to the right portal
           const manageLink = document.getElementById('sub-manage-link');
-          if (manageLink && method) {
-            if (method.toLowerCase().includes('paypal')) {
-              manageLink.href = 'https://www.paypal.com/myaccount/autopay/';
-            } else if (method.toLowerCase().includes('stripe') || method.toLowerCase().includes('card')) {
-              manageLink.href = 'https://billing.stripe.com/p/login/test_00000';
-            } else if (method.toLowerCase().includes('eth') || method.toLowerCase().includes('bnut')) {
-              // On-chain subscription — link to Optimism Etherscan for the contract
-              const subscriptionAddress = (window.CONTRACTS && window.CONTRACTS.subscription) || '';
-              manageLink.href = subscriptionAddress && subscriptionAddress !== '0x0000000000000000000000000000000000000000'
-                ? `https://optimistic.etherscan.io/address/${subscriptionAddress}`
-                : '#';
-              manageLink.textContent = '🔍 View on Optimism Explorer';
-            } else {
-              manageLink.href = '#';
+          const cancelBtn = document.getElementById('sub-cancel-btn');
+          const cryptoMsg = document.getElementById('sub-cancel-crypto-msg');
+          const expiryDateEl = document.getElementById('sub-expiry-date');
+
+          const isCrypto = method && (method.toLowerCase().includes('eth') || method.toLowerCase().includes('bnut') || method.toLowerCase().includes('usdc'));
+
+          if (isCrypto) {
+            if (manageLink) manageLink.style.display = 'none';
+            if (cancelBtn)   cancelBtn.style.display  = 'none';
+            if (cryptoMsg) {
+              cryptoMsg.style.display = 'block';
+              if (expiryDateEl) {
+                expiryDateEl.textContent = expiry ? expiry.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'on-chain record';
+              }
+            }
+          } else {
+            if (manageLink) manageLink.style.display = '';
+            if (cancelBtn)   cancelBtn.style.display  = '';
+            if (cryptoMsg)   cryptoMsg.style.display  = 'none';
+
+            if (manageLink && method) {
+              if (method.toLowerCase().includes('paypal')) {
+                manageLink.href = 'https://www.paypal.com/myaccount/autopay/';
+              } else if (method.toLowerCase().includes('stripe') || method.toLowerCase().includes('card')) {
+                manageLink.href = 'https://billing.stripe.com/p/login/test_00000';
+              } else {
+                manageLink.href = '#';
+              }
             }
           }
         }
@@ -4935,6 +4971,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update Stripe price label
         const stripePriceLabel = document.getElementById('sub-stripe-price-label');
         if (stripePriceLabel) stripePriceLabel.textContent = currentPlan === 'annual' ? '$99 / year' : '$10 / month';
+
+        // Toggle crypto price elements
+        const isAnnual = currentPlan === 'annual';
+        const selectors = ['eth', 'bnut', 'usdc'];
+        selectors.forEach(s => {
+          const mEl = document.getElementById(`sub-${s}-price`);
+          const aEl = document.getElementById(`sub-${s}-price-annual`);
+          if (mEl) mEl.style.display = isAnnual ? 'none' : '';
+          if (aEl) aEl.style.display = isAnnual ? '' : 'none';
+        });
       });
     });
 
@@ -4946,6 +4992,7 @@ document.addEventListener('DOMContentLoaded', () => {
       stripe: document.getElementById('sub-panel-stripe'),
       eth:    document.getElementById('sub-panel-eth'),
       bnut:   document.getElementById('sub-panel-bnut'),
+      usdc:   document.getElementById('sub-panel-usdc'),
     };
 
     methodTabs.forEach(tab => {
@@ -4991,8 +5038,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ethBtn.disabled = true;
         if (ethStatus) ethStatus.textContent = '⏳ Opening MetaMask…';
         try {
-          const { payCryptoSubscription } = await import('./subscription.js');
-          const txHash = await payCryptoSubscription();
+          const { payCryptoSubscription, PLAN_IDS } = await import('./subscription.js');
+          const planId = currentPlan === 'annual' ? PLAN_IDS.ethAnnual : PLAN_IDS.eth;
+          const txHash = await payCryptoSubscription(planId);
           const explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
           if (ethStatus) ethStatus.innerHTML =
             `✅ Subscribed! <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer">View Tx ↗</a>`;
@@ -5007,6 +5055,32 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // ── USDC button ──
+
+    const usdcBtn    = document.getElementById('sub-usdc-btn');
+    const usdcStatus = document.getElementById('sub-usdc-status');
+    if (usdcBtn) {
+      usdcBtn.addEventListener('click', async () => {
+        usdcBtn.disabled = true;
+        if (usdcStatus) usdcStatus.textContent = '⏳ Opening MetaMask…';
+        try {
+          const { payUSDCSubscription, PLAN_IDS } = await import('./subscription.js');
+          const planId = currentPlan === 'annual' ? PLAN_IDS.usdcAnnual : PLAN_IDS.usdcMonthly;
+          const txHash = await payUSDCSubscription(planId);
+          const explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+          if (usdcStatus) usdcStatus.innerHTML =
+            `✅ Subscribed! <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer">View Tx ↗</a>`;
+          _saveSubscriptionLocal('USDC / MetaMask', currentPlan, txHash);
+          await loadSubscriptionStatus();
+          renderPaymentHistory();
+        } catch (err) {
+          if (usdcStatus) usdcStatus.textContent = `❌ ${err.message || 'Transaction failed'}`;
+        } finally {
+          usdcBtn.disabled = false;
+        }
+      });
+    }
+
     // ── $BNUT button ──
 
     const bnutBtn    = document.getElementById('sub-bnut-btn');
@@ -5016,8 +5090,9 @@ document.addEventListener('DOMContentLoaded', () => {
         bnutBtn.disabled = true;
         if (bnutStatus) bnutStatus.textContent = '⏳ Opening MetaMask…';
         try {
-          const { payBNUTSubscription } = await import('./subscription.js');
-          const txHash = await payBNUTSubscription();
+          const { payBNUTSubscription, PLAN_IDS } = await import('./subscription.js');
+          const planId = currentPlan === 'annual' ? PLAN_IDS.bnutAnnual : PLAN_IDS.bnut;
+          const txHash = await payBNUTSubscription(planId);
           const explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
           if (bnutStatus) bnutStatus.innerHTML =
             `✅ Subscribed! <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer">View Tx ↗</a>`;

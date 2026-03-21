@@ -51,8 +51,12 @@ const TREASURY_CONTRACT_ADDRESS = '0x143cC41AC075FFA40be1993827DA6ffB4638A363';
  *
  * Override defaults via window.BIGNUTEN_ETH_PLAN_ID / window.BIGNUTEN_BNUT_PLAN_ID.
  */
-const BIGNUTEN_ETH_PLAN_ID  = 0;   // planId for ETH monthly subscription
-const BIGNUTEN_BNUT_PLAN_ID = 1;   // planId for $BNUT discounted monthly subscription
+const BIGNUTEN_ETH_PLAN_ID         = 0;   // planId for ETH monthly subscription
+const BIGNUTEN_BNUT_PLAN_ID        = 1;   // planId for $BNUT discounted monthly subscription
+const BIGNUTEN_ETH_ANNUAL_PLAN_ID  = 2;   // planId for ETH annual subscription
+const BIGNUTEN_BNUT_ANNUAL_PLAN_ID = 3;   // planId for $BNUT discounted annual subscription
+const BIGNUTEN_USDC_MONTHLY_PLAN_ID = 4;  // planId for USDC monthly subscription
+const BIGNUTEN_USDC_ANNUAL_PLAN_ID  = 5;  // planId for USDC annual subscription
 
 /**
  * BigNutenGovernance — community proposal voting powered by $BNUT.
@@ -104,6 +108,10 @@ const CONTRACTS = {
   bnutToken:      BNUT_TOKEN,
   ethPlanId:      BIGNUTEN_ETH_PLAN_ID,
   bnutPlanId:     BIGNUTEN_BNUT_PLAN_ID,
+  ethAnnualId:    BIGNUTEN_ETH_ANNUAL_PLAN_ID,
+  bnutAnnualId:   BIGNUTEN_BNUT_ANNUAL_PLAN_ID,
+  usdcMonthlyId:  BIGNUTEN_USDC_MONTHLY_PLAN_ID,
+  usdcAnnualId:   BIGNUTEN_USDC_ANNUAL_PLAN_ID,
 };
 
 // ─── Expose as window globals ─────────────────────────────────────────────────
@@ -116,6 +124,10 @@ window.SUBSCRIPTION_CONTRACT_ADDRESS = DNFT_ESCROW_ADDRESS;   // DecentEscrow
 window.GOVERNANCE_CONTRACT_ADDRESS   = GOVERNANCE_CONTRACT_ADDRESS;
 window.BIGNUTEN_ETH_PLAN_ID          = BIGNUTEN_ETH_PLAN_ID;
 window.BIGNUTEN_BNUT_PLAN_ID         = BIGNUTEN_BNUT_PLAN_ID;
+window.BIGNUTEN_ETH_ANNUAL_PLAN_ID   = BIGNUTEN_ETH_ANNUAL_PLAN_ID;
+window.BIGNUTEN_BNUT_ANNUAL_PLAN_ID  = BIGNUTEN_BNUT_ANNUAL_PLAN_ID;
+window.BIGNUTEN_USDC_MONTHLY_PLAN_ID = BIGNUTEN_USDC_MONTHLY_PLAN_ID;
+window.BIGNUTEN_USDC_ANNUAL_PLAN_ID  = BIGNUTEN_USDC_ANNUAL_PLAN_ID;
 
 // Full CONTRACTS object for use in app.js and future modules.
 window.CONTRACTS = CONTRACTS;

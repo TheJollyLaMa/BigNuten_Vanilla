@@ -77,6 +77,11 @@ const BNUT_ADDRESS =
   window.BNUT_CONTRACT_ADDRESS ||
   "0x733c4d2Aae900E608147dd89Fa93606f89722823";
 
+/** USDC ERC-20 token address on Optimism Mainnet. */
+const USDC_ADDRESS =
+  window.USDC_ADDRESS ||
+  "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85";
+
 /** Public read-only RPC for Optimism Mainnet (used for view-only calls). */
 const OPTIMISM_RPC_URL = "https://mainnet.optimism.io";
 
@@ -88,6 +93,10 @@ const OPTIMISM_RPC_URL = "https://mainnet.optimism.io";
 const PLAN_IDS = {
   eth:  window.BIGNUTEN_ETH_PLAN_ID  ?? 0,
   bnut: window.BIGNUTEN_BNUT_PLAN_ID ?? 1,
+  ethAnnual:  window.BIGNUTEN_ETH_ANNUAL_PLAN_ID  ?? 2,
+  bnutAnnual: window.BIGNUTEN_BNUT_ANNUAL_PLAN_ID ?? 3,
+  usdcMonthly: window.BIGNUTEN_USDC_MONTHLY_PLAN_ID ?? 4,
+  usdcAnnual:  window.BIGNUTEN_USDC_ANNUAL_PLAN_ID  ?? 5,
 };
 
 /** Optimism Mainnet chain ID (10) and Optimism Sepolia chain ID (11155420). */
@@ -189,22 +198,28 @@ export async function checkSubscriptionStatus(walletAddress) {
       provider
     );
 
-    // Check both ETH plan and BNUT plan simultaneously.
-    const [ethActive, bnutActive, ethExpiry, bnutExpiry] = await Promise.all([
-      contract.isSubscribed(PLAN_IDS.eth,  walletAddress),
-      contract.isSubscribed(PLAN_IDS.bnut, walletAddress),
-      contract.subscriptions(walletAddress, PLAN_IDS.eth),
-      contract.subscriptions(walletAddress, PLAN_IDS.bnut),
-    ]);
+    // Check all known plan IDs simultaneously.
+    const planIdsToCheck = Object.values(PLAN_IDS);
+    const checks = planIdsToCheck.map(id => contract.isSubscribed(id, walletAddress));
+    const expiries = planIdsToCheck.map(id => contract.subscriptions(walletAddress, id));
 
-    const active = ethActive || bnutActive;
-    // Use the later of the two expiry timestamps.
-    const expiryTimestamp = ethExpiry > bnutExpiry ? ethExpiry : bnutExpiry;
-    const expiry = expiryTimestamp > 0n
-      ? new Date(Number(expiryTimestamp) * 1000)
+    const results = await Promise.all([...checks, ...expiries]);
+    const activeResults = results.slice(0, planIdsToCheck.length);
+    const expiryResults = results.slice(planIdsToCheck.length);
+
+    const isActive = activeResults.some(a => a === true);
+    
+    // Use the latest expiry timestamp among all plans.
+    let latestExpiry = 0n;
+    for (const exp of expiryResults) {
+      if (exp > latestExpiry) latestExpiry = exp;
+    }
+
+    const expiry = latestExpiry > 0n
+      ? new Date(Number(latestExpiry) * 1000)
       : null;
 
-    return { isSubscribed: active, expiry };
+    return { isSubscribed: isActive, expiry };
   } catch (err) {
     console.error("[subscription.js] checkSubscriptionStatus error:", err);
     throw err;
@@ -412,7 +427,7 @@ export function initDnftPayPalPurchase(
  *   const txHash = await payCryptoSubscription();
  *   console.log('Tx:', txHash);
  */
-export async function payCryptoSubscription() {
+export async function payCryptoSubscription(planId = PLAN_IDS.eth) {
   await _ensureOptimism();
   try {
     const signer = await _getSigner();
@@ -423,21 +438,21 @@ export async function payCryptoSubscription() {
     );
 
     // Read the ETH plan price from the contract.
-    const plan = await contract.getPlan(PLAN_IDS.eth);
+    const plan = await contract.getPlan(planId);
     if (!plan.active) {
       throw new Error(
-        `ETH subscription plan (plan ${PLAN_IDS.eth}) is not active on DecentEscrow. ` +
+        `ETH subscription plan (plan ${planId}) is not active on DecentEscrow. ` +
           "Contact support or wait for the plan to be activated."
       );
     }
 
     const value = plan.pricePerPeriod;
     console.log(
-      `[subscription.js] Subscribing via DecentEscrow plan ${PLAN_IDS.eth} ` +
+      `[subscription.js] Subscribing via DecentEscrow plan ${planId} ` +
         `with ${ethers.formatEther(value)} ETH…`
     );
 
-    const tx = await contract.subscribe(PLAN_IDS.eth, { value });
+    const tx = await contract.subscribe(planId, { value });
     console.log("[subscription.js] Tx submitted:", tx.hash);
     await tx.wait();
     console.log("[subscription.js] ETH subscription confirmed on DecentEscrow!");
@@ -461,7 +476,7 @@ export async function payCryptoSubscription() {
  *   const txHash = await payBNUTSubscription();
  *   console.log('Tx:', txHash);
  */
-export async function payBNUTSubscription() {
+export async function payBNUTSubscription(planId = PLAN_IDS.bnut) {
   await _ensureOptimism();
   try {
     const signer = await _getSigner();
@@ -480,10 +495,10 @@ export async function payBNUTSubscription() {
     );
 
     // Read the $BNUT plan price from the contract.
-    const plan = await escrowContract.getPlan(PLAN_IDS.bnut);
+    const plan = await escrowContract.getPlan(planId);
     if (!plan.active) {
       throw new Error(
-        `$BNUT subscription plan (plan ${PLAN_IDS.bnut}) is not active on DecentEscrow. ` +
+        `$BNUT subscription plan (plan ${planId}) is not active on DecentEscrow. ` +
           "Contact support or wait for the plan to be activated."
       );
     }
@@ -495,7 +510,7 @@ export async function payBNUTSubscription() {
     if (balance < price) {
       throw new Error(
         `Insufficient $BNUT balance. ` +
-          `You have ${ethers.formatEther(balance)} BNUT but need ${ethers.formatEther(price)} BNUT.`
+          `You have ${ethers.formatUnits(balance, 18)} BNUT but need ${ethers.formatUnits(price, 18)} BNUT.`
       );
     }
 
@@ -510,16 +525,89 @@ export async function payBNUTSubscription() {
 
     // Subscribe via DecentEscrow (ERC-20 plan — send no ETH).
     console.log(
-      `[subscription.js] Subscribing via DecentEscrow plan ${PLAN_IDS.bnut} ` +
-        `with ${ethers.formatEther(price)} BNUT…`
+      `[subscription.js] Subscribing via DecentEscrow plan ${planId} ` +
+        `with ${ethers.formatUnits(price, 18)} BNUT…`
     );
-    const tx = await escrowContract.subscribe(PLAN_IDS.bnut);
+    const tx = await escrowContract.subscribe(planId);
     console.log("[subscription.js] Tx submitted:", tx.hash);
     await tx.wait();
     console.log("[subscription.js] $BNUT subscription confirmed on DecentEscrow!");
     return tx.hash;
   } catch (err) {
     console.error("[subscription.js] payBNUTSubscription error:", err);
+    throw err;
+  }
+}
+
+/**
+ * Subscribes to the BigNuten USDC plan on DecentEscrow via MetaMask.
+ * Reads the plan price on-chain, requests ERC-20 approval if needed,
+ * then calls `subscribe(planId)` on the DecentEscrow contract.
+ *
+ * @param {number} planId - The USDC plan ID to subscribe to.
+ * @returns {Promise<string>} The transaction hash of the subscribe call.
+ */
+export async function payUSDCSubscription(planId = PLAN_IDS.usdcMonthly) {
+  await _ensureOptimism();
+  try {
+    const signer = await _getSigner();
+    const signerAddress = await signer.getAddress();
+
+    const escrowContract = new ethers.Contract(
+      DECENT_ESCROW_ADDRESS,
+      DECENT_ESCROW_SUBSCRIPTION_ABI,
+      signer
+    );
+
+    // USDC has 6 decimals on Optimism generally, but we check if needed.
+    // We'll use formatUnits(price, 6) for display.
+    const usdcContract = new ethers.Contract(
+      USDC_ADDRESS,
+      BNUT_ABI, // works for USDC too
+      signer
+    );
+
+    // Read the USDC plan price from the contract.
+    const plan = await escrowContract.getPlan(planId);
+    if (!plan.active) {
+      throw new Error(
+        `USDC subscription plan (plan ${planId}) is not active on DecentEscrow. ` +
+          "Contact support or wait for the plan to be activated."
+      );
+    }
+
+    const price = plan.pricePerPeriod;
+
+    // Check USDC balance.
+    const balance = await usdcContract.balanceOf(signerAddress);
+    if (balance < price) {
+      throw new Error(
+        `Insufficient USDC balance. ` +
+          `You have ${ethers.formatUnits(balance, 6)} USDC but need ${ethers.formatUnits(price, 6)} USDC.`
+      );
+    }
+
+    // Approve DecentEscrow if needed.
+    const allowance = await usdcContract.allowance(signerAddress, DECENT_ESCROW_ADDRESS);
+    if (allowance < price) {
+      console.log("[subscription.js] Requesting USDC approval for DecentEscrow…");
+      const approveTx = await usdcContract.approve(DECENT_ESCROW_ADDRESS, price);
+      await approveTx.wait();
+      console.log("[subscription.js] USDC approval confirmed.");
+    }
+
+    // Subscribe.
+    console.log(
+      `[subscription.js] Subscribing via DecentEscrow plan ${planId} ` +
+        `with ${ethers.formatUnits(price, 6)} USDC…`
+    );
+    const tx = await escrowContract.subscribe(planId);
+    console.log("[subscription.js] Tx submitted:", tx.hash);
+    await tx.wait();
+    console.log("[subscription.js] USDC subscription confirmed on DecentEscrow!");
+    return tx.hash;
+  } catch (err) {
+    console.error("[subscription.js] payUSDCSubscription error:", err);
     throw err;
   }
 }
@@ -543,20 +631,35 @@ export async function loadCryptoPrices() {
       provider
     );
 
-    const [ethPlan, bnutPlan] = await Promise.all([
-      contract.getPlan(PLAN_IDS.eth),
-      contract.getPlan(PLAN_IDS.bnut),
-    ]);
+    // Fetch all current plan info
+    const planIds = Object.values(PLAN_IDS);
+    const plansInfo = await Promise.all(planIds.map(id => contract.getPlan(id)));
 
-    const ethEl = document.getElementById("sub-eth-price");
-    const bnutEl = document.getElementById("sub-bnut-price");
+    const priceMap = {};
+    planIds.forEach((id, i) => {
+      const plan = plansInfo[i];
+      if (plan.active) {
+        // Find the key in PLAN_IDS that corresponds to this ID
+        const key = Object.keys(PLAN_IDS).find(k => PLAN_IDS[k] === id);
+        if (key) priceMap[key] = plan.pricePerPeriod;
+      }
+    });
 
-    if (ethEl && ethPlan.active) {
-      ethEl.textContent = `${ethers.formatEther(ethPlan.pricePerPeriod)} ETH / month`;
-    }
-    if (bnutEl && bnutPlan.active) {
-      bnutEl.textContent = `${ethers.formatEther(bnutPlan.pricePerPeriod)} $BNUT / month`;
-    }
+    const updateEl = (id, price, symbol, decimals = 18) => {
+      const el = document.getElementById(id);
+      if (el && price !== undefined) {
+        el.textContent = `~${ethers.formatUnits(price, decimals)} ${symbol}`;
+      }
+    };
+
+    // Update UI elements (target IDs depend on index.html updates)
+    updateEl("sub-eth-price",      priceMap.eth,      "ETH / month");
+    updateEl("sub-eth-price-annual", priceMap.ethAnnual, "ETH / year");
+    updateEl("sub-bnut-price",     priceMap.bnut,     "BNUT / month");
+    updateEl("sub-bnut-price-annual", priceMap.bnutAnnual, "BNUT / year");
+    updateEl("sub-usdc-price",     priceMap.usdcMonthly, "USDC / month", 6);
+    updateEl("sub-usdc-price-annual", priceMap.usdcAnnual, "USDC / year", 6);
+
   } catch (err) {
     console.warn("[subscription.js] loadCryptoPrices: could not fetch prices:", err.message);
   }
