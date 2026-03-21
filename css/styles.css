@@ -2567,21 +2567,50 @@ svg text {
 
 /* ── Mobile: bottom bar layout (≤ 700px) ──────────────────────── */
 @media (max-width: 700px) {
-  /* Panels become full-width fixed overlays above the toolbar bar */
+  /* ── Compact header for mobile ─────────────────────────────── */
+  #app-title {
+    font-size: 2rem;
+  }
+  #app-subtitle {
+    font-size: 0.65rem;
+  }
+  #walletIconWrapper {
+    width: 54px;
+    height: 54px;
+    top: 8px;
+    right: 6px;
+  }
+  #wallet-connect {
+    width: 50px;
+    height: 50px;
+    right: 2px;
+  }
+  #metamaskIcon {
+    width: 46px;
+    height: 46px;
+  }
+  #current-weight-display {
+    font-size: 1.5rem;
+    top: 55px;   /* just below the shrunken header */
+  }
+  main {
+    margin-top: 82px;  /* clear shrunken header (~50px) + weight display (~24px) */
+  }
+
+  /* ── Mobile panels: use #id.class selectors (specificity 0,1,1,0) ─
+     This beats the base rule's ID-only selector (0,1,0,0) so that the
+     mobile overrides for top/bottom/left/right actually take effect.   */
   #recent-supplements-list.panel-visible,
   #recent-foods-list.panel-visible,
   #recent-exercises-list.panel-visible,
   #workout-set-list.panel-visible {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .dashboard-panel.panel-visible {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 72px;   /* sit above the mobile toolbar strip */
     top: auto;
+    width: 100%;
+    max-width: 100%;
     max-height: 48vh;
     overflow-y: auto;
     border-radius: 14px 14px 0 0;
