@@ -5387,6 +5387,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (markBtn) markBtn.disabled = true;
     }
 
+    /**
+     * Unique per-entry key for the on-chain issuePaid mapping.
+     * Appending the contributor address ensures multiple contributors on the
+     * same issue each get an independent contract-level payment record.
+     * @param {object} p  Queue entry with issueRef and contributor fields.
+     * @returns {string}
+     */
+    function entryKey(p) {
+      return p.contributor && p.contributor !== '0x0000000000000000000000000000000000000000'
+        ? `${p.issueRef}:${p.contributor.toLowerCase()}`
+        : p.issueRef;
+    }
+
     // ── Render batch preview: per-wallet tally with issue breakdown ───────
     function renderBatchPreview(pending, paidOnChain) {
       const previewEl = document.getElementById('payroll-batch-preview');
@@ -5394,12 +5407,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
       const eligible  = pending.filter(p =>
-        p.contributor && p.contributor !== ZERO_ADDR && !paidOnChain.has(p.issueRef)
+        p.contributor && p.contributor !== ZERO_ADDR && !paidOnChain.has(entryKey(p))
       );
       const skipped   = pending.filter(p =>
-        (!p.contributor || p.contributor === ZERO_ADDR) && !paidOnChain.has(p.issueRef)
+        (!p.contributor || p.contributor === ZERO_ADDR) && !paidOnChain.has(entryKey(p))
       );
-      const alreadyPaidCount = pending.filter(p => paidOnChain.has(p.issueRef)).length;
+      const alreadyPaidCount = pending.filter(p => paidOnChain.has(entryKey(p))).length;
 
       if (eligible.length === 0) {
         let html = '<div class="payroll-batch-preview-card">';
@@ -5520,7 +5533,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       _pendingQueue.forEach((p, i) => {
-        const alreadyPaid = _paidOnChain.has(p.issueRef);
+        const alreadyPaid = _paidOnChain.has(entryKey(p));
         const hasWallet   = p.contributor && p.contributor !== ZERO_ADDR;
         const status      = alreadyPaid ? 'paid-on-chain' : (hasWallet ? 'pending' : 'needs-wallet');
         const issueNum    = (p.issueRef || '').match(/#(\d+)/)?.[1] || '';
@@ -5727,10 +5740,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Pending: always use payroll-queue.json as the authoritative source
         const queue = await loadPayrollQueue();
         const pending = queue.pending || [];
-        const uniqueRefs = [...new Set(pending.map(p => p.issueRef).filter(Boolean))];
+        // Check per-entry compound keys (issueRef:contributor) so multiple contributors
+        // on the same issue are each tracked independently on-chain.
         const paidOnChain = new Set();
-        await Promise.all(uniqueRefs.map(async ref => {
-          try { if (await isIssuePaid(ref)) paidOnChain.add(ref); } catch (_) {}
+        await Promise.all(pending.map(async p => {
+          if (!p.issueRef) return;
+          try {
+            const key = entryKey(p);
+            if (await isIssuePaid(key)) paidOnChain.add(key);
+          } catch (_) {}
         }));
         renderPendingList(pending, paidOnChain);
 
@@ -5774,15 +5792,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 
-        // ── Fresh double-pay guard: re-verify all issueRefs on-chain ────────
-        // Start from the cached set and add any newly-paid refs found now.
+        // ── Fresh double-pay guard: re-verify all entries on-chain ──────────
+        // Use per-entry compound keys so multiple contributors on the same issue
+        // are independently checked. Seed from the cached set.
         const freshPaidOnChain = new Set(_paidOnChain);
         const eligibleForCheck = _pendingQueue.filter(p =>
           p.contributor && p.contributor !== ZERO_ADDR
         );
-        const uniqueRefs = [...new Set(eligibleForCheck.map(p => p.issueRef).filter(Boolean))];
-        await Promise.all(uniqueRefs.map(async ref => {
-          try { if (await isIssuePaid(ref)) freshPaidOnChain.add(ref); } catch (_) {}
+        await Promise.all(eligibleForCheck.map(async p => {
+          const key = entryKey(p);
+          try { if (await isIssuePaid(key)) freshPaidOnChain.add(key); } catch (_) {}
         }));
 
         // ── Build eligible set (has wallet, not already paid) ────────────────
@@ -5791,12 +5810,12 @@ document.addEventListener('DOMContentLoaded', () => {
           .filter(({ p }) =>
             p.contributor &&
             p.contributor !== ZERO_ADDR &&
-            !freshPaidOnChain.has(p.issueRef)
+            !freshPaidOnChain.has(entryKey(p))
           );
 
         // Warn about skipped wallets
         const skippedWallets = _pendingQueue.filter(p =>
-          (!p.contributor || p.contributor === ZERO_ADDR) && !freshPaidOnChain.has(p.issueRef)
+          (!p.contributor || p.contributor === ZERO_ADDR) && !freshPaidOnChain.has(entryKey(p))
         );
 
         if (toSettle.length === 0) {
@@ -5822,10 +5841,13 @@ document.addEventListener('DOMContentLoaded', () => {
           w.issues.push(p.issueRef);
         }
 
-        // ── Build the payout batch (one entry per issue to preserve per-issue tracking) ──
+        // ── Build the payout batch — compound keys ensure uniqueness per entry ──
+        // Using "${issueRef}:${contributor}" as the on-chain issueRef means
+        // multiple contributors on the same issue each get an independent
+        // issuePaid record, preventing cross-contributor revert.
         const payouts = toSettle.map(({ p }) => {
           const amount = Math.max(1, parseInt(p.amount || '1', 10));
-          return { contributor: p.contributor, amount: String(amount), issueRef: p.issueRef };
+          return { contributor: p.contributor, amount: String(amount), issueRef: entryKey(p) };
         });
 
         // ── Treasury balance pre-check — never fall back to mint ─────────────
@@ -5867,7 +5889,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           // Refresh the batch preview to reflect the new on-chain state
           const newPaid = new Set(freshPaidOnChain);
-          toSettle.forEach(({ p }) => newPaid.add(p.issueRef));
+          toSettle.forEach(({ p }) => newPaid.add(entryKey(p)));
           _paidOnChain = newPaid;
           renderBatchPreview(_pendingQueue, _paidOnChain);
 

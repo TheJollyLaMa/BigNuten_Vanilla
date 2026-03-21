@@ -268,8 +268,10 @@ export async function getContributorPaidEvents() {
  * Each element in `payouts` maps to one entry in the batch:
  *   - `contributor` — recipient wallet address
  *   - `amount`      — BNUT to transfer (whole tokens, not wei)
- *   - `issueRef`    — GitHub issue reference (e.g. "org/repo#123") used as the
- *                     per-issue double-pay key in the contract's `issuePaid` mapping.
+ *   - `issueRef`    — Unique key for this entry in the contract's `issuePaid` mapping.
+ *                     Use the compound format `"org/repo#N:0xlowerContributor"` for
+ *                     multi-contributor issues so each contributor gets an independent
+ *                     payment record and the batch never triggers a duplicate-key revert.
  *
  * The caller is responsible for:
  *   1. Filtering out entries where `isIssuePaid(issueRef)` is already true.
