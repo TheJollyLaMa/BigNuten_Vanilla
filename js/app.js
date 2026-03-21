@@ -5251,7 +5251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const BOUNTY_LABEL_RE = /^bounty:\s*(\d+(?:\.\d+)?)\s*bnut$/i;
     const DEFAULT_BOUNTY_AMOUNT = '1';
     /** Delay (ms) after settling before re-querying chain events for indexing. */
-    const CHAIN_INDEXING_DELAY_MS = 4000;
+    const CHAIN_INDEXING_DELAY_MS = 8000;
 
     async function fetchPendingBountiesFromGitHub() {
       // Load contributor wallet map
@@ -5700,11 +5700,14 @@ document.addEventListener('DOMContentLoaded', () => {
           `<a href="https://optimistic.etherscan.io/address/${TREASURY_ADDR}" target="_blank" rel="noopener" class="payroll-explorer-link" title="BNUT Treasury: ${TREASURY_ADDR}">` +
           `<code class="payroll-wallet-addr">📜 ${shortenAddr(TREASURY_ADDR)}</code></a>`;
 
-        const issueNum  = (ev.issueRef || '').match(/#(\d+)/)?.[1] || '';
-        const repoSlug  = (ev.issueRef || '').split('#')[0] || REPO_SLUG;
+        // Strip compound-key wallet suffix if present (on-chain issueRef may be
+        // "org/repo#N:0x…" for multi-contributor issues; display only "org/repo#N").
+        const displayRef = (ev.issueRef || '').replace(/:0x[0-9a-fA-F]+$/i, '');
+        const issueNum  = displayRef.match(/#(\d+)/)?.[1] || '';
+        const repoSlug  = displayRef.split('#')[0] || REPO_SLUG;
         const issueLink = issueNum
-          ? `<a href="https://github.com/${repoSlug}/issues/${issueNum}" target="_blank" rel="noopener" class="payroll-issue-link">${ev.issueRef}</a>`
-          : (ev.issueRef || '—');
+          ? `<a href="https://github.com/${repoSlug}/issues/${issueNum}" target="_blank" rel="noopener" class="payroll-issue-link">${displayRef}</a>`
+          : (displayRef || '—');
 
         const ts = ev.timestamp
           ? new Date(ev.timestamp * 1000).toUTCString()
@@ -5762,7 +5765,22 @@ document.addEventListener('DOMContentLoaded', () => {
           if (settledListEl) {
             settledListEl.innerHTML =
               `<p style="color:#ff6b6b;">❌ On-chain query failed: ${chainErr.message}</p>` +
-              `<p style="color:#aaa;font-size:0.85rem;">Check your network connection and RPC availability, then reload.</p>`;
+              `<p style="color:#aaa;font-size:0.85rem;">` +
+              `<a href="#" id="payroll-settled-retry" style="color:#00e5ff;">🔄 Retry</a> · ` +
+              `Check your network connection and that MetaMask is on Optimism Mainnet.</p>`;
+            const retryLink = document.getElementById('payroll-settled-retry');
+            if (retryLink) {
+              retryLink.addEventListener('click', async (e) => {
+                e.preventDefault();
+                settledListEl.innerHTML = '<p class="gov-loading">⏳ Loading on-chain settlement history…</p>';
+                try {
+                  const retryEvents = await getContributorPaidEvents();
+                  renderSettledList(retryEvents);
+                } catch (retryErr) {
+                  settledListEl.innerHTML = `<p style="color:#ff6b6b;">❌ Retry failed: ${retryErr.message}</p>`;
+                }
+              });
+            }
           }
         }
         if (!settledQueryFailed) {
@@ -5897,7 +5915,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const txUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
             // Build per-wallet audit summary
             const auditLines = [...walletTally.values()]
-              .map(w => `• @${w.github || w.contributor.slice(0, 10)}…${w.contributor.slice(-4)}: ${w.total} BNUT — ${w.issues.join(', ')}`)
+              .map(w => `• @${w.github || w.contributor.slice(0, 10)}…${w.contributor.slice(-4)}: ${w.total} BNUT — ${w.issues.map(r => r.replace(/:0x[0-9a-fA-F]+$/i, '')).join(', ')}`)
               .join('<br>');
             settleStatus.innerHTML =
               `✅ ${payouts.length} payout(s) settled for ${walletTally.size} wallet(s)${skippedMsg}!<br>` +
@@ -5907,11 +5925,34 @@ document.addEventListener('DOMContentLoaded', () => {
               `<small style="color:#aaa;">Settled payouts will appear in "Recently Settled" after chain confirmation.</small>`;
           }
           // Refresh the settled list from chain after a short delay for indexing
+          const settledListElForRefresh = document.getElementById('payroll-settled-list');
+          if (settledListElForRefresh) {
+            settledListElForRefresh.innerHTML = '<p class="gov-loading">⏳ Refreshing settlement history…</p>';
+          }
           setTimeout(async () => {
             try {
               const freshEvents = await getContributorPaidEvents();
               renderSettledList(freshEvents);
-            } catch (_) {}
+            } catch (refreshErr) {
+              if (settledListElForRefresh) {
+                settledListElForRefresh.innerHTML =
+                  `<p style="color:#ff6b6b;">❌ Could not refresh settled list: ${refreshErr.message}</p>` +
+                  `<p style="color:#aaa;font-size:0.85rem;"><a href="#" id="payroll-settled-retry-post" style="color:#00e5ff;">🔄 Retry</a></p>`;
+                const retryPost = document.getElementById('payroll-settled-retry-post');
+                if (retryPost) {
+                  retryPost.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    settledListElForRefresh.innerHTML = '<p class="gov-loading">⏳ Loading on-chain settlement history…</p>';
+                    try {
+                      renderSettledList(await getContributorPaidEvents());
+                    } catch (retryPostErr) {
+                      settledListElForRefresh.innerHTML =
+                        `<p style="color:#ff6b6b;">❌ Could not load settled list: ${retryPostErr.message}</p>`;
+                    }
+                  });
+                }
+              }
+            }
           }, CHAIN_INDEXING_DELAY_MS);
         } catch (err) {
           if (settleStatus) settleStatus.textContent = _friendlyTxError(err);

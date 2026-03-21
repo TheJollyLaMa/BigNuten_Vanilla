@@ -186,18 +186,33 @@ export async function isIssuePaid(issueRef) {
 
 /**
  * Optimism block at which BigNutenTreasury was deployed (2026-03-19).
+ * Used as the lower bound when scanning for ContributorPaid events.
  */
 const TREASURY_DEPLOY_BLOCK = 130_000_000;
 
 /**
- * Safe chunk size for Optimism public RPC (capped at ~10,000 blocks per request).
+ * Safe chunk size per queryFilter request (Optimism public RPC caps at ~10 000 blocks).
  */
 const RPC_BLOCK_CHUNK = 9_000;
 
 /**
+ * Max parallel queryFilter requests sent at once.
+ * Keeps the public-RPC rate limiter happy while still being ~5× faster than
+ * sequential iteration.
+ */
+const CHUNK_CONCURRENCY = 5;
+
+/**
  * Query all ContributorPaid events emitted by the BigNutenTreasury contract.
  * Returns events sorted most-recent first.
- * Throws on RPC/ABI errors so callers can surface the error to the user.
+ *
+ * Provider preference (fastest → slowest):
+ *   1. MetaMask / injected wallet (window.ethereum) — already connected, no
+ *      extra HTTP round-trips or public-RPC rate limits.
+ *   2. Public Optimism JSON-RPC fallback.
+ *
+ * Block chunks are fetched in parallel batches of CHUNK_CONCURRENCY to avoid
+ * blocking the UI while still respecting the per-endpoint rate limit.
  *
  * @returns {Promise<Array<{contributor: string, issueRef: string, amount: number, txHash: string, blockNumber: number, timestamp: number}>>}
  */
@@ -214,27 +229,42 @@ export async function getContributorPaidEvents() {
     return [];
   }
 
-  const abi      = await loadTreasuryAbi();
-  const provider = new ethers.JsonRpcProvider(
-    window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
-  );
+  const abi = await loadTreasuryAbi();
+
+  // Prefer the injected wallet provider so MetaMask handles batching/caching.
+  // Fall back to a public JSON-RPC only when no wallet is present (e.g. read-only view).
+  const provider = window.ethereum
+    ? new ethers.BrowserProvider(window.ethereum)
+    : new ethers.JsonRpcProvider(window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io');
+
   const treasury = new ethers.Contract(treasuryAddress, abi, provider);
   const filter   = treasury.filters.ContributorPaid();
 
-  // Paginate in RPC_BLOCK_CHUNK windows to stay under the public RPC block-range limit.
+  // Build the list of (from, to) block ranges to query.
   const latestBlock = await provider.getBlockNumber();
-  const allLogs = [];
-  for (let from = TREASURY_DEPLOY_BLOCK; from <= latestBlock; from += RPC_BLOCK_CHUNK) {
-    const to = Math.min(from + RPC_BLOCK_CHUNK - 1, latestBlock);
-    try {
-      const chunk = await treasury.queryFilter(filter, from, to);
-      allLogs.push(...chunk);
-    } catch (chunkErr) {
-      console.warn(`[getContributorPaidEvents] chunk ${from}-${to} failed:`, chunkErr);
-    }
+  const startBlock  = TREASURY_DEPLOY_BLOCK;
+  const chunks = [];
+  for (let from = startBlock; from <= latestBlock; from += RPC_BLOCK_CHUNK) {
+    chunks.push([from, Math.min(from + RPC_BLOCK_CHUNK - 1, latestBlock)]);
   }
 
-  // Collect unique block numbers and batch-fetch block timestamps
+  // Fetch chunks in parallel batches to avoid hammering the RPC with too many
+  // concurrent requests while still being far faster than sequential iteration.
+  const allLogs = [];
+  for (let i = 0; i < chunks.length; i += CHUNK_CONCURRENCY) {
+    const batch = chunks.slice(i, i + CHUNK_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(([from, to]) =>
+        treasury.queryFilter(filter, from, to).catch(err => {
+          console.warn(`[getContributorPaidEvents] chunk ${from}-${to} failed:`, err);
+          return [];
+        })
+      )
+    );
+    allLogs.push(...results.flat());
+  }
+
+  // Collect unique block numbers and batch-fetch timestamps in parallel.
   const blockNums = [...new Set(allLogs.map(l => l.blockNumber))];
   const blockTimestamps = new Map();
   await Promise.all(blockNums.map(async (bn) => {
@@ -248,7 +278,9 @@ export async function getContributorPaidEvents() {
 
   const events = allLogs.map((log) => ({
     contributor: log.args.contributor,
-    issueRef:    log.args.issueRef,
+    // Strip the compound-key wallet suffix (":0x…") before storing the display ref.
+    // The raw compound key is stored on-chain; we only need the human part for display.
+    issueRef:    (log.args.issueRef || '').replace(/:0x[0-9a-fA-F]+$/i, ''),
     amount:      Number(ethers.formatEther(log.args.amount)),
     txHash:      log.transactionHash,
     blockNumber: log.blockNumber,
