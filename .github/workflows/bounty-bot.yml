@@ -36,14 +36,19 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'issues' && github.event.action == 'assigned'
     permissions:
+      contents: read
       issues: write
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Parse bounty label and post comment
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
             const issue = context.payload.issue;
             const assignee = context.payload.assignee;
             const labels = issue.labels.map(l => l.name);
@@ -61,28 +66,103 @@ jobs:
             const match = bountyLabel.match(/(\d+)\s*BNUT/i);
             const amount = match ? match[1] : 'unknown';
 
-            const body = [
-              `👋 Hey @${assignee.login}! This issue has a **$BNUT bounty** attached. 🎉`,
-              '',
-              `| | |`,
-              `|---|---|`,
-              `| 💰 Bounty | **${amount} BNUT** |`,
-              `| 🏷️ Label | \`${bountyLabel}\` |`,
-              `| 📌 Issue | #${issue.number} |`,
-              '',
-              '**How to claim your bounty:**',
-              '1. Complete the work described in this issue.',
-              '2. Open a Pull Request that closes this issue (use `Closes #' + issue.number + '` in the PR body).',
-              '3. Once your PR is merged, @TheJollyLaMa will approve the $BNUT payout.',
-              '',
-              '> ⚠️ **Whitelist registration required:** Payouts are only sent to wallets registered in the',
-              '> contributor whitelist by `@TheJollyLaMa`. If you are not yet whitelisted, contact',
-              '> `@TheJollyLaMa` directly (via video call or DM) to complete onboarding before your payout',
-              '> can be processed. **Do not share your wallet address publicly in this issue.**',
-              '',
-              '> ℹ️ Payouts are sent in $BNUT on **Optimism Mainnet** via the BigNutenTreasury smart contract.',
-              `> See [CONTRIBUTING.md](https://github.com/${{ github.repository }}/blob/main/CONTRIBUTING.md) for onboarding and whitelist registration details.`,
-            ].join('\n');
+            // Load contributor accounts to check if this is a returning contributor.
+            let accounts = { contributors: [] };
+            try {
+              accounts = JSON.parse(fs.readFileSync('contributor-accounts.json', 'utf8'));
+            } catch (e) {
+              console.warn('Could not read contributor-accounts.json:', e.message);
+            }
+            const contribRecord = (accounts.contributors || []).find(
+              c => c.github.toLowerCase() === assignee.login.toLowerCase()
+            );
+            const isReturning = !!contribRecord;
+
+            // Scene art pool — one is chosen based on issue number for variety.
+            const scenes = [
+              [
+                '```',
+                '....♆..⚯.....♆.♅...☉...🌓.....☉....♅..⚯..♆...',
+                '☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️',
+                '🌲🌲🌲🌳🌳🌳🌳🌳🌳🌳🌲🌴🌴🏝️',
+                '~~🦀~~~~~~~~🐢~~~~~~~~~~🌊',
+                '~~~~~~~~~~~~🐢~~~~ 🐟 ~~~🌊',
+                '~~~~~~~🐢~~~~~~~~🐢~~~~~🌊✨✨✨',
+                '~~🐢 ~~~~~~~ 🐬 ~~~~~~~🐢 🌊((( ☿🔥🏕️',
+                '```',
+              ].join('\n'),
+              [
+                '```',
+                '  🌙 ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦  🌙',
+                '☁️          ☁️       ☁️         ☁️',
+                '🌲🌲🌳🌳🏔️🏔️⛰️⛰️🗻🗻⛰️⛰️🌳🌳🌲🌲',
+                '🌿🌿🌿🌱🌱🍄🌱🌱🌿🌿🌿🌿🌱🌱🍄🌿',
+                '~~🐸~~~🦋~~~~🐝~~~🌸~~~~🦎~~🌼~~',
+                '```',
+              ].join('\n'),
+              [
+                '```',
+                '🌞  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  🌞',
+                '☁️☁️     ☁️         ☁️☁️      ☁️',
+                '🌴🏝️🌴🌴🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊',
+                '~~~🐬~~~~🐠~~~🐠~~~🐡~~~🦈~~~~🌊',
+                '~~~~🐙~~~🦀~~~🐢~~~~🐟~~~🌊✨',
+                '🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸',
+                '```',
+              ].join('\n'),
+            ];
+            const scene = scenes[issue.number % scenes.length];
+
+            let body;
+            if (isReturning) {
+              // Short, personalized, stat-rich comment for returning/whitelisted contributors.
+              const issuesCompleted = Array.isArray(contribRecord.issuesClosed)
+                ? contribRecord.issuesClosed.length
+                : 0;
+              const totalEarned = (contribRecord.bnutEarned || 0) + (contribRecord.bnutPending || 0);
+              const hasWallet = !!(contribRecord.walletAddress);
+
+              body = [
+                `🏅 Welcome back, @${assignee.login}! You've completed **${issuesCompleted} issue${issuesCompleted !== 1 ? 's' : ''}** and earned **${totalEarned} BNUT** so far! \\♆//`,
+                '',
+                `| | |`,
+                `|---|---|`,
+                `| 💰 This bounty | **${amount} BNUT** |`,
+                `| 📌 Issue | #${issue.number} |`,
+                '',
+                'Payout will be queued automatically when your PR is merged. Keep up the great work! 🌊✨',
+                '',
+                ...(hasWallet ? [] : [
+                  '> ⚠️ **No wallet on file yet.** Contact `@TheJollyLaMa` to register your Optimism Mainnet address before payout can be processed.',
+                  '',
+                ]),
+                scene,
+              ].join('\n');
+            } else {
+              // Full onboarding comment for first-time / non-whitelisted contributors.
+              body = [
+                `👋 Hey @${assignee.login}! This issue has a **$BNUT bounty** attached. 🎉`,
+                '',
+                `| | |`,
+                `|---|---|`,
+                `| 💰 Bounty | **${amount} BNUT** |`,
+                `| 🏷️ Label | \`${bountyLabel}\` |`,
+                `| 📌 Issue | #${issue.number} |`,
+                '',
+                '**How to claim your bounty:**',
+                '1. Complete the work described in this issue.',
+                '2. Open a Pull Request that closes this issue (use `Closes #' + issue.number + '` in the PR body).',
+                '3. Once your PR is merged, @TheJollyLaMa will approve the $BNUT payout.',
+                '',
+                '> ⚠️ **Whitelist registration required:** Payouts are only sent to wallets registered in the',
+                '> contributor whitelist by `@TheJollyLaMa`. If you are not yet whitelisted, contact',
+                '> `@TheJollyLaMa` directly (via video call or DM) to complete onboarding before your payout',
+                '> can be processed. **Do not share your wallet address publicly in this issue.**',
+                '',
+                '> ℹ️ Payouts are sent in $BNUT on **Optimism Mainnet** via the BigNutenTreasury smart contract.',
+                `> See [CONTRIBUTING.md](https://github.com/${{ github.repository }}/blob/main/CONTRIBUTING.md) for onboarding and whitelist registration details.`,
+              ].join('\n');
+            }
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -91,7 +171,7 @@ jobs:
               body,
             });
 
-            console.log(`Bounty announcement posted for issue #${issue.number} — ${amount} BNUT`);
+            console.log(`Bounty announcement posted for issue #${issue.number} — ${amount} BNUT (${isReturning ? 'returning' : 'new'} contributor)`);
 
   # ────────────────────────────────────────────────────────────────────────────
   # Job 2: When a PR is merged, auto-queue payouts and update contributor data
@@ -258,35 +338,107 @@ jobs:
                 console.log(`Auto-queued ${amount} BNUT for @${canonicalGithub} (${walletAddress || 'NO WALLET'}) — ${issueRef}`);
               }
 
+              // Scene art pool — chosen by issue number for variety.
+              const scenes = [
+                [
+                  '```',
+                  '....♆..⚯.....♆.♅...☉...🌓.....☉....♅..⚯..♆...',
+                  '☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️',
+                  '🌲🌲🌲🌳🌳🌳🌳🌳🌳🌳🌲🌴🌴🏝️',
+                  '~~🦀~~~~~~~~🐢~~~~~~~~~~🌊',
+                  '~~~~~~~~~~~~🐢~~~~ 🐟 ~~~🌊',
+                  '~~~~~~~🐢~~~~~~~~🐢~~~~~🌊✨✨✨',
+                  '~~🐢 ~~~~~~~ 🐬 ~~~~~~~🐢 🌊((( ☿🔥🏕️',
+                  '```',
+                ].join('\n'),
+                [
+                  '```',
+                  '  🌙 ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦  🌙',
+                  '☁️          ☁️       ☁️         ☁️',
+                  '🌲🌲🌳🌳🏔️🏔️⛰️⛰️🗻🗻⛰️⛰️🌳🌳🌲🌲',
+                  '🌿🌿🌿🌱🌱🍄🌱🌱🌿🌿🌿🌿🌱🌱🍄🌿',
+                  '~~🐸~~~🦋~~~~🐝~~~🌸~~~~🦎~~🌼~~',
+                  '```',
+                ].join('\n'),
+                [
+                  '```',
+                  '🌞  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  🌞',
+                  '☁️☁️     ☁️         ☁️☁️      ☁️',
+                  '🌴🏝️🌴🌴🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊',
+                  '~~~🐬~~~~🐠~~~🐠~~~🐡~~~🦈~~~~🌊',
+                  '~~~~🐙~~~🦀~~~🐢~~~~🐟~~~🌊✨',
+                  '🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸',
+                  '```',
+                ].join('\n'),
+              ];
+              const scene = scenes[issueNumber % scenes.length];
+
               // Build and post a single status comment for the issue.
-              const lines = [`🤖 **Payroll Auto-Queue Update** for \`${issueRef}\` (PR #${prNumber})`, ''];
+              // For returning (whitelisted) contributors: short, personalized, stat-rich comment.
+              // For new/unregistered contributors: full instructional comment.
 
-              if (queued.length > 0) {
-                lines.push(`| Contributor | Wallet | Amount | Status |`);
-                lines.push(`|---|---|---|---|`);
-                for (const { github: gh, wallet } of queued) {
-                  const walletDisplay = wallet ? `\`${wallet}\`` : '⚠️ *no wallet on file*';
-                  lines.push(`| @${gh} | ${walletDisplay} | **${amount} BNUT** | ⏳ Queued |`);
-                }
-                lines.push('');
-                lines.push(`> 💡 @TheJollyLaMa — visit the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) and click **💸 Payroll** to settle all pending payouts with MetaMask. No private key required!`);
-              }
+              // Determine if ALL newly queued contributors are returning contributors.
+              const returningQueued = queued.filter(({ github: gh }) =>
+                accounts.contributors.some(c => c.github.toLowerCase() === gh.toLowerCase())
+              );
+              const newQueued = queued.filter(({ github: gh }) =>
+                !accounts.contributors.some(c => c.github.toLowerCase() === gh.toLowerCase())
+              );
 
-              if (skipped.length > 0) {
-                lines.push('');
-                lines.push(`ℹ️ Already queued (skipped): ${skipped.map(g => `@${g}`).join(', ')}`);
-              }
-
-              if (missing.length > 0) {
-                lines.push('');
-                lines.push(`⚠️ The following contributors are not yet registered or have no wallet address in \`contributor-accounts.json\`: ${missing.map(g => `@${g}`).join(', ')}`);
-                lines.push(`@TheJollyLaMa — please complete onboarding for these contributors and update their wallet addresses before the next payroll run.`);
-              }
+              const lines = [];
 
               if (queued.length === 0 && skipped.length > 0) {
-                // All contributors were already queued — replace comment with dedup notice.
-                lines.length = 0;
+                // All contributors were already queued — dedup notice only.
                 lines.push(`⚠️ Payout for \`${issueRef}\` is already in the payroll queue for all contributors — no duplicate entries added.`);
+              } else {
+                // Personalized welcome-back block for returning contributors.
+                for (const { github: gh } of returningQueued) {
+                  const rec = accounts.contributors.find(
+                    c => c.github.toLowerCase() === gh.toLowerCase()
+                  );
+                  const issuesCompleted = Array.isArray(rec.issuesClosed) ? rec.issuesClosed.length : 0;
+                  const totalEarned = (rec.bnutEarned || 0) + (rec.bnutPending || 0);
+                  const hasWallet = !!(rec.walletAddress);
+                  lines.push(`🏅 Great work, @${gh}! That's **${issuesCompleted} issue${issuesCompleted !== 1 ? 's' : ''} completed** and **${totalEarned} BNUT** earned so far! \\♆//`);
+                  lines.push('');
+                  lines.push(`**${amount} BNUT** for \`${issueRef}\` (PR #${prNumber}) has been added to the payroll queue. Payout coming soon! 🌊✨`);
+                  if (!hasWallet) {
+                    lines.push('');
+                    lines.push(`> ⚠️ No wallet address on file for @${gh}. Contact \`@TheJollyLaMa\` to register before payout can be processed.`);
+                  }
+                  lines.push('');
+                  lines.push(scene);
+                  lines.push('');
+                }
+
+                // Standard block for new/unregistered contributors.
+                if (newQueued.length > 0) {
+                  lines.push(`🤖 **Payroll Auto-Queue Update** for \`${issueRef}\` (PR #${prNumber})`);
+                  lines.push('');
+                  lines.push(`| Contributor | Wallet | Amount | Status |`);
+                  lines.push(`|---|---|---|---|`);
+                  for (const { github: gh, wallet } of newQueued) {
+                    const walletDisplay = wallet ? `\`${wallet}\`` : '⚠️ *no wallet on file*';
+                    lines.push(`| @${gh} | ${walletDisplay} | **${amount} BNUT** | ⏳ Queued |`);
+                  }
+                  lines.push('');
+                }
+
+                // Maintenance note for the owner (always shown when something was queued).
+                if (queued.length > 0) {
+                  lines.push(`> 💡 @TheJollyLaMa — visit the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) and click **💸 Payroll** to settle all pending payouts with MetaMask. No private key required!`);
+                }
+
+                if (skipped.length > 0) {
+                  lines.push('');
+                  lines.push(`ℹ️ Already queued (skipped): ${skipped.map(g => `@${g}`).join(', ')}`);
+                }
+
+                if (missing.length > 0) {
+                  lines.push('');
+                  lines.push(`⚠️ The following contributors are not yet registered or have no wallet address in \`contributor-accounts.json\`: ${missing.map(g => `@${g}`).join(', ')}`);
+                  lines.push(`@TheJollyLaMa — please complete onboarding for these contributors and update their wallet addresses before the next payroll run.`);
+                }
               }
 
               await github.rest.issues.createComment({
