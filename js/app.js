@@ -408,6 +408,14 @@ window.addEventListener('DOMContentLoaded', () => {
     hideModal('moon-modal');
   });
 
+  // Click outside to close emotion and moon modals
+  document.getElementById('emotion-modal')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('emotion-modal')) hideModal('emotion-modal');
+  });
+  document.getElementById('moon-modal')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('moon-modal')) hideModal('moon-modal');
+  });
+
   // --- Emotion Wheel SVG Three-Ring Rendering (Full Hierarchy) ---
   // Only run if the SVG and group exist
   const svg = document.getElementById('emotionWheelSVG');
@@ -841,6 +849,8 @@ function prefillDietNutr(foodName) {
   });
 }
 
+const KNOWN_NUTR_KEYS = new Set(['calories','protein','carbs','fat','fiber','potassium','sodium','sugar']);
+
 /** Renders all-time diet log inside #dietAllTimeLog (latest first) */
 function renderDietAllTimeLog() {
   const list = document.getElementById('dietAllTimeLog');
@@ -852,9 +862,12 @@ function renderDietAllTimeLog() {
     list.innerHTML = '<li style="color:rgba(180,220,240,0.45);font-size:0.82rem;text-align:center;">No entries yet — log your first meal!</li>';
     return;
   }
-  entries.forEach(food => {
+  const totalFoods = data.foods.length;
+  entries.forEach((food, i) => {
+    const originalIndex = totalFoods - 1 - i;
     const li = document.createElement('li');
     li.className = 'diet-log-entry';
+    li.dataset.foodIdx = originalIndex;
     const dateStr = food.date ? (food.date.length > 10 ? new Date(food.date).toLocaleString() : food.date) : '';
     const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '';
     let nutrHtml = '';
@@ -868,6 +881,12 @@ function renderDietAllTimeLog() {
       if (food.nutr.potassium != null)  pills.push(`🍌 ${food.nutr.potassium}% K`);
       if (food.nutr.sodium != null)     pills.push(`🧂 ${food.nutr.sodium}mg Na`);
       if (food.nutr.sugar != null)      pills.push(`🍬 ${food.nutr.sugar}g sugar`);
+      // Custom nutrients (any key not in the known set)
+      Object.entries(food.nutr).forEach(([key, val]) => {
+        if (!KNOWN_NUTR_KEYS.has(key) && val != null) {
+          pills.push(`✨ ${key}: ${val}`);
+        }
+      });
       if (pills.length) {
         nutrHtml = `<div class="diet-log-entry__nutr">${pills.map(p => `<span class="diet-log-entry__nutr-pill">${p}</span>`).join('')}</div>`;
       }
@@ -879,6 +898,15 @@ function renderDietAllTimeLog() {
       </div>
       <div class="diet-log-entry__date">${dateStr}</div>
       ${nutrHtml}
+      <div class="diet-add-nutr-row">
+        <button class="diet-add-nutr-btn" type="button">＋ Add Nutrient</button>
+        <div class="diet-add-nutr-form" hidden>
+          <input class="diet-input diet-nutr-name-input" type="text" placeholder="Name (e.g. Calcium)" maxlength="40" />
+          <input class="diet-input diet-nutr-val-input" type="text" placeholder="Value (e.g. 200mg)" maxlength="40" />
+          <button class="diet-save-nutr-btn" type="button">Save</button>
+          <button class="diet-cancel-nutr-btn" type="button">Cancel</button>
+        </div>
+      </div>
     `;
     list.appendChild(li);
   });
@@ -981,6 +1009,59 @@ document.addEventListener('DOMContentLoaded', () => {
       dietForm.reset();
     });
   }
+
+  // Event delegation for "Add Nutrient" buttons in the diet all-time log
+  const dietLogList = document.getElementById('dietAllTimeLog');
+  if (dietLogList) {
+    dietLogList.addEventListener('click', (e) => {
+      const li = e.target.closest('.diet-log-entry');
+      if (!li) return;
+      const form = li.querySelector('.diet-add-nutr-form');
+      const btn = li.querySelector('.diet-add-nutr-btn');
+
+      // Show the add-nutrient form
+      if (e.target.classList.contains('diet-add-nutr-btn')) {
+        if (form) form.hidden = false;
+        if (btn) btn.hidden = true;
+        const nameInput = li.querySelector('.diet-nutr-name-input');
+        if (nameInput) nameInput.focus();
+        return;
+      }
+
+      // Cancel — hide the form
+      if (e.target.classList.contains('diet-cancel-nutr-btn')) {
+        if (form) form.hidden = true;
+        if (btn) btn.hidden = false;
+        return;
+      }
+
+      // Save — persist the new nutrient
+      if (e.target.classList.contains('diet-save-nutr-btn')) {
+        const nameInput = li.querySelector('.diet-nutr-name-input');
+        const valInput  = li.querySelector('.diet-nutr-val-input');
+        const nutrName  = nameInput ? nameInput.value.trim() : '';
+        const nutrVal   = valInput  ? valInput.value.trim()  : '';
+        if (!nutrName || !nutrVal) {
+          if (nameInput && !nutrName) nameInput.style.borderColor = 'rgba(255,80,80,0.7)';
+          if (valInput && !nutrVal)  valInput.style.borderColor  = 'rgba(255,80,80,0.7)';
+          return;
+        }
+        if (nameInput) nameInput.style.borderColor = '';
+        if (valInput)  valInput.style.borderColor  = '';
+
+        const idx = parseInt(li.dataset.foodIdx, 10);
+        const foodData = getFitnessData();
+        if (foodData.foods[idx]) {
+          if (!foodData.foods[idx].nutr) foodData.foods[idx].nutr = {};
+          // Sanitize key: lowercase, alphanumeric and underscores only
+          const key = nutrName.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+          foodData.foods[idx].nutr[key] = nutrVal;
+          saveFitnessData(foodData);
+        }
+        renderDietAllTimeLog();
+      }
+    });
+  }
 });
 const supplementForm = document.getElementById('supplement-form');
 const supplementEntries = document.getElementById('supplement-entries');
@@ -998,9 +1079,10 @@ function loadSupplements() {
   const stored = data.supplements || [];
   if (supplementEntries) {
     supplementEntries.innerHTML = '';
-    stored.forEach((item, index) => {
+    stored.slice().reverse().forEach((item, index) => {
+      const originalIndex = stored.length - 1 - index;
       const li = document.createElement('li');
-      li.innerHTML = `${item.name} - ${item.weight}mg on ${item.date} at ${item.time || ''}${item.description ? ' (' + item.description + ')' : ''} <button data-index="${index}" class="delete-supplement">Remove</button>`;
+      li.innerHTML = `${item.name} - ${item.weight}mg on ${item.date} at ${item.time || ''}${item.description ? ' (' + item.description + ')' : ''} <button data-index="${originalIndex}" class="delete-supplement">Remove</button>`;
       supplementEntries.appendChild(li);
     });
   }
@@ -2585,6 +2667,8 @@ window.addEventListener('DOMContentLoaded', async () => {
           let cutoff = new Date();
 
           if (range === 'day') cutoff.setDate(now.getDate() - 1);
+          if (range === 'week') cutoff.setDate(now.getDate() - 7);
+          if (range === '2-wk') cutoff.setDate(now.getDate() - 14);
           if (range === 'month') cutoff.setDate(now.getDate() - 30);
           if (range === 'year') cutoff.setDate(now.getDate() - 365);
           if (range === 'max') cutoff = new Date(0); // all time
@@ -3069,6 +3153,8 @@ if (measurementForm) {
             let cutoff = new Date();
 
             if (range === 'day') cutoff.setDate(now.getDate() - 1);
+            if (range === 'week') cutoff.setDate(now.getDate() - 7);
+            if (range === '2-wk') cutoff.setDate(now.getDate() - 14);
             if (range === 'month') cutoff.setDate(now.getDate() - 30);
             if (range === 'year') cutoff.setDate(now.getDate() - 365);
             if (range === 'max') cutoff = new Date(0); // all time
@@ -3135,6 +3221,18 @@ if (measurementForm) {
       Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
       roundButtons.forEach(btn => btn.classList.remove('active'));
     });
+  });
+
+  // Close modal-overlay modals when clicking on the backdrop (outside the inner .modal box)
+  Object.entries(modals).forEach(([name, modal]) => {
+    if (modal && name !== 'diet') {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          Object.values(modals).forEach(m => m?.classList.add('modal-hidden'));
+          roundButtons.forEach(btn => btn.classList.remove('active'));
+        }
+      });
+    }
   });
 
   if (modalOverlay) {
