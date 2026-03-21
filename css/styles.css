@@ -2542,25 +2542,25 @@ svg text {
 @media (min-width: 701px) {
   .dashboard-panel.panel-visible {
     position: fixed;
-    top: 0;
-    bottom: 0;
+    top: 165px;    /* clear fixed header (~110px) + weight display (~55px) */
+    bottom: 95px;  /* clear fixed footer/bottom chrome */
     width: 50%;
     max-width: 50%;
     overflow-y: auto;
     z-index: 1090; /* below .side-toolbar (1100) so toolbar stays on top */
   }
 
-  /* Left-side panels anchor to the left */
+  /* Left-side panels anchor to the left, offset past the left toolbar */
   #recent-supplements-list.panel-visible,
   #recent-foods-list.panel-visible {
-    left: 0;
+    left: 60px;   /* clear the ~54px-wide left side-toolbar */
     right: auto;
   }
 
-  /* Right-side panels anchor to the right */
+  /* Right-side panels anchor to the right, offset past the right toolbar */
   #recent-exercises-list.panel-visible,
   #workout-set-list.panel-visible {
-    right: 0;
+    right: 60px;  /* clear the ~54px-wide right side-toolbar */
     left: auto;
   }
 }
@@ -2601,6 +2601,9 @@ svg text {
     width: 50%;
     box-sizing: border-box;
     justify-content: space-around;
+    height: 64px;
+    z-index: 1200;
+    background: rgba(0, 0, 33, 0.97);
   }
 
   .left-toolbar {
