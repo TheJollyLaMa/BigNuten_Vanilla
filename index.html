@@ -1069,17 +1069,11 @@
     <div class="modal about-modal">
       <button class="modal-close" id="about-modal-close" aria-label="Close About modal">×</button>
 
-      <!-- Timezone Clock Widget (upper-left) -->
-      <div class="tz-widget" id="tz-widget" title="Click to change your local timezone">
+      <!-- Timezone Bar (top, centered) -->
+      <div class="tz-bar" id="tz-bar">
         <span class="tz-clock" id="tz-clock">--:--:-- UTC</span>
-        <span class="tz-label" id="tz-label">UTC</span>
-      </div>
-
-      <!-- Timezone Picker (hidden until widget is clicked) -->
-      <div class="tz-picker" id="tz-picker" aria-label="Select your timezone" hidden>
-        <label for="tz-select" class="tz-picker-label">🌐 Select Timezone</label>
-        <select id="tz-select" class="tz-select"></select>
-        <button class="tz-confirm-btn" id="tz-confirm-btn">✔ Apply</button>
+        <span class="tz-sep">·</span>
+        <select id="tz-select" class="tz-select" aria-label="Select timezone" title="Click to change your local timezone"></select>
       </div>
 
       <div class="about-header">

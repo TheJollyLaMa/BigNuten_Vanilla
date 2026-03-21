@@ -1694,90 +1694,56 @@ svg text {
   position: relative;
 }
 
-/* ── Timezone Clock Widget ────────────────────────────────────────── */
-.tz-widget {
-  position: absolute;
-  top: 0.75rem;
-  left: 0.75rem;
+/* ── Timezone Bar (top of About Modal, centered) ────────────────── */
+.tz-bar {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  cursor: pointer;
-  padding: 0.3rem 0.55rem;
-  border-radius: 8px;
-  background: rgba(0, 229, 255, 0.06);
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  margin-bottom: 1.25rem;
+  background: rgba(0, 20, 60, 0.6);
   border: 1px solid rgba(0, 229, 255, 0.25);
-  transition: background 0.2s;
-  z-index: 2;
+  border-radius: 8px;
   user-select: none;
 }
 
-.tz-widget:hover {
-  background: rgba(0, 229, 255, 0.14);
+.tz-bar:hover {
+  background: rgba(0, 30, 80, 0.7);
 }
 
 .tz-clock {
   font-family: 'Courier New', monospace;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   color: #00e5ff;
   text-shadow: 0 0 6px #00e5ff;
-  letter-spacing: 0.04em;
-}
-
-.tz-label {
-  font-size: 0.65rem;
-  color: #7ecfea;
-  opacity: 0.85;
-}
-
-/* ── Timezone Picker ─────────────────────────────────────────────── */
-.tz-picker {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.85rem;
-  padding: 0.55rem 0.75rem;
-  background: rgba(0, 20, 60, 0.6);
-  border: 1px solid rgba(0, 229, 255, 0.3);
-  border-radius: 10px;
-}
-
-.tz-picker[hidden] { display: none; }
-
-.tz-picker-label {
-  font-size: 0.82rem;
-  color: #00e5ff;
-  font-weight: 600;
+  letter-spacing: 0.06em;
   white-space: nowrap;
 }
 
+.tz-sep {
+  color: rgba(0, 229, 255, 0.4);
+  font-size: 0.85rem;
+}
+
+/* Override .modal select rules so tz-select looks inline with the clock */
 .tz-select {
-  flex: 1;
-  min-width: 180px;
-  background: #0d1a3a;
-  color: #e0f4ff;
-  border: 1px solid rgba(0, 229, 255, 0.35);
-  border-radius: 7px;
-  padding: 0.3rem 0.5rem;
-  font-size: 0.82rem;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 1.5rem 0 0 !important;
+  font-size: 0.82rem !important;
+  color: #7ecfea !important;
   cursor: pointer;
+  letter-spacing: 0.03em;
+  min-width: 120px;
 }
 
-.tz-confirm-btn {
-  background: linear-gradient(135deg, #005f80, #00a3cc);
-  color: #fff;
-  border: none;
-  border-radius: 7px;
-  padding: 0.3rem 0.75rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: opacity 0.15s;
+.tz-select:focus {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none;
 }
-
-.tz-confirm-btn:hover { opacity: 0.85; }
 
 
 

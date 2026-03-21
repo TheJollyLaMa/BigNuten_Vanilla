@@ -4019,14 +4019,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let _tzClockInterval = null;
 
   function initTimezoneWidget() {
-    const widget    = document.getElementById('tz-widget');
     const clockEl   = document.getElementById('tz-clock');
-    const labelEl   = document.getElementById('tz-label');
-    const picker    = document.getElementById('tz-picker');
     const selectEl  = document.getElementById('tz-select');
-    const confirmBtn = document.getElementById('tz-confirm-btn');
 
-    if (!widget || !clockEl || !labelEl || !picker || !selectEl || !confirmBtn) return;
+    if (!clockEl || !selectEl) return;
 
     // Populate the <select> once (check if already built)
     if (selectEl.options.length === 0) {
@@ -4049,23 +4045,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Live clock tick
     function tick() {
-      const tz = getUserTimezone();
       clockEl.textContent = getCurrentTimeInUserTz();
-      labelEl.textContent = tz;
     }
     tick();
     if (_tzClockInterval) clearInterval(_tzClockInterval);
     _tzClockInterval = setInterval(tick, 1000);
 
-    // Toggle picker visibility on widget click
-    widget.onclick = (e) => {
-      e.stopPropagation();
-      picker.hidden = !picker.hidden;
-      if (!picker.hidden) selectEl.value = getUserTimezone();
-    };
-
-    // Apply button
-    confirmBtn.onclick = () => {
+    // Auto-apply on selection change — no Apply button needed
+    selectEl.onchange = () => {
       const chosen = selectEl.value;
       if (chosen) {
         setUserTimezone(chosen);
@@ -4073,7 +4060,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Refresh the water tracker in case day boundary changed
         updateWaterMeter();
       }
-      picker.hidden = true;
     };
   }
 
@@ -4102,6 +4088,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = getFitnessData();
       if (data && typeof data === 'object') {
         data.timeZone = tz;
+        if (e.detail?.previousTimeZone && e.detail.previousTimeZone !== tz) {
+          data.previousTimeZone = e.detail.previousTimeZone;
+        }
         saveFitnessData(data);
       }
     } catch (err) {
