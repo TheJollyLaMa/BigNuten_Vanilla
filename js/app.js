@@ -5372,6 +5372,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Mark a row as settled in the UI ──────────────────────────────────
     function markRowSettled(rowIdx, txHash) {
+      const rowEl    = document.getElementById(`payroll-row-${rowIdx}`);
       const statusEl = document.getElementById(`payroll-row-status-${rowIdx}`);
       const msgEl    = document.getElementById(`payroll-row-msg-${rowIdx}`);
       const sendBtn  = document.querySelector(`.payroll-send-btn[data-idx="${rowIdx}"]`);
@@ -5385,6 +5386,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (sendBtn) sendBtn.disabled = true;
       if (markBtn) markBtn.disabled = true;
+      // Fade out and remove the row after a short delay so the user can see the tx hash
+      if (rowEl) {
+        rowEl.style.transition = 'opacity 1.5s';
+        rowEl.style.opacity = '0.3';
+        setTimeout(() => {
+          rowEl.style.display = 'none';
+        }, 1500);
+      }
     }
 
     /**
@@ -5516,6 +5525,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 
+      // Split the queue into still-pending vs already settled on-chain so the
+      // pending table only shows actionable rows.
+      const unpaidEntries = _pendingQueue.filter((p, _i) => !_paidOnChain.has(entryKey(p)));
+      const paidEntries   = _pendingQueue.filter((p, _i) =>  _paidOnChain.has(entryKey(p)));
+
+      if (unpaidEntries.length === 0) {
+        const paidNotice = paidEntries.length > 0
+          ? `<p class="gov-loading">✅ All ${paidEntries.length} payout(s) have been settled on-chain — see "Recently Settled" below.</p>`
+          : '<p class="gov-loading">🎉 No pending payouts — queue is empty!</p>';
+        listEl.innerHTML = paidNotice;
+        if (actionsEl) actionsEl.style.display = 'block';
+        renderBatchPreview(_pendingQueue, _paidOnChain);
+        return;
+      }
+
       let html = `
         <div class="payroll-table-wrap">
           <table class="payroll-table">
@@ -5532,10 +5556,14 @@ document.addEventListener('DOMContentLoaded', () => {
             <tbody>
       `;
 
+      // Render only unpaid entries.  Use the original index (i) in the full
+      // _pendingQueue array so that data-idx on buttons still maps correctly.
       _pendingQueue.forEach((p, i) => {
         const alreadyPaid = _paidOnChain.has(entryKey(p));
+        if (alreadyPaid) return; // skip settled rows — they appear in "Recently Settled"
+
         const hasWallet   = p.contributor && p.contributor !== ZERO_ADDR;
-        const status      = alreadyPaid ? 'paid-on-chain' : (hasWallet ? 'pending' : 'needs-wallet');
+        const status      = hasWallet ? 'pending' : 'needs-wallet';
         const issueNum    = (p.issueRef || '').match(/#(\d+)/)?.[1] || '';
         const repoSlug    = (p.issueRef || '').split('#')[0] || 'TheJollyLaMa/BigNuten_Vanilla';
         const issueHref   = issueNum ? `https://github.com/${repoSlug}/issues/${issueNum}` : '#';
@@ -5549,15 +5577,13 @@ document.addEventListener('DOMContentLoaded', () => {
           : `<span class="payroll-badge payroll-badge--needs-wallet">⚠️ needs wallet</span>`;
 
         let statusCell;
-        if (alreadyPaid) {
-          statusCell = '<span class="payroll-status payroll-status--settled">✅ Already Paid On-Chain</span>';
-        } else if (status === 'needs-wallet') {
+        if (status === 'needs-wallet') {
           statusCell = '<span class="payroll-status payroll-status--needs-wallet">needs-wallet</span>';
         } else {
           statusCell = '<span class="payroll-status payroll-status--pending">pending</span>';
         }
 
-        const needsWalletNotice = !hasWallet && !alreadyPaid ? `
+        const needsWalletNotice = !hasWallet ? `
           <div class="payroll-needs-wallet-notice">
             ⚠️ Waiting for @${p.contributorGithub || 'contributor'} to register wallet
             <button class="payroll-copy-invite-btn gov-admin-action-btn"
@@ -5566,10 +5592,10 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         ` : '';
 
-        const disableActions = alreadyPaid || !hasWallet;
+        const disableActions = !hasWallet;
 
         html += `
-          <tr id="payroll-row-${i}" class="payroll-row${!hasWallet ? ' payroll-row--needs-wallet' : ''}${alreadyPaid ? ' payroll-row--paid' : ''}">
+          <tr id="payroll-row-${i}" class="payroll-row${!hasWallet ? ' payroll-row--needs-wallet' : ''}">
             <td>@${p.contributorGithub || '—'}</td>
             <td>${issueCell}</td>
             <td>
@@ -5583,7 +5609,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 Send
               </button>
               <button class="gov-admin-action-btn payroll-mark-paid-btn" data-idx="${i}"
-                ${alreadyPaid ? 'disabled' : ''} style="font-size:0.7rem;padding:0.2rem 0.5rem;background:rgba(100,100,100,0.3);">
+                style="font-size:0.7rem;padding:0.2rem 0.5rem;background:rgba(100,100,100,0.3);">
                 ✓ Mark Paid
               </button>
               <div class="payroll-row-msg" id="payroll-row-msg-${i}"></div>
@@ -5593,6 +5619,13 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       html += '</tbody></table></div>';
+
+      // Compact notice for entries already settled — avoids re-listing them here
+      if (paidEntries.length > 0) {
+        html += `<p style="font-size:0.82rem;color:#76e0a0;margin-top:0.5rem;text-align:center;">` +
+          `✅ ${paidEntries.length} payout(s) already settled on-chain — see "Recently Settled" below.</p>`;
+      }
+
       listEl.innerHTML = html;
 
       if (actionsEl) actionsEl.style.display = 'block';

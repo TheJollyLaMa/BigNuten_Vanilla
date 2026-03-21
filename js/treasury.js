@@ -206,13 +206,19 @@ const CHUNK_CONCURRENCY = 5;
  * Query all ContributorPaid events emitted by the BigNutenTreasury contract.
  * Returns events sorted most-recent first.
  *
- * Provider preference (fastest → slowest):
- *   1. MetaMask / injected wallet (window.ethereum) — already connected, no
- *      extra HTTP round-trips or public-RPC rate limits.
- *   2. Public Optimism JSON-RPC fallback.
+ * Always uses a public Optimism JSON-RPC for log queries.  MetaMask's injected
+ * provider routes through Infura which rejects `eth_getLogs` requests that span
+ * more than ~2000 blocks — far less than our 9000-block chunks.  The public
+ * `mainnet.optimism.io` endpoint supports up to 10000 blocks per request and
+ * is the correct choice for read-only archive queries.
  *
- * Block chunks are fetched in parallel batches of CHUNK_CONCURRENCY to avoid
- * blocking the UI while still respecting the per-endpoint rate limit.
+ * Block chunks are fetched in parallel batches of CHUNK_CONCURRENCY to stay
+ * well under the per-endpoint rate limit while still completing quickly.
+ *
+ * The scan window starts at `max(TREASURY_DEPLOY_BLOCK, latestBlock - 500_000)`,
+ * which covers the last ~11 days of Optimism blocks.  This makes the function
+ * robust against an inaccurate TREASURY_DEPLOY_BLOCK constant while keeping
+ * the number of chunks small (≤ 56 chunks for a 500k-block window).
  *
  * @returns {Promise<Array<{contributor: string, issueRef: string, amount: number, txHash: string, blockNumber: number, timestamp: number}>>}
  */
@@ -231,18 +237,21 @@ export async function getContributorPaidEvents() {
 
   const abi = await loadTreasuryAbi();
 
-  // Prefer the injected wallet provider so MetaMask handles batching/caching.
-  // Fall back to a public JSON-RPC only when no wallet is present (e.g. read-only view).
-  const provider = window.ethereum
-    ? new ethers.BrowserProvider(window.ethereum)
-    : new ethers.JsonRpcProvider(window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io');
+  // Always use the public Optimism JSON-RPC for log queries.
+  // MetaMask routes through Infura which caps eth_getLogs at ~2 000 blocks;
+  // our 9 000-block chunks would all fail silently (caught → []).
+  const provider = new ethers.JsonRpcProvider(
+    window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
+  );
 
   const treasury = new ethers.Contract(treasuryAddress, abi, provider);
   const filter   = treasury.filters.ContributorPaid();
 
-  // Build the list of (from, to) block ranges to query.
+  // Scan from whichever is later: the known deploy block OR 500 000 blocks
+  // before the current tip (~11 days on Optimism at 2-second blocks).
+  // This keeps chunk count small while tolerating an imprecise deploy block.
   const latestBlock = await provider.getBlockNumber();
-  const startBlock  = TREASURY_DEPLOY_BLOCK;
+  const startBlock  = Math.max(TREASURY_DEPLOY_BLOCK, latestBlock - 500_000);
   const chunks = [];
   for (let from = startBlock; from <= latestBlock; from += RPC_BLOCK_CHUNK) {
     chunks.push([from, Math.min(from + RPC_BLOCK_CHUNK - 1, latestBlock)]);
@@ -250,18 +259,29 @@ export async function getContributorPaidEvents() {
 
   // Fetch chunks in parallel batches to avoid hammering the RPC with too many
   // concurrent requests while still being far faster than sequential iteration.
+  let failedChunks = 0;
   const allLogs = [];
   for (let i = 0; i < chunks.length; i += CHUNK_CONCURRENCY) {
     const batch = chunks.slice(i, i + CHUNK_CONCURRENCY);
     const results = await Promise.all(
       batch.map(([from, to]) =>
         treasury.queryFilter(filter, from, to).catch(err => {
+          failedChunks++;
           console.warn(`[getContributorPaidEvents] chunk ${from}-${to} failed:`, err);
           return [];
         })
       )
     );
     allLogs.push(...results.flat());
+  }
+
+  // If every single chunk failed, surface an error so the caller can show the
+  // Retry button instead of silently rendering "No settled payouts found on-chain."
+  if (chunks.length > 0 && failedChunks === chunks.length) {
+    throw new Error(
+      `All ${chunks.length} block-range queries failed. ` +
+      'Check that the RPC endpoint (mainnet.optimism.io) is reachable and try again.'
+    );
   }
 
   // Collect unique block numbers and batch-fetch timestamps in parallel.
