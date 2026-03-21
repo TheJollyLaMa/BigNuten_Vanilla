@@ -2,6 +2,7 @@ import { initDnftPayPalPurchase, listDecentEscrowPlans, createDecentEscrowPlan, 
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
 import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, isIssuePaid } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
+import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -707,6 +708,7 @@ const STORAGE_KEY = 'fitnessTrackerData';
 
 const defaultData = {
   dataVersion: 1,
+  timeZone: '',
   weightLogs: [],
   supplements: [],
   foods: [],
@@ -868,7 +870,7 @@ function renderDietAllTimeLog() {
     const li = document.createElement('li');
     li.className = 'diet-log-entry';
     li.dataset.foodIdx = originalIndex;
-    const dateStr = food.date ? (food.date.length > 10 ? new Date(food.date).toLocaleString() : food.date) : '';
+    const dateStr = food.date ? (food.date.length > 10 ? formatInUserTz(food.date) : food.date) : '';
     const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '';
     let nutrHtml = '';
     if (food.nutr) {
@@ -1164,7 +1166,7 @@ function displayRecentFoods() {
     const li = document.createElement('li');
     let desc = food.description ? ` (${food.description})` : '';
     const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '';
-    const dateStr = food.date ? (food.date.length > 10 ? new Date(food.date).toLocaleDateString() : food.date) : '';
+    const dateStr = food.date ? (food.date.length > 10 ? formatInUserTz(food.date, { year: 'numeric', month: 'short', day: 'numeric' }) : food.date) : '';
     li.innerHTML = `<span class="supplement-name-hover">${food.name}</span>${desc} — ${amountStr} on ${dateStr}`;
     
     li.addEventListener('mouseenter', () => showFoodGraphPopup(food.name, li));
@@ -2286,12 +2288,12 @@ window.addEventListener('DOMContentLoaded', async () => {
         history.unshift({ cid: latestSnapshot.cid, timestamp: latestKey.split('fitnessTrackerSnapshot-')[1] });
       }
     }
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayInUserTz();
 
     // Show only the latest 7 snapshots
     ipfsPopup.innerHTML = history.slice(0, 7).map(h => {
       const date = h.timestamp
-        ? new Date(h.timestamp).toLocaleString()
+        ? formatInUserTz(h.timestamp)
         : '(No timestamp)';
       const isToday = h.timestamp && h.timestamp.startsWith(today);
       const colorClass = isToday ? 'snapshot-today' : 'snapshot-old';
@@ -2378,7 +2380,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       page.forEach(h => {
         const div = document.createElement('div');
         div.className = 'snapshot-item';
-        const date = h.timestamp ? new Date(h.timestamp).toLocaleString() : '(No timestamp)';
+        const date = h.timestamp ? formatInUserTz(h.timestamp) : '(No timestamp)';
         const shortCid = `${h.cid.slice(0, 6)}...${h.cid.slice(-4)}`;
         div.innerHTML = `<strong>${date}</strong><br><a href="https://${h.cid}.ipfs.w3s.link/" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
         div.style.margin = '8px 0';
@@ -2436,7 +2438,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       importedList.forEach(entry => {
         const row = document.createElement('div');
         row.style.cssText = 'margin:4px 0;font-size:0.75rem;';
-        const date = entry.importedAt ? new Date(entry.importedAt).toLocaleString() : '';
+        const date = entry.importedAt ? formatInUserTz(entry.importedAt) : '';
         const short = `${entry.cid.slice(0, 6)}...${entry.cid.slice(-4)}`;
         row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://${entry.cid}.ipfs.w3s.link/" target="_blank" style="color:#ff00cc;">${short}</a>`;
         importedSection.appendChild(row);
@@ -2509,7 +2511,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       importedList.slice(0, 10).forEach(entry => {
         const row = document.createElement('div');
         row.style.cssText = 'margin:4px 0;font-size:0.75rem;';
-        const date = entry.importedAt ? new Date(entry.importedAt).toLocaleString() : '';
+        const date = entry.importedAt ? formatInUserTz(entry.importedAt) : '';
         const short = `${entry.cid.slice(0, 6)}...${entry.cid.slice(-4)}`;
         row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://${entry.cid}.ipfs.w3s.link/" target="_blank" style="color:#00e5ff;">${short}</a>`;
         historyDiv.appendChild(row);
@@ -3548,7 +3550,7 @@ window.addEventListener('DOMContentLoaded', () => {
         list.innerHTML = '';
         log.slice().reverse().forEach(entry => {
           const li = document.createElement('li');
-          li.textContent = `${entry.type} - ${entry.reps} reps${entry.weight ? ` @ ${entry.weight} lbs` : ''} (${entry.timestamp ? new Date(entry.timestamp).toLocaleString() : ''})`;
+          li.textContent = `${entry.type} - ${entry.reps} reps${entry.weight ? ` @ ${entry.weight} lbs` : ''} (${entry.timestamp ? formatInUserTz(entry.timestamp) : ''})`;
           list.appendChild(li);
         });
       }
@@ -3609,7 +3611,7 @@ const WATER_ARC_RADIUS = 90; // SVG radius matching the path's 'A 90 90' arc
 const WATER_ARC_LENGTH = Math.PI * WATER_ARC_RADIUS; // semi-circle arc length ≈ 282.74
 
 function getWaterData() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayInUserTz();
   const raw = localStorage.getItem(WATER_KEY);
   if (raw) {
     const data = JSON.parse(raw);
@@ -3985,6 +3987,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('modal-active');
     // Load live DNFT listings from escrow each time the modal opens
     _loadBigNutenListings();
+    // Initialize/refresh the timezone widget each time the modal opens
+    initTimezoneWidget();
     if (scrollToDnft) {
       const dnftSection = document.getElementById('dnft-supporter-section');
       if (dnftSection) {
@@ -4004,7 +4008,75 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!aboutModal) return;
     aboutModal.classList.add('modal-hidden');
     document.body.classList.remove('modal-active');
+    // Stop the clock tick when the modal is closed
+    if (_tzClockInterval) {
+      clearInterval(_tzClockInterval);
+      _tzClockInterval = null;
+    }
   }
+
+  // ── Timezone widget ───────────────────────────────────────────────────────
+  let _tzClockInterval = null;
+
+  function initTimezoneWidget() {
+    const widget    = document.getElementById('tz-widget');
+    const clockEl   = document.getElementById('tz-clock');
+    const labelEl   = document.getElementById('tz-label');
+    const picker    = document.getElementById('tz-picker');
+    const selectEl  = document.getElementById('tz-select');
+    const confirmBtn = document.getElementById('tz-confirm-btn');
+
+    if (!widget || !clockEl || !labelEl || !picker || !selectEl || !confirmBtn) return;
+
+    // Populate the <select> once (check if already built)
+    if (selectEl.options.length === 0) {
+      const groups = getGroupedTimezones();
+      groups.forEach(({ group, zones }) => {
+        const optGroup = document.createElement('optgroup');
+        optGroup.label = group;
+        zones.forEach(z => {
+          const opt = document.createElement('option');
+          opt.value = z;
+          opt.textContent = z.replace(/_/g, ' ');
+          optGroup.appendChild(opt);
+        });
+        selectEl.appendChild(optGroup);
+      });
+    }
+
+    // Sync select to current user preference
+    selectEl.value = getUserTimezone();
+
+    // Live clock tick
+    function tick() {
+      const tz = getUserTimezone();
+      clockEl.textContent = getCurrentTimeInUserTz();
+      labelEl.textContent = tz;
+    }
+    tick();
+    if (_tzClockInterval) clearInterval(_tzClockInterval);
+    _tzClockInterval = setInterval(tick, 1000);
+
+    // Toggle picker visibility on widget click
+    widget.onclick = (e) => {
+      e.stopPropagation();
+      picker.hidden = !picker.hidden;
+      if (!picker.hidden) selectEl.value = getUserTimezone();
+    };
+
+    // Apply button
+    confirmBtn.onclick = () => {
+      const chosen = selectEl.value;
+      if (chosen) {
+        setUserTimezone(chosen);
+        tick();
+        // Refresh the water tracker in case day boundary changed
+        updateWaterMeter();
+      }
+      picker.hidden = true;
+    };
+  }
+
 
   if (appTitleName) {
     appTitleName.addEventListener('click', () => openAboutModal(false));
@@ -4021,6 +4093,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Persist timezone selection into the fitness data model so it travels with IPFS snapshots
+  window.addEventListener('timezonechange', (e) => {
+    const tz = e.detail?.timezone;
+    if (!tz) return;
+    try {
+      const data = getFitnessData();
+      if (data && typeof data === 'object') {
+        data.timeZone = tz;
+        saveFitnessData(data);
+      }
+    } catch (_) { /* non-critical */ }
+  });
 
   // ── Admin dropdown (left ⚕︎) ─────────────────────────────────────────────
 
@@ -4657,7 +4742,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const rows = subscribers.map((s, i) => {
           const expiry = s.expiresAt
-            ? new Date(s.expiresAt * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+            ? formatInUserTz(s.expiresAt * 1000, { year: 'numeric', month: 'short', day: 'numeric' })
             : '—';
           const badge = s.active
             ? '<span style="color:#00e5ff; font-size:0.8em;">✅ Active</span>'
@@ -4998,7 +5083,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       listEl.innerHTML = raw.slice().reverse().map(p => `
         <div class="sub-history-item">
-          <span class="sub-history-date">${new Date(p.date).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' })}</span>
+          <span class="sub-history-date">${formatInUserTz(p.date, { year:'numeric', month:'short', day:'numeric' })}</span>
           <span class="sub-history-desc">${p.description || 'Subscription'}${p.txHash ? ` <a href="https://optimistic.etherscan.io/tx/${p.txHash}" target="_blank" rel="noopener noreferrer" class="sub-history-tx">↗ Tx</a>` : ''}</span>
           <span class="sub-history-amount">${p.amount || ''}</span>
           <span class="${p.ok ? 'sub-history-status-ok' : 'sub-history-status-fail'}">${p.ok ? '✔' : '✖'}</span>
@@ -5576,7 +5661,7 @@ document.addEventListener('DOMContentLoaded', () => {
           let date = '—';
           try {
             const block = await provider.getBlock(e.blockNumber);
-            if (block) date = new Date(Number(block.timestamp) * 1000).toLocaleString();
+            if (block) date = formatInUserTz(Number(block.timestamp) * 1000);
           } catch (_) { /* ignore */ }
           const to     = e.args.to;
           const amount = fmt(e.args.amount);
@@ -5747,4 +5832,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Community Data Dashboard ──────────────────────────────────────────────
   initCommunityDashboard();
+
+  // ── Restore timezone from fitness data if previously saved ───────────────
+  (function restoreTimezoneFromData() {
+    // Only set from fitness data if the user hasn't already set a preference
+    // in localStorage directly (the localStorage key takes priority).
+    if (!localStorage.getItem('userTimezone')) {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const d = JSON.parse(raw);
+          if (d && typeof d.timeZone === 'string' && d.timeZone) {
+            setUserTimezone(d.timeZone);
+          }
+        }
+      } catch (_) { /* non-critical */ }
+    }
+  })();
 });

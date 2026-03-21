@@ -6,6 +6,7 @@ const DEFAULT_EXERCISE_TYPES = ['Sit-ups', 'Push-ups', 'Pull-ups'];
 
 const defaultData = {
   dataVersion: DATA_VERSION,
+  timeZone: '',
   weightLogs: [],
   supplements: [],
   foods: [],
@@ -56,6 +57,7 @@ export function normalizeFitnessData(data) {
   if (!Array.isArray(data.foods)) data.foods = [];
   if (!Array.isArray(data.measurements)) data.measurements = [];
   if (!Array.isArray(data.sessionLog)) data.sessionLog = [];
+  if (typeof data.timeZone !== 'string') data.timeZone = '';
 
   data.dataVersion = DATA_VERSION;
 
