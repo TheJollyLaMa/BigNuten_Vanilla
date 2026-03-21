@@ -2597,9 +2597,19 @@ svg text {
     margin-top: 82px;  /* clear shrunken header (~50px) + weight display (~24px) */
   }
 
-  /* ── Mobile panels: use #id.class selectors (specificity 0,1,1,0) ─
-     This beats the base rule's ID-only selector (0,1,0,0) so that the
-     mobile overrides for top/bottom/left/right actually take effect.   */
+  /* ── Compact footer in mobile ───────────────────────────────── */
+  footer {
+    min-height: 72px;
+    padding: 0.5rem 1rem;
+    box-sizing: border-box;
+  }
+  .round-button {
+    width: 50px;
+    height: 50px;
+  }
+
+  /* ── Mobile panels: #id.class (specificity 0,1,1,0) beats base ─
+     Default: panel sits above side-toolbar (64px) + 8px gap = 72px */
   #recent-supplements-list.panel-visible,
   #recent-foods-list.panel-visible,
   #recent-exercises-list.panel-visible,
@@ -2607,17 +2617,26 @@ svg text {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 72px;   /* sit above the mobile toolbar strip */
+    bottom: 72px;   /* above side-toolbar (64px) with 8px gap */
     top: auto;
     width: 100%;
     max-width: 100%;
     max-height: 48vh;
     overflow-y: auto;
     border-radius: 14px 14px 0 0;
-    z-index: 1090;
+    z-index: 10002;  /* above footer (10000) and toolbar (10001) */
   }
 
-  /* Stack toolbars as a unified horizontal bar at the very bottom */
+  /* When footer is visible: push panel above footer (72px) + toolbar (64px) */
+  body.footer-visible #recent-supplements-list.panel-visible,
+  body.footer-visible #recent-foods-list.panel-visible,
+  body.footer-visible #recent-exercises-list.panel-visible,
+  body.footer-visible #workout-set-list.panel-visible {
+    bottom: 144px;  /* 72px footer + 64px toolbar + 8px gap */
+  }
+
+  /* ── Side toolbars: unified horizontal bar ──────────────────── */
+  /* Default: sit at very bottom (footer hidden) */
   .side-toolbar {
     position: fixed;
     top: auto;
@@ -2631,8 +2650,13 @@ svg text {
     box-sizing: border-box;
     justify-content: space-around;
     height: 64px;
-    z-index: 1200;
+    z-index: 10001;  /* above footer (10000), below panel (10002) */
     background: rgba(0, 0, 33, 0.97);
+  }
+
+  /* When footer is visible: lift toolbar above the footer */
+  body.footer-visible .side-toolbar {
+    bottom: 72px;
   }
 
   .left-toolbar {

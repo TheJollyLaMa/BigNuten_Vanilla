@@ -2821,8 +2821,10 @@ if (measurementForm) {
 
         if (WALLET_WHITELIST.includes(account.toLowerCase())) {
           footer.style.display = 'flex';
+          document.body.classList.add('footer-visible');
         } else {
           footer.style.display = 'none';
+          document.body.classList.remove('footer-visible');
           alert('This wallet is not whitelisted.');
         }
 
