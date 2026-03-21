@@ -1701,15 +1701,9 @@ svg text {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.4rem 1rem;
-  margin-bottom: 1.25rem;
-  background: rgba(0, 20, 60, 0.6);
-  border: 1px solid rgba(0, 229, 255, 0.25);
-  border-radius: 8px;
+  margin: 0 auto 1rem;
+  width: fit-content;
   user-select: none;
-}
-
-.tz-bar:hover {
-  background: rgba(0, 30, 80, 0.7);
 }
 
 .tz-clock {
