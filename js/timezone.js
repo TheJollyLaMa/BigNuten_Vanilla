@@ -24,8 +24,9 @@ export function getUserTimezone() {
  * @param {string} tz - IANA timezone identifier
  */
 export function setUserTimezone(tz) {
+  const previous = localStorage.getItem(TZ_KEY) || Intl.DateTimeFormat().resolvedOptions().timeZone;
   localStorage.setItem(TZ_KEY, tz);
-  window.dispatchEvent(new CustomEvent('timezonechange', { detail: { timezone: tz } }));
+  window.dispatchEvent(new CustomEvent('timezonechange', { detail: { timezone: tz, previousTimeZone: previous } }));
 }
 
 /**
