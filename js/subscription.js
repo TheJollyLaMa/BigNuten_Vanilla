@@ -593,7 +593,7 @@ export async function payUSDCSubscription(period = 'monthly') {
 
     const usdcContract = new ethers.Contract(
       USDC_ADDRESS,
-      BNUT_ABI, // USDC shares the same allowance/approve interface
+      BNUT_ABI, // USDC implements the standard ERC-20 interface (balanceOf, allowance, approve)
       signer
     );
 

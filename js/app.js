@@ -3981,6 +3981,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const aboutModal      = document.getElementById('about-modal');
   const aboutModalClose = document.getElementById('about-modal-close');
 
+  // ── Shared helpers ────────────────────────────────────────────────────────
+
+  /** Returns true when the method string indicates an on-chain crypto payment. */
+  function isCryptoPaymentMethod(method) {
+    const m = (method || '').toLowerCase();
+    return m.includes('eth') || m.includes('bnut') || m.includes('usdc');
+  }
+
   // ── About modal helpers ───────────────────────────────────────────────────
 
   function openAboutModal(scrollToDnft) {
@@ -3997,8 +4005,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (aboutCancelRow) {
       try {
         const stored = JSON.parse(localStorage.getItem('bignuten_subscription') || 'null');
-        const method = (stored?.method || '').toLowerCase();
-        const isCrypto = method.includes('eth') || method.includes('bnut') || method.includes('usdc');
+        const isCrypto = isCryptoPaymentMethod(stored?.method);
         aboutCancelRow.style.display = isCrypto ? 'none' : '';
       } catch { /* ignore */ }
     }
@@ -4921,11 +4928,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const cryptoCancelInfo = document.getElementById('sub-crypto-cancel-info');
           const cryptoExpiryDate = document.getElementById('sub-crypto-expiry-date');
 
-          const isCryptoMethod = method && (
-            method.toLowerCase().includes('eth') ||
-            method.toLowerCase().includes('bnut') ||
-            method.toLowerCase().includes('usdc')
-          );
+          const isCryptoMethod = isCryptoPaymentMethod(method);
 
           // For crypto subs: show expiry info, hide cancel button
           if (isCryptoMethod && cryptoCancelInfo) {
@@ -5138,7 +5141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })();
 
         const methodLower = (stored?.method || '').toLowerCase();
-        const isCrypto = methodLower.includes('eth') || methodLower.includes('bnut') || methodLower.includes('usdc');
+        const isCrypto = isCryptoPaymentMethod(methodLower);
         let cancelUrl = 'https://www.paypal.com/myaccount/autopay/';
         if (methodLower.includes('stripe') || methodLower.includes('card')) {
           cancelUrl = 'https://billing.stripe.com/p/login/test_00000';
@@ -5193,7 +5196,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (plan === 'annual') expiry.setFullYear(expiry.getFullYear() + 1);
       else expiry.setMonth(expiry.getMonth() + 1);
 
-      const isCrypto = method.toLowerCase().includes('eth') || method.toLowerCase().includes('bnut') || method.toLowerCase().includes('usdc');
+      const isCrypto = isCryptoPaymentMethod(method);
 
       localStorage.setItem('bignuten_subscription', JSON.stringify({
         status: 'active',
