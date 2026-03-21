@@ -1,6 +1,6 @@
 import { initDnftPayPalPurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
-import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll } from './treasury.js';
+import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, isIssuePaid } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
 
 // --- Raw Food Modal Logic ---
@@ -5058,37 +5058,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Render pending payouts list ───────────────────────────────────────
 
     // ── Payroll queue state (set on each refresh) ────────────────────────
-    let _pendingQueue = [];
-
-    // ── mintReward helper — calls BigNuten.mintReward() via MetaMask ──────
-    const _BNUT_MINT_ABI = [
-      'function mintReward(address to, uint256 amount, string reason)',
-    ];
+    let _pendingQueue  = [];
+    let _paidOnChain   = new Set();
 
     function _friendlyTxError(err) {
       const msg = err.reason || err.message || String(err);
       if (/user rejected|user denied|rejected the request/i.test(msg)) return '⚠️ Transaction rejected by user.';
       if (/insufficient funds/i.test(msg)) return '⚠️ Insufficient gas funds in connected wallet.';
-      if (/missing MINTER_ROLE|AccessControl/i.test(msg)) return '⚠️ Connected wallet does not have MINTER_ROLE.';
+      if (/issue already paid/i.test(msg)) return '⚠️ This issue has already been paid on-chain.';
       return `❌ ${msg}`;
-    }
-
-    async function mintBountyReward(wallet, amount, issueRef) {
-      if (!window.ethereum) throw new Error('MetaMask is not installed.');
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const network  = await provider.getNetwork();
-      if (Number(network.chainId) !== 10) {
-        throw new Error('Please switch MetaMask to Optimism Mainnet (chain ID 10).');
-      }
-      const signer   = await provider.getSigner();
-      const bnutAddr = window.BNUT_CONTRACT_ADDRESS || '0x733c4d2Aae900E608147dd89Fa93606f89722823';
-      const bnut     = new ethers.Contract(bnutAddr, _BNUT_MINT_ABI, signer);
-      const issueNum = (issueRef || '').match(/#(\d+)/)?.[1] || '';
-      const reason   = issueNum ? `bounty:#${issueNum}` : (issueRef || 'bounty');
-      const amountWei = ethers.parseEther(String(Math.max(1, parseInt(amount, 10))));
-      const tx = await bnut.mintReward(wallet, amountWei, reason);
-      await tx.wait();
-      return tx.hash;
     }
 
     // ── Mark a row as settled in the UI ──────────────────────────────────
@@ -5109,12 +5087,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── Render pending payouts as a full table ────────────────────────────
-    function renderPendingList(pending) {
+    function renderPendingList(pending, paidOnChain = new Set()) {
       const listEl    = document.getElementById('payroll-pending-list');
       const actionsEl = document.getElementById('payroll-actions');
       if (!listEl) return;
 
       _pendingQueue = pending || [];
+      _paidOnChain  = paidOnChain instanceof Set ? paidOnChain : new Set(paidOnChain);
 
       if (_pendingQueue.length === 0) {
         listEl.innerHTML = '<p class="gov-loading">🎉 No pending payouts — queue is empty!</p>';
@@ -5141,13 +5120,14 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       _pendingQueue.forEach((p, i) => {
-        const hasWallet  = p.contributor && p.contributor !== ZERO_ADDR;
-        const status     = hasWallet ? 'pending' : 'needs-wallet';
-        const issueNum   = (p.issueRef || '').match(/#(\d+)/)?.[1] || '';
-        const repoSlug   = (p.issueRef || '').split('#')[0] || 'TheJollyLaMa/BigNuten_Vanilla';
-        const issueHref  = issueNum ? `https://github.com/${repoSlug}/issues/${issueNum}` : '#';
-        const issueLabel = issueNum ? `#${issueNum}` : (p.issueRef || '—');
-        const issueCell  = issueNum
+        const alreadyPaid = _paidOnChain.has(p.issueRef);
+        const hasWallet   = p.contributor && p.contributor !== ZERO_ADDR;
+        const status      = alreadyPaid ? 'paid-on-chain' : (hasWallet ? 'pending' : 'needs-wallet');
+        const issueNum    = (p.issueRef || '').match(/#(\d+)/)?.[1] || '';
+        const repoSlug    = (p.issueRef || '').split('#')[0] || 'TheJollyLaMa/BigNuten_Vanilla';
+        const issueHref   = issueNum ? `https://github.com/${repoSlug}/issues/${issueNum}` : '#';
+        const issueLabel  = issueNum ? `#${issueNum}` : (p.issueRef || '—');
+        const issueCell   = issueNum
           ? `<a href="${issueHref}" target="_blank" rel="noopener" class="payroll-issue-link">${issueLabel}</a>`
           : issueLabel;
 
@@ -5155,11 +5135,16 @@ document.addEventListener('DOMContentLoaded', () => {
           ? `<code class="payroll-wallet-addr" title="${p.contributor}">${p.contributor.slice(0, 10)}…${p.contributor.slice(-4)}</code>`
           : `<span class="payroll-badge payroll-badge--needs-wallet">⚠️ needs wallet</span>`;
 
-        const statusCell = status === 'needs-wallet'
-          ? '<span class="payroll-status payroll-status--needs-wallet">needs-wallet</span>'
-          : '<span class="payroll-status payroll-status--pending">pending</span>';
+        let statusCell;
+        if (alreadyPaid) {
+          statusCell = '<span class="payroll-status payroll-status--settled">✅ Already Paid On-Chain</span>';
+        } else if (status === 'needs-wallet') {
+          statusCell = '<span class="payroll-status payroll-status--needs-wallet">needs-wallet</span>';
+        } else {
+          statusCell = '<span class="payroll-status payroll-status--pending">pending</span>';
+        }
 
-        const needsWalletNotice = !hasWallet ? `
+        const needsWalletNotice = !hasWallet && !alreadyPaid ? `
           <div class="payroll-needs-wallet-notice">
             ⚠️ Waiting for @${p.contributorGithub || 'contributor'} to register wallet
             <button class="payroll-copy-invite-btn gov-admin-action-btn"
@@ -5168,23 +5153,25 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         ` : '';
 
+        const disableActions = alreadyPaid || !hasWallet;
+
         html += `
-          <tr id="payroll-row-${i}" class="payroll-row${!hasWallet ? ' payroll-row--needs-wallet' : ''}">
+          <tr id="payroll-row-${i}" class="payroll-row${!hasWallet ? ' payroll-row--needs-wallet' : ''}${alreadyPaid ? ' payroll-row--paid' : ''}">
             <td>@${p.contributorGithub || '—'}</td>
             <td>${issueCell}</td>
             <td>
               <input type="number" class="payroll-amount-input" id="payroll-amount-${i}"
-                value="${p.amount || '1'}" min="1" step="1" />
+                value="${p.amount || '1'}" min="1" step="1" ${alreadyPaid ? 'disabled' : ''} />
             </td>
             <td>${walletCell}${needsWalletNotice}</td>
             <td id="payroll-row-status-${i}">${statusCell}</td>
             <td class="payroll-row-actions">
               <button class="gov-admin-action-btn payroll-send-btn" data-idx="${i}"
-                ${!hasWallet ? 'disabled' : ''} style="font-size:0.75rem;padding:0.3rem 0.6rem;">
+                ${disableActions ? 'disabled' : ''} style="font-size:0.75rem;padding:0.3rem 0.6rem;">
                 Send
               </button>
               <button class="gov-admin-action-btn payroll-mark-paid-btn" data-idx="${i}"
-                style="font-size:0.7rem;padding:0.2rem 0.5rem;background:rgba(100,100,100,0.3);">
+                ${alreadyPaid ? 'disabled' : ''} style="font-size:0.7rem;padding:0.2rem 0.5rem;background:rgba(100,100,100,0.3);">
                 ✓ Mark Paid
               </button>
               <div class="payroll-row-msg" id="payroll-row-msg-${i}"></div>
@@ -5198,7 +5185,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (actionsEl) actionsEl.style.display = 'block';
 
-      // ── Per-row "Send" button ─────────────────────────────────────────
+      // ── Per-row "Send" button — uses treasury.settlePayroll() ────────────
       listEl.querySelectorAll('.payroll-send-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
           const idx  = parseInt(btn.dataset.idx, 10);
@@ -5213,7 +5200,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (msgEl) msgEl.textContent = '⏳ Sending…';
 
           try {
-            const txHash = await mintBountyReward(p.contributor, amount, p.issueRef);
+            const txHash = await settlePayroll([{ contributor: p.contributor, amount: String(amount), issueRef: p.issueRef }]);
             markRowSettled(idx, txHash);
           } catch (err) {
             if (msgEl) msgEl.textContent = _friendlyTxError(err);
@@ -5283,7 +5270,17 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         // Load queue
         const queue = await loadPayrollQueue();
-        renderPendingList(queue.pending);
+
+        // Pre-flight: check which issueRefs are already settled on-chain.
+        const uniqueRefs = [...new Set(queue.pending.map(p => p.issueRef).filter(Boolean))];
+        const paidOnChain = new Set();
+        await Promise.all(uniqueRefs.map(async ref => {
+          try {
+            if (await isIssuePaid(ref)) paidOnChain.add(ref);
+          } catch (_) {}
+        }));
+
+        renderPendingList(queue.pending, paidOnChain);
         renderSettledList(queue.settled);
 
         // Treasury balance (read-only, no wallet needed)
@@ -5298,7 +5295,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // ── Settle All Pending button ─────────────────────────────────────────
+    // ── Settle All Pending button — uses treasury.settlePayroll() ─────────
 
     const settleBtn    = document.getElementById('payroll-settle-btn');
     const settleStatus = document.getElementById('payroll-settle-status');
@@ -5306,55 +5303,74 @@ document.addEventListener('DOMContentLoaded', () => {
     if (settleBtn) {
       settleBtn.addEventListener('click', async () => {
         settleBtn.disabled = true;
-        if (settleStatus) settleStatus.textContent = '⏳ Settling all pending…';
+        if (settleStatus) settleStatus.textContent = '⏳ Preparing batch…';
 
         const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
-        const toSettle  = _pendingQueue
+
+        // Only include entries that have a wallet and are NOT already paid on-chain.
+        const toSettle = _pendingQueue
           .map((p, i) => ({ p, i }))
-          .filter(({ p }) => p.contributor && p.contributor !== ZERO_ADDR);
+          .filter(({ p }) =>
+            p.contributor &&
+            p.contributor !== ZERO_ADDR &&
+            !_paidOnChain.has(p.issueRef)
+          );
 
         if (toSettle.length === 0) {
-          if (settleStatus) settleStatus.textContent = '🎉 No pending payouts with wallets!';
+          if (settleStatus) settleStatus.textContent = '🎉 No pending payouts to settle!';
+          settleBtn.disabled = false;
+          return;
+        }
+
+        // Build the payout batch.
+        const payouts = toSettle.map(({ p, i }) => {
+          const amountInput = document.getElementById(`payroll-amount-${i}`);
+          const amount = Math.max(1, parseInt(amountInput?.value || p.amount || '1', 10));
+          return { contributor: p.contributor, amount: String(amount), issueRef: p.issueRef };
+        });
+
+        // Treasury balance pre-check — never fall back to mint.
+        const totalNeeded = payouts.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+        try {
+          const bal = await getTreasuryBalance();
+          if (bal < totalNeeded) {
+            if (settleStatus) {
+              settleStatus.textContent =
+                `❌ Treasury underfunded: ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT available, ` +
+                `${totalNeeded.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT needed. ` +
+                `Top up the treasury before settling.`;
+            }
+            settleBtn.disabled = false;
+            return;
+          }
+        } catch (balErr) {
+          if (settleStatus) settleStatus.textContent = `❌ Could not verify treasury balance: ${balErr.message}`;
           settleBtn.disabled = false;
           return;
         }
 
         if (settleStatus) {
-          settleStatus.textContent = `⏳ Settling ${toSettle.length} bounty/ies — MetaMask will prompt for each…`;
+          settleStatus.textContent =
+            `⏳ Settling ${payouts.length} payout(s) via batchPayContributors — MetaMask will prompt…`;
         }
 
-        let successCount = 0;
-        const errors = [];
+        try {
+          const txHash = await settlePayroll(payouts);
 
-        for (const { p, i } of toSettle) {
-          const amountInput = document.getElementById(`payroll-amount-${i}`);
-          const amount = Math.max(1, parseInt(amountInput?.value || p.amount || '1', 10));
-          const msgEl  = document.getElementById(`payroll-row-msg-${i}`);
-          const sendBtn = document.querySelector(`.payroll-send-btn[data-idx="${i}"]`);
+          // Mark all settled rows in the UI.
+          toSettle.forEach(({ i }) => markRowSettled(i, txHash));
 
           if (settleStatus) {
-            settleStatus.textContent =
-              `⏳ Sending (${successCount + errors.length + 1}/${toSettle.length}): @${p.contributorGithub || p.contributor.slice(0, 8)}…`;
+            const txUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+            settleStatus.innerHTML =
+              `✅ All ${payouts.length} payout(s) settled! ` +
+              `<a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View on Optimism Explorer ↗</a>` +
+              `<br><small>Run <strong>Settle Payroll</strong> GitHub Action with tx hash to update payroll-queue.json.</small>`;
           }
-          if (sendBtn) sendBtn.disabled = true;
-          if (msgEl) msgEl.textContent = '⏳ Sending…';
-
-          try {
-            const txHash = await mintBountyReward(p.contributor, amount, p.issueRef);
-            markRowSettled(i, txHash);
-            successCount++;
-          } catch (err) {
-            if (msgEl) msgEl.textContent = _friendlyTxError(err);
-            if (sendBtn) sendBtn.disabled = false;
-            errors.push(`@${p.contributorGithub || p.contributor.slice(0, 8)}`);
-          }
+        } catch (err) {
+          if (settleStatus) settleStatus.textContent = _friendlyTxError(err);
         }
 
-        if (settleStatus) {
-          settleStatus.textContent = errors.length === 0
-            ? `✅ All ${successCount} bounty/ies settled!`
-            : `✅ ${successCount} settled · ❌ ${errors.length} failed: ${errors.join(', ')}`;
-        }
         settleBtn.disabled = false;
       });
     }

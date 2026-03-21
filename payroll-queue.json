@@ -1,38 +1,6 @@
 {
   "pending": [
     {
-      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#101",
-      "contributor": "0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e",
-      "contributorGithub": "copilot",
-      "amount": "1",
-      "queuedAt": "2026-03-20T21:22:45.921Z",
-      "queuedBy": "github-actions[bot]"
-    },
-    {
-      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#101",
-      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
-      "contributorGithub": "TheJollyLaMa",
-      "amount": "1",
-      "queuedAt": "2026-03-20T21:22:45.922Z",
-      "queuedBy": "github-actions[bot]"
-    },
-    {
-      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#105",
-      "contributor": "0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e",
-      "contributorGithub": "copilot",
-      "amount": "1",
-      "queuedAt": "2026-03-20T21:22:46.589Z",
-      "queuedBy": "github-actions[bot]"
-    },
-    {
-      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#105",
-      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
-      "contributorGithub": "TheJollyLaMa",
-      "amount": "1",
-      "queuedAt": "2026-03-20T21:22:46.589Z",
-      "queuedBy": "github-actions[bot]"
-    },
-    {
       "issueRef": "TheJollyLaMa/BigNuten_Vanilla#107",
       "contributor": "0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e",
       "contributorGithub": "copilot",
@@ -66,6 +34,46 @@
     }
   ],
   "settled": [
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#101",
+      "contributor": "0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e",
+      "contributorGithub": "copilot",
+      "amount": "1",
+      "queuedAt": "2026-03-20T21:22:45.921Z",
+      "queuedBy": "github-actions[bot]",
+      "settledAt": "2026-03-21T07:50:00.000Z",
+      "settledBy": "TheJollyLaMa"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#101",
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "1",
+      "queuedAt": "2026-03-20T21:22:45.922Z",
+      "queuedBy": "github-actions[bot]",
+      "settledAt": "2026-03-21T07:50:00.000Z",
+      "settledBy": "TheJollyLaMa"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#105",
+      "contributor": "0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e",
+      "contributorGithub": "copilot",
+      "amount": "1",
+      "queuedAt": "2026-03-20T21:22:46.589Z",
+      "queuedBy": "github-actions[bot]",
+      "settledAt": "2026-03-21T07:50:00.000Z",
+      "settledBy": "TheJollyLaMa"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#105",
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "1",
+      "queuedAt": "2026-03-20T21:22:46.589Z",
+      "queuedBy": "github-actions[bot]",
+      "settledAt": "2026-03-21T07:50:00.000Z",
+      "settledBy": "TheJollyLaMa"
+    },
     {
       "issueRef": "TheJollyLaMa/BigNuten_Vanilla#77",
       "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",

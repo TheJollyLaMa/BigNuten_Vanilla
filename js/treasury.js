@@ -145,6 +145,40 @@ export async function isTreasuryOwner(walletAddress) {
   }
 }
 
+// ─── Exported: isIssuePaid ────────────────────────────────────────────────────
+
+/**
+ * Check on-chain whether a GitHub issue reference has already been settled.
+ *
+ * @param {string} issueRef  e.g. "TheJollyLaMa/BigNuten_Vanilla#107"
+ * @returns {Promise<boolean>}
+ */
+export async function isIssuePaid(issueRef) {
+  const treasuryAddress =
+    window.TREASURY_CONTRACT_ADDRESS ||
+    window.CONTRACTS?.treasury ||
+    '0x0000000000000000000000000000000000000000';
+
+  if (
+    !issueRef ||
+    !treasuryAddress ||
+    treasuryAddress === '0x0000000000000000000000000000000000000000'
+  ) {
+    return false;
+  }
+
+  try {
+    const abi = await loadTreasuryAbi();
+    const provider = new ethers.JsonRpcProvider(
+      window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
+    );
+    const treasury = new ethers.Contract(treasuryAddress, abi, provider);
+    return await treasury.isIssuePaid(issueRef);
+  } catch (_) {
+    return false;
+  }
+}
+
 // ─── Exported: settlePayroll ──────────────────────────────────────────────────
 
 /**
