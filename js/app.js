@@ -5461,8 +5461,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>@${p.contributorGithub || '—'}</td>
             <td>${issueCell}</td>
             <td>
-              <input type="number" class="payroll-amount-input" id="payroll-amount-${i}"
-                value="${p.amount || '1'}" min="1" step="1" ${alreadyPaid ? 'disabled' : ''} />
+              <span class="payroll-amount-display">${p.amount || '1'} BNUT</span>
             </td>
             <td>${walletCell}${needsWalletNotice}</td>
             <td id="payroll-row-status-${i}">${statusCell}</td>
@@ -5493,8 +5492,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const p    = _pendingQueue[idx];
           if (!p) return;
 
-          const amountInput = document.getElementById(`payroll-amount-${idx}`);
-          const amount = Math.max(1, parseInt(amountInput?.value || p.amount || '1', 10));
+          const amount = Math.max(1, parseInt(p.amount || '1', 10));
           const msgEl  = document.getElementById(`payroll-row-msg-${idx}`);
 
           btn.disabled = true;
@@ -5620,25 +5618,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const pendingListEl = document.getElementById('payroll-pending-list');
       const settledListEl = document.getElementById('payroll-settled-list');
 
-      if (pendingListEl) pendingListEl.innerHTML = '<p class="gov-loading">⏳ Loading pending bounties from GitHub…</p>';
+      if (pendingListEl) pendingListEl.innerHTML = '<p class="gov-loading">⏳ Loading pending bounties…</p>';
       if (settledListEl) settledListEl.innerHTML = '<p class="gov-loading">⏳ Loading on-chain settlement history…</p>';
 
       try {
-        // Pending: query GitHub for open bounty-labelled issues, cross-check on-chain
-        let pendingResult;
-        try {
-          pendingResult = await fetchPendingBountiesFromGitHub();
-        } catch (ghErr) {
-          // Fallback: load payroll-queue.json (legacy)
-          const queue = await loadPayrollQueue();
-          const uniqueRefs = [...new Set(queue.pending.map(p => p.issueRef).filter(Boolean))];
-          const paidOnChain = new Set();
-          await Promise.all(uniqueRefs.map(async ref => {
-            try { if (await isIssuePaid(ref)) paidOnChain.add(ref); } catch (_) {}
-          }));
-          pendingResult = { pending: queue.pending, paidOnChain };
-        }
-        renderPendingList(pendingResult.pending, pendingResult.paidOnChain);
+        // Pending: always use payroll-queue.json as the authoritative source
+        const queue = await loadPayrollQueue();
+        const pending = queue.pending || [];
+        const uniqueRefs = [...new Set(pending.map(p => p.issueRef).filter(Boolean))];
+        const paidOnChain = new Set();
+        await Promise.all(uniqueRefs.map(async ref => {
+          try { if (await isIssuePaid(ref)) paidOnChain.add(ref); } catch (_) {}
+        }));
+        renderPendingList(pending, paidOnChain);
 
         // Settled: query ContributorPaid events directly from the chain
         let events = [];
@@ -5696,9 +5688,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Build the payout batch.
-        const payouts = toSettle.map(({ p, i }) => {
-          const amountInput = document.getElementById(`payroll-amount-${i}`);
-          const amount = Math.max(1, parseInt(amountInput?.value || p.amount || '1', 10));
+        const payouts = toSettle.map(({ p }) => {
+          const amount = Math.max(1, parseInt(p.amount || '1', 10));
           return { contributor: p.contributor, amount: String(amount), issueRef: p.issueRef };
         });
 

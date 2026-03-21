@@ -20,6 +20,9 @@
 const PAYROLL_QUEUE_URL =
   'https://raw.githubusercontent.com/TheJollyLaMa/BigNuten_Vanilla/main/payroll-queue.json';
 
+/** Fallback treasury contract address (Optimism Mainnet deployment). */
+const DEFAULT_TREASURY_ADDRESS = '0x143cC41AC075FFA40be1993827DA6ffB4638A363';
+
 /** Optimism Mainnet chain ID. */
 const OPTIMISM_CHAIN_ID = 10;
 
@@ -183,10 +186,13 @@ export async function isIssuePaid(issueRef) {
 
 /**
  * Optimism block at which BigNutenTreasury was deployed (2026-03-19).
- * Querying from this block avoids "block range too large" RPC errors on Optimism
- * that occur when fromBlock is 0 and the range spans the entire chain history.
  */
-const TREASURY_DEPLOY_BLOCK = 130000000;
+const TREASURY_DEPLOY_BLOCK = 130_000_000;
+
+/**
+ * Safe chunk size for Optimism public RPC (capped at ~10,000 blocks per request).
+ */
+const RPC_BLOCK_CHUNK = 9_000;
 
 /**
  * Query all ContributorPaid events emitted by the BigNutenTreasury contract.
@@ -199,7 +205,7 @@ export async function getContributorPaidEvents() {
   const treasuryAddress =
     window.TREASURY_CONTRACT_ADDRESS ||
     window.CONTRACTS?.treasury ||
-    '0x0000000000000000000000000000000000000000';
+    DEFAULT_TREASURY_ADDRESS;
 
   if (
     !treasuryAddress ||
@@ -214,11 +220,22 @@ export async function getContributorPaidEvents() {
   );
   const treasury = new ethers.Contract(treasuryAddress, abi, provider);
   const filter   = treasury.filters.ContributorPaid();
-  // Query from the contract deployment block to avoid RPC range-too-large errors.
-  const logs     = await treasury.queryFilter(filter, TREASURY_DEPLOY_BLOCK, 'latest');
+
+  // Paginate in RPC_BLOCK_CHUNK windows to stay under the public RPC block-range limit.
+  const latestBlock = await provider.getBlockNumber();
+  const allLogs = [];
+  for (let from = TREASURY_DEPLOY_BLOCK; from <= latestBlock; from += RPC_BLOCK_CHUNK) {
+    const to = Math.min(from + RPC_BLOCK_CHUNK - 1, latestBlock);
+    try {
+      const chunk = await treasury.queryFilter(filter, from, to);
+      allLogs.push(...chunk);
+    } catch (chunkErr) {
+      console.warn(`[getContributorPaidEvents] chunk ${from}-${to} failed:`, chunkErr);
+    }
+  }
 
   // Collect unique block numbers and batch-fetch block timestamps
-  const blockNums = [...new Set(logs.map(l => l.blockNumber))];
+  const blockNums = [...new Set(allLogs.map(l => l.blockNumber))];
   const blockTimestamps = new Map();
   await Promise.all(blockNums.map(async (bn) => {
     try {
@@ -229,7 +246,7 @@ export async function getContributorPaidEvents() {
     }
   }));
 
-  const events = logs.map((log) => ({
+  const events = allLogs.map((log) => ({
     contributor: log.args.contributor,
     issueRef:    log.args.issueRef,
     amount:      Number(ethers.formatEther(log.args.amount)),
