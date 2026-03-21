@@ -1150,16 +1150,16 @@
             💳 Pay with Card <span class="coming-soon-badge">Coming Soon</span>
           </button>
 
-          <!-- Crypto — opens subscription modal on the ETH tab -->
-          <button class="about-pay-btn crypto-btn" title="Pay with ETH or $BNUT via MetaMask"
-                  onclick="if(window.openSubscriptionModal){window.openSubscriptionModal('eth');}else{alert('Loading wallet connection…');}">
+          <!-- Crypto — opens subscription modal on the ETH tab (crypto-only view) -->
+          <button class="about-pay-btn crypto-btn" title="Pay with ETH, USDC, or $BNUT via MetaMask"
+                  onclick="if(window.openSubscriptionModal){window.openSubscriptionModal('eth', true);}else{alert('Loading wallet connection…');}">
             🔗 Pay with Crypto
           </button>
 
         </div>
 
-        <!-- ⚠️ Cancel is EASY to see and do -->
-        <div class="cancel-subscription-row">
+        <!-- ⚠️ Cancel is EASY to see and do (hidden for crypto subscribers) -->
+        <div class="cancel-subscription-row" id="about-cancel-paypal-row">
           <a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer" class="cancel-sub-link">
             ❌ Cancel / Manage Your PayPal Subscription
           </a>
@@ -1285,9 +1285,19 @@
               <img src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" alt="Donate via PayPal" style="height:32px;vertical-align:middle;" />
             </button>
           </form>
-          <button class="about-pay-btn crypto-btn disabled" disabled title="Coming Soon — Crypto donation via Decent contract">
-            🔗 Donate with Crypto <span class="coming-soon-badge">Coming Soon</span>
-          </button>
+        </div>
+      </section>
+
+      <section class="about-section donate-crypto-section">
+        <h3>🪙 Donate with Crypto</h3>
+        <p class="about-payment-desc">Send ETH or USDC donations directly on Optimism — trustless and instant.</p>
+        <div class="donate-crypto-address-box">
+          <span class="donate-crypto-icon">⧫</span>
+          <div class="donate-crypto-details">
+            <span class="donate-crypto-label">Send ETH or USDC on Optimism to:</span>
+            <code class="donate-crypto-addr">TheJollyLaMa.eth</code>
+            <span class="donate-crypto-note">(resolves on Optimism via ENS)</span>
+          </div>
         </div>
       </section>
 
@@ -2148,6 +2158,10 @@
           <a id="sub-manage-link" href="#" target="_blank" rel="noopener noreferrer" class="sub-action-btn sub-action-manage">⚙️ Manage</a>
           <button id="sub-cancel-btn" class="sub-action-btn sub-action-cancel">❌ Cancel Subscription</button>
         </div>
+        <!-- Crypto cancel info (shown instead of cancel button for on-chain subscribers) -->
+        <div id="sub-crypto-cancel-info" class="sub-crypto-cancel-info" style="display:none;">
+          <p>⛔ Your subscription will not renew. No on-chain action needed — it expires automatically on <strong id="sub-crypto-expiry-date">—</strong>.</p>
+        </div>
       </div>
 
       <!-- ── Subscribe / Upgrade Section ─────────────────────────────── -->
@@ -2162,14 +2176,15 @@
 
         <!-- Payment method tabs -->
         <div class="sub-method-tabs" role="tablist" aria-label="Payment method">
-          <button class="sub-method-tab sub-tab-active" role="tab" data-method="paypal">🅿️ PayPal</button>
-          <button class="sub-method-tab" role="tab" data-method="stripe">💳 Card</button>
-          <button class="sub-method-tab" role="tab" data-method="eth">Ξ ETH</button>
+          <button class="sub-method-tab sub-tab-paypal" role="tab" data-method="paypal">🅿️ PayPal</button>
+          <button class="sub-method-tab sub-tab-stripe" role="tab" data-method="stripe">💳 Card</button>
+          <button class="sub-method-tab sub-tab-active" role="tab" data-method="eth">Ξ ETH</button>
+          <button class="sub-method-tab" role="tab" data-method="usdc">💵 USDC</button>
           <button class="sub-method-tab" role="tab" data-method="bnut"><img src="img/BigNuten.png" alt="$BNUT" style="height:1em;vertical-align:middle;margin-right:3px;"> $BNUT <span class="sub-save-badge">~50% off</span></button>
         </div>
 
         <!-- PayPal panel -->
-        <div id="sub-panel-paypal" class="sub-method-panel">
+        <div id="sub-panel-paypal" class="sub-method-panel" style="display:none;">
           <p class="sub-method-desc">Pay securely via PayPal. A new tab will open for checkout.</p>
           <!-- Monthly form -->
           <form id="sub-paypal-monthly-form" action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" class="sub-paypal-form">
@@ -2217,16 +2232,30 @@
         </div>
 
         <!-- ETH panel -->
-        <div id="sub-panel-eth" class="sub-method-panel" style="display:none;">
+        <div id="sub-panel-eth" class="sub-method-panel">
           <p class="sub-method-desc">Pay with ETH via MetaMask. Subscription recorded on-chain on Optimism.</p>
           <div class="sub-crypto-price-row">
             <span class="sub-crypto-label">Price:</span>
-            <span id="sub-eth-price" class="sub-crypto-price">~0.01 ETH / month</span>
+            <span id="sub-eth-price" class="sub-crypto-price">~0.003 ETH / month</span>
           </div>
           <button id="sub-eth-btn" class="sub-pay-btn sub-eth-btn-style">
             Ξ Pay with ETH
           </button>
           <p id="sub-eth-status" class="sub-method-status"></p>
+          <p class="sub-sandbox-note">⛓️ Optimism Mainnet — MetaMask will prompt to switch network if needed</p>
+        </div>
+
+        <!-- USDC panel -->
+        <div id="sub-panel-usdc" class="sub-method-panel" style="display:none;">
+          <p class="sub-method-desc">Pay with USDC on Optimism via MetaMask. Approve &amp; subscribe in one flow.</p>
+          <div class="sub-crypto-price-row">
+            <span class="sub-crypto-label">Price:</span>
+            <span id="sub-usdc-price" class="sub-crypto-price">10 USDC / month</span>
+          </div>
+          <button id="sub-usdc-btn" class="sub-pay-btn sub-usdc-btn-style">
+            💵 Pay with USDC
+          </button>
+          <p id="sub-usdc-status" class="sub-method-status"></p>
           <p class="sub-sandbox-note">⛓️ Optimism Mainnet — MetaMask will prompt to switch network if needed</p>
         </div>
 
@@ -2255,8 +2284,8 @@
 
       <!-- ── Footer links ──────────────────────────────────────────────── -->
       <div class="sub-footer-links">
-        <a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer" class="sub-footer-link">🅿️ Manage PayPal Autopay</a>
-        <a href="https://billing.stripe.com/p/login/test_00000" target="_blank" rel="noopener noreferrer" class="sub-footer-link">💳 Manage Card / Stripe</a>
+        <a id="sub-footer-paypal" href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer" class="sub-footer-link sub-footer-fiat-only">🅿️ Manage PayPal Autopay</a>
+        <a id="sub-footer-stripe" href="https://billing.stripe.com/p/login/test_00000" target="_blank" rel="noopener noreferrer" class="sub-footer-link sub-footer-fiat-only">💳 Manage Card / Stripe</a>
         <a href="mailto:jrlamanna@gmail.com?subject=BigNuten%20Subscription%20Help" class="sub-footer-link">📧 Contact Support</a>
       </div>
     </div>

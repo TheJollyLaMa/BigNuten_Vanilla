@@ -3991,6 +3991,18 @@ document.addEventListener('DOMContentLoaded', () => {
     _loadBigNutenListings();
     // Initialize/refresh the timezone widget each time the modal opens
     initTimezoneWidget();
+
+    // Show/hide PayPal cancel link based on subscription method
+    const aboutCancelRow = document.getElementById('about-cancel-paypal-row');
+    if (aboutCancelRow) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('bignuten_subscription') || 'null');
+        const method = (stored?.method || '').toLowerCase();
+        const isCrypto = method.includes('eth') || method.includes('bnut') || method.includes('usdc');
+        aboutCancelRow.style.display = isCrypto ? 'none' : '';
+      } catch { /* ignore */ }
+    }
+
     if (scrollToDnft) {
       const dnftSection = document.getElementById('dnft-supporter-section');
       if (dnftSection) {
@@ -4797,12 +4809,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── helpers ──
 
-    function openSubModal(method) {
+    function openSubModal(method, cryptoOnly) {
       subModal.classList.remove('modal-hidden');
       document.body.classList.add('modal-active');
       loadSubscriptionStatus();
       renderPaymentHistory();
-      // Load live ETH / BNUT prices from the on-chain contract.
+
+      // In crypto-only mode, hide PayPal and Stripe tabs/panels.
+      const paypalTab  = subModal.querySelector('.sub-tab-paypal');
+      const stripeTab  = subModal.querySelector('.sub-tab-stripe');
+      const paypalPanel = document.getElementById('sub-panel-paypal');
+      const stripePanel = document.getElementById('sub-panel-stripe');
+      const fiatFooter1 = document.getElementById('sub-footer-paypal');
+      const fiatFooter2 = document.getElementById('sub-footer-stripe');
+
+      if (cryptoOnly) {
+        if (paypalTab)  { paypalTab.style.display  = 'none'; }
+        if (stripeTab)  { stripeTab.style.display  = 'none'; }
+        if (paypalPanel) { paypalPanel.style.display = 'none'; }
+        if (stripePanel) { stripePanel.style.display = 'none'; }
+        if (fiatFooter1) { fiatFooter1.style.display = 'none'; }
+        if (fiatFooter2) { fiatFooter2.style.display = 'none'; }
+      } else {
+        if (paypalTab)  { paypalTab.style.display  = ''; }
+        if (stripeTab)  { stripeTab.style.display  = ''; }
+        if (fiatFooter1) { fiatFooter1.style.display = ''; }
+        if (fiatFooter2) { fiatFooter2.style.display = ''; }
+      }
+
+      // Load live ETH / BNUT / USDC prices from the on-chain contract.
       import('./subscription.js').then(({ loadCryptoPrices }) => loadCryptoPrices()).catch((err) => {
         console.warn('[subscription] could not load crypto prices:', err.message);
       });
@@ -4882,12 +4917,41 @@ document.addEventListener('DOMContentLoaded', () => {
           manageRow.style.display = 'flex';
           // Point manage link to the right portal
           const manageLink = document.getElementById('sub-manage-link');
+          const cancelBtnEl = document.getElementById('sub-cancel-btn');
+          const cryptoCancelInfo = document.getElementById('sub-crypto-cancel-info');
+          const cryptoExpiryDate = document.getElementById('sub-crypto-expiry-date');
+
+          const isCryptoMethod = method && (
+            method.toLowerCase().includes('eth') ||
+            method.toLowerCase().includes('bnut') ||
+            method.toLowerCase().includes('usdc')
+          );
+
+          // For crypto subs: show expiry info, hide cancel button
+          if (isCryptoMethod && cryptoCancelInfo) {
+            if (cancelBtnEl) cancelBtnEl.style.display = 'none';
+            const expiryStr = expiry
+              ? expiry.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+              : 'the end of your billing period';
+            if (cryptoExpiryDate) cryptoExpiryDate.textContent = expiryStr;
+            cryptoCancelInfo.style.display = '';
+          } else {
+            if (cancelBtnEl) cancelBtnEl.style.display = '';
+            if (cryptoCancelInfo) cryptoCancelInfo.style.display = 'none';
+          }
+
+          // Hide PayPal cancel row in about modal for crypto subscribers
+          const aboutCancelRow = document.getElementById('about-cancel-paypal-row');
+          if (aboutCancelRow) {
+            aboutCancelRow.style.display = isCryptoMethod ? 'none' : '';
+          }
+
           if (manageLink && method) {
             if (method.toLowerCase().includes('paypal')) {
               manageLink.href = 'https://www.paypal.com/myaccount/autopay/';
             } else if (method.toLowerCase().includes('stripe') || method.toLowerCase().includes('card')) {
               manageLink.href = 'https://billing.stripe.com/p/login/test_00000';
-            } else if (method.toLowerCase().includes('eth') || method.toLowerCase().includes('bnut')) {
+            } else if (isCryptoMethod) {
               // On-chain subscription — link to Optimism Etherscan for the contract
               const subscriptionAddress = (window.CONTRACTS && window.CONTRACTS.subscription) || '';
               manageLink.href = subscriptionAddress && subscriptionAddress !== '0x0000000000000000000000000000000000000000'
@@ -4937,6 +5001,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update Stripe price label
         const stripePriceLabel = document.getElementById('sub-stripe-price-label');
         if (stripePriceLabel) stripePriceLabel.textContent = currentPlan === 'annual' ? '$99 / year' : '$10 / month';
+
+        // Reload on-chain crypto prices for the selected period
+        import('./subscription.js').then(({ loadCryptoPrices }) => loadCryptoPrices(currentPlan)).catch(() => {});
       });
     });
 
@@ -4947,6 +5014,7 @@ document.addEventListener('DOMContentLoaded', () => {
       paypal: document.getElementById('sub-panel-paypal'),
       stripe: document.getElementById('sub-panel-stripe'),
       eth:    document.getElementById('sub-panel-eth'),
+      usdc:   document.getElementById('sub-panel-usdc'),
       bnut:   document.getElementById('sub-panel-bnut'),
     };
 
@@ -4994,7 +5062,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ethStatus) ethStatus.textContent = '⏳ Opening MetaMask…';
         try {
           const { payCryptoSubscription } = await import('./subscription.js');
-          const txHash = await payCryptoSubscription();
+          const txHash = await payCryptoSubscription(currentPlan);
           const explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
           if (ethStatus) ethStatus.innerHTML =
             `✅ Subscribed! <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer">View Tx ↗</a>`;
@@ -5019,7 +5087,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bnutStatus) bnutStatus.textContent = '⏳ Opening MetaMask…';
         try {
           const { payBNUTSubscription } = await import('./subscription.js');
-          const txHash = await payBNUTSubscription();
+          const txHash = await payBNUTSubscription(currentPlan);
           const explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
           if (bnutStatus) bnutStatus.innerHTML =
             `✅ Subscribed! <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer">View Tx ↗</a>`;
@@ -5030,6 +5098,31 @@ document.addEventListener('DOMContentLoaded', () => {
           if (bnutStatus) bnutStatus.textContent = `❌ ${err.message || 'Transaction failed'}`;
         } finally {
           bnutBtn.disabled = false;
+        }
+      });
+    }
+
+    // ── USDC button ──
+
+    const usdcBtn    = document.getElementById('sub-usdc-btn');
+    const usdcStatus = document.getElementById('sub-usdc-status');
+    if (usdcBtn) {
+      usdcBtn.addEventListener('click', async () => {
+        usdcBtn.disabled = true;
+        if (usdcStatus) usdcStatus.textContent = '⏳ Opening MetaMask…';
+        try {
+          const { payUSDCSubscription } = await import('./subscription.js');
+          const txHash = await payUSDCSubscription(currentPlan);
+          const explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+          if (usdcStatus) usdcStatus.innerHTML =
+            `✅ Subscribed! <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer">View Tx ↗</a>`;
+          _saveSubscriptionLocal('USDC / MetaMask', currentPlan, txHash);
+          await loadSubscriptionStatus();
+          renderPaymentHistory();
+        } catch (err) {
+          if (usdcStatus) usdcStatus.textContent = `❌ ${err.message || 'Transaction failed'}`;
+        } finally {
+          usdcBtn.disabled = false;
         }
       });
     }
@@ -5045,13 +5138,22 @@ document.addEventListener('DOMContentLoaded', () => {
         })();
 
         const methodLower = (stored?.method || '').toLowerCase();
+        const isCrypto = methodLower.includes('eth') || methodLower.includes('bnut') || methodLower.includes('usdc');
         let cancelUrl = 'https://www.paypal.com/myaccount/autopay/';
         if (methodLower.includes('stripe') || methodLower.includes('card')) {
           cancelUrl = 'https://billing.stripe.com/p/login/test_00000';
-        } else if (methodLower.includes('eth') || methodLower.includes('bnut')) {
-          // On-chain — clear local record and refresh
-          localStorage.removeItem('bignuten_subscription');
-          loadSubscriptionStatus();
+        } else if (isCrypto) {
+          // On-chain subscriptions expire automatically — show expiry info instead.
+          const cryptoCancelInfo = document.getElementById('sub-crypto-cancel-info');
+          const cryptoExpiryDate = document.getElementById('sub-crypto-expiry-date');
+          if (cryptoCancelInfo) {
+            const expiryStr = stored?.expiry
+              ? new Date(stored.expiry).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+              : 'the end of your billing period';
+            if (cryptoExpiryDate) cryptoExpiryDate.textContent = expiryStr;
+            cryptoCancelInfo.style.display = '';
+            cancelBtn.style.display = 'none';
+          }
           return;
         }
         window.open(cancelUrl, '_blank', 'noopener,noreferrer');
@@ -5091,12 +5193,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (plan === 'annual') expiry.setFullYear(expiry.getFullYear() + 1);
       else expiry.setMonth(expiry.getMonth() + 1);
 
-      const isCrypto = method.toLowerCase().includes('eth') || method.toLowerCase().includes('bnut');
+      const isCrypto = method.toLowerCase().includes('eth') || method.toLowerCase().includes('bnut') || method.toLowerCase().includes('usdc');
 
       localStorage.setItem('bignuten_subscription', JSON.stringify({
         status: 'active',
         method,
-        plan: isCrypto ? 'Monthly · On-Chain' : (plan === 'annual' ? 'Annual · $99' : 'Monthly · $10'),
+        plan: isCrypto
+          ? (plan === 'annual' ? 'Annual · On-Chain' : 'Monthly · On-Chain')
+          : (plan === 'annual' ? 'Annual · $99' : 'Monthly · $10'),
         expiry: expiry.toISOString(),
         txHash: txHash || null,
       }));
@@ -5108,7 +5212,7 @@ document.addEventListener('DOMContentLoaded', () => {
       })();
       history.push({
         date:        new Date().toISOString(),
-        description: `${isCrypto ? 'Monthly (30 days)' : (plan === 'annual' ? 'Annual' : 'Monthly')} plan via ${method}`,
+        description: `${isCrypto ? (plan === 'annual' ? 'Annual (365 days)' : 'Monthly (30 days)') : (plan === 'annual' ? 'Annual' : 'Monthly')} plan via ${method}`,
         amount:      isCrypto ? '—' : (plan === 'annual' ? '$99' : '$10'),
         ok:          true,
         txHash:      txHash || null,
