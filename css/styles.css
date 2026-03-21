@@ -3052,6 +3052,16 @@ svg text {
   text-decoration: underline;
 }
 
+.payroll-explorer-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.payroll-explorer-link:hover .payroll-wallet-addr {
+  color: #00e5ff;
+  text-decoration: underline;
+}
+
 .payroll-needs-wallet-notice {
   margin-top: 0.35rem;
   font-size: 0.72rem;

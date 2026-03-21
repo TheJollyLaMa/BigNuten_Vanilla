@@ -1793,12 +1793,18 @@
         <summary>💡 How payroll works</summary>
         <div class="gov-info-content">
           <ol>
-            <li>When a contributor's PR is merged, run the <strong>Bounty Payout</strong> GitHub Actions workflow to queue their payout (no private key needed — just fill in their wallet &amp; BNUT amount).</li>
-            <li>The payout is added to <code>payroll-queue.json</code> in the repo.</li>
-            <li>Come back here once a week, connect MetaMask, and click <strong>Settle Payroll</strong>.</li>
-            <li>MetaMask will ask you to sign a single batch transaction — all contributors are paid at once.</li>
+            <li>Open GitHub issues labelled <code>bounty: N BNUT</code> are automatically detected as pending payouts — no JSON file editing required.</li>
+            <li>Each pending payout is cross-checked on-chain via <code>isIssuePaid()</code>; already-paid issues are excluded.</li>
+            <li>Connect MetaMask and click <strong>Settle All Pending</strong> to send a single batch transaction paying all contributors at once.</li>
+            <li>After settlement, the <strong>Recently Settled</strong> section below is populated live from <code>ContributorPaid</code> events on the chain — no off-chain ledger needed.</li>
           </ol>
           <p>Network: <strong>Optimism Mainnet</strong> · Token: <strong>$BNUT</strong></p>
+          <p>
+            📜 Contract:
+            <a href="https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363" target="_blank" rel="noopener" class="payroll-explorer-link">
+              <code class="payroll-wallet-addr">BNUT Treasury 0x143c…363</code>
+            </a>
+          </p>
         </div>
       </details>
 

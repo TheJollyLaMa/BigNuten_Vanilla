@@ -179,6 +179,64 @@ export async function isIssuePaid(issueRef) {
   }
 }
 
+// ─── Exported: getContributorPaidEvents ──────────────────────────────────────
+
+/**
+ * Query all ContributorPaid events emitted by the BigNutenTreasury contract.
+ * Returns events sorted most-recent first.
+ *
+ * @returns {Promise<Array<{contributor: string, issueRef: string, amount: number, txHash: string, blockNumber: number, timestamp: number}>>}
+ */
+export async function getContributorPaidEvents() {
+  const treasuryAddress =
+    window.TREASURY_CONTRACT_ADDRESS ||
+    window.CONTRACTS?.treasury ||
+    '0x0000000000000000000000000000000000000000';
+
+  if (
+    !treasuryAddress ||
+    treasuryAddress === '0x0000000000000000000000000000000000000000'
+  ) {
+    return [];
+  }
+
+  try {
+    const abi      = await loadTreasuryAbi();
+    const provider = new ethers.JsonRpcProvider(
+      window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
+    );
+    const treasury = new ethers.Contract(treasuryAddress, abi, provider);
+    const filter   = treasury.filters.ContributorPaid();
+    const logs     = await treasury.queryFilter(filter, 0, 'latest');
+
+    // Collect unique block numbers and batch-fetch block timestamps
+    const blockNums = [...new Set(logs.map(l => l.blockNumber))];
+    const blockTimestamps = new Map();
+    await Promise.all(blockNums.map(async (bn) => {
+      try {
+        const block = await provider.getBlock(bn);
+        blockTimestamps.set(bn, block?.timestamp || 0);
+      } catch (_) {
+        blockTimestamps.set(bn, 0);
+      }
+    }));
+
+    const events = logs.map((log) => ({
+      contributor: log.args.contributor,
+      issueRef:    log.args.issueRef,
+      amount:      Number(ethers.formatEther(log.args.amount)),
+      txHash:      log.transactionHash,
+      blockNumber: log.blockNumber,
+      timestamp:   blockTimestamps.get(log.blockNumber) || 0,
+    }));
+
+    // Most recent first
+    return events.sort((a, b) => b.blockNumber - a.blockNumber);
+  } catch (_) {
+    return [];
+  }
+}
+
 // ─── Exported: settlePayroll ──────────────────────────────────────────────────
 
 /**

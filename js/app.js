@@ -1,6 +1,6 @@
 import { initDnftPayPalPurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
-import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, isIssuePaid } from './treasury.js';
+import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 
@@ -5142,11 +5142,95 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!payrollModal) return;
 
-    // ── Render pending payouts list ───────────────────────────────────────
-
     // ── Payroll queue state (set on each refresh) ────────────────────────
     let _pendingQueue  = [];
     let _paidOnChain   = new Set();
+
+    // ── GitHub + on-chain pending bounty fetch ────────────────────────────
+    const REPO_SLUG = 'TheJollyLaMa/BigNuten_Vanilla';
+    const CONTRIBUTOR_ACCOUNTS_URL =
+      'https://raw.githubusercontent.com/TheJollyLaMa/BigNuten_Vanilla/main/contributor-accounts.json';
+    const BOUNTY_LABEL_RE = /^bounty:\s*(\d+(?:\.\d+)?)\s*bnut$/i;
+    const DEFAULT_BOUNTY_AMOUNT = '1';
+    /** Delay (ms) after settling before re-querying chain events for indexing. */
+    const CHAIN_INDEXING_DELAY_MS = 4000;
+
+    async function fetchPendingBountiesFromGitHub() {
+      // Load contributor wallet map
+      let contributorAccounts = [];
+      try {
+        const res = await fetch(CONTRIBUTOR_ACCOUNTS_URL + '?t=' + Date.now());
+        if (res.ok) {
+          const data = await res.json();
+          contributorAccounts = Array.isArray(data.contributors) ? data.contributors : [];
+        }
+      } catch (_) {}
+
+      // Fetch all open issues (paginate up to 3 pages = 300 issues)
+      let allIssues = [];
+      for (let page = 1; page <= 3; page++) {
+        try {
+          const res = await fetch(
+            `https://api.github.com/repos/${REPO_SLUG}/issues?state=open&per_page=100&page=${page}`
+          );
+          if (!res.ok) break;
+          const issues = await res.json();
+          if (!Array.isArray(issues) || issues.length === 0) break;
+          allIssues = allIssues.concat(issues);
+          if (issues.length < 100) break;
+        } catch (_) { break; }
+      }
+
+      // Build pending entries from issues with bounty labels
+      const pending = [];
+      for (const issue of allIssues) {
+        if (issue.pull_request) continue; // skip PRs
+        const bountyLabel = (issue.labels || []).find(l => BOUNTY_LABEL_RE.test(l.name));
+        if (!bountyLabel) continue;
+
+        const match  = BOUNTY_LABEL_RE.exec(bountyLabel.name);
+        const amount = match ? match[1] : DEFAULT_BOUNTY_AMOUNT;
+        const issueRef = `${REPO_SLUG}#${issue.number}`;
+        const assignees = (issue.assignees || []).map(a => a.login);
+
+        if (assignees.length > 0) {
+          for (const github of assignees) {
+            const account = contributorAccounts.find(c => c.github === github);
+            pending.push({
+              issueRef,
+              issueTitle:        issue.title,
+              issueNumber:       issue.number,
+              contributor:       account?.walletAddress || _BIGNUTEN_ZERO_ADDRESS,
+              contributorGithub: github,
+              amount,
+            });
+          }
+        } else {
+          pending.push({
+            issueRef,
+            issueTitle:        issue.title,
+            issueNumber:       issue.number,
+            contributor:       _BIGNUTEN_ZERO_ADDRESS,
+            contributorGithub: '',
+            amount,
+          });
+        }
+      }
+
+      // Cross-check each unique issueRef against the chain
+      const uniqueRefs = [...new Set(pending.map(p => p.issueRef))];
+      const paidOnChain = new Set();
+      await Promise.all(uniqueRefs.map(async ref => {
+        try {
+          if (await isIssuePaid(ref)) paidOnChain.add(ref);
+        } catch (_) {}
+      }));
+
+      return {
+        pending: pending.filter(p => !paidOnChain.has(p.issueRef)),
+        paidOnChain,
+      };
+    }
 
     function _friendlyTxError(err) {
       const msg = err.reason || err.message || String(err);
@@ -5322,53 +5406,113 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    function renderSettledList(settled) {
+    function renderSettledList(events) {
       const listEl = document.getElementById('payroll-settled-list');
       if (!listEl) return;
 
-      if (!settled || settled.length === 0) {
-        listEl.innerHTML = '<p class="gov-loading">No settled payouts yet.</p>';
+      if (!events || events.length === 0) {
+        listEl.innerHTML = '<p class="gov-loading">No settled payouts found on-chain.</p>';
         return;
       }
 
-      // Show most recent first, max 10 entries.
-      const recent = [...settled].reverse().slice(0, 10);
-      const rows = recent.map(p => {
-        const txLink = p.txHash
-          ? `<a href="https://optimistic.etherscan.io/tx/${p.txHash}" target="_blank" rel="noopener" style="color:#00e5ff;">${p.txHash.slice(0, 12)}…</a>`
-          : '—';
-        return `
-          <div style="margin-bottom:0.4rem; font-size:0.85rem;">
-            <strong>${p.issueRef}</strong> · ${p.amount} BNUT
-            → <code style="font-size:0.78em;">${p.contributor}</code>
-            · ${txLink}
-          </div>
-        `;
-      }).join('');
+      const TREASURY_ADDR =
+        window.TREASURY_CONTRACT_ADDRESS ||
+        window.CONTRACTS?.treasury ||
+        '0x143cC41AC075FFA40be1993827DA6ffB4638A363';
 
-      listEl.innerHTML = rows;
+      const shortenAddr = addr =>
+        addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : '—';
+
+      // Already sorted most-recent first; show up to 20 entries
+      const recent = events.slice(0, 20);
+
+      let html = `
+        <div class="payroll-table-wrap">
+          <table class="payroll-table">
+            <thead>
+              <tr>
+                <th>Tx Hash</th>
+                <th>Contributor Wallet</th>
+                <th>Contract</th>
+                <th>Issue</th>
+                <th>Amount</th>
+                <th>Timestamp (UTC)</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      for (const ev of recent) {
+        const txLink = ev.txHash
+          ? `<a href="https://optimistic.etherscan.io/tx/${ev.txHash}" target="_blank" rel="noopener" class="payroll-explorer-link" title="${ev.txHash}">` +
+            `<code class="payroll-wallet-addr">${shortenAddr(ev.txHash)}</code></a>`
+          : '—';
+
+        const walletLink = ev.contributor
+          ? `<a href="https://optimistic.etherscan.io/address/${ev.contributor}" target="_blank" rel="noopener" class="payroll-explorer-link" title="${ev.contributor}">` +
+            `<code class="payroll-wallet-addr">${shortenAddr(ev.contributor)}</code></a>`
+          : '—';
+
+        const contractLink =
+          `<a href="https://optimistic.etherscan.io/address/${TREASURY_ADDR}" target="_blank" rel="noopener" class="payroll-explorer-link" title="BNUT Treasury: ${TREASURY_ADDR}">` +
+          `<code class="payroll-wallet-addr">📜 ${shortenAddr(TREASURY_ADDR)}</code></a>`;
+
+        const issueNum  = (ev.issueRef || '').match(/#(\d+)/)?.[1] || '';
+        const repoSlug  = (ev.issueRef || '').split('#')[0] || REPO_SLUG;
+        const issueLink = issueNum
+          ? `<a href="https://github.com/${repoSlug}/issues/${issueNum}" target="_blank" rel="noopener" class="payroll-issue-link">${ev.issueRef}</a>`
+          : (ev.issueRef || '—');
+
+        const ts = ev.timestamp
+          ? new Date(ev.timestamp * 1000).toUTCString()
+          : '—';
+
+        html += `
+          <tr class="payroll-row">
+            <td>${txLink}</td>
+            <td>${walletLink}</td>
+            <td>${contractLink}</td>
+            <td>${issueLink}</td>
+            <td>${ev.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNUT</td>
+            <td style="font-size:0.78rem;">${ts}</td>
+          </tr>
+        `;
+      }
+
+      html += '</tbody></table></div>';
+      listEl.innerHTML = html;
     }
 
-    // ── Load queue and populate modal ─────────────────────────────────────
+    // ── Load payroll data and populate modal ──────────────────────────────
 
     async function refreshPayrollModal() {
-      const balanceEl = document.getElementById('payroll-treasury-balance');
+      const balanceEl   = document.getElementById('payroll-treasury-balance');
+      const pendingListEl = document.getElementById('payroll-pending-list');
+      const settledListEl = document.getElementById('payroll-settled-list');
+
+      if (pendingListEl) pendingListEl.innerHTML = '<p class="gov-loading">⏳ Loading pending bounties from GitHub…</p>';
+      if (settledListEl) settledListEl.innerHTML = '<p class="gov-loading">⏳ Loading on-chain settlement history…</p>';
 
       try {
-        // Load queue
-        const queue = await loadPayrollQueue();
+        // Pending: query GitHub for open bounty-labelled issues, cross-check on-chain
+        let pendingResult;
+        try {
+          pendingResult = await fetchPendingBountiesFromGitHub();
+        } catch (ghErr) {
+          // Fallback: load payroll-queue.json (legacy)
+          const queue = await loadPayrollQueue();
+          const uniqueRefs = [...new Set(queue.pending.map(p => p.issueRef).filter(Boolean))];
+          const paidOnChain = new Set();
+          await Promise.all(uniqueRefs.map(async ref => {
+            try { if (await isIssuePaid(ref)) paidOnChain.add(ref); } catch (_) {}
+          }));
+          pendingResult = { pending: queue.pending, paidOnChain };
+        }
+        renderPendingList(pendingResult.pending, pendingResult.paidOnChain);
 
-        // Pre-flight: check which issueRefs are already settled on-chain.
-        const uniqueRefs = [...new Set(queue.pending.map(p => p.issueRef).filter(Boolean))];
-        const paidOnChain = new Set();
-        await Promise.all(uniqueRefs.map(async ref => {
-          try {
-            if (await isIssuePaid(ref)) paidOnChain.add(ref);
-          } catch (_) {}
-        }));
-
-        renderPendingList(queue.pending, paidOnChain);
-        renderSettledList(queue.settled);
+        // Settled: query ContributorPaid events directly from the chain
+        const events = await getContributorPaidEvents();
+        renderSettledList(events);
 
         // Treasury balance (read-only, no wallet needed)
         const bal = await getTreasuryBalance();
@@ -5377,8 +5521,7 @@ document.addEventListener('DOMContentLoaded', () => {
           balanceEl.style.display = 'block';
         }
       } catch (err) {
-        const listEl = document.getElementById('payroll-pending-list');
-        if (listEl) listEl.innerHTML = `<p style="color:#ff6b6b;">❌ ${err.message}</p>`;
+        if (pendingListEl) pendingListEl.innerHTML = `<p style="color:#ff6b6b;">❌ ${err.message}</p>`;
       }
     }
 
@@ -5452,8 +5595,15 @@ document.addEventListener('DOMContentLoaded', () => {
             settleStatus.innerHTML =
               `✅ All ${payouts.length} payout(s) settled! ` +
               `<a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View on Optimism Explorer ↗</a>` +
-              `<br><small>Run <strong>Settle Payroll</strong> GitHub Action with tx hash to update payroll-queue.json.</small>`;
+              `<br><small>Settled payouts will appear in the "Recently Settled" section after chain confirmation.</small>`;
           }
+          // Refresh the settled list from chain after a short delay for indexing
+          setTimeout(async () => {
+            try {
+              const freshEvents = await getContributorPaidEvents();
+              renderSettledList(freshEvents);
+            } catch (_) {}
+          }, CHAIN_INDEXING_DELAY_MS);
         } catch (err) {
           if (settleStatus) settleStatus.textContent = _friendlyTxError(err);
         }
