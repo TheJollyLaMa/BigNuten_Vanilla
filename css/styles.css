@@ -2022,12 +2022,9 @@ svg text {
   transition: box-shadow 0.2s, background 0.2s;
 }
 
-.paypal-btn {
-  background: transparent;
-  border: none;
-  padding: 0;
-}
-
+/* ── Unified payment button base: PayPal / Stripe / Crypto all share this ── */
+.paypal-btn,
+.stripe-btn,
 .crypto-btn {
   background: rgba(0, 229, 255, 0.1);
   border: 2px solid rgba(0, 229, 255, 0.6);
@@ -2036,28 +2033,49 @@ svg text {
   box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
 }
 
+.paypal-btn:hover,
+.stripe-btn:hover:not(:disabled),
 .crypto-btn:hover:not(:disabled):not([aria-disabled="true"]):not(.disabled) {
   background: rgba(0, 229, 255, 0.18);
   box-shadow: 0 0 18px rgba(0, 229, 255, 0.45);
 }
 
 .crypto-btn[aria-disabled="true"],
-.crypto-btn.disabled {
+.crypto-btn.disabled,
+.stripe-btn:disabled {
   cursor: default;
   opacity: 0.65;
 }
 
-/* ── Stripe button ─────────────────────────── */
-.stripe-btn {
-  background: rgba(99, 91, 255, 0.15);
-  border: 2px solid rgba(99, 91, 255, 0.5);
-  color: #a89fff;
+/* ── Card brand badges inside Stripe button ─ */
+.card-badges {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  margin-left: 0.3rem;
 }
 
-.stripe-btn:hover {
-  background: rgba(99, 91, 255, 0.28);
-  border-color: rgba(99, 91, 255, 0.8);
-  color: #d0caff;
+.card-badge {
+  display: inline-block;
+  font-size: 0.55rem;
+  font-weight: 900;
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  vertical-align: middle;
+}
+
+.card-badge-visa {
+  background: #1a1f71;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.card-badge-mc {
+  background: #eb001b;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 /* ── DNFT button ───────────────────────────── */

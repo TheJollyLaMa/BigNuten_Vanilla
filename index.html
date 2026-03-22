@@ -1137,7 +1137,7 @@
             <input type="hidden" name="src" value="1" />
             <input type="hidden" name="no_note" value="1" />
             <button type="submit" class="about-pay-btn paypal-btn" title="Subscribe $10/month via PayPal">
-              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" alt="Subscribe via PayPal" style="height:32px;vertical-align:middle;" />
+              PayPal
             </button>
           </form>
 
@@ -1153,13 +1153,17 @@
             <input type="hidden" name="src" value="1" />
             <input type="hidden" name="no_note" value="1" />
             <button type="submit" class="about-pay-btn paypal-btn" title="Subscribe $99/year via PayPal">
-              <img src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" alt="Subscribe via PayPal" style="height:32px;vertical-align:middle;" />
+              PayPal
             </button>
           </form>
 
           <!-- Stripe — credit / debit card (Issue #41) -->
           <button id="about-stripe-btn" class="about-pay-btn stripe-btn" title="Subscribe with credit or debit card via Stripe">
             💳 Pay with Card
+            <span class="card-badges" aria-hidden="true">
+              <span class="card-badge card-badge-visa">VISA</span>
+              <span class="card-badge card-badge-mc">MC</span>
+            </span>
           </button>
 
           <!-- Crypto — opens subscription modal on the ETH tab (crypto-only view) -->
