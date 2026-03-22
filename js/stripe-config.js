@@ -40,11 +40,11 @@
 // Create these at https://dashboard.stripe.com/test/payment-links
 // Set the "After payment" → Custom redirect URL to:
 //   https://YOURSITE/?stripe=success   (replace YOURSITE with your actual URL)
-window.STRIPE_MONTHLY_PAYMENT_LINK = 'https://buy.stripe.com/test_REPLACE_WITH_YOUR_MONTHLY_LINK';
-window.STRIPE_ANNUAL_PAYMENT_LINK  = 'https://buy.stripe.com/test_REPLACE_WITH_YOUR_ANNUAL_LINK';
+window.STRIPE_MONTHLY_PAYMENT_LINK = 'https://buy.stripe.com/9B69AN7u80x4gBC08B0x200';
+window.STRIPE_ANNUAL_PAYMENT_LINK  = 'https://buy.stripe.com/dRmaER7u87Zw99adZr0x201';
 
 // ── Stripe Customer Portal URL ────────────────────────────────────────────────
 // Created at: Stripe Dashboard → Settings → Billing → Customer portal
 // Click "View test portal link" or "Share a link to the portal".
 // Users enter their billing email to manage their subscription / cancel.
-window.STRIPE_PORTAL_URL = 'https://billing.stripe.com/p/login/test_REPLACE_WITH_YOUR_PORTAL_LINK';
+window.STRIPE_PORTAL_URL = 'https://billing.stripe.com/p/login/9B69AN7u80x4gBC08B0x200';
