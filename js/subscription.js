@@ -21,7 +21,7 @@
  * Prerequisites (loaded in index.html before this module):
  *   - ethers.js v6 (via CDN)
  *   - PayPal JS SDK  <script src="https://www.paypal.com/sdk/js?client-id=...">
- *   - Stripe.js      <script src="https://js.stripe.com/v3/">
+ *   - js/stripe-config.js (sets window.STRIPE_MONTHLY_PAYMENT_LINK, etc.)
  *   - js/contracts.js (sets window.SUBSCRIPTION_CONTRACT_ADDRESS to DecentEscrow,
  *                      and window.BIGNUTEN_ETH_PLAN_ID / BIGNUTEN_BNUT_PLAN_ID)
  *
@@ -38,6 +38,12 @@
  */
 
 // ─── Contract ABIs (minimal — only the functions we call) ─────────────────────
+
+/**
+ * Sentinel string used in stripe-config.js placeholder values.
+ * Any URL containing this string is treated as "not yet configured".
+ */
+const STRIPE_PLACEHOLDER_SENTINEL = 'REPLACE_WITH';
 
 /**
  * Minimal ABI for the DecentEscrow contract — subscription functions only.
@@ -294,119 +300,70 @@ export function initPayPalSubscription(planId, containerId = "paypal-button-cont
 }
 
 /**
- * Initialises a Stripe.js payment flow for a subscription price.
- * Calls the BigNuten backend to create a hosted Checkout Session, then
- * redirects the browser to the Stripe-hosted checkout page.
+ * Opens a Stripe-hosted subscription checkout via a pre-created Payment Link.
  *
- * Prerequisites:
- *   - Stripe.js loaded:  <script src="https://js.stripe.com/v3/">
- *   - stripe-config.js loaded:  sets window.STRIPE_PUBLISHABLE_KEY
- *   - server.js running:  provides POST /api/stripe/create-checkout-session
+ * This is the **serverless** approach — no backend required.  It works on
+ * GitHub Pages, IPFS, or any static host.  The Payment Link URL is created
+ * once in the Stripe Dashboard and stored in js/stripe-config.js.
+ *
+ * The flow is identical to the PayPal buttons:
+ *   1. User clicks "Pay with Card"
+ *   2. Browser navigates to the Stripe Payment Link URL
+ *   3. User completes payment on Stripe's hosted page
+ *   4. Stripe redirects back to ?stripe=success (configured in the Dashboard)
+ *
+ * ── How to create a Payment Link ────────────────────────────────────────────
+ *   Stripe Dashboard → Payment Links → Create link
+ *   Set "After payment" → Custom redirect URL to:
+ *     https://YOURSITE/?stripe=success
+ *   Copy the https://buy.stripe.com/… URL into js/stripe-config.js.
  *
  * Related issue: #41 — Integrate Stripe Credit/Debit Card Subscriptions.
  *
- * @param {string} priceId    - Stripe Price ID (e.g. "price_XXXXXXXXXX").
- * @param {string} successUrl - URL Stripe redirects to on success.
- * @param {string} cancelUrl  - URL Stripe redirects to on cancellation.
- * @returns {Promise<void>}   Resolves after the browser is redirected.
+ * @param {string} paymentLink - Stripe Payment Link URL (https://buy.stripe.com/…).
+ * @returns {void}
  *
  * @example
- *   await initStripeSubscription(
- *     window.STRIPE_MONTHLY_PRICE_ID,
- *     'https://bignuten.app/?stripe=success',
- *     'https://bignuten.app/?stripe=cancel'
- *   );
+ *   initStripeSubscription(window.STRIPE_MONTHLY_PAYMENT_LINK);
  */
-export async function initStripeSubscription(
-  priceId,
-  successUrl = window.location.origin + "/?stripe=success&session_id={CHECKOUT_SESSION_ID}",
-  cancelUrl  = window.location.origin + "/?stripe=cancel"
-) {
-  const stripeKey = window.STRIPE_PUBLISHABLE_KEY;
-  if (!stripeKey || stripeKey.includes('REPLACE_WITH')) {
+export function initStripeSubscription(paymentLink) {
+  if (!paymentLink || paymentLink.includes(STRIPE_PLACEHOLDER_SENTINEL)) {
     throw new Error(
-      "[subscription.js] window.STRIPE_PUBLISHABLE_KEY is not configured. " +
-        "Open js/stripe-config.js and replace the placeholder with your " +
-        "Stripe publishable key from https://dashboard.stripe.com/test/apikeys"
-    );
-  }
-  if (typeof Stripe === "undefined") {
-    throw new Error(
-      "[subscription.js] Stripe.js is not loaded. " +
-        "Add <script src='https://js.stripe.com/v3/'> to index.html."
-    );
-  }
-  if (!priceId || priceId.includes('REPLACE_WITH')) {
-    throw new Error(
-      "[subscription.js] Stripe Price ID is not configured. " +
-        "Open js/stripe-config.js and set STRIPE_MONTHLY_PRICE_ID / " +
-        "STRIPE_ANNUAL_PRICE_ID to your Stripe Price IDs."
+      "[subscription.js] Stripe Payment Link is not configured. " +
+        "Open js/stripe-config.js and replace STRIPE_MONTHLY_PAYMENT_LINK / " +
+        "STRIPE_ANNUAL_PAYMENT_LINK with your Payment Link URLs from " +
+        "https://dashboard.stripe.com/test/payment-links — " +
+        "see docs/STRIPE_SETUP.md for step-by-step instructions."
     );
   }
 
-  const stripe = Stripe(stripeKey);
-
-  // Call the BigNuten backend to create a Checkout Session.
-  // The secret key stays on the server — only the session ID is returned.
-  const response = await fetch('/api/stripe/create-checkout-session', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ priceId, successUrl, cancelUrl }),
-  });
-
-  if (!response.ok) {
-    const { error } = await response.json().catch(() => ({}));
-    throw new Error(error || `Server error ${response.status}`);
-  }
-
-  const { sessionId } = await response.json();
-  if (!sessionId) {
-    throw new Error("[subscription.js] Backend did not return a Stripe session ID.");
-  }
-
-  // Redirect the browser to the Stripe-hosted Checkout page.
-  const { error } = await stripe.redirectToCheckout({ sessionId });
-  if (error) {
-    throw new Error(error.message);
-  }
+  // Navigate to the Stripe-hosted checkout page.
+  // Stripe will redirect back to ?stripe=success on completion,
+  // or ?stripe=cancel if the user closes the checkout page.
+  window.location.href = paymentLink;
 }
 
 /**
- * Opens the Stripe Customer Portal for a given customer so they can manage
- * their subscription, update payment methods, or cancel.
+ * Opens the Stripe Customer Portal so a subscriber can manage their
+ * subscription (update card, change plan, cancel).
  *
- * Requires the Billing Portal to be configured in the Stripe Dashboard:
- *   https://dashboard.stripe.com/test/settings/billing/portal
+ * Uses the static portal link configured in js/stripe-config.js.
+ * The user is asked for their billing email and Stripe authenticates them.
  *
  * Related issue: #41 — Integrate Stripe Credit/Debit Card Subscriptions.
  *
- * @param {string} customerId - Stripe customer ID (cus_…).
- * @param {string} returnUrl  - URL to return to after the portal session.
- * @returns {Promise<void>}
+ * @param {string} [returnUrl] - URL to return to after the portal session.
+ *                               Falls back to window.STRIPE_PORTAL_URL.
+ * @returns {void}
  */
-export async function openStripePortal(
-  customerId,
-  returnUrl = window.location.origin + "/"
-) {
-  if (!customerId) {
-    throw new Error("[subscription.js] openStripePortal: customerId is required.");
+export function openStripePortal(returnUrl) {
+  const portalUrl = returnUrl || window.STRIPE_PORTAL_URL;
+  if (!portalUrl || portalUrl.includes(STRIPE_PLACEHOLDER_SENTINEL)) {
+    // Fall back to Stripe's generic billing portal login page.
+    window.open('https://billing.stripe.com', '_blank', 'noopener,noreferrer');
+    return;
   }
-
-  const response = await fetch('/api/stripe/portal-session', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ customerId, returnUrl }),
-  });
-
-  if (!response.ok) {
-    const { error } = await response.json().catch(() => ({}));
-    throw new Error(error || `Server error ${response.status}`);
-  }
-
-  const { url } = await response.json();
-  if (url) {
-    window.location.href = url;
-  }
+  window.open(portalUrl, '_blank', 'noopener,noreferrer');
 }
 
 /**

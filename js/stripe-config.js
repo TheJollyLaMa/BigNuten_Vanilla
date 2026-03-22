@@ -2,34 +2,49 @@
  * js/stripe-config.js
  * BigNuten — Stripe Frontend Configuration
  *
- * Sets the Stripe publishable key and subscription Price IDs as window globals
- * so that js/subscription.js can initialise Stripe.js in the browser.
+ * ─── HOW STRIPE WORKS ON GITHUB PAGES / IPFS ────────────────────────────────
+ * BigNuten is a static app (GitHub Pages, IPFS) — there is no server to run.
+ * Instead of Stripe Checkout Sessions (which require a backend), we use
+ * **Stripe Payment Links**.
  *
- * ─── SECURITY NOTES ─────────────────────────────────────────────────────────
- * • The PUBLISHABLE key (pk_test_… / pk_live_…) is intentionally public — it
- *   cannot be used to create charges or read customer data.  It is safe to
- *   include in this file and commit to source control.
- * • NEVER put your SECRET key (sk_…) or WEBHOOK secret (whsec_…) here.
- *   Those belong only in your server's .env file (see .env.example).
+ * A Payment Link is a pre-built checkout URL you create once in the Stripe
+ * Dashboard.  The button just opens that URL — exactly the same pattern as
+ * the existing PayPal buttons.  No server, no API keys in the browser.
  *
- * ─── SETUP ──────────────────────────────────────────────────────────────────
- * 1. Log in to https://dashboard.stripe.com/test/apikeys
- * 2. Copy the "Publishable key" (starts with pk_test_ or pk_live_).
- * 3. Replace STRIPE_PUBLISHABLE_KEY_PLACEHOLDER below with that value.
- * 4. Create two recurring Prices in the Stripe Dashboard (Products → Add product):
- *      Monthly : $10 / month  → copy the Price ID (price_…) → STRIPE_MONTHLY_PRICE_ID_PLACEHOLDER
- *      Annual  : $99 / year   → copy the Price ID (price_…) → STRIPE_ANNUAL_PRICE_ID_PLACEHOLDER
- * 5. See docs/STRIPE_SETUP.md for full walkthrough.
+ * ─── SETUP (3 steps, no server required) ────────────────────────────────────
+ * 1. Create a Stripe account at https://dashboard.stripe.com (free, test mode).
+ * 2. Go to  Payment Links → Create link  and make two links:
+ *      Monthly : $10/month recurring subscription
+ *      Annual  : $99/year recurring subscription
+ *    In each link's "After payment" settings, set the success redirect URL to:
+ *      https://YOURSITE/?stripe=success
+ *    (e.g. https://thejolyylama.github.io/BigNuten_Vanilla/?stripe=success)
+ * 3. Copy the two link URLs (they start with https://buy.stripe.com/…) and
+ *    paste them below, replacing the REPLACE_WITH_… placeholders.
+ *
+ * For billing management (cancel / update card), create a Customer Portal
+ * shareable link:  Stripe Dashboard → Settings → Billing → Customer portal
+ * → "Share a link to the portal" → copy that URL and paste it below.
+ *
+ * See docs/STRIPE_SETUP.md for the full illustrated walkthrough.
+ *
+ * ─── SECURITY ────────────────────────────────────────────────────────────────
+ * Payment Link URLs are public URLs — they're safe to commit here.
+ * NEVER put your secret key (sk_…) or webhook secret (whsec_…) in this file.
+ * Those are only used by the optional server.js backend (see .env.example).
  *
  * Related issue: #41 — Integrate Stripe Credit/Debit Card Subscriptions.
  */
 
-// ── Stripe publishable key (safe to expose) ──────────────────────────────────
-// Replace with your real publishable key from https://dashboard.stripe.com/test/apikeys
-window.STRIPE_PUBLISHABLE_KEY = 'pk_test_REPLACE_WITH_YOUR_STRIPE_PUBLISHABLE_KEY';
+// ── Stripe Payment Link URLs ──────────────────────────────────────────────────
+// Create these at https://dashboard.stripe.com/test/payment-links
+// Set the "After payment" → Custom redirect URL to:
+//   https://YOURSITE/?stripe=success   (replace YOURSITE with your actual URL)
+window.STRIPE_MONTHLY_PAYMENT_LINK = 'https://buy.stripe.com/test_REPLACE_WITH_YOUR_MONTHLY_LINK';
+window.STRIPE_ANNUAL_PAYMENT_LINK  = 'https://buy.stripe.com/test_REPLACE_WITH_YOUR_ANNUAL_LINK';
 
-// ── Stripe Price IDs (created in the Stripe Dashboard) ───────────────────────
-// Replace with the Price IDs for your BigNuten subscription products.
-// Dashboard → Products → BigNuten Premium → Pricing
-window.STRIPE_MONTHLY_PRICE_ID = 'price_REPLACE_WITH_YOUR_MONTHLY_PRICE_ID';
-window.STRIPE_ANNUAL_PRICE_ID  = 'price_REPLACE_WITH_YOUR_ANNUAL_PRICE_ID';
+// ── Stripe Customer Portal URL ────────────────────────────────────────────────
+// Created at: Stripe Dashboard → Settings → Billing → Customer portal
+// Click "View test portal link" or "Share a link to the portal".
+// Users enter their billing email to manage their subscription / cancel.
+window.STRIPE_PORTAL_URL = 'https://billing.stripe.com/p/login/test_REPLACE_WITH_YOUR_PORTAL_LINK';

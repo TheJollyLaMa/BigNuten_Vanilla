@@ -13,8 +13,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
-    <!-- Stripe.js — required for card payments (Issue #41). The publishable key is set in js/stripe-config.js -->
-    <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
   
@@ -594,7 +592,7 @@
 
   <!-- Contract addresses & token metadata — must load before ES modules -->
   <script src="js/contracts.js"></script>
-  <!-- Stripe publishable key & Price IDs — must load before ES modules (Issue #41) -->
+  <!-- Stripe Payment Links & Customer Portal URL — must load before ES modules (Issue #41) -->
   <script src="js/stripe-config.js"></script>
 
   <script type="module" src="js/app.js"></script>

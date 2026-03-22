@@ -1,20 +1,32 @@
 /**
  * server.js
- * BigNuten — Stripe Subscription Backend
+ * BigNuten — Optional Stripe Backend (for self-hosted / advanced deployments)
  *
- * Provides API endpoints used by the BigNuten frontend for Stripe payments:
+ * ─── DO YOU NEED THIS? ───────────────────────────────────────────────────────
+ * For GitHub Pages or IPFS deployments: NO — you do NOT need this file.
+ * The BigNuten frontend uses Stripe Payment Links (serverless), which work
+ * exactly like the existing PayPal buttons — just a URL the button opens.
+ * No server, no API keys in the browser, no backend required.
+ *
+ * This file is OPTIONAL and intended for future self-hosted deployments where
+ * you want additional server-side features such as:
+ *   - Verifying webhook events server-side for premium feature flags in a DB
+ *   - Programmatic Customer Portal sessions tied to a user account
+ *   - Custom checkout metadata (user wallet address, referral codes, etc.)
+ *
+ * For the standard Payment Links setup, see docs/STRIPE_SETUP.md.
+ *
+ * ─── API endpoints (if you DO run this server) ───────────────────────────────
  *   POST /api/stripe/create-checkout-session  — creates a hosted Checkout Session
  *   POST /api/stripe/webhook                  — handles Stripe event webhooks
  *   POST /api/stripe/portal-session           — creates a Customer Portal session
  *   GET  /api/stripe/session/:id              — retrieves a completed session
  *
- * Also serves all static frontend files from the project root so the whole app
- * can be started with a single `node server.js` command in development.
+ * Also serves all static frontend files from the project root.
  *
  * Related issue: #41 — Integrate Stripe Credit/Debit Card Subscriptions.
  *
- * ─── Required environment variables ─────────────────────────────────────────
- * Copy .env.example → .env and fill in:
+ * ─── Required environment variables (.env) ───────────────────────────────────
  *   STRIPE_SECRET_KEY        — sk_test_… from dashboard.stripe.com/apikeys
  *   STRIPE_WEBHOOK_SECRET    — whsec_…  from dashboard.stripe.com/webhooks
  *   STRIPE_MONTHLY_PRICE_ID  — price_…  for the $10/month plan
@@ -24,14 +36,11 @@
  * ─── SECURITY NOTES ─────────────────────────────────────────────────────────
  * • The secret key (sk_…) and webhook secret (whsec_…) are read from .env and
  *   NEVER appear in client-side code or HTTP responses.
- * • The publishable key (pk_…) is set in js/stripe-config.js — that key is
- *   safe to expose; it cannot create charges or access customer data.
- * • Validate the Stripe-Signature header on every webhook to prevent spoofed
- *   events from being processed.
+ * • Webhook events are verified with an HMAC signature before processing.
  *
  * Usage:
- *   npm install          # installs express + stripe
- *   node server.js       # starts the server
+ *   npm install   # installs express + stripe
+ *   npm start     # starts the server (node server.js)
  */
 
 'use strict';

@@ -4913,6 +4913,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── helpers ──
 
+    /**
+     * Returns the Stripe Payment Link URL for the given plan,
+     * or an empty string if it is not yet configured.
+     * @param {'monthly'|'annual'} plan
+     * @returns {string}
+     */
+    function _getStripePaymentLink(plan) {
+      return plan === 'annual'
+        ? (window.STRIPE_ANNUAL_PAYMENT_LINK  || '')
+        : (window.STRIPE_MONTHLY_PAYMENT_LINK || '');
+    }
+
+    /** Returns true when a Stripe payment link hasn't been configured yet. */
+    function _stripeNotConfigured(url) {
+      return !url || url.includes('REPLACE_WITH');
+    }
+
     function openSubModal(method, cryptoOnly) {
       subModal.classList.remove('modal-hidden');
       document.body.classList.add('modal-active');
@@ -5135,20 +5152,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const stripeBtn    = document.getElementById('sub-stripe-btn');
     const stripeStatus = document.getElementById('sub-stripe-status');
     if (stripeBtn) {
-      stripeBtn.addEventListener('click', async () => {
-        stripeBtn.disabled = true;
-        if (stripeStatus) stripeStatus.textContent = '⏳ Redirecting to Stripe…';
-        try {
-          const { initStripeSubscription } = await import('./subscription.js');
-          const priceId = currentPlan === 'annual'
-            ? (window.STRIPE_ANNUAL_PRICE_ID  || 'price_annual_placeholder')
-            : (window.STRIPE_MONTHLY_PRICE_ID || 'price_monthly_placeholder');
-          await initStripeSubscription(priceId);
-        } catch (err) {
-          if (stripeStatus) stripeStatus.textContent = `❌ ${err.message || 'Stripe unavailable'}`;
-        } finally {
-          stripeBtn.disabled = false;
+      stripeBtn.addEventListener('click', () => {
+        const paymentLink = _getStripePaymentLink(currentPlan);
+
+        if (_stripeNotConfigured(paymentLink)) {
+          if (stripeStatus) {
+            stripeStatus.textContent =
+              '⚙️ Payment Link not configured — see js/stripe-config.js and docs/STRIPE_SETUP.md';
+          }
+          return;
         }
+
+        if (stripeStatus) stripeStatus.textContent = '⏳ Redirecting to Stripe…';
+        window.location.href = paymentLink;
       });
     }
 
@@ -5329,41 +5345,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── Handle Stripe return redirects ──────────────────────────────────────
-    // After Stripe Checkout, the browser returns to /?stripe=success&session_id=…
-    // or /?stripe=cancel.  We fetch the session from the backend to get plan info
-    // and then record the subscription locally.
+    // After a Stripe Payment Link checkout completes, Stripe redirects back to
+    // /?stripe=success (configured in the Payment Link's "After payment" settings).
+    // No session ID or backend call needed — just record optimistically.
     if (urlParams.get('stripe') === 'success') {
-      const sessionId = urlParams.get('session_id');
       history.replaceState({}, '', window.location.pathname);
-      if (sessionId) {
-        fetch(`/api/stripe/session/${sessionId}`)
-          .then(r => r.ok ? r.json() : Promise.reject(r))
-          .then(data => {
-            if (data.status === 'complete') {
-              _saveSubscriptionLocal('Stripe', 'monthly');
-              // Store the Stripe customer ID so the portal link can use it later.
-              if (data.customerId) {
-                localStorage.setItem('stripe_customer_id', data.customerId);
-              }
-              const toast = document.createElement('div');
-              toast.className = 'sub-toast sub-toast-success';
-              toast.textContent = '🎉 Card subscription active! Welcome to BigNuten Premium.';
-              document.body.appendChild(toast);
-              setTimeout(() => toast.remove(), 6000);
-            }
-          })
-          .catch(() => {
-            // Backend may not be running in static-only deployments — record optimistically.
-            _saveSubscriptionLocal('Stripe', 'monthly');
-          });
-      } else {
-        _saveSubscriptionLocal('Stripe', 'monthly');
-        const toast = document.createElement('div');
-        toast.className = 'sub-toast sub-toast-success';
-        toast.textContent = '🎉 Card subscription active! Welcome to BigNuten Premium.';
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 6000);
-      }
+      _saveSubscriptionLocal('Stripe', 'monthly');
+      const toast = document.createElement('div');
+      toast.className = 'sub-toast sub-toast-success';
+      toast.textContent = '🎉 Card subscription active! Welcome to BigNuten Premium.';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 6000);
     } else if (urlParams.get('stripe') === 'cancel') {
       history.replaceState({}, '', window.location.pathname);
       const toast = document.createElement('div');
@@ -5374,53 +5366,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── About page "Pay with Card" button ────────────────────────────────────
-    // Read the currently selected plan from the about-page plan-toggle.
+    // Reads the currently selected plan from the About page plan-toggle and
+    // opens the corresponding Stripe Payment Link URL (no server required).
     const aboutStripeBtn = document.getElementById('about-stripe-btn');
     if (aboutStripeBtn) {
-      aboutStripeBtn.addEventListener('click', async () => {
-        aboutStripeBtn.disabled = true;
-        try {
-          const { initStripeSubscription } = await import('./subscription.js');
-          // Respect whichever plan (monthly/annual) is currently selected in
-          // the About page plan toggle.
-          const activeAboutPlan = document.querySelector('#plan-toggle .plan-btn-active');
-          const plan   = activeAboutPlan?.dataset?.plan === 'annual' ? 'annual' : 'monthly';
-          const priceId = plan === 'annual'
-            ? (window.STRIPE_ANNUAL_PRICE_ID  || 'price_annual_placeholder')
-            : (window.STRIPE_MONTHLY_PRICE_ID || 'price_monthly_placeholder');
-          await initStripeSubscription(priceId);
-        } catch (err) {
-          alert(`💳 Stripe: ${err.message}`);
-        } finally {
-          aboutStripeBtn.disabled = false;
+      aboutStripeBtn.addEventListener('click', () => {
+        const activeAboutPlan = document.querySelector('#plan-toggle .plan-btn-active');
+        const plan = activeAboutPlan?.dataset?.plan === 'annual' ? 'annual' : 'monthly';
+        const paymentLink = _getStripePaymentLink(plan);
+
+        // Direct navigation — same pattern as PayPal forms.
+        if (_stripeNotConfigured(paymentLink)) {
+          alert(
+            '💳 Stripe Payment Link not yet configured.\n\n' +
+            'Open js/stripe-config.js and set STRIPE_MONTHLY_PAYMENT_LINK to your ' +
+            'Payment Link URL from https://dashboard.stripe.com/test/payment-links\n\n' +
+            'See docs/STRIPE_SETUP.md for step-by-step instructions.'
+          );
+          return;
         }
+        window.location.href = paymentLink;
       });
     }
 
     // ── Stripe Customer Portal link ───────────────────────────────────────────
-    // If we have a stored Stripe customer ID, clicking the portal footer link
-    // opens a backend-generated portal session URL instead of the static link.
+    // Opens the Stripe Customer Portal (configured in stripe-config.js).
+    // No backend needed — the portal URL is static and Stripe authenticates
+    // the subscriber by their billing email address.
     const stripePortalLink = document.getElementById('sub-footer-stripe');
     if (stripePortalLink) {
-      stripePortalLink.addEventListener('click', async (e) => {
-        const customerId = localStorage.getItem('stripe_customer_id');
-        if (!customerId) return; // fall through to static href
-        e.preventDefault();
-        try {
-          const res = await fetch('/api/stripe/portal-session', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ customerId }),
-          });
-          if (res.ok) {
-            const { url } = await res.json();
-            if (url) { window.location.href = url; }
-          }
-        } catch {
-          // Backend unavailable — fall through to the static href.
-          window.open(stripePortalLink.href, '_blank', 'noopener,noreferrer');
-        }
-      });
+      const portalUrl = window.STRIPE_PORTAL_URL;
+      if (!_stripeNotConfigured(portalUrl)) {
+        stripePortalLink.href = portalUrl;
+      }
     }
 
   }());
