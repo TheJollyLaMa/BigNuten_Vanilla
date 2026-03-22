@@ -1237,6 +1237,31 @@
               <p id="dnft-paypal-confirm" class="dnft-paypal-confirm" style="display:none;"></p>
             </div>
 
+            <!-- ── Stripe option ──────────────────────────────────────────── -->
+            <div class="dnft-buy-option-card dnft-stripe-option">
+              <div class="dnft-option-title">💳 Buy with Card (Stripe)</div>
+              <div class="dnft-option-price">$100 one-time payment</div>
+              <p class="dnft-option-desc">Pay with any credit or debit card — Visa, Mastercard, Amex. Admin will transfer your DNFT after verifying payment.</p>
+
+              <!-- Wallet address to receive the DNFT -->
+              <div class="dnft-wallet-input-row">
+                <label for="dnft-stripe-wallet" class="dnft-wallet-label dnft-stripe-wallet-label">Your wallet address (to receive the DNFT)</label>
+                <input id="dnft-stripe-wallet" type="text" class="dnft-wallet-input dnft-stripe-wallet-input"
+                       placeholder="0x… or ENS name" autocomplete="off" spellcheck="false" />
+                <p id="dnft-stripe-wallet-err" class="dnft-wallet-err" aria-live="polite"></p>
+              </div>
+
+              <button id="dnft-stripe-btn" class="dnft-buy-btn dnft-stripe-btn" title="Buy BigNuten DNFT — $100 via Stripe">
+                💳 Buy with Card — $100
+                <span class="card-badges" aria-hidden="true">
+                  <span class="card-badge card-badge-visa">VISA</span>
+                  <span class="card-badge card-badge-mc">MC</span>
+                </span>
+              </button>
+
+              <p id="dnft-stripe-confirm" class="dnft-stripe-confirm" style="display:none;"></p>
+            </div>
+
           </div>
 
           <p class="dnft-buy-footer-note">

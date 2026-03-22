@@ -2382,6 +2382,64 @@ svg text {
   color: #5bc6f7;
 }
 
+/* ── Stripe DNFT option card ──────────────────────────────────── */
+.dnft-stripe-option {
+  border-color: rgba(0, 229, 255, 0.33);
+  background: #001c1e;
+}
+
+.dnft-stripe-option .dnft-option-title {
+  color: #00e5ff;
+}
+
+.dnft-stripe-wallet-label {
+  color: #00e5ff;
+}
+
+.dnft-stripe-wallet-input {
+  background: #001828;
+  border-color: rgba(0, 229, 255, 0.4);
+  color: #e0f4ff;
+}
+
+.dnft-stripe-wallet-input:focus {
+  border-color: #00e5ff;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.35);
+}
+
+.dnft-stripe-btn {
+  background: linear-gradient(135deg, rgba(0,229,255,0.25), rgba(0,229,255,0.1));
+  border: 2px solid rgba(0, 229, 255, 0.6);
+  color: #00e5ff;
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dnft-stripe-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(0,229,255,0.35), rgba(0,229,255,0.15));
+  box-shadow: 0 0 24px rgba(0, 229, 255, 0.45);
+  transform: translateY(-2px);
+}
+
+.dnft-stripe-confirm {
+  font-size: 0.76em;
+  color: #7effc0;
+  background: rgba(0, 255, 140, 0.07);
+  border: 1px solid rgba(0, 255, 140, 0.2);
+  border-radius: 8px;
+  padding: 0.5em 0.7em;
+  margin-top: 0.7em;
+  line-height: 1.5;
+}
+
+.dnft-stripe-confirm code {
+  font-family: monospace;
+  color: #00e5ff;
+}
+
 .dnft-escrow-note {
   font-size: 0.72em;
   color: #777;

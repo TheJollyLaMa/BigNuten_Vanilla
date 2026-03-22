@@ -1,4 +1,4 @@
-import { initDnftPayPalPurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
+import { initDnftPayPalPurchase, initDnftStripePurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
 import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
@@ -8,6 +8,8 @@ import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, get
 document.addEventListener('DOMContentLoaded', () => {
   // Initialise DNFT PayPal one-time purchase form (wallet validation + PayPal submit)
   initDnftPayPalPurchase();
+  // Initialise DNFT Stripe one-time purchase button (wallet validation + redirect)
+  initDnftStripePurchase();
 
   const dietButton = document.getElementById('dietButton');
   const rawFoodModal = document.getElementById('rawFoodModal');

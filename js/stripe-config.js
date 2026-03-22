@@ -43,6 +43,13 @@
 window.STRIPE_MONTHLY_PAYMENT_LINK = 'https://buy.stripe.com/9B69AN7u80x4gBC08B0x200';
 window.STRIPE_ANNUAL_PAYMENT_LINK  = 'https://buy.stripe.com/dRmaER7u87Zw99adZr0x201';
 
+// ── Stripe DNFT one-time purchase link ────────────────────────────────────────
+// Create a one-time $100 Payment Link in the Stripe Dashboard and paste it here.
+// In the link's "After payment" settings set the redirect to:
+//   https://YOURSITE/?stripe=dnft-success
+// The buyer's wallet address is passed as ?client_reference_id=DNFT-wallet:0x…
+window.STRIPE_DNFT_PAYMENT_LINK = 'https://buy.stripe.com/REPLACE_WITH_DNFT_PAYMENT_LINK';
+
 // ── Stripe Customer Portal URL ────────────────────────────────────────────────
 // Created at: Stripe Dashboard → Settings → Billing → Customer portal
 // Click "View test portal link" or "Share a link to the portal".
