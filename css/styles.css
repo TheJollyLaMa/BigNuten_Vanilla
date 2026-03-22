@@ -2470,34 +2470,27 @@ svg text {
   color: #5bc6f7;
 }
 
-/* Side-by-side PayPal + Stripe buttons */
+/* Stacked PayPal + Stripe buttons (column layout, no overflow) */
 .dnft-fiat-btns-row {
   display: flex;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-direction: column;
+  gap: 0.6rem;
   margin-top: 0.6em;
-}
-
-.dnft-fiat-btns-row .paypal-form,
-.dnft-fiat-btns-row .dnft-buy-btn {
-  flex: 1;
-  min-width: 130px;
+  width: 100%;
 }
 
 .dnft-fiat-btns-row .paypal-form {
   display: flex;
-}
-
-.dnft-fiat-btns-row .paypal-form .dnft-buy-btn {
-  flex: 1;
   width: 100%;
 }
 
-@media (max-width: 380px) {
-  .dnft-fiat-btns-row {
-    flex-direction: column;
-  }
+.dnft-fiat-btns-row .paypal-form .dnft-buy-btn,
+.dnft-fiat-btns-row > .dnft-buy-btn {
+  width: 100%;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dnft-escrow-note {
