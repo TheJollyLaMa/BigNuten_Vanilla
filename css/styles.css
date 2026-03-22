@@ -2012,7 +2012,9 @@ svg text {
 .about-pay-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
+  min-width: 10rem;
   padding: 0.45rem 1rem;
   border-radius: 8px;
   font-size: 0.9rem;

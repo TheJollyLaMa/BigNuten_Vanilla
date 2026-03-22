@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<style>
+body { background: #0d0d1a; font-family: sans-serif; padding: 2rem; }
+.about-payment-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+.paypal-form { display: inline-flex; }
+.about-pay-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 0.4rem; min-width: 10rem;
+  padding: 0.45rem 1rem; border-radius: 8px; font-size: 0.9rem;
+  font-weight: bold; cursor: pointer; border: 2px solid transparent;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+.paypal-btn, .stripe-btn, .crypto-btn {
+  background: rgba(0, 229, 255, 0.1);
+  border: 2px solid rgba(0, 229, 255, 0.6);
+  color: #00e5ff;
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+}
+.card-badges { display: inline-flex; gap: 3px; align-items: center; margin-left: 0.3rem; }
+.card-badge { display: inline-block; font-size: 0.55rem; font-weight: 900; padding: 1px 4px; border-radius: 3px; letter-spacing: 0.04em; line-height: 1.5; vertical-align: middle; }
+.card-badge-visa { background: #1a1f71; color: #fff; border: 1px solid rgba(255,255,255,0.25); }
+.card-badge-mc   { background: #eb001b; color: #fff; border: 1px solid rgba(255,255,255,0.25); }
+</style>
+</head>
+<body>
+<p style="color:#aaa;font-size:0.8rem;">Payment buttons — uniform style</p>
+<div class="about-payment-row">
+  <form class="paypal-form">
+    <button type="button" class="about-pay-btn paypal-btn">🅿 PayPal</button>
+  </form>
+  <button type="button" class="about-pay-btn stripe-btn">
+    💳 Pay with Card
+    <span class="card-badges">
+      <span class="card-badge card-badge-visa">VISA</span>
+      <span class="card-badge card-badge-mc">MC</span>
+    </span>
+  </button>
+  <button type="button" class="about-pay-btn crypto-btn">🔗 Pay with Crypto</button>
+</div>
+</body>
+</html>
