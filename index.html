@@ -1106,15 +1106,20 @@
       <!-- ── Subscription / Support Section ─────────────────────────── -->
       <section class="about-section subscribe-section">
         <h3>🌟 Support &amp; Subscribe</h3>
-        <p class="about-payment-desc">Unlock premium features with a recurring subscription or become an early supporter with a BigNuten DNFT.</p>
+        <p class="about-payment-desc">Support BigNuten with a subscription or own a piece of Web3 history with a DNFT. All features below are currently available to everyone — premium tiers are planned for v3.2+.</p>
 
-        <!-- Premium features teaser -->
+        <!-- Current features (all free) -->
         <ul class="premium-features-list">
-          <li>⚡ Priority IPFS sync &amp; cloud backup</li>
-          <li>📊 Advanced analytics &amp; trend charts</li>
-          <li>🤖 AI-powered nutrition &amp; supplement tips</li>
-          <li>🎨 Custom themes &amp; UI skins</li>
+          <li>✅ Workout &amp; exercise logging</li>
+          <li>✅ Weight, nutrition &amp; supplement tracking</li>
+          <li>✅ Emotion wheel &amp; mood tracking</li>
+          <li>✅ Moon &amp; Sun astronomical tracking</li>
+          <li>✅ IPFS snapshot persistence</li>
+          <li>✅ $BNUT governance voting</li>
+          <li>✅ Community data dashboard</li>
+          <li>✅ Data sharing &amp; rewards</li>
         </ul>
+        <p class="about-features-note">🔓 All features are currently available. Future premium features will be announced for v3.2+!</p>
 
         <!-- Plan toggle -->
         <div class="plan-toggle" id="plan-toggle" role="tablist" aria-label="Subscription plan">
@@ -1166,10 +1171,10 @@
             </span>
           </button>
 
-          <!-- Crypto — opens subscription modal on the ETH tab (crypto-only view) -->
-          <button class="about-pay-btn crypto-btn" title="Pay with ETH, USDC, or $BNUT via MetaMask"
-                  onclick="if(window.openSubscriptionModal){window.openSubscriptionModal('eth', true);}else{alert('Loading wallet connection…');}">
-            🔗 Pay with Crypto
+          <!-- BNUT — opens subscription modal on the BNUT tab -->
+          <button class="about-pay-btn crypto-btn" title="Subscribe with $BNUT token via MetaMask (discounted)"
+                  onclick="if(window.openSubscriptionModal){window.openSubscriptionModal('bnut', true);}else{alert('Loading wallet connection…');}">
+            🪙 Buy with $BNUT
           </button>
 
         </div>
@@ -1203,63 +1208,50 @@
               </p>
             </div>
 
-            <!-- ── PayPal option ───────────────────────────────────────────── -->
-            <div class="dnft-buy-option-card dnft-paypal-option">
-              <div class="dnft-option-title">💳 Buy with PayPal</div>
-              <div class="dnft-option-price">$100 one-time payment</div>
-              <p class="dnft-option-desc">Pay with a card or PayPal balance — admin will transfer your DNFT after verifying payment. Fiat-friendly, no crypto required.</p>
+            <!-- ── Fiat option (PayPal + Stripe on same card) ─────────────── -->
+            <div class="dnft-buy-option-card dnft-fiat-option">
+              <div class="dnft-option-title">💳 Buy with Fiat — $100</div>
+              <div class="dnft-option-price">$100 one-time · PayPal or Credit/Debit Card</div>
+              <p class="dnft-option-desc">Pay with PayPal balance or any credit/debit card — admin will transfer your DNFT after verifying payment. No crypto required.</p>
 
-              <!-- Step 1: wallet address input -->
+              <!-- Shared wallet address input (used by both PayPal and Stripe) -->
               <div class="dnft-wallet-input-row">
-                <label for="dnft-paypal-wallet" class="dnft-wallet-label">Your wallet address (to receive the DNFT)</label>
-                <input id="dnft-paypal-wallet" type="text" class="dnft-wallet-input"
+                <label for="dnft-fiat-wallet" class="dnft-wallet-label">Your wallet address (to receive the DNFT)</label>
+                <input id="dnft-fiat-wallet" type="text" class="dnft-wallet-input"
                        placeholder="0x… or ENS name" autocomplete="off" spellcheck="false" />
-                <p id="dnft-paypal-wallet-err" class="dnft-wallet-err" aria-live="polite"></p>
+                <p id="dnft-fiat-wallet-err" class="dnft-wallet-err" aria-live="polite"></p>
               </div>
 
-              <!-- Step 2: PayPal one-time payment form -->
-              <form id="dnft-paypal-form"
-                    action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank"
-                    class="paypal-form dnft-paypal-form">
-                <input type="hidden" name="cmd" value="_xclick" />
-                <input type="hidden" name="business" value="jrlamanna@gmail.com" />
-                <input type="hidden" name="item_name" value="BigNuten v1.0.0 Early Supporter DNFT" />
-                <input type="hidden" name="amount" value="100.00" />
-                <input type="hidden" name="currency_code" value="USD" />
-                <input type="hidden" name="no_note" value="0" />
-                <!-- wallet address is embedded in the PayPal "custom" field by the submit handler -->
-                <input type="hidden" id="dnft-paypal-custom" name="custom" value="" />
-                <button type="submit" class="dnft-buy-btn dnft-paypal-btn" title="Buy BigNuten DNFT — $100 via PayPal">
-                  💳 Buy with PayPal — $100
+              <!-- Side-by-side purchase buttons -->
+              <div class="dnft-fiat-btns-row">
+                <!-- PayPal one-time payment form -->
+                <form id="dnft-paypal-form"
+                      action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank"
+                      class="paypal-form dnft-paypal-form">
+                  <input type="hidden" name="cmd" value="_xclick" />
+                  <input type="hidden" name="business" value="jrlamanna@gmail.com" />
+                  <input type="hidden" name="item_name" value="BigNuten v1.0.0 Early Supporter DNFT" />
+                  <input type="hidden" name="amount" value="100.00" />
+                  <input type="hidden" name="currency_code" value="USD" />
+                  <input type="hidden" name="no_note" value="0" />
+                  <!-- wallet address is embedded in the PayPal "custom" field by the submit handler -->
+                  <input type="hidden" id="dnft-paypal-custom" name="custom" value="" />
+                  <button type="submit" class="dnft-buy-btn dnft-paypal-btn" title="Buy BigNuten DNFT — $100 via PayPal">
+                    🅿 Buy with PayPal
+                  </button>
+                </form>
+
+                <!-- Stripe credit/debit card button -->
+                <button id="dnft-stripe-btn" class="dnft-buy-btn dnft-stripe-btn" title="Buy BigNuten DNFT — $100 via Stripe">
+                  💳 Buy with Card
+                  <span class="card-badges" aria-hidden="true">
+                    <span class="card-badge card-badge-visa">VISA</span>
+                    <span class="card-badge card-badge-mc">MC</span>
+                  </span>
                 </button>
-              </form>
-
-              <p id="dnft-paypal-confirm" class="dnft-paypal-confirm" style="display:none;"></p>
-            </div>
-
-            <!-- ── Stripe option ──────────────────────────────────────────── -->
-            <div class="dnft-buy-option-card dnft-stripe-option">
-              <div class="dnft-option-title">💳 Buy with Card (Stripe)</div>
-              <div class="dnft-option-price">$100 one-time payment</div>
-              <p class="dnft-option-desc">Pay with any credit or debit card — Visa, Mastercard, Amex. Admin will transfer your DNFT after verifying payment.</p>
-
-              <!-- Wallet address to receive the DNFT -->
-              <div class="dnft-wallet-input-row">
-                <label for="dnft-stripe-wallet" class="dnft-wallet-label dnft-stripe-wallet-label">Your wallet address (to receive the DNFT)</label>
-                <input id="dnft-stripe-wallet" type="text" class="dnft-wallet-input dnft-stripe-wallet-input"
-                       placeholder="0x… or ENS name" autocomplete="off" spellcheck="false" />
-                <p id="dnft-stripe-wallet-err" class="dnft-wallet-err" aria-live="polite"></p>
               </div>
 
-              <button id="dnft-stripe-btn" class="dnft-buy-btn dnft-stripe-btn" title="Buy BigNuten DNFT — $100 via Stripe">
-                💳 Buy with Card — $100
-                <span class="card-badges" aria-hidden="true">
-                  <span class="card-badge card-badge-visa">VISA</span>
-                  <span class="card-badge card-badge-mc">MC</span>
-                </span>
-              </button>
-
-              <p id="dnft-stripe-confirm" class="dnft-stripe-confirm" style="display:none;"></p>
+              <p id="dnft-fiat-confirm" class="dnft-paypal-confirm" style="display:none;"></p>
             </div>
 
           </div>
@@ -1286,12 +1278,21 @@
       <section class="about-section">
         <h3>Roadmap</h3>
         <ul class="about-tech-list">
-          <li>✅ Local data logging (weight, supplements, food, exercise)</li>
-          <li>✅ IPFS snapshot persistence</li>
-          <li>✅ Emotion wheel tracking</li>
-          <li>✅ Crypto subscription via ETH &amp; $BNUT (BigNutenSubscription contract)</li>
-          <li>🔜 AI-powered nutrition recommendations</li>
-          <li>🔜 Social sharing &amp; community challenges</li>
+          <li>✅ Local data logging (weight, supplements, food, exercise, emotions)</li>
+          <li>✅ IPFS snapshot persistence &amp; restore</li>
+          <li>✅ Moon &amp; Sun astronomical tracking</li>
+          <li>✅ PayPal &amp; Stripe subscription integration</li>
+          <li>✅ Crypto subscription (ETH &amp; $BNUT on-chain via DecentEscrow)</li>
+          <li>✅ DNFT purchase flow (PayPal, Stripe &amp; crypto)</li>
+          <li>✅ GitHub bounty bot &amp; contributor payroll system</li>
+          <li>✅ Admin Panel — BNUT, Treasury, Escrow, Contributors, Payroll (5 modals)</li>
+          <li>✅ Community data dashboard &amp; opt-in data sharing rewards</li>
+          <li>✅ $BNUT governance voting (on-chain, Optimism)</li>
+          <li>🔜 Q2 2026: Yield/Aave DeFi integration</li>
+          <li>🔜 Q2 2026: DNFT Challenges &amp; prize pools</li>
+          <li>🔜 Q2 2026: Premium feature tiers (v3.2+)</li>
+          <li>🔮 AI-powered nutrition &amp; supplement recommendations</li>
+          <li>🔮 Social sharing &amp; community leaderboards</li>
         </ul>
       </section>
 

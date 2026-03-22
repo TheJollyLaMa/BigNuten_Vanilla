@@ -2163,6 +2163,26 @@ svg text {
   margin-bottom: 1.2rem;
 }
 
+/* Ensure all about-pay-btn have a consistent height */
+.about-payment-row .about-pay-btn,
+.about-payment-row .paypal-form {
+  height: 2.6rem;
+}
+
+.about-payment-row .paypal-form button.about-pay-btn {
+  height: 100%;
+}
+
+.about-features-note {
+  font-size: 0.8rem;
+  color: #7effc0;
+  margin: 0 0 1rem;
+  padding: 0.4rem 0.7rem;
+  background: rgba(0, 255, 140, 0.05);
+  border: 1px solid rgba(0, 255, 140, 0.15);
+  border-radius: 8px;
+}
+
 /* ── DNFT sub-section — DecentHead-standard buy section ─────── */
 .dnft-buy-section {
   text-align: center;
@@ -2438,6 +2458,46 @@ svg text {
 .dnft-stripe-confirm code {
   font-family: monospace;
   color: #00e5ff;
+}
+
+/* ── Combined Fiat DNFT card (PayPal + Stripe) ───────────────── */
+.dnft-fiat-option {
+  border-color: rgba(0, 180, 255, 0.35);
+  background: linear-gradient(160deg, #001828 0%, #001c1e 100%);
+}
+
+.dnft-fiat-option .dnft-option-title {
+  color: #5bc6f7;
+}
+
+/* Side-by-side PayPal + Stripe buttons */
+.dnft-fiat-btns-row {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.6em;
+}
+
+.dnft-fiat-btns-row .paypal-form,
+.dnft-fiat-btns-row .dnft-buy-btn {
+  flex: 1;
+  min-width: 130px;
+}
+
+.dnft-fiat-btns-row .paypal-form {
+  display: flex;
+}
+
+.dnft-fiat-btns-row .paypal-form .dnft-buy-btn {
+  flex: 1;
+  width: 100%;
+}
+
+@media (max-width: 380px) {
+  .dnft-fiat-btns-row {
+    flex-direction: column;
+  }
 }
 
 .dnft-escrow-note {

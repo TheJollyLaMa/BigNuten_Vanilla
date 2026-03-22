@@ -385,9 +385,9 @@ export function openStripePortal(returnUrl) {
  */
 export function initDnftPayPalPurchase(
   formId        = "dnft-paypal-form",
-  walletInputId = "dnft-paypal-wallet",
-  errElId       = "dnft-paypal-wallet-err",
-  confirmElId   = "dnft-paypal-confirm"
+  walletInputId = "dnft-fiat-wallet",
+  errElId       = "dnft-fiat-wallet-err",
+  confirmElId   = "dnft-fiat-confirm"
 ) {
   const form        = document.getElementById(formId);
   const walletInput = document.getElementById(walletInputId);
@@ -464,9 +464,9 @@ export function initDnftPayPalPurchase(
  */
 export function initDnftStripePurchase(
   btnId         = "dnft-stripe-btn",
-  walletInputId = "dnft-stripe-wallet",
-  errElId       = "dnft-stripe-wallet-err",
-  confirmElId   = "dnft-stripe-confirm"
+  walletInputId = "dnft-fiat-wallet",
+  errElId       = "dnft-fiat-wallet-err",
+  confirmElId   = "dnft-fiat-confirm"
 ) {
   const btn         = document.getElementById(btnId);
   const walletInput = document.getElementById(walletInputId);
@@ -514,7 +514,7 @@ export function initDnftStripePurchase(
     const url = paymentLink + separator +
       'client_reference_id=' + encodeURIComponent('DNFT-wallet:' + wallet);
 
-    // Show confirmation before navigating away.
+    // Show confirmation and open Stripe checkout in a new tab.
     if (confirmEl) {
       const truncated =
         wallet.length > 14
@@ -522,12 +522,12 @@ export function initDnftStripePurchase(
           : wallet;
       confirmEl.style.display = "block";
       confirmEl.innerHTML =
-        "✅ Redirecting to Stripe checkout for $100…<br>" +
+        "✅ Stripe checkout opened in a new tab!<br>" +
         "Your wallet <code>" + truncated + "</code> was noted — " +
         "admin will send your DNFT after verifying payment.";
     }
 
-    setTimeout(function () { window.location.href = url; }, 400);
+    window.open(url, '_blank', 'noopener,noreferrer');
   });
 }
 
