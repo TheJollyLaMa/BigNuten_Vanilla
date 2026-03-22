@@ -1,10 +1,19 @@
 // js/w3upClient.js
 
-const { create } = window.w3up;
+// Lazily access window.w3up so the module does not throw when the IPFS
+// browser bundle hasn't loaded yet (e.g. during local dev or when blocked).
+function getCreate() {
+  return window.w3up && window.w3up.create;
+}
 
 // Attempt to restore an existing W3UP session without prompting the user.
 // Returns { client, spaceDid } if a previously-authorized space is found, otherwise null.
 export async function tryAutoRestoreW3upClient() {
+  const create = getCreate();
+  if (!create) {
+    console.warn("W3UP auto-restore: window.w3up not available.");
+    return null;
+  }
   try {
     const client = await create();
     const spaces = client.spaces();
@@ -23,6 +32,12 @@ export async function tryAutoRestoreW3upClient() {
 }
 
 export async function connectW3upClient() {
+  const create = getCreate();
+  if (!create) {
+    console.error("connectW3upClient: window.w3up is not available. Ensure the IPFS browser bundle loaded.");
+    return null;
+  }
+
   // Try to restore an existing session before prompting the user.
   const restored = await tryAutoRestoreW3upClient();
   if (restored) return restored;

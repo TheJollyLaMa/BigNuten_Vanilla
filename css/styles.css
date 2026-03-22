@@ -5298,3 +5298,314 @@ svg text {
   from { opacity: 0; transform: translateX(-50%) translateY(20px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0);    }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Data Control Modal  —  js/dataControl.js
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Modal wrapper ───────────────────────────────────────────────────────────── */
+.dc-modal {
+  max-width: 560px;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────────── */
+.dc-modal-title {
+  margin: 0 0 0.3rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #00e5ff;
+  text-align: center;
+}
+
+.dc-modal-subtitle {
+  color: #8ab0c4;
+  font-size: 0.85rem;
+  text-align: center;
+  margin: 0 0 0.7rem;
+}
+
+/* ── Current mode row ────────────────────────────────────────────────────────── */
+.dc-current-row,
+.dc-about-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: #7090a0;
+  margin-bottom: 1rem;
+}
+
+.dc-mode-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  border-radius: 20px;
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  color: #00e5ff;
+}
+
+.dc-mode-badge[data-mode="own-w3s"] {
+  background: rgba(115, 0, 255, 0.12);
+  border-color: rgba(160, 80, 255, 0.45);
+  color: #c088ff;
+}
+
+.dc-mode-badge[data-mode="decent-agency"] {
+  background: rgba(0, 160, 230, 0.12);
+  border-color: rgba(0, 200, 255, 0.35);
+  color: #40d0ff;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────────── */
+.dc-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.dc-tab {
+  padding: 0.35rem 0.9rem;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  background: transparent;
+  color: #7090a0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.dc-tab:hover {
+  border-color: rgba(0, 229, 255, 0.45);
+  color: #c0e8ff;
+}
+
+.dc-tab-active {
+  border-color: #00e5ff !important;
+  background: rgba(0, 229, 255, 0.12) !important;
+  color: #00e5ff !important;
+}
+
+/* ── Panels ──────────────────────────────────────────────────────────────────── */
+.dc-panel {
+  background: rgba(0, 10, 40, 0.5);
+  border: 1px solid rgba(0, 229, 255, 0.12);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  animation: dc-fade-in 0.22s ease;
+}
+
+@keyframes dc-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dc-panel-desc {
+  color: #8ab0c8;
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0.85rem;
+  line-height: 1.55;
+}
+
+.dc-panel-desc a { color: #00e5ff; }
+.dc-panel-desc a:hover { text-decoration: underline; }
+
+/* ── Option badges ───────────────────────────────────────────────────────────── */
+.dc-option-badge {
+  display: inline-block;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.18rem 0.65rem;
+  border-radius: 20px;
+  margin-bottom: 0.5rem;
+}
+
+.dc-badge-recommended {
+  background: rgba(0, 200, 100, 0.15);
+  border: 1px solid rgba(0, 220, 120, 0.4);
+  color: #00dc78;
+}
+
+.dc-badge-power {
+  background: rgba(115, 0, 255, 0.12);
+  border: 1px solid rgba(160, 80, 255, 0.4);
+  color: #c088ff;
+}
+
+.dc-badge-agency {
+  background: rgba(0, 160, 230, 0.1);
+  border: 1px solid rgba(0, 200, 255, 0.35);
+  color: #40d0ff;
+}
+
+/* ── Privacy notice ──────────────────────────────────────────────────────────── */
+.dc-privacy-notice {
+  background: rgba(255, 160, 0, 0.08);
+  border: 1px solid rgba(255, 160, 0, 0.35);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.81rem;
+  color: #f0c060;
+  margin: 0 0 0.85rem;
+  line-height: 1.5;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────────── */
+.dc-btn-row {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.dc-action-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.dc-btn-primary {
+  background: linear-gradient(135deg, rgba(0, 180, 120, 0.5), rgba(0, 120, 80, 0.7));
+  border: 1px solid rgba(0, 220, 120, 0.5);
+  color: #00dc90;
+}
+.dc-btn-primary:hover {
+  background: linear-gradient(135deg, rgba(0, 200, 130, 0.65), rgba(0, 140, 95, 0.8));
+  box-shadow: 0 3px 14px rgba(0, 200, 120, 0.35);
+  transform: translateY(-1px);
+}
+
+.dc-btn-secondary {
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  color: #00e5ff;
+}
+.dc-btn-secondary:hover {
+  background: rgba(0, 229, 255, 0.15);
+  box-shadow: 0 3px 12px rgba(0, 229, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.dc-btn-w3s {
+  background: linear-gradient(135deg, rgba(115, 0, 255, 0.35), rgba(70, 0, 180, 0.55));
+  border: 1px solid rgba(160, 80, 255, 0.5);
+  color: #c088ff;
+}
+.dc-btn-w3s:hover {
+  background: linear-gradient(135deg, rgba(130, 20, 255, 0.5), rgba(90, 0, 200, 0.65));
+  box-shadow: 0 3px 14px rgba(115, 0, 255, 0.38);
+  transform: translateY(-1px);
+}
+
+.dc-btn-agency {
+  background: linear-gradient(135deg, rgba(0, 120, 200, 0.35), rgba(0, 60, 160, 0.55));
+  border: 1px solid rgba(0, 200, 255, 0.4);
+  color: #40d0ff;
+}
+.dc-btn-agency:hover {
+  background: linear-gradient(135deg, rgba(0, 140, 220, 0.5), rgba(0, 80, 180, 0.65));
+  box-shadow: 0 3px 14px rgba(0, 180, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.dc-btn-reset {
+  background: transparent;
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  color: #5080a0;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.8rem;
+}
+.dc-btn-reset:hover {
+  border-color: rgba(0, 229, 255, 0.4);
+  color: #90b8cc;
+}
+
+/* ── Status messages ─────────────────────────────────────────────────────────── */
+.dc-status {
+  display: block;
+  font-size: 0.82rem;
+  min-height: 1.1em;
+  margin-top: 0.45rem;
+  transition: color 0.2s;
+}
+
+.dc-status-success { color: #00dc90; }
+.dc-status-error   { color: #ff6b6b; }
+.dc-status-info    { color: #80c8e8; }
+
+/* ── Details / help accordion ────────────────────────────────────────────────── */
+.dc-details {
+  margin-top: 0.75rem;
+  font-size: 0.82rem;
+  color: #6888a0;
+}
+
+.dc-details summary {
+  cursor: pointer;
+  color: #5090b0;
+  user-select: none;
+  padding: 0.2rem 0;
+  list-style: none;
+}
+.dc-details summary::-webkit-details-marker { display: none; }
+.dc-details summary::before { content: '▶ '; font-size: 0.7rem; }
+details[open].dc-details summary::before { content: '▼ '; }
+
+.dc-help-list {
+  margin: 0.5rem 0 0 1rem;
+  padding: 0;
+  color: #607080;
+  line-height: 1.65;
+}
+.dc-help-list a { color: #00e5ff; }
+.dc-help-list code {
+  background: rgba(0, 229, 255, 0.08);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+/* ── Reset row ───────────────────────────────────────────────────────────────── */
+.dc-reset-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+/* ── About modal quick-open button ──────────────────────────────────────────── */
+.dc-about-open-btn {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  background: rgba(0, 229, 255, 0.07);
+  color: #00e5ff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  text-align: center;
+  margin-bottom: 0.6rem;
+}
+.dc-about-open-btn:hover {
+  background: rgba(0, 229, 255, 0.14);
+  box-shadow: 0 3px 14px rgba(0, 229, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.dc-about-section .dc-about-mode-row {
+  justify-content: flex-start;
+}

@@ -104,6 +104,14 @@ const CONTRACTS = {
   bnutToken:      BNUT_TOKEN,
   ethPlanId:      BIGNUTEN_ETH_PLAN_ID,
   bnutPlanId:     BIGNUTEN_BNUT_PLAN_ID,
+
+  /**
+   * DecentAgency managed IPFS space DID.
+   * When set by the project owner, the "DecentAgency Storage" option in the
+   * Data Control modal will upload snapshots to this space on the user's behalf.
+   * Leave as an empty string until a delegated UCAN proof is configured.
+   */
+  decentAgencySpaceDid: '',
 };
 
 // ─── Expose as window globals ─────────────────────────────────────────────────

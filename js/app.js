@@ -3,6 +3,7 @@ import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, 
 import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
+import { initDataControlModal, getStorageMode, openDataControlModal, STORAGE_MODE_LABELS } from './dataControl.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -3093,8 +3094,8 @@ if (measurementForm) {
 
            // --- Snapshot catch-up logic: check if we missed today's snapshot
            if (result?.client) {
-             // Check if we missed today's snapshot
-             if (shouldTakeSnapshotToday()) {
+             // Skip IPFS upload if user explicitly chose JSON-only mode
+             if (getStorageMode() !== 'json-only' && shouldTakeSnapshotToday()) {
                const data = getFitnessData();
                const cid = await uploadDataToIPFS(data, result.client);
                if (cid) {
@@ -3118,15 +3119,18 @@ if (measurementForm) {
              const timeUntilMidnight = nextMidnight - now;
 
              setTimeout(() => {
-               const data = getFitnessData();
-               uploadDataToIPFS(data, client).then(cid => {
-                 if (cid) {
-                   console.log("🕛 Midnight snapshot uploaded:", cid);
-                   markSnapshotTakenToday();
-                 } else {
-                   console.warn("❌ Midnight snapshot failed.");
-                 }
-               });
+               // Skip IPFS upload if user explicitly chose JSON-only mode
+               if (getStorageMode() !== 'json-only') {
+                 const data = getFitnessData();
+                 uploadDataToIPFS(data, client).then(cid => {
+                   if (cid) {
+                     console.log("🕛 Midnight snapshot uploaded:", cid);
+                     markSnapshotTakenToday();
+                   } else {
+                     console.warn("❌ Midnight snapshot failed.");
+                   }
+                 });
+               }
 
                // Reschedule for next day
                scheduleMidnightSnapshot(client);
@@ -4088,6 +4092,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return m.includes('eth') || m.includes('bnut') || m.includes('usdc');
   }
 
+  /** Refreshes the data-mode badge in the about modal (dc-about-mode-badge). */
+  function _refreshDataModeBadge() {
+    const badge = document.getElementById('dc-about-mode-badge');
+    if (!badge) return;
+    const mode = getStorageMode();
+    badge.textContent  = STORAGE_MODE_LABELS[mode] || mode;
+    badge.dataset.mode = mode;
+  }
   // ── About modal helpers ───────────────────────────────────────────────────
 
   function openAboutModal(scrollToDnft) {
@@ -4098,6 +4110,8 @@ document.addEventListener('DOMContentLoaded', () => {
     _loadBigNutenListings();
     // Initialize/refresh the timezone widget each time the modal opens
     initTimezoneWidget();
+    // Refresh the data-storage mode badge in the about section
+    _refreshDataModeBadge();
 
     // Show/hide PayPal cancel link based on subscription method
     const aboutCancelRow = document.getElementById('about-cancel-paypal-row');
@@ -4422,6 +4436,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     }
+  });
+
+  // ── Data & Storage button (aes-storage-btn) ──────────────────────────────
+  document.getElementById('aes-storage-btn')?.addEventListener('click', () => {
+    closeAesDropdown();
+    openDataControlModal();
   });
 
   // ── Governance modal ──────────────────────────────────────────────────────
@@ -6539,6 +6559,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Community Data Dashboard ──────────────────────────────────────────────
   initCommunityDashboard();
+
+  // ── Data Control Modal ────────────────────────────────────────────────────
+  initDataControlModal({ connectW3upClient });
 
   // ── Raw Intake DV Card ────────────────────────────────────────────────────
   initRawIntakeDVCard();
