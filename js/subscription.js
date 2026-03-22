@@ -30,6 +30,7 @@
  *     checkSubscriptionStatus,
  *     initPayPalSubscription,
  *     initStripeSubscription,
+ *     openStripePortal,
  *     payCryptoSubscription,
  *     payBNUTSubscription,
  *     initDnftPayPalPurchase,
@@ -294,60 +295,118 @@ export function initPayPalSubscription(planId, containerId = "paypal-button-cont
 
 /**
  * Initialises a Stripe.js payment flow for a subscription price.
- * Redirects to Stripe Checkout (hosted page) using a pre-created Price ID.
- * Requires the Stripe publishable key to be set in `window.STRIPE_PUBLISHABLE_KEY`.
+ * Calls the BigNuten backend to create a hosted Checkout Session, then
+ * redirects the browser to the Stripe-hosted checkout page.
+ *
+ * Prerequisites:
+ *   - Stripe.js loaded:  <script src="https://js.stripe.com/v3/">
+ *   - stripe-config.js loaded:  sets window.STRIPE_PUBLISHABLE_KEY
+ *   - server.js running:  provides POST /api/stripe/create-checkout-session
  *
  * Related issue: #41 — Integrate Stripe Credit/Debit Card Subscriptions.
  *
- * @param {string} priceId - Stripe Price ID (e.g. "price_XXXXXXXXXX").
- * @param {string} successUrl - URL to redirect to on successful payment.
- * @param {string} cancelUrl  - URL to redirect to if the user cancels.
- * @returns {Promise<void>}
+ * @param {string} priceId    - Stripe Price ID (e.g. "price_XXXXXXXXXX").
+ * @param {string} successUrl - URL Stripe redirects to on success.
+ * @param {string} cancelUrl  - URL Stripe redirects to on cancellation.
+ * @returns {Promise<void>}   Resolves after the browser is redirected.
  *
  * @example
  *   await initStripeSubscription(
- *     'price_123',
- *     'https://bignuten.app/success',
- *     'https://bignuten.app/cancel'
+ *     window.STRIPE_MONTHLY_PRICE_ID,
+ *     'https://bignuten.app/?stripe=success',
+ *     'https://bignuten.app/?stripe=cancel'
  *   );
  */
 export async function initStripeSubscription(
   priceId,
-  successUrl = window.location.origin + "?stripe=success",
-  cancelUrl = window.location.origin + "?stripe=cancel"
+  successUrl = window.location.origin + "/?stripe=success&session_id={CHECKOUT_SESSION_ID}",
+  cancelUrl  = window.location.origin + "/?stripe=cancel"
 ) {
   const stripeKey = window.STRIPE_PUBLISHABLE_KEY;
-  if (!stripeKey) {
+  if (!stripeKey || stripeKey.includes('REPLACE_WITH')) {
     throw new Error(
-      "[subscription.js] window.STRIPE_PUBLISHABLE_KEY is not set. " +
-        "Add it to your page before calling initStripeSubscription()."
+      "[subscription.js] window.STRIPE_PUBLISHABLE_KEY is not configured. " +
+        "Open js/stripe-config.js and replace the placeholder with your " +
+        "Stripe publishable key from https://dashboard.stripe.com/test/apikeys"
     );
   }
   if (typeof Stripe === "undefined") {
     throw new Error(
-      "[subscription.js] Stripe.js not loaded. " +
+      "[subscription.js] Stripe.js is not loaded. " +
         "Add <script src='https://js.stripe.com/v3/'> to index.html."
+    );
+  }
+  if (!priceId || priceId.includes('REPLACE_WITH')) {
+    throw new Error(
+      "[subscription.js] Stripe Price ID is not configured. " +
+        "Open js/stripe-config.js and set STRIPE_MONTHLY_PRICE_ID / " +
+        "STRIPE_ANNUAL_PRICE_ID to your Stripe Price IDs."
     );
   }
 
   const stripe = Stripe(stripeKey);
 
-  // TODO (#41): Replace with a call to your backend to create a Checkout Session.
-  //             The backend should return the session ID.
-  //             Example: POST /api/create-checkout-session { priceId }
-  console.warn(
-    "[subscription.js] initStripeSubscription: You must implement a backend " +
-      "endpoint to create a Stripe Checkout Session. See Stripe docs: " +
-      "https://stripe.com/docs/billing/subscriptions/build-subscriptions"
-  );
+  // Call the BigNuten backend to create a Checkout Session.
+  // The secret key stays on the server — only the session ID is returned.
+  const response = await fetch('/api/stripe/create-checkout-session', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ priceId, successUrl, cancelUrl }),
+  });
 
-  // Placeholder redirect — replace `sessionId` with your backend response.
-  // const { sessionId } = await fetch('/api/create-checkout-session', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({ priceId, successUrl, cancelUrl }),
-  // }).then(r => r.json());
-  // await stripe.redirectToCheckout({ sessionId });
+  if (!response.ok) {
+    const { error } = await response.json().catch(() => ({}));
+    throw new Error(error || `Server error ${response.status}`);
+  }
+
+  const { sessionId } = await response.json();
+  if (!sessionId) {
+    throw new Error("[subscription.js] Backend did not return a Stripe session ID.");
+  }
+
+  // Redirect the browser to the Stripe-hosted Checkout page.
+  const { error } = await stripe.redirectToCheckout({ sessionId });
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/**
+ * Opens the Stripe Customer Portal for a given customer so they can manage
+ * their subscription, update payment methods, or cancel.
+ *
+ * Requires the Billing Portal to be configured in the Stripe Dashboard:
+ *   https://dashboard.stripe.com/test/settings/billing/portal
+ *
+ * Related issue: #41 — Integrate Stripe Credit/Debit Card Subscriptions.
+ *
+ * @param {string} customerId - Stripe customer ID (cus_…).
+ * @param {string} returnUrl  - URL to return to after the portal session.
+ * @returns {Promise<void>}
+ */
+export async function openStripePortal(
+  customerId,
+  returnUrl = window.location.origin + "/"
+) {
+  if (!customerId) {
+    throw new Error("[subscription.js] openStripePortal: customerId is required.");
+  }
+
+  const response = await fetch('/api/stripe/portal-session', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ customerId, returnUrl }),
+  });
+
+  if (!response.ok) {
+    const { error } = await response.json().catch(() => ({}));
+    throw new Error(error || `Server error ${response.status}`);
+  }
+
+  const { url } = await response.json();
+  if (url) {
+    window.location.href = url;
+  }
 }
 
 /**

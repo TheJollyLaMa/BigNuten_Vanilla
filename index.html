@@ -13,6 +13,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+    <!-- Stripe.js — required for card payments (Issue #41). The publishable key is set in js/stripe-config.js -->
+    <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
   
@@ -592,6 +594,8 @@
 
   <!-- Contract addresses & token metadata — must load before ES modules -->
   <script src="js/contracts.js"></script>
+  <!-- Stripe publishable key & Price IDs — must load before ES modules (Issue #41) -->
+  <script src="js/stripe-config.js"></script>
 
   <script type="module" src="js/app.js"></script>
   <script type="module">
@@ -1155,10 +1159,9 @@
             </button>
           </form>
 
-          <!-- Stripe (Coming Soon) -->
-          <button class="about-pay-btn stripe-btn" aria-disabled="true" title="Coming Soon — Credit/debit card payments via Stripe"
-                  onclick="alert('💳 Stripe card payments are coming soon! Check back after the next update.')">
-            💳 Pay with Card <span class="coming-soon-badge">Coming Soon</span>
+          <!-- Stripe — credit / debit card (Issue #41) -->
+          <button id="about-stripe-btn" class="about-pay-btn stripe-btn" title="Subscribe with credit or debit card via Stripe">
+            💳 Pay with Card
           </button>
 
           <!-- Crypto — opens subscription modal on the ETH tab (crypto-only view) -->

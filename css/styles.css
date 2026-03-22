@@ -2054,9 +2054,10 @@ svg text {
   color: #a89fff;
 }
 
-.stripe-btn[aria-disabled="true"] {
-  cursor: default;
-  opacity: 0.65;
+.stripe-btn:hover {
+  background: rgba(99, 91, 255, 0.28);
+  border-color: rgba(99, 91, 255, 0.8);
+  color: #d0caff;
 }
 
 /* ── DNFT button ───────────────────────────── */
@@ -5128,4 +5129,41 @@ svg text {
   word-break: break-all;
   margin: 0.4rem 0 0;
   font-family: monospace;
+}
+
+/* ─── Stripe toast notifications (Issue #41) ──────────────────────────────── */
+
+.sub-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 0.85rem 1.5rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
+  animation: sub-toast-in 0.3s ease;
+  pointer-events: none;
+  max-width: min(90vw, 480px);
+}
+
+.sub-toast-success {
+  background: rgba(0, 220, 120, 0.18);
+  border: 1.5px solid rgba(0, 220, 120, 0.5);
+  color: #00dc78;
+  box-shadow: 0 4px 24px rgba(0, 220, 120, 0.15);
+}
+
+.sub-toast-info {
+  background: rgba(99, 91, 255, 0.18);
+  border: 1.5px solid rgba(99, 91, 255, 0.5);
+  color: #a89fff;
+  box-shadow: 0 4px 24px rgba(99, 91, 255, 0.15);
+}
+
+@keyframes sub-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0);    }
 }
