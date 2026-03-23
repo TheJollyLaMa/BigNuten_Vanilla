@@ -9,6 +9,7 @@
 ![Storage](https://img.shields.io/badge/storage-IPFS%20via%20web3.storage%20w3up-blueviolet?style=flat-square)
 ![Wallet](https://img.shields.io/badge/wallet-MetaMask-orange?style=flat-square)
 [![Early Supporter DNFT](https://img.shields.io/badge/Early%20Access-100%20DNFTs-8b00ff?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
+[![v2.0.0 DNFT Minted](https://img.shields.io/badge/v2.0.0%20DNFT-Minted%20%E2%9C%94-gold?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
 [![Network](https://img.shields.io/badge/network-Optimism%20Mainnet-ff0420?style=flat-square&logo=ethereum)](https://optimistic.etherscan.io)
 
 ---
@@ -22,12 +23,13 @@
 5. [Payroll Queue](#-payroll-queue)
 6. [Workflow Security & Policy](#-workflow-security--policy)
 7. [Early Supporter DNFT](#-become-an-early-supporter)
-8. [$BNUT Token](#-bnut-token)
-9. [Contributing](#-contributing)
-10. [How to Clone BigNuten](#-how-to-clone-bignuten-for-new-projects)
-11. [Tech Stack](#-tech-stack)
-12. [Getting Started](#-getting-started)
-13. [License](#-license)
+8. [v2.0.0 Monetization Stack DNFT](#️-v200-monetization-stack-dnft)
+9. [$BNUT Token](#-bnut-token)
+10. [Contributing](#-contributing)
+11. [How to Clone BigNuten](#-how-to-clone-bignuten-for-new-projects)
+12. [Tech Stack](#-tech-stack)
+13. [Getting Started](#-getting-started)
+14. [License](#-license)
 
 ---
 
@@ -323,6 +325,43 @@ Proceeds from DNFT sales flow to the **[DecentEscrow contract](https://optimisti
 - $BNUT bounties for contributors
 - Feature development and infrastructure
 - Community rewards and governance
+
+---
+
+## 🖼️ v2.0.0 Monetization Stack DNFT
+
+> **The BigNuten v2.0.0 Supporter DNFT has been minted in [DecentMarket](https://thejollylama.github.io/DecentMarket/).**
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/190ec435-9e57-4186-b9c5-0eba30b8c24d" alt="BigNuten v2.0.0 Supporter DNFT" width="320" />
+</div>
+
+This commemorative DNFT documents the launch of the **BigNuten Monetization Stack** — the on-chain economy layer that transforms BigNuten from a personal fitness tracker into a community-funded, contributor-rewarded Web3 project.
+
+### What's Captured in the v2.0.0 DNFT
+
+> *"BigNuten Monetization Stack — v2.0.0 Supporter DNFT (Eth). BigNuten v2.0.0 marks the addition of a monetization layer."*
+
+The DNFT metadata includes a full summary of everything shipped:
+
+- 💳 **Payment stack** — Stripe, PayPal, and on-chain crypto (ETH, $BNUT, USDC) subscription flows via DecentEscrow
+- 🪙 **$BNUT token** — ERC-20 governance and rewards token deployed on Optimism Mainnet
+- 🏛️ **BigNutenGov** — on-chain proposal and voting contract, gated by $BNUT balance
+- 🏦 **BigNutenTreasury** — holds the $BNUT reserve; owner settles contributor payroll directly via MetaMask
+- 🤖 **GitHub Bounty Bot** — automated issue-to-payroll pipeline with contributor whitelist; merging a bounty issue queues an addition to payroll
+
+### DNFT Metadata
+
+| Field | Detail |
+|---|---|
+| **Title** | BigNuten v2.0.0 Supporter DNFT (Eth) |
+| **Artifact** | `ipfs://bafybeih34ka25qsnj4wx4jq7tebo4…` *(full CID visible on [DecentMarket](https://thejollylama.github.io/DecentMarket/))* |
+| **Repo** | [github.com/TheJollyLaMa/BigNuten_Vanilla](https://github.com/TheJollyLaMa/BigNuten_Vanilla) |
+| **Gallery** | [DecentMarket](https://thejollylama.github.io/DecentMarket/) |
+| **Standard** | ERC-1155 on Ethereum / Optimism |
+| **DNFT Contract** | [`0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958`](https://optimistic.etherscan.io/address/0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958) — DecentNFT v0.2 |
+
+> Holding this DNFT means you've supported the building of BigNuten v2.0.0 — a health tracking app that pays its builders and invites everyone to build. **And get fit!**
 
 ---
 
