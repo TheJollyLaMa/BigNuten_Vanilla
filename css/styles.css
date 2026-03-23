@@ -5823,3 +5823,10 @@ svg text {
   color: #00e5ff;
 }
 .sp-btn-import:hover { background: rgba(0, 229, 255, 0.15); }
+
+/* Admin Tab Navigation */
+.admin-tab-active {
+  background: rgba(0, 229, 255, 0.2) !important;
+  border-color: rgba(0, 229, 255, 0.5) !important;
+  color: #00e5ff !important;
+}

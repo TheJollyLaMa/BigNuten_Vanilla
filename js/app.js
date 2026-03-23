@@ -4331,6 +4331,11 @@ document.addEventListener('DOMContentLoaded', () => {
     wireModal('admin-contributors-btn', 'contributors-admin-modal', 'contributors-admin-modal-close', () => {
       if (typeof window.__loadContributorsTable === 'function') window.__loadContributorsTable();
     });
+
+    // 🏆 Competition & StreakBet — auto-load table on open
+    wireModal('admin-competition-btn', 'competition-admin-modal', 'competition-admin-modal-close', () => {
+      if (typeof window.__loadCompetitionsTable === 'function') window.__loadCompetitionsTable();
+    });
   })();
 
   // ── Staff of Aesculapius dropdown ────────────────────────────────────────

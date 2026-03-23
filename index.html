@@ -59,6 +59,7 @@
         <button class="aes-menu-item admin-menu-item" id="admin-treasury-btn"     role="menuitem">🏦 Treasury</button>
         <button class="aes-menu-item admin-menu-item" id="admin-escrow-btn"       role="menuitem">📋 Subscription Plans</button>
         <button class="aes-menu-item admin-menu-item" id="admin-contributors-btn" role="menuitem">👥 Contributors</button>
+        <button class="aes-menu-item admin-menu-item" id="admin-competition-btn"  role="menuitem">🏆 Competitions</button>
         <button class="aes-menu-item admin-menu-item" id="admin-payroll-btn"      role="menuitem">💸 Payroll</button>
       </div>
 
@@ -599,10 +600,14 @@
   <script type="module" src="js/app.js"></script>
   <script type="module">
     import { initAdminContributors, initAddContributorModal, initBountyRegister } from './js/admin.js';
+    import { initAdminCompetitions, initAddCompetitionModal, initEditCompetitionModal, loadStreakBetsTable } from './js/competition-admin.js';
     document.addEventListener('DOMContentLoaded', () => {
       initAdminContributors();
       initAddContributorModal();
       initBountyRegister();
+      initAdminCompetitions();
+      initAddCompetitionModal();
+      initEditCompetitionModal();
 
       // Wire bounty-register button in the right dropdown
       const brBtn       = document.getElementById('aes-bounty-register-btn');
@@ -1965,6 +1970,223 @@
 
   <!-- ── Data Sharing Modal (stub) ──────────────────────────────────────── -->
   <!-- ── Payroll Modal (treasury owner only) ────────────────────────────── -->
+  <!-- ── Competition & StreakBet Admin Modal ─────────────────────────────────────── -->
+  <div id="competition-admin-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="competition-admin-modal-title">
+    <div class="modal gov-modal">
+      <button class="modal-close" id="competition-admin-modal-close" aria-label="Close Competition Admin">×</button>
+
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="competition-admin-modal-title">🏆 Competition & StreakBet Setup</h2>
+      </div>
+      <p class="aes-stub-desc">
+        Define, edit, and schedule competitions/challenges. Set stake tokens, frequency, duration, and track results.
+      </p>
+
+      <!-- Tab Navigation -->
+      <div style="display:flex; gap:0.5rem; margin-bottom:1rem; border-bottom:1px solid #333; padding-bottom:0.5rem;">
+        <button id="admin-comp-tab-btn" class="gov-admin-action-btn admin-tab-active">🏆 Competitions</button>
+        <button id="admin-streak-tab-btn" class="gov-admin-action-btn">🔥 StreakBets</button>
+      </div>
+
+      <div class="gov-admin-panel">
+        <!-- Competitions Panel -->
+        <div id="admin-comp-panel">
+          <!-- Actions toolbar -->
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+            <button id="admin-comp-add-btn" class="gov-admin-action-btn">➕ Add Competition</button>
+            <button id="admin-comp-save-btn" class="gov-admin-action-btn">💾 Save / Download JSON</button>
+          </div>
+          <p id="admin-comp-status" class="gov-form-status"></p>
+
+          <!-- Competitions table -->
+          <div style="overflow-x:auto;">
+            <table class="contrib-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Stake Token</th>
+                  <th>Stake Amount</th>
+                  <th>Frequency</th>
+                  <th>Duration</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-comp-table-body">
+                <tr><td colspan="7" class="gov-loading">⏳ Loading competitions…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- StreakBets Panel -->
+        <div id="admin-streak-panel" class="hidden">
+          <div style="overflow-x:auto;">
+            <table class="contrib-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Stake Token</th>
+                  <th>Stake Amount</th>
+                  <th>Duration</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-streak-table-body">
+                <tr><td colspan="6" class="gov-loading">⏳ Loading StreakBets…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Competition Modal -->
+  <div id="admin-add-comp-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true">
+    <div class="modal gov-modal">
+      <button class="modal-close" id="admin-add-comp-close" aria-label="Close">×</button>
+      <h3>➕ Add Competition</h3>
+      
+      <label class="gov-label">
+        Competition Name
+        <input id="admin-add-comp-name" class="gov-input" type="text" placeholder="e.g. 30-Day Pushup Challenge" />
+      </label>
+      
+      <label class="gov-label">
+        Stake Token
+        <select id="admin-add-comp-token" class="gov-input">
+          <option value="BNUT">BNUT</option>
+          <option value="USDC">USDC</option>
+          <option value="ETH">ETH</option>
+        </select>
+      </label>
+      
+      <label class="gov-label">
+        Stake Amount
+        <input id="admin-add-comp-stake" class="gov-input" type="number" step="0.01" placeholder="10" />
+      </label>
+      
+      <label class="gov-label">
+        Frequency
+        <select id="admin-add-comp-freq" class="gov-input">
+          <option value="once">Once</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </label>
+      
+      <label class="gov-label">
+        Duration
+        <input id="admin-add-comp-duration" class="gov-input" type="text" placeholder="e.g. 30 days" />
+      </label>
+      
+      <label class="gov-label">
+        Self-Report Cycle
+        <select id="admin-add-comp-cycle" class="gov-input">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="manual">Manual</option>
+        </select>
+      </label>
+      
+      <label class="gov-label" style="display:flex; align-items:center; gap:0.5rem;">
+        <input id="admin-add-comp-yield" type="checkbox" />
+        Yield Eligible
+      </label>
+      
+      <label class="gov-label">
+        Status
+        <select id="admin-add-comp-status-input" class="gov-input">
+          <option value="scheduled">Scheduled</option>
+          <option value="active">Active</option>
+          <option value="archived">Archived</option>
+        </select>
+      </label>
+      
+      <p id="admin-add-comp-status" class="gov-form-status"></p>
+      
+      <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+        <button id="admin-add-comp-submit" class="gov-admin-action-btn">✅ Add Competition</button>
+        <button id="admin-add-comp-close" class="gov-admin-action-btn" style="background:#666;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Competition Modal -->
+  <div id="admin-edit-comp-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true">
+    <div class="modal gov-modal">
+      <button class="modal-close" id="admin-edit-comp-close" aria-label="Close">×</button>
+      <h3>✏️ Edit Competition</h3>
+      
+      <label class="gov-label">
+        Competition Name
+        <input id="admin-edit-comp-name" class="gov-input" type="text" />
+      </label>
+      
+      <label class="gov-label">
+        Stake Token
+        <select id="admin-edit-comp-token" class="gov-input">
+          <option value="BNUT">BNUT</option>
+          <option value="USDC">USDC</option>
+          <option value="ETH">ETH</option>
+        </select>
+      </label>
+      
+      <label class="gov-label">
+        Stake Amount
+        <input id="admin-edit-comp-stake" class="gov-input" type="number" step="0.01" />
+      </label>
+      
+      <label class="gov-label">
+        Frequency
+        <select id="admin-edit-comp-freq" class="gov-input">
+          <option value="once">Once</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </label>
+      
+      <label class="gov-label">
+        Duration
+        <input id="admin-edit-comp-duration" class="gov-input" type="text" />
+      </label>
+      
+      <label class="gov-label">
+        Self-Report Cycle
+        <select id="admin-edit-comp-cycle" class="gov-input">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="manual">Manual</option>
+        </select>
+      </label>
+      
+      <label class="gov-label" style="display:flex; align-items:center; gap:0.5rem;">
+        <input id="admin-edit-comp-yield" type="checkbox" />
+        Yield Eligible
+      </label>
+      
+      <label class="gov-label">
+        Status
+        <select id="admin-edit-comp-status-input" class="gov-input">
+          <option value="scheduled">Scheduled</option>
+          <option value="active">Active</option>
+          <option value="archived">Archived</option>
+        </select>
+      </label>
+      
+      <p id="admin-edit-comp-status" class="gov-form-status"></p>
+      
+      <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+        <button id="admin-edit-comp-save" class="gov-admin-action-btn">💾 Save Changes</button>
+        <button id="admin-edit-comp-close" class="gov-admin-action-btn" style="background:#666;">Cancel</button>
+      </div>
+    </div>
+  </div>
   <div id="payroll-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="payroll-modal-title">
     <div class="modal gov-modal">
       <button class="modal-close" id="payroll-modal-close" aria-label="Close Payroll modal">×</button>
