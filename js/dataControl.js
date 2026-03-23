@@ -1,29 +1,26 @@
 // js/dataControl.js
-// Unified "Choose Your Data Option" flow for BigNuten.
+// BigNuten Data Control — IPFS education, connection state, snapshot panel, JSON backup/restore.
 //
 // Storage modes (saved to localStorage key 'storageMode'):
-//   'decent-agency' — Project-managed IPFS space via DecentAgency (DEFAULT for new users)
-//   'own-w3s'       — User's own web3.storage / Storacha space
-//   'json-only'     — Download / Import JSON files only (no IPFS)
+//   'own-w3s'   — User has connected their own Storacha/web3.storage space (IPFS enabled)
+//   'json-only' — No IPFS connected; local browser only (DEFAULT for new users)
 
-import { normalizeFitnessData } from './fitnessData.js';
+import { normalizeFitnessData, mergeSnapshotData, importAndMergeFromCID } from './fitnessData.js';
 
-const STORAGE_KEY         = 'fitnessTrackerData';
-const STORAGE_MODE_KEY    = 'storageMode';
-const FIRST_VISIT_KEY     = 'dcFirstVisitDone';
+const STORAGE_KEY        = 'fitnessTrackerData';
+const STORAGE_MODE_KEY   = 'storageMode';
+const EDUC_SEEN_KEY      = 'ipfsEducationSeen';
 
 /** Human-readable labels for each storage mode. */
 export const STORAGE_MODE_LABELS = {
-  'decent-agency': '☁️ DecentAgency Storage',
-  'own-w3s':       '🔗 Your Own web3.storage',
-  'json-only':     '📁 JSON File (local)',
+  'own-w3s':   '🔗 Your Own Storacha Space',
+  'json-only': '📁 JSON File (local)',
 };
 
 // ── Public mode helpers ───────────────────────────────────────────────────────
 
 export function getStorageMode() {
-  // Default is now decent-agency for new users
-  return localStorage.getItem(STORAGE_MODE_KEY) || 'decent-agency';
+  return localStorage.getItem(STORAGE_MODE_KEY) || 'json-only';
 }
 
 export function setStorageMode(mode) {
@@ -62,7 +59,8 @@ export function importDataFromJSONFile(file) {
           try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
           catch { return {}; }
         })();
-        const merged = _mergeData(existing, normalized);
+        // Use mergeSnapshotData — the single deduplication function
+        const merged = mergeSnapshotData(existing, normalized);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
         resolve(merged);
       } catch (err) {
@@ -74,203 +72,355 @@ export function importDataFromJSONFile(file) {
   });
 }
 
-function _mergeData(existing, imported) {
-  const merged = { ...imported };
-
-  // Deduplicate array fields by timestamp / date string
-  for (const key of ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog']) {
-    const existArr  = existing[key]  || [];
-    const importArr = imported[key]  || [];
-    const seen      = new Set(existArr.map(e => e.timestamp || e.date || JSON.stringify(e)));
-    const newItems  = importArr.filter(e => !seen.has(e.timestamp || e.date || JSON.stringify(e)));
-    merged[key]     = [...existArr, ...newItems];
-  }
-
-  // Merge exercises
-  const existEx   = existing.exercises  || { types: [], entries: [] };
-  const importEx  = imported.exercises  || { types: [], entries: [] };
-  const seenEx    = new Set((existEx.entries || []).map(e => e.timestamp || JSON.stringify(e)));
-  const newEx     = (importEx.entries || []).filter(e => !seenEx.has(e.timestamp || JSON.stringify(e)));
-  merged.exercises = {
-    types:   [...new Set([...(existEx.types || []), ...(importEx.types || [])])],
-    entries: [...(existEx.entries || []), ...newEx],
-  };
-
-  return merged;
-}
-
-// ── Modal init ────────────────────────────────────────────────────────────────
+// ── Main init ─────────────────────────────────────────────────────────────────
 
 /**
- * initDataControlModal({ connectW3upClient })
+ * initDataControl({ connectW3upClient, tryAutoRestoreW3upClient, uploadDataToIPFS })
  *
- * Call once after DOMContentLoaded.  Pass the connectW3upClient function from
- * w3upClient.js so this module can trigger the "connect own storage" flow.
+ * Call once after DOMContentLoaded.
  */
-export function initDataControlModal({ connectW3upClient: connectFn } = {}) {
-  const modal    = document.getElementById('data-control-modal');
-  const closeBtn = document.getElementById('data-control-modal-close');
+export function initDataControl({
+  connectW3upClient: connectFn,
+  tryAutoRestoreW3upClient: restoreFn,
+  uploadDataToIPFS: uploadFn,
+} = {}) {
 
-  if (!modal) return;
+  // Expose upload reference for icon click handler
+  window._ipfsUploadFn = uploadFn;
+  window._ipfsConnectFn = connectFn;
 
-  // Open from any element with class .open-data-control-modal
-  document.querySelectorAll('.open-data-control-modal').forEach(btn => {
-    btn.addEventListener('click', openDataControlModal);
-  });
-
-  // Close
-  closeBtn?.addEventListener('click', closeDataControlModal);
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeDataControlModal();
-  });
-
-  // ── Path card click to highlight ─────────────────────────────────────────
-  modal.querySelectorAll('.dc-path-card').forEach(card => {
-    card.addEventListener('click', (e) => {
-      // Don't steal clicks from buttons/links inside the card
-      if (e.target.closest('button, a, input, details')) return;
-      modal.querySelectorAll('.dc-path-card').forEach(c => c.classList.remove('dc-path-active'));
-      card.classList.add('dc-path-active');
-    });
-  });
-
-  // ── Option 1: JSON Export ────────────────────────────────────────────────
-  document.getElementById('dc-export-btn')?.addEventListener('click', () => {
-    try {
-      exportDataAsJSON();
-      _showStatus('dc-json-status', '✅ Download started — check your Downloads folder.', 'success');
-    } catch (err) {
-      _showStatus('dc-json-status', `❌ Export failed: ${err.message}`, 'error');
-    }
-  });
-
-  // ── Option 1: JSON Import ────────────────────────────────────────────────
-  const importInput = document.getElementById('dc-import-file');
-  document.getElementById('dc-import-btn')?.addEventListener('click', () => {
-    importInput?.click();
-  });
-
-  importInput?.addEventListener('change', async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    _showStatus('dc-json-status', '⏳ Importing…', 'info');
-    try {
-      const merged = await importDataFromJSONFile(file);
-      const count  = _countEntries(merged);
-      _showStatus('dc-json-status', `✅ Import complete — ${count} total entries loaded.`, 'success');
-    } catch (err) {
-      _showStatus('dc-json-status', `❌ ${err.message}`, 'error');
-    }
-    importInput.value = ''; // allow re-selecting the same file
-  });
-
-  // ── About modal JSON download button ────────────────────────────────────
+  // Wire About-modal JSON download button
   document.getElementById('about-json-download-btn')?.addEventListener('click', () => {
     try {
       exportDataAsJSON();
-      _showStatus('about-json-status', '✅ Download started — check your Downloads folder.', 'success');
+      _showStatus('about-json-status', '✅ Download started.', 'success');
     } catch (err) {
-      _showStatus('about-json-status', `❌ Export failed: ${err.message}`, 'error');
+      _showStatus('about-json-status', `❌ ${err.message}`, 'error');
     }
   });
 
-  // ── Option 2: Connect own web3.storage ──────────────────────────────────
-  document.getElementById('dc-own-w3s-btn')?.addEventListener('click', async () => {
-    if (typeof connectFn !== 'function') {
-      _showStatus('dc-w3s-status', '⚠️ Web3.Storage client not available on this page.', 'error');
-      return;
-    }
-    _showStatus('dc-w3s-status', '⏳ Connecting to your web3.storage account…', 'info');
-    try {
-      const result = await connectFn();
-      if (result?.spaceDid) {
-        setStorageMode('own-w3s');
-        _refreshCurrentBadge();
-        _highlightActiveCard('own-w3s');
-        const short = result.spaceDid.slice(0, 22) + '…';
-        _showStatus('dc-w3s-status', `✅ Connected — space: ${short}`, 'success');
-      } else {
-        _showStatus('dc-w3s-status', '❌ Connection cancelled or failed. Try again.', 'error');
-      }
-    } catch (err) {
-      _showStatus('dc-w3s-status', `❌ ${err.message}`, 'error');
-    }
-  });
-
-  // ── Option 3: DecentAgency (default) ────────────────────────────────────
-  document.getElementById('dc-decent-optin-btn')?.addEventListener('click', () => {
-    setStorageMode('decent-agency');
-    _refreshCurrentBadge();
-    _highlightActiveCard('decent');
-    _showStatus(
-      'dc-decent-status',
-      '✅ Using DecentAgency storage — snapshots will be pinned to our IPFS space.',
-      'success',
-    );
-    // Mark first-visit as done (in case they clicked through)
-    localStorage.setItem(FIRST_VISIT_KEY, '1');
-  });
-
-  // ── Switch-away / reset to JSON-only ────────────────────────────────────
-  document.getElementById('dc-reset-mode-btn')?.addEventListener('click', () => {
-    setStorageMode('json-only');
-    _refreshCurrentBadge();
-    _highlightActiveCard(null);
-    _showStatus('dc-reset-status', '✅ Switched to JSON-only — no IPFS uploads will occur.', 'success');
-    localStorage.setItem(FIRST_VISIT_KEY, '1');
-  });
-
-  // ── Apply initial indicator and badge ───────────────────────────────────
+  // Apply initial visual state
   _applyIpfsIndicator(getStorageMode());
-  _refreshCurrentBadge();
-  _highlightActiveCard(_modeToCardPath(getStorageMode()));
 
-  // ── First-visit auto-open ────────────────────────────────────────────────
-  if (!localStorage.getItem(FIRST_VISIT_KEY)) {
-    // Wait for two animation frames so the page is fully painted before
-    // displaying the modal, avoiding a jarring flash on load.
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      openDataControlModal();
-    }));
+  // ── IPFS icon click ────────────────────────────────────────────────────────
+  const ipfsIconEl = document.getElementById('ipfsIcon');
+  if (ipfsIconEl && !ipfsIconEl._dataControlListenerAdded) {
+    ipfsIconEl.addEventListener('click', _handleIpfsIconClick);
+    ipfsIconEl._dataControlListenerAdded = true;
+  }
+
+  // ── Educational overlay buttons ────────────────────────────────────────────
+  document.getElementById('ipfs-edu-connect-btn')?.addEventListener('click', async () => {
+    await _doConnect(connectFn);
+  });
+
+  document.getElementById('ipfs-edu-skip-btn')?.addEventListener('click', () => {
+    setStorageMode('json-only');
+    localStorage.setItem(EDUC_SEEN_KEY, '1');
+    _closeOverlay();
+  });
+
+  // ── Condensed connect dialog buttons ──────────────────────────────────────
+  document.getElementById('ipfs-dialog-connect-btn')?.addEventListener('click', async () => {
+    await _doConnect(connectFn);
+    _closeConnectDialog();
+  });
+
+  document.getElementById('ipfs-dialog-close-btn')?.addEventListener('click', () => {
+    _closeConnectDialog();
+  });
+
+  // ── Snapshot panel ────────────────────────────────────────────────────────
+  _initSnapshotPanel();
+
+  // ── First-visit: show educational overlay ─────────────────────────────────
+  const educSeen = localStorage.getItem(EDUC_SEEN_KEY);
+  if (!educSeen) {
+    // Check if already restored (returning user with session)
+    if (typeof restoreFn === 'function') {
+      restoreFn().then(result => {
+        if (!result) {
+          // No saved session — show overlay
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            _openOverlay();
+          }));
+        } else {
+          // Session restored — mark as seen and apply mode
+          localStorage.setItem(EDUC_SEEN_KEY, '1');
+          setStorageMode('own-w3s');
+        }
+      }).catch(() => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          _openOverlay();
+        }));
+      });
+    } else {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        _openOverlay();
+      }));
+    }
   }
 }
 
-// ── Open / close (also exported for external callers) ────────────────────────
+// ── IPFS icon click handler ───────────────────────────────────────────────────
 
-export function openDataControlModal() {
-  const modal = document.getElementById('data-control-modal');
-  if (!modal) return;
-  modal.classList.remove('modal-hidden');
-  document.body.classList.add('modal-active');
-  _refreshCurrentBadge();
-  _highlightActiveCard(_modeToCardPath(getStorageMode()));
+async function _handleIpfsIconClick() {
+  const isMobile = _isMobile();
+  const mode = getStorageMode();
+
+  if (mode === 'own-w3s') {
+    // Connected — push a snapshot then show the panel
+    _openSnapshotPanel();
+    const uploadFn = window._ipfsUploadFn;
+    if (typeof uploadFn === 'function') {
+      _setSnapshotPanelStatus('⏳ Pushing snapshot…', 'info');
+      try {
+        const raw  = localStorage.getItem('fitnessTrackerData');
+        const data = raw ? JSON.parse(raw) : {};
+        const client = window._w3upClientRef;
+        const cid = await uploadFn(data, client);
+        if (cid) {
+          _setSnapshotPanelStatus(`✅ Pushed — CID: <a href="https://${cid}.ipfs.w3s.link/" target="_blank" rel="noopener noreferrer">${cid.slice(0,8)}…${cid.slice(-4)}</a>`, 'success');
+          _renderSnapshotHistory();
+        } else {
+          _setSnapshotPanelStatus('⚠️ Upload returned no CID.', 'warning');
+        }
+      } catch (err) {
+        _setSnapshotPanelStatus(`❌ Upload failed: ${err.message}`, 'error');
+      }
+    }
+    return;
+  }
+
+  // Not connected
+  if (isMobile) {
+    _openSnapshotPanel(); // Show panel with CID import + mobile message
+    return;
+  }
+
+  const educSeen = localStorage.getItem(EDUC_SEEN_KEY);
+  if (educSeen) {
+    // Returning user who dismissed — show condensed connect dialog
+    _openConnectDialog();
+  } else {
+    _openOverlay();
+  }
 }
 
-export function closeDataControlModal() {
-  const modal = document.getElementById('data-control-modal');
-  if (!modal) return;
-  // Mark first visit done when user closes the modal
-  localStorage.setItem(FIRST_VISIT_KEY, '1');
-  modal.classList.add('modal-hidden');
+// ── Educational overlay ───────────────────────────────────────────────────────
+
+export function _openOverlay() {
+  const overlay = document.getElementById('ipfs-edu-overlay');
+  if (!overlay) return;
+
+  // Show/hide mobile notice
+  const mobileNotice = document.getElementById('ipfs-edu-mobile-notice');
+  if (mobileNotice) {
+    mobileNotice.hidden = !_isMobile();
+  }
+
+  overlay.classList.remove('edu-hidden');
+  document.body.classList.add('modal-active');
+}
+
+function _closeOverlay() {
+  const overlay = document.getElementById('ipfs-edu-overlay');
+  if (!overlay) return;
+  overlay.classList.add('edu-hidden');
+  if (!document.querySelector('.modal-overlay:not(.modal-hidden), #ipfs-edu-overlay:not(.edu-hidden)')) {
+    document.body.classList.remove('modal-active');
+  }
+}
+
+// ── Condensed connect dialog ──────────────────────────────────────────────────
+
+function _openConnectDialog() {
+  const dialog = document.getElementById('ipfs-connect-dialog');
+  if (!dialog) return;
+  dialog.classList.remove('modal-hidden');
+  document.body.classList.add('modal-active');
+}
+
+function _closeConnectDialog() {
+  const dialog = document.getElementById('ipfs-connect-dialog');
+  if (!dialog) return;
+  dialog.classList.add('modal-hidden');
   if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
     document.body.classList.remove('modal-active');
   }
 }
 
-// ── Private helpers ───────────────────────────────────────────────────────────
+// ── Connect helper ────────────────────────────────────────────────────────────
 
-function _modeToCardPath(mode) {
-  if (mode === 'decent-agency') return 'decent';
-  if (mode === 'own-w3s')       return 'own-w3s';
-  return null; // json-only — no IPFS path card highlighted
+async function _doConnect(connectFn) {
+  const statusEl = document.getElementById('ipfs-edu-connect-status')
+                || document.getElementById('ipfs-dialog-status');
+  _showEl(statusEl, '⏳ Connecting — check your email for a login link…', 'info');
+
+  if (typeof connectFn !== 'function') {
+    _showEl(statusEl, '⚠️ Storacha client not available. Please reload and try again.', 'error');
+    return;
+  }
+
+  try {
+    const result = await connectFn();
+    if (result?.spaceDid) {
+      setStorageMode('own-w3s');
+      localStorage.setItem(EDUC_SEEN_KEY, '1');
+      // Store client ref for uploads
+      if (result.client) window._w3upClientRef = result.client;
+      _showEl(statusEl, `✅ Connected! Your space: ${result.spaceDid.slice(0, 20)}…`, 'success');
+      setTimeout(() => {
+        _closeOverlay();
+        _closeConnectDialog();
+      }, 1500);
+    } else {
+      _showEl(statusEl, '❌ Connection cancelled or failed. Try again.', 'error');
+    }
+  } catch (err) {
+    _showEl(statusEl, `❌ ${err.message}`, 'error');
+  }
 }
 
-function _highlightActiveCard(pathKey) {
-  const modal = document.getElementById('data-control-modal');
-  if (!modal) return;
-  modal.querySelectorAll('.dc-path-card').forEach(card => {
-    card.classList.toggle('dc-path-active', card.dataset.path === pathKey);
+// ── Snapshot panel ────────────────────────────────────────────────────────────
+
+function _initSnapshotPanel() {
+  const panel = document.getElementById('ipfs-snapshot-panel');
+  if (!panel) return;
+
+  // Close button
+  document.getElementById('snapshot-panel-close')?.addEventListener('click', _closeSnapshotPanel);
+
+  // CID import
+  document.getElementById('snapshot-cid-import-btn')?.addEventListener('click', async () => {
+    const input = document.getElementById('snapshot-cid-input');
+    const cid = input?.value?.trim();
+    if (!cid) {
+      _setSnapshotPanelStatus('⚠️ Please enter a CID.', 'warning');
+      return;
+    }
+    _setSnapshotPanelStatus('⏳ Fetching from IPFS…', 'info');
+    try {
+      const result = await importAndMergeFromCID(cid);
+      const { added } = result;
+      _setSnapshotPanelStatus(
+        `✅ Merged: ${added.weightLogs} weight log(s), ${added.exercises} exercise(s), ${added.sessionLog} session(s).`,
+        'success'
+      );
+      if (input) input.value = '';
+    } catch (err) {
+      _setSnapshotPanelStatus(`❌ ${err.message}`, 'error');
+    }
   });
+
+  // JSON file import
+  const jsonFileInput = document.getElementById('snapshot-json-import-file');
+  document.getElementById('snapshot-json-import-btn')?.addEventListener('click', () => {
+    jsonFileInput?.click();
+  });
+
+  jsonFileInput?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    _setSnapshotPanelStatus('⏳ Importing JSON…', 'info');
+    try {
+      const merged = await importDataFromJSONFile(file);
+      const count  = _countEntries(merged);
+      _setSnapshotPanelStatus(`✅ Import complete — ${count} total entries.`, 'success');
+    } catch (err) {
+      _setSnapshotPanelStatus(`❌ ${err.message}`, 'error');
+    }
+    if (jsonFileInput) jsonFileInput.value = '';
+  });
+
+  // JSON export
+  document.getElementById('snapshot-json-export-btn')?.addEventListener('click', () => {
+    try {
+      exportDataAsJSON();
+      _setSnapshotPanelStatus('✅ JSON backup downloaded.', 'success');
+    } catch (err) {
+      _setSnapshotPanelStatus(`❌ ${err.message}`, 'error');
+    }
+  });
+}
+
+export function _openSnapshotPanel() {
+  const panel = document.getElementById('ipfs-snapshot-panel');
+  if (!panel) return;
+  panel.hidden = false;
+  _renderSnapshotHistory();
+
+  // Reflect mobile state
+  const mobileMsg = document.getElementById('snapshot-panel-mobile-msg');
+  if (mobileMsg) mobileMsg.hidden = !_isMobile();
+}
+
+function _closeSnapshotPanel() {
+  const panel = document.getElementById('ipfs-snapshot-panel');
+  if (panel) panel.hidden = true;
+}
+
+function _setSnapshotPanelStatus(html, type) {
+  const el = document.getElementById('snapshot-panel-status');
+  if (!el) return;
+  el.innerHTML = html;
+  el.className = `sp-status sp-status-${type}`;
+}
+
+function _renderSnapshotHistory() {
+  const container = document.getElementById('snapshot-history-list');
+  if (!container) return;
+
+  const latestKey = Object.keys(localStorage)
+    .filter(k => k.startsWith('fitnessTrackerSnapshot-'))
+    .sort()
+    .reverse()[0];
+
+  let history = [];
+  if (latestKey) {
+    const latestSnapshot = (() => {
+      try { return JSON.parse(localStorage.getItem(latestKey)); } catch { return null; }
+    })();
+    if (latestSnapshot?.data?.snapshotHistory) {
+      history = latestSnapshot.data.snapshotHistory.map(e =>
+        typeof e === 'string' ? { cid: e, timestamp: '' } : e
+      );
+    }
+    if (latestSnapshot?.cid) {
+      const ts = latestKey.split('fitnessTrackerSnapshot-')[1] || '';
+      history.unshift({ cid: latestSnapshot.cid, timestamp: ts });
+    }
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const items = history.slice(0, 7);
+
+  if (items.length === 0) {
+    container.innerHTML = '<div class="sp-history-empty">No snapshots yet.</div>';
+    return;
+  }
+
+  container.innerHTML = items.map(h => {
+    const isToday = h.timestamp && h.timestamp.startsWith(today);
+    const dateStr = h.timestamp
+      ? new Date(h.timestamp).toLocaleString()
+      : '(No timestamp)';
+    const short = `${h.cid.slice(0, 8)}…${h.cid.slice(-4)}`;
+    return `<div class="sp-history-row${isToday ? ' sp-today' : ''}">
+      <span class="sp-history-date">${dateStr}</span>
+      <a class="sp-history-cid" href="https://${h.cid}.ipfs.w3s.link/" target="_blank" rel="noopener noreferrer">${short}</a>
+      ${isToday ? '<span class="sp-today-badge">✅ today</span>' : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Private helpers ───────────────────────────────────────────────────────────
+
+function _isMobile() {
+  return (
+    (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) ||
+    window.innerWidth < 768
+  );
 }
 
 function _applyIpfsIndicator(mode) {
@@ -282,25 +432,33 @@ function _applyIpfsIndicator(mode) {
   icon.dataset.storageMode = mode;
   if (statusRing) statusRing.dataset.storageMode = mode;
 
-  // Update ticker letter colours to match mode
   document.querySelectorAll('.ticker-letter').forEach(el => {
     el.dataset.storageMode = mode;
   });
 
-  // Tooltip update
   const tipMap = {
-    'decent-agency': '☁️ DecentAgency IPFS — blue glow',
-    'own-w3s':       '🔗 Your own Storacha space — green glow',
-    'json-only':     '📁 JSON-only — dimmed (no IPFS uploads)',
+    'own-w3s':   '🔗 Your Storacha space — green glow. Click to push snapshot.',
+    'json-only': '📁 JSON-only — dimmed (no IPFS). Click to connect Storacha.',
   };
   icon.title = tipMap[mode] || 'IPFS Storage';
+
+  // Refresh about-modal badge if visible
+  const badge = document.getElementById('dc-about-mode-badge');
+  if (badge) {
+    badge.textContent  = STORAGE_MODE_LABELS[mode] || mode;
+    badge.dataset.mode = mode;
+  }
+}
+
+function _showEl(el, msg, type) {
+  if (!el) return;
+  el.innerHTML   = msg;
+  el.className   = `dc-status dc-status-${type}`;
+  el.style.display = 'block';
 }
 
 function _showStatus(elId, msg, type) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  el.textContent = msg;
-  el.className   = `dc-status dc-status-${type}`;
+  _showEl(document.getElementById(elId), msg, type);
 }
 
 function _countEntries(data) {
@@ -312,15 +470,5 @@ function _countEntries(data) {
   return n;
 }
 
-function _refreshCurrentBadge() {
-  const mode = getStorageMode();
-  const text = STORAGE_MODE_LABELS[mode] || mode;
-
-  // Update all mode badges (modal + about section)
-  for (const id of ['dc-current-mode', 'dc-about-mode-badge']) {
-    const badge = document.getElementById(id);
-    if (!badge) continue;
-    badge.textContent  = text;
-    badge.dataset.mode = mode;
-  }
-}
+// Keep legacy exports for any external callers that import the old names
+export { _openOverlay as openEducationalOverlay };

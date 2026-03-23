@@ -23,7 +23,7 @@
           <div class="ticker-circle-ipfs" id="ticker-circle"></div>
         </div>
         <div id="ipfsIconWrapper">
-          <img id="ipfsIcon" src="img/IPFS_Logo.png" alt="IPFS Storage" data-storage-mode="decent-agency" />
+          <img id="ipfsIcon" src="img/IPFS_Logo.png" alt="IPFS Storage" data-storage-mode="json-only" />
           <div id="ipfsHoverPopup" class="hover-popup"></div>
         </div>
       </div>
@@ -74,7 +74,7 @@
         <button class="aes-menu-item" id="aes-achieve-btn"   role="menuitem">🏆 Achievements</button>
         <button class="aes-menu-item" id="aes-gov-btn"       role="menuitem">🗳️ Governance</button>
         <button class="aes-menu-item" id="aes-data-btn"      role="menuitem">📊 Data Sharing</button>
-        <button class="aes-menu-item open-data-control-modal" id="aes-storage-btn" role="menuitem">💾 Data &amp; Storage</button>
+        <button class="aes-menu-item" id="aes-storage-btn" role="menuitem">💾 Data &amp; Storage</button>
         <button class="aes-menu-item" id="aes-challenge-btn" role="menuitem">🏋️ Monthly Challenge</button>
         <button class="aes-menu-item" id="aes-bounty-register-btn" role="menuitem">💰 Bounty Register</button>
       </div>
@@ -1106,28 +1106,24 @@
 
       <!-- ── Data Control Section ──────────────────────────────────── -->
       <section class="about-section dc-about-section">
-        <h3>📡 Your Data &amp; IPFS Storage</h3>
+        <h3>🔑 Your Data &amp; IPFS Storage</h3>
 
-        <!-- Community data sharing disclaimer — prominent -->
-        <div class="dc-community-notice dc-about-notice" role="note">
-          <strong>⚠️ Community Data Notice:</strong>
-          BigNuten is a community health tracking experiment. Your data is <strong>not encrypted</strong> and is stored on public IPFS.
-          The project or community can see snapshot CIDs — only share what you're comfortable with!
+        <p class="about-payment-desc">
+          Your data lives in your browser. Connect your own Storacha space to enable automatic IPFS backup — or export a JSON file anytime.
+          <strong>Data is not encrypted</strong> — only share what you're comfortable with.
           <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="dc-notice-link">📚 Learn about IPFS →</a>
-        </div>
-
-        <p class="about-payment-desc">Choose how BigNuten backs up &amp; syncs your health data — switch at any time.</p>
+        </p>
 
         <div class="dc-about-actions">
-          <button class="open-data-control-modal dc-about-open-btn" type="button">
-            ⚙️ Manage IPFS Storage Option
+          <button id="about-ipfs-connect-btn" class="dc-about-open-btn" type="button">
+            🔗 Connect Storacha Account
           </button>
           <button id="about-json-download-btn" class="dc-about-json-btn" type="button">
             ⬇️ Download JSON Backup
           </button>
         </div>
         <div class="dc-about-mode-row">
-          Current mode: <span id="dc-about-mode-badge" class="dc-mode-badge" data-mode="decent-agency">☁️ DecentAgency Storage</span>
+          Storage: <span id="dc-about-mode-badge" class="dc-mode-badge" data-mode="json-only">📁 JSON File (local)</span>
         </div>
         <p id="about-json-status" class="dc-status" aria-live="polite" style="margin-top:0.3rem;font-size:0.8rem;"></p>
       </section>
@@ -1372,113 +1368,124 @@
     </div>
   </div>
 
-  <!-- ── Data Control Modal ────────────────────────────────────────────────── -->
-  <div id="data-control-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="data-control-modal-title">
-    <div class="modal dc-modal">
-      <button class="modal-close" id="data-control-modal-close" aria-label="Close Data Control modal">×</button>
+  <!-- ── IPFS Educational Overlay (first-visit) ───────────────────────────── -->
+  <div id="ipfs-edu-overlay" class="edu-overlay edu-hidden" role="dialog" aria-modal="true" aria-labelledby="edu-overlay-title">
+    <div class="edu-overlay-card">
+      <h2 id="edu-overlay-title" class="edu-title">🔑 Your data. Your keys. No exceptions.</h2>
 
-      <div class="dc-modal-header">
-        <h2 id="data-control-modal-title" class="dc-modal-title">📡 Your Data &amp; IPFS Storage</h2>
-        <p class="dc-modal-subtitle">BigNuten stores your health data locally and backs it up on IPFS — a public, peer-to-peer file network. Choose how your snapshots are stored.</p>
-      </div>
+      <p class="edu-body">
+        Most health apps store your data on their servers. BigNuten doesn't.
+        Your weight logs, workouts, and supplements live in your browser — or in your own personal IPFS space that <strong>only you control</strong>.
+        Nobody can sell it, lose it, or lock you out of it. Not even us.
+      </p>
+      <p class="edu-body">
+        To enable automatic cloud backup, you'll need a free <strong>Storacha</strong> account.
+        Storacha gives you a globally unique Space DID — your own cryptographic key to your data, forever.
+        <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="edu-link">📚 Learn about IPFS &amp; Storacha →</a>
+      </p>
 
-      <!-- Community / privacy notice - always visible -->
-      <div class="dc-community-notice" role="note">
-        <strong>⚠️ Community Data Notice:</strong>
-        BigNuten is a community health experiment. Your data is <strong>not encrypted</strong> and is stored on IPFS — a public network.
-        Only share what you're comfortable with others potentially seeing.
-        <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="dc-notice-link">📚 Learn about IPFS →</a>
-      </div>
-
-      <!-- Current mode indicator -->
-      <div class="dc-current-row">
-        Active: <span id="dc-current-mode" class="dc-mode-badge" data-mode="decent-agency">☁️ DecentAgency Storage</span>
-      </div>
-
-      <!-- Path 1: DecentAgency (default) -->
-      <div id="dc-panel-decent" class="dc-path-card dc-path-active" data-path="decent">
-        <div class="dc-path-header">
-          <span class="dc-path-icon dc-path-icon-blue">☁️</span>
+      <div class="edu-steps">
+        <div class="edu-step">
+          <span class="edu-step-num">1</span>
           <div>
-            <div class="dc-path-title">Use DecentAgency's Space <span class="dc-default-badge">Default</span></div>
-            <div class="dc-path-sub">Zero setup — we handle IPFS for you</div>
+            <strong>Sign up at Storacha</strong> (free) —
+            <a href="https://storacha.network" target="_blank" rel="noopener noreferrer" class="edu-link">open storacha.network ↗</a>
           </div>
         </div>
-        <p class="dc-panel-desc">
-          Your data is automatically pinned to the BigNuten project's IPFS space. No account needed.
-          The project team <em>can</em> see your snapshot CIDs (but not your private keys or wallet data).
-          Great for getting started quickly.
-        </p>
-        <div class="dc-privacy-notice">
-          <strong>⚠️ Visibility:</strong> When using DecentAgency's space, the project owner can view the IPFS CIDs of your snapshots, and your data is on public IPFS.
-          <strong>Do not store sensitive health data you wouldn't want others to see.</strong>
+        <div class="edu-step">
+          <span class="edu-step-num">2</span>
+          <div><strong>Confirm your email</strong> in the desktop browser where BigNuten is open</div>
         </div>
-        <button id="dc-decent-optin-btn" class="dc-action-btn dc-btn-agency dc-path-btn" type="button">
-          ☁️ Use DecentAgency Storage
-        </button>
-        <p id="dc-decent-status" class="dc-status" aria-live="polite"></p>
-      </div>
-
-      <!-- Divider -->
-      <div class="dc-path-divider"><span>or</span></div>
-
-      <!-- Path 2: Own web3.storage -->
-      <div id="dc-panel-own-w3s" class="dc-path-card" data-path="own-w3s">
-        <div class="dc-path-header">
-          <span class="dc-path-icon dc-path-icon-green">🔗</span>
-          <div>
-            <div class="dc-path-title">Connect Your Own Storacha Account <span class="dc-power-badge">Power User</span></div>
-            <div class="dc-path-sub">You hold the keys — no one else can access your space</div>
-          </div>
+        <div class="edu-step">
+          <span class="edu-step-num">3</span>
+          <div>Click <strong>"Connect my Storacha account"</strong> below</div>
         </div>
-        <p class="dc-panel-desc">
-          Sign up free at <a href="https://web3.storage" target="_blank" rel="noopener noreferrer">web3.storage</a> (Storacha).
-          Your snapshots are pinned to <em>your</em> IPFS space — the project cannot read or delete them.
-          Earn $BNUT rewards for onboarding.
-        </p>
-        <button id="dc-own-w3s-btn" class="dc-action-btn dc-btn-w3s dc-path-btn" type="button">
-          🔗 Connect my web3.storage Account
+      </div>
+
+      <!-- Mobile notice - shown only on small screens / touch devices -->
+      <div id="ipfs-edu-mobile-notice" class="edu-mobile-notice" hidden>
+        📱 <strong>Mobile users:</strong> IPFS backup requires a desktop browser for the initial connection — this is a limitation of Storacha's email confirmation flow.
+        Your data is safe in your browser and can always be exported as a JSON file.
+        Come back on desktop to enable cloud sync.
+      </div>
+
+      <div class="edu-actions">
+        <button id="ipfs-edu-connect-btn" class="edu-connect-btn" type="button">
+          🔗 Connect my Storacha account
         </button>
-        <p id="dc-w3s-status" class="dc-status" aria-live="polite"></p>
-        <details class="dc-details">
-          <summary>ℹ️ How it works</summary>
-          <ul class="dc-help-list">
-            <li>Enter your web3.storage email — you'll receive a login link.</li>
-            <li>Once connected, snapshots are stored in <em>your</em> space only.</li>
-            <li>Your space DID spins in the IPFS ticker after connecting (green glow = your space).</li>
-            <li>Retrieve your data anytime at <a href="https://console.web3.storage" target="_blank" rel="noopener noreferrer">console.web3.storage</a>.</li>
-            <li><a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer">📚 IPFS deep-dive workbook</a></li>
-          </ul>
-        </details>
-      </div>
-
-      <!-- Always-available: JSON download/import -->
-      <div class="dc-json-utility">
-        <div class="dc-json-utility-title">📁 JSON Backup — Always Available</div>
-        <p class="dc-json-utility-desc">Download a local copy anytime or restore from a previous backup — no account needed, works on every device.</p>
-        <div class="dc-btn-row">
-          <button id="dc-export-btn" class="dc-action-btn dc-btn-primary" type="button">
-            ⬇️ Download JSON Backup
-          </button>
-          <button id="dc-import-btn" class="dc-action-btn dc-btn-secondary" type="button">
-            📂 Import / Restore…
-          </button>
-          <input id="dc-import-file" type="file" accept=".json,application/json" style="display:none;" aria-hidden="true" />
-        </div>
-        <p id="dc-json-status" class="dc-status" aria-live="polite"></p>
-      </div>
-
-      <!-- Switch / Reset row -->
-      <div class="dc-reset-row">
-        <button id="dc-reset-mode-btn" class="dc-action-btn dc-btn-reset" type="button">
-          🔄 Switch to JSON-Only (no IPFS)
+        <p id="ipfs-edu-connect-status" class="dc-status" aria-live="polite" style="display:none;"></p>
+        <button id="ipfs-edu-skip-btn" class="edu-skip-btn" type="button">
+          → Skip for now, I'll use JSON export
         </button>
-        <span id="dc-reset-status" class="dc-status" aria-live="polite"></span>
       </div>
-
     </div>
   </div>
-  <!-- ── End Data Control Modal ─────────────────────────────────────────────── -->
+  <!-- ── End IPFS Educational Overlay ─────────────────────────────────────── -->
+
+  <!-- ── Condensed IPFS Connect Dialog (returning users who haven't connected) ── -->
+  <div id="ipfs-connect-dialog" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="ipfs-dialog-title">
+    <div class="modal dc-modal">
+      <button class="modal-close" id="ipfs-dialog-close-btn" aria-label="Close">×</button>
+      <h3 id="ipfs-dialog-title" style="color:#00e5ff;margin-top:0;">🔗 Connect Your Storacha Space</h3>
+      <p style="color:#8ab0c4;font-size:0.85rem;">
+        Connect your own Storacha/web3.storage space to enable automatic IPFS snapshots.
+        Your data lives in <em>your</em> space — BigNuten cannot access it.
+        <a href="https://storacha.network" target="_blank" rel="noopener noreferrer" class="dc-notice-link">Sign up free →</a>
+      </p>
+      <button id="ipfs-dialog-connect-btn" class="dc-action-btn dc-btn-w3s" type="button" style="width:100%;margin-bottom:0.6rem;">
+        🔗 Connect my Storacha account
+      </button>
+      <p id="ipfs-dialog-status" class="dc-status" aria-live="polite" style="display:none;"></p>
+      <div style="margin-top:0.75rem;border-top:1px solid rgba(0,229,255,0.1);padding-top:0.75rem;">
+        <div class="dc-json-utility-title">📁 JSON Backup — No Account Needed</div>
+        <div class="dc-btn-row" style="margin-top:0.45rem;">
+          <button id="dialog-json-export-btn" class="dc-action-btn dc-btn-primary" type="button">⬇️ Download JSON</button>
+          <button id="dialog-json-import-btn" class="dc-action-btn dc-btn-secondary" type="button">📂 Import JSON</button>
+          <input id="dialog-json-import-file" type="file" accept=".json,application/json" style="display:none;" />
+        </div>
+        <p id="dialog-json-status" class="dc-status" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+  <!-- ── End Condensed Connect Dialog ─────────────────────────────────────── -->
+
+  <!-- ── Snapshot Panel (anchored below IPFS icon) ────────────────────────── -->
+  <div id="ipfs-snapshot-panel" class="snapshot-panel" hidden>
+    <button class="snapshot-panel-close" id="snapshot-panel-close" aria-label="Close snapshot panel">×</button>
+    <div class="sp-header">📋 IPFS Snapshots</div>
+
+    <p id="snapshot-panel-status" class="sp-status" aria-live="polite"></p>
+
+    <!-- Mobile notice -->
+    <div id="snapshot-panel-mobile-msg" class="sp-mobile-msg" hidden>
+      📱 <strong>IPFS sync requires desktop</strong> for the initial Storacha connection.
+      You can still import a past snapshot by CID below, or export/import a JSON backup.
+    </div>
+
+    <!-- Snapshot history -->
+    <div class="sp-section-title">🕘 Recent snapshots (last 7)</div>
+    <div id="snapshot-history-list" class="sp-history-list"></div>
+
+    <!-- Import from CID -->
+    <div id="snapshot-cid-section" class="sp-section">
+      <div class="sp-section-title">📥 Import from IPFS CID</div>
+      <div class="sp-cid-row">
+        <input id="snapshot-cid-input" class="sp-cid-input" type="text" placeholder="bafyrei…" aria-label="IPFS CID to import" />
+        <button id="snapshot-cid-import-btn" class="sp-btn sp-btn-cid" type="button">📥 Fetch &amp; Merge</button>
+      </div>
+    </div>
+
+    <!-- Import from JSON / Export JSON -->
+    <div class="sp-section">
+      <div class="sp-section-title">📁 JSON Backup</div>
+      <div class="sp-btn-row">
+        <button id="snapshot-json-export-btn" class="sp-btn sp-btn-export" type="button">⬇️ Download JSON</button>
+        <button id="snapshot-json-import-btn" class="sp-btn sp-btn-import" type="button">📂 Import JSON</button>
+        <input id="snapshot-json-import-file" type="file" accept=".json,application/json" style="display:none;" />
+      </div>
+    </div>
+  </div>
+  <!-- ── End Snapshot Panel ────────────────────────────────────────────────── -->
 
   <script>
   // ── Dashboard Panel Toggle Logic ───────────────────────────────

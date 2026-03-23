@@ -3,7 +3,7 @@ import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, 
 import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
-import { initDataControlModal, getStorageMode, openDataControlModal, STORAGE_MODE_LABELS } from './dataControl.js';
+import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -3083,17 +3083,19 @@ if (measurementForm) {
            }
            animateTicker();
           
-           // Add IPFS upload click listener after icon is shown
-           // (Icon now opens data-control modal — uploads happen via snapshots)
+           // After w3up connects: update mode to own-w3s, store client ref for uploads
            const ipfsIcon = document.getElementById("ipfsIcon");
            if (ipfsIcon) {
-             // Update the icon to reflect storage mode after w3up connects
-             ipfsIcon.dataset.storageMode = getStorageMode();
+             // Update the icon to reflect connected state
+             ipfsIcon.dataset.storageMode = 'own-w3s';
              const statusRingEl = document.getElementById('ipfs-status');
-             if (statusRingEl) statusRingEl.dataset.storageMode = getStorageMode();
-             // Store client reference so icon click can trigger manual upload too
-             ipfsIcon._w3upClient = result.client;
+             if (statusRingEl) statusRingEl.dataset.storageMode = 'own-w3s';
            }
+           // Store client reference so icon click can trigger manual upload
+           window._w3upClientRef = result.client;
+           // Mark education seen and update mode
+           localStorage.setItem('ipfsEducationSeen', '1');
+           if (typeof setStorageMode === 'function') setStorageMode('own-w3s');
 
            // --- Snapshot catch-up logic: check if we missed today's snapshot
            if (result?.client) {
@@ -4451,7 +4453,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Data & Storage button (aes-storage-btn) ──────────────────────────────
   document.getElementById('aes-storage-btn')?.addEventListener('click', () => {
     closeAesDropdown();
-    openDataControlModal();
+    // Open educational overlay on first visit, condensed dialog otherwise
+    const educSeen = localStorage.getItem('ipfsEducationSeen');
+    const mode     = getStorageMode();
+    if (!educSeen) {
+      import('./dataControl.js').then(m => m._openOverlay());
+    } else if (mode !== 'own-w3s') {
+      const dialog = document.getElementById('ipfs-connect-dialog');
+      if (dialog) {
+        dialog.classList.remove('modal-hidden');
+        document.body.classList.add('modal-active');
+      }
+    } else {
+      // Already connected — open snapshot panel
+      import('./dataControl.js').then(m => m._openSnapshotPanel());
+    }
   });
 
   // ── Governance modal ──────────────────────────────────────────────────────
@@ -6570,25 +6586,46 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Community Data Dashboard ──────────────────────────────────────────────
   initCommunityDashboard();
 
-  // ── Data Control Modal ────────────────────────────────────────────────────
-  initDataControlModal({ connectW3upClient });
+  // ── Data Control (educational overlay + snapshot panel) ──────────────────
+  initDataControl({ connectW3upClient, tryAutoRestoreW3upClient, uploadDataToIPFS });
 
-  // ── IPFS icon: always visible as storage-mode indicator ──────────────────
-  // Wire the icon to open the data-control modal when clicked without an
-  // active w3up session, so users can always find the storage settings.
+  // ── Apply initial IPFS glow state ─────────────────────────────────────────
   {
-    const ipfsIconEl = document.getElementById('ipfsIcon');
-    if (ipfsIconEl && !ipfsIconEl._ipfsListenerAdded) {
-      ipfsIconEl.addEventListener('click', () => {
-        openDataControlModal();
-      });
-      ipfsIconEl._ipfsListenerAdded = true;
-    }
-    // Apply the initial glow state immediately based on saved preference
     const initMode = getStorageMode();
+    const ipfsIconEl = document.getElementById('ipfsIcon');
     if (ipfsIconEl) ipfsIconEl.dataset.storageMode = initMode;
     const statusRing = document.getElementById('ipfs-status');
     if (statusRing) statusRing.dataset.storageMode = initMode;
+
+    // Wire About-modal "Connect Storacha" button
+    document.getElementById('about-ipfs-connect-btn')?.addEventListener('click', async () => {
+      const { _openOverlay } = await import('./dataControl.js');
+      _openOverlay();
+    });
+
+    // Wire condensed dialog JSON buttons
+    document.getElementById('dialog-json-export-btn')?.addEventListener('click', () => {
+      try { exportDataAsJSON(); }
+      catch (err) { console.error('JSON export failed:', err); }
+    });
+    const dialogImportFile = document.getElementById('dialog-json-import-file');
+    document.getElementById('dialog-json-import-btn')?.addEventListener('click', () => {
+      dialogImportFile?.click();
+    });
+    dialogImportFile?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const merged = await importDataFromJSONFile(file);
+        const count  = Object.values(merged).reduce((n, v) => n + (Array.isArray(v) ? v.length : 0), 0);
+        const statusEl = document.getElementById('dialog-json-status');
+        if (statusEl) { statusEl.textContent = `✅ Imported — ${count} entries.`; statusEl.style.color = '#00dc90'; }
+      } catch (err) {
+        const statusEl = document.getElementById('dialog-json-status');
+        if (statusEl) { statusEl.textContent = `❌ ${err.message}`; statusEl.style.color = '#ff6b6b'; }
+      }
+      if (dialogImportFile) dialogImportFile.value = '';
+    });
   }
 
   // ── Raw Intake DV Card ────────────────────────────────────────────────────
