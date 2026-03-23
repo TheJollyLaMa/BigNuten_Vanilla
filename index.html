@@ -18,12 +18,12 @@
   
   <header>
     <div id="header-left">
-      <div id="ipfs-status">
+      <div id="ipfs-status" style="display:block;" title="IPFS Storage — click to manage your data options">
         <div class="ticker-wrapper">
           <div class="ticker-circle-ipfs" id="ticker-circle"></div>
         </div>
         <div id="ipfsIconWrapper">
-          <img id="ipfsIcon" src="img/IPFS_Logo.png" alt="IPFS Connected" />
+          <img id="ipfsIcon" src="img/IPFS_Logo.png" alt="IPFS Storage" data-storage-mode="decent-agency" />
           <div id="ipfsHoverPopup" class="hover-popup"></div>
         </div>
       </div>
@@ -1106,14 +1106,30 @@
 
       <!-- ── Data Control Section ──────────────────────────────────── -->
       <section class="about-section dc-about-section">
-        <h3>💾 Your Data &amp; Storage</h3>
-        <p class="about-payment-desc">All your BigNuten data lives in your browser by default. Choose how you want to back it up, migrate it, or keep it safe across devices.</p>
-        <button class="open-data-control-modal dc-about-open-btn" type="button">
-          ⚙️ Choose / Change Storage Option
-        </button>
-        <div class="dc-about-mode-row">
-          Current mode: <span id="dc-about-mode-badge" class="dc-mode-badge" data-mode="json-only">📁 JSON File (local)</span>
+        <h3>📡 Your Data &amp; IPFS Storage</h3>
+
+        <!-- Community data sharing disclaimer — prominent -->
+        <div class="dc-community-notice dc-about-notice" role="note">
+          <strong>⚠️ Community Data Notice:</strong>
+          BigNuten is a community health tracking experiment. Your data is <strong>not encrypted</strong> and is stored on public IPFS.
+          The project or community can see snapshot CIDs — only share what you're comfortable with!
+          <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="dc-notice-link">📚 Learn about IPFS →</a>
         </div>
+
+        <p class="about-payment-desc">Choose how BigNuten backs up &amp; syncs your health data — switch at any time.</p>
+
+        <div class="dc-about-actions">
+          <button class="open-data-control-modal dc-about-open-btn" type="button">
+            ⚙️ Manage IPFS Storage Option
+          </button>
+          <button id="about-json-download-btn" class="dc-about-json-btn" type="button">
+            ⬇️ Download JSON Backup
+          </button>
+        </div>
+        <div class="dc-about-mode-row">
+          Current mode: <span id="dc-about-mode-badge" class="dc-mode-badge" data-mode="decent-agency">☁️ DecentAgency Storage</span>
+        </div>
+        <p id="about-json-status" class="dc-status" aria-live="polite" style="margin-top:0.3rem;font-size:0.8rem;"></p>
       </section>
 
       <!-- ── Subscription / Support Section ─────────────────────────── -->
@@ -1362,117 +1378,100 @@
       <button class="modal-close" id="data-control-modal-close" aria-label="Close Data Control modal">×</button>
 
       <div class="dc-modal-header">
-        <h2 id="data-control-modal-title" class="dc-modal-title">💾 Choose Your Data Option</h2>
-        <p class="dc-modal-subtitle">Your data, your rules. Pick how BigNuten stores &amp; backs up your health data.</p>
-        <div class="dc-current-row">
-          Active: <span id="dc-current-mode" class="dc-mode-badge" data-mode="json-only">📁 JSON File (local)</span>
+        <h2 id="data-control-modal-title" class="dc-modal-title">📡 Your Data &amp; IPFS Storage</h2>
+        <p class="dc-modal-subtitle">BigNuten stores your health data locally and backs it up on IPFS — a public, peer-to-peer file network. Choose how your snapshots are stored.</p>
+      </div>
+
+      <!-- Community / privacy notice - always visible -->
+      <div class="dc-community-notice" role="note">
+        <strong>⚠️ Community Data Notice:</strong>
+        BigNuten is a community health experiment. Your data is <strong>not encrypted</strong> and is stored on IPFS — a public network.
+        Only share what you're comfortable with others potentially seeing.
+        <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="dc-notice-link">📚 Learn about IPFS →</a>
+      </div>
+
+      <!-- Current mode indicator -->
+      <div class="dc-current-row">
+        Active: <span id="dc-current-mode" class="dc-mode-badge" data-mode="decent-agency">☁️ DecentAgency Storage</span>
+      </div>
+
+      <!-- Path 1: DecentAgency (default) -->
+      <div id="dc-panel-decent" class="dc-path-card dc-path-active" data-path="decent">
+        <div class="dc-path-header">
+          <span class="dc-path-icon dc-path-icon-blue">☁️</span>
+          <div>
+            <div class="dc-path-title">Use DecentAgency's Space <span class="dc-default-badge">Default</span></div>
+            <div class="dc-path-sub">Zero setup — we handle IPFS for you</div>
+          </div>
         </div>
-      </div>
-
-      <!-- Tabs -->
-      <div class="dc-tabs" role="tablist" aria-label="Storage options">
-        <button class="dc-tab dc-tab-active" role="tab" data-panel="dc-panel-json"    aria-selected="true">📁 JSON File</button>
-        <button class="dc-tab"               role="tab" data-panel="dc-panel-own-w3s" aria-selected="false">🔗 Your Own Storage</button>
-        <button class="dc-tab"               role="tab" data-panel="dc-panel-decent"  aria-selected="false">☁️ DecentAgency</button>
-      </div>
-
-      <!-- Panel 1: JSON Download / Import -->
-      <div id="dc-panel-json" class="dc-panel" role="tabpanel">
-        <div class="dc-option-badge dc-badge-recommended">✅ Recommended for most users — No account needed</div>
-
         <p class="dc-panel-desc">
-          Download a human-readable JSON backup of all your data, or restore from a previous backup file.
-          Works on every browser, phone, and desktop — no accounts, no clouds, no third parties.
+          Your data is automatically pinned to the BigNuten project's IPFS space. No account needed.
+          The project team <em>can</em> see your snapshot CIDs (but not your private keys or wallet data).
+          Great for getting started quickly.
         </p>
-
-        <div class="dc-btn-row">
-          <button id="dc-export-btn" class="dc-action-btn dc-btn-primary" type="button">
-            ⬇️ Download / Export Data
-          </button>
-          <button id="dc-import-btn" class="dc-action-btn dc-btn-secondary" type="button">
-            📂 Import / Restore from File…
-          </button>
-          <!-- Hidden file input for import -->
-          <input id="dc-import-file" type="file" accept=".json,application/json" style="display:none;" aria-hidden="true" />
+        <div class="dc-privacy-notice">
+          <strong>⚠️ Visibility:</strong> When using DecentAgency's space, the project owner can view the IPFS CIDs of your snapshots, and your data is on public IPFS.
+          <strong>Do not store sensitive health data you wouldn't want others to see.</strong>
         </div>
-
-        <p id="dc-json-status" class="dc-status" aria-live="polite"></p>
-
-        <details class="dc-details">
-          <summary>ℹ️ How to use JSON backups</summary>
-          <ul class="dc-help-list">
-            <li><strong>Export</strong> — saves <code>bignuten-backup-YYYY-MM-DD.json</code> to your device.</li>
-            <li><strong>Import</strong> — select a previously exported file; new entries are merged without duplicates.</li>
-            <li>You can move your data between devices by exporting on one and importing on the other.</li>
-            <li>The JSON file is plain text — you can read and edit it with any text editor.</li>
-          </ul>
-        </details>
+        <button id="dc-decent-optin-btn" class="dc-action-btn dc-btn-agency dc-path-btn" type="button">
+          ☁️ Use DecentAgency Storage
+        </button>
+        <p id="dc-decent-status" class="dc-status" aria-live="polite"></p>
       </div>
 
-      <!-- Panel 2: Own web3.storage -->
-      <div id="dc-panel-own-w3s" class="dc-panel" role="tabpanel" hidden>
-        <div class="dc-option-badge dc-badge-power">🔗 Power User — You hold the keys</div>
+      <!-- Divider -->
+      <div class="dc-path-divider"><span>or</span></div>
 
+      <!-- Path 2: Own web3.storage -->
+      <div id="dc-panel-own-w3s" class="dc-path-card" data-path="own-w3s">
+        <div class="dc-path-header">
+          <span class="dc-path-icon dc-path-icon-green">🔗</span>
+          <div>
+            <div class="dc-path-title">Connect Your Own Storacha Account <span class="dc-power-badge">Power User</span></div>
+            <div class="dc-path-sub">You hold the keys — no one else can access your space</div>
+          </div>
+        </div>
         <p class="dc-panel-desc">
-          Connect your own <a href="https://web3.storage" target="_blank" rel="noopener noreferrer">web3.storage</a> (Storacha) account.
-          Your snapshots are pinned to <em>your</em> IPFS space — the project owner cannot read or delete them.
+          Sign up free at <a href="https://web3.storage" target="_blank" rel="noopener noreferrer">web3.storage</a> (Storacha).
+          Your snapshots are pinned to <em>your</em> IPFS space — the project cannot read or delete them.
           Earn $BNUT rewards for onboarding.
         </p>
-
-        <button id="dc-own-w3s-btn" class="dc-action-btn dc-btn-w3s" type="button">
+        <button id="dc-own-w3s-btn" class="dc-action-btn dc-btn-w3s dc-path-btn" type="button">
           🔗 Connect my web3.storage Account
         </button>
-
         <p id="dc-w3s-status" class="dc-status" aria-live="polite"></p>
-
         <details class="dc-details">
           <summary>ℹ️ How it works</summary>
           <ul class="dc-help-list">
-            <li>You'll be prompted for your web3.storage email address.</li>
-            <li>Once connected, automatic IPFS snapshots are stored in your space.</li>
-            <li>You can retrieve your data from <a href="https://console.web3.storage" target="_blank" rel="noopener noreferrer">console.web3.storage</a> at any time.</li>
-            <li>Sign up free at <a href="https://web3.storage" target="_blank" rel="noopener noreferrer">web3.storage</a>.</li>
-            <li>Advanced: your space DID is shown in the IPFS ticker after connecting.</li>
+            <li>Enter your web3.storage email — you'll receive a login link.</li>
+            <li>Once connected, snapshots are stored in <em>your</em> space only.</li>
+            <li>Your space DID spins in the IPFS ticker after connecting (green glow = your space).</li>
+            <li>Retrieve your data anytime at <a href="https://console.web3.storage" target="_blank" rel="noopener noreferrer">console.web3.storage</a>.</li>
+            <li><a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer">📚 IPFS deep-dive workbook</a></li>
           </ul>
         </details>
       </div>
 
-      <!-- Panel 3: DecentAgency managed storage -->
-      <div id="dc-panel-decent" class="dc-panel" role="tabpanel" hidden>
-        <div class="dc-option-badge dc-badge-agency">☁️ Fast &amp; Zero-Lift — DecentAgency stores for you</div>
-
-        <p class="dc-panel-desc">
-          Let DecentAgency (the project team) handle IPFS storage on your behalf using the project's existing web3.storage space.
-          Your data is uploaded automatically — no account setup required.
-        </p>
-
-        <div class="dc-privacy-notice" role="note">
-          <strong>⚠️ Privacy notice:</strong> When you use this option the project owner can see the IPFS CIDs of your snapshots.
-          Your data is stored on public IPFS. <strong>Do not use this option if your health data is sensitive.</strong>
-          You can switch back to JSON-only or your own storage at any time.
+      <!-- Always-available: JSON download/import -->
+      <div class="dc-json-utility">
+        <div class="dc-json-utility-title">📁 JSON Backup — Always Available</div>
+        <p class="dc-json-utility-desc">Download a local copy anytime or restore from a previous backup — no account needed, works on every device.</p>
+        <div class="dc-btn-row">
+          <button id="dc-export-btn" class="dc-action-btn dc-btn-primary" type="button">
+            ⬇️ Download JSON Backup
+          </button>
+          <button id="dc-import-btn" class="dc-action-btn dc-btn-secondary" type="button">
+            📂 Import / Restore…
+          </button>
+          <input id="dc-import-file" type="file" accept=".json,application/json" style="display:none;" aria-hidden="true" />
         </div>
-
-        <button id="dc-decent-optin-btn" class="dc-action-btn dc-btn-agency" type="button">
-          ☁️ Use DecentAgency Storage (Opt In)
-        </button>
-
-        <p id="dc-decent-status" class="dc-status" aria-live="polite"></p>
-
-        <details class="dc-details">
-          <summary>ℹ️ Limits &amp; migration</summary>
-          <ul class="dc-help-list">
-            <li>Free during beta; a subscription may be required in the future.</li>
-            <li>You can <strong>migrate out at any time</strong> — export your data as JSON or connect your own storage.</li>
-            <li>Data is stored on IPFS and pinned by the project's web3.storage space.</li>
-            <li>CIDs are visible to the project owner but content is not encrypted.</li>
-          </ul>
-        </details>
+        <p id="dc-json-status" class="dc-status" aria-live="polite"></p>
       </div>
 
       <!-- Switch / Reset row -->
       <div class="dc-reset-row">
         <button id="dc-reset-mode-btn" class="dc-action-btn dc-btn-reset" type="button">
-          🔄 Reset to JSON-Only Mode
+          🔄 Switch to JSON-Only (no IPFS)
         </button>
         <span id="dc-reset-status" class="dc-status" aria-live="polite"></span>
       </div>

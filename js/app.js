@@ -3007,10 +3007,12 @@ if (measurementForm) {
            const tickerCircle = document.getElementById('ticker-circle');
            tickerCircle.innerHTML = '';
 
+           const currentMode = getStorageMode();
            [...prefix].forEach(char => {
              const span = document.createElement('span');
              span.classList.add('ticker-letter');
              span.textContent = char;
+             span.dataset.storageMode = currentMode;
              tickerCircle.appendChild(span);
            });
            for (let i = 0; i < 4; i++) {
@@ -3019,12 +3021,14 @@ if (measurementForm) {
              img.src = 'img/IPFS_Logo.png';
              img.style.width = '12px';
              img.style.height = '12px';
+             img.dataset.storageMode = currentMode;
              tickerCircle.appendChild(img);
            }
            [...suffix].forEach(char => {
              const span = document.createElement('span');
              span.classList.add('ticker-letter');
              span.textContent = char;
+             span.dataset.storageMode = currentMode;
              tickerCircle.appendChild(span);
            });
 
@@ -3032,16 +3036,19 @@ if (measurementForm) {
            const star1 = document.createElement('span');
            star1.classList.add('ticker-letter');
            star1.textContent = '*';
+           star1.dataset.storageMode = currentMode;
            tickerCircle.appendChild(star1);
 
            const shakti = document.createElement('span');
            shakti.classList.add('ticker-letter');
            shakti.textContent = '⚸';
+           shakti.dataset.storageMode = currentMode;
            tickerCircle.appendChild(shakti);
 
            const star2 = document.createElement('span');
            star2.classList.add('ticker-letter');
            star2.textContent = '*';
+           star2.dataset.storageMode = currentMode;
            tickerCircle.appendChild(star2);
 
            // Position letters (recentered snake on IPFS icon with logo-aligned origin)
@@ -3077,19 +3084,15 @@ if (measurementForm) {
            animateTicker();
           
            // Add IPFS upload click listener after icon is shown
+           // (Icon now opens data-control modal — uploads happen via snapshots)
            const ipfsIcon = document.getElementById("ipfsIcon");
-           if (ipfsIcon && !ipfsIcon._ipfsListenerAdded) {
-             ipfsIcon.addEventListener("click", async () => {
-               const data = getFitnessData();
-               const cid = await uploadDataToIPFS(data, result.client);
-               if (cid) {
-                 alert(`Snapshot uploaded to IPFS.\nCID:\n${cid}`);
-                 console.log("Uploaded CID:", cid);
-               } else {
-                 alert("Upload failed.");
-               }
-             });
-             ipfsIcon._ipfsListenerAdded = true;
+           if (ipfsIcon) {
+             // Update the icon to reflect storage mode after w3up connects
+             ipfsIcon.dataset.storageMode = getStorageMode();
+             const statusRingEl = document.getElementById('ipfs-status');
+             if (statusRingEl) statusRingEl.dataset.storageMode = getStorageMode();
+             // Store client reference so icon click can trigger manual upload too
+             ipfsIcon._w3upClient = result.client;
            }
 
            // --- Snapshot catch-up logic: check if we missed today's snapshot
@@ -4094,11 +4097,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** Refreshes the data-mode badge in the about modal (dc-about-mode-badge). */
   function _refreshDataModeBadge() {
-    const badge = document.getElementById('dc-about-mode-badge');
-    if (!badge) return;
     const mode = getStorageMode();
-    badge.textContent  = STORAGE_MODE_LABELS[mode] || mode;
-    badge.dataset.mode = mode;
+    const text = STORAGE_MODE_LABELS[mode] || mode;
+    const badge = document.getElementById('dc-about-mode-badge');
+    if (badge) {
+      badge.textContent  = text;
+      badge.dataset.mode = mode;
+    }
+    // Keep the IPFS icon glow in sync
+    const ipfsIconEl = document.getElementById('ipfsIcon');
+    if (ipfsIconEl) ipfsIconEl.dataset.storageMode = mode;
+    const statusRing = document.getElementById('ipfs-status');
+    if (statusRing) statusRing.dataset.storageMode = mode;
   }
   // ── About modal helpers ───────────────────────────────────────────────────
 
@@ -6562,6 +6572,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Data Control Modal ────────────────────────────────────────────────────
   initDataControlModal({ connectW3upClient });
+
+  // ── IPFS icon: always visible as storage-mode indicator ──────────────────
+  // Wire the icon to open the data-control modal when clicked without an
+  // active w3up session, so users can always find the storage settings.
+  {
+    const ipfsIconEl = document.getElementById('ipfsIcon');
+    if (ipfsIconEl && !ipfsIconEl._ipfsListenerAdded) {
+      ipfsIconEl.addEventListener('click', () => {
+        openDataControlModal();
+      });
+      ipfsIconEl._ipfsListenerAdded = true;
+    }
+    // Apply the initial glow state immediately based on saved preference
+    const initMode = getStorageMode();
+    if (ipfsIconEl) ipfsIconEl.dataset.storageMode = initMode;
+    const statusRing = document.getElementById('ipfs-status');
+    if (statusRing) statusRing.dataset.storageMode = initMode;
+  }
 
   // ── Raw Intake DV Card ────────────────────────────────────────────────────
   initRawIntakeDVCard();

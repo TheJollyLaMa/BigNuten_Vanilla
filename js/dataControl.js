@@ -2,30 +2,33 @@
 // Unified "Choose Your Data Option" flow for BigNuten.
 //
 // Storage modes (saved to localStorage key 'storageMode'):
-//   'json-only'     — Download / Import JSON files only (default, no account needed)
+//   'decent-agency' — Project-managed IPFS space via DecentAgency (DEFAULT for new users)
 //   'own-w3s'       — User's own web3.storage / Storacha space
-//   'decent-agency' — Project-managed space (opt-in, with clear privacy caveats)
+//   'json-only'     — Download / Import JSON files only (no IPFS)
 
 import { normalizeFitnessData } from './fitnessData.js';
 
-const STORAGE_KEY      = 'fitnessTrackerData';
-const STORAGE_MODE_KEY = 'storageMode';
+const STORAGE_KEY         = 'fitnessTrackerData';
+const STORAGE_MODE_KEY    = 'storageMode';
+const FIRST_VISIT_KEY     = 'dcFirstVisitDone';
 
 /** Human-readable labels for each storage mode. */
 export const STORAGE_MODE_LABELS = {
-  'json-only':     '📁 JSON File (local)',
-  'own-w3s':       '🔗 Your Own web3.storage',
   'decent-agency': '☁️ DecentAgency Storage',
+  'own-w3s':       '🔗 Your Own web3.storage',
+  'json-only':     '📁 JSON File (local)',
 };
 
 // ── Public mode helpers ───────────────────────────────────────────────────────
 
 export function getStorageMode() {
-  return localStorage.getItem(STORAGE_MODE_KEY) || 'json-only';
+  // Default is now decent-agency for new users
+  return localStorage.getItem(STORAGE_MODE_KEY) || 'decent-agency';
 }
 
 export function setStorageMode(mode) {
   localStorage.setItem(STORAGE_MODE_KEY, mode);
+  _applyIpfsIndicator(mode);
 }
 
 // ── JSON Export ───────────────────────────────────────────────────────────────
@@ -121,14 +124,13 @@ export function initDataControlModal({ connectW3upClient: connectFn } = {}) {
     if (e.target === modal) closeDataControlModal();
   });
 
-  // Tab switching
-  modal.querySelectorAll('.dc-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      modal.querySelectorAll('.dc-tab').forEach(t => t.classList.remove('dc-tab-active'));
-      modal.querySelectorAll('.dc-panel').forEach(p => { p.hidden = true; });
-      tab.classList.add('dc-tab-active');
-      const target = document.getElementById(tab.dataset.panel);
-      if (target) target.hidden = false;
+  // ── Path card click to highlight ─────────────────────────────────────────
+  modal.querySelectorAll('.dc-path-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      // Don't steal clicks from buttons/links inside the card
+      if (e.target.closest('button, a, input, details')) return;
+      modal.querySelectorAll('.dc-path-card').forEach(c => c.classList.remove('dc-path-active'));
+      card.classList.add('dc-path-active');
     });
   });
 
@@ -156,13 +158,20 @@ export function initDataControlModal({ connectW3upClient: connectFn } = {}) {
       const merged = await importDataFromJSONFile(file);
       const count  = _countEntries(merged);
       _showStatus('dc-json-status', `✅ Import complete — ${count} total entries loaded.`, 'success');
-      // Activating JSON mode after a successful manual import
-      setStorageMode('json-only');
-      _refreshCurrentBadge();
     } catch (err) {
       _showStatus('dc-json-status', `❌ ${err.message}`, 'error');
     }
     importInput.value = ''; // allow re-selecting the same file
+  });
+
+  // ── About modal JSON download button ────────────────────────────────────
+  document.getElementById('about-json-download-btn')?.addEventListener('click', () => {
+    try {
+      exportDataAsJSON();
+      _showStatus('about-json-status', '✅ Download started — check your Downloads folder.', 'success');
+    } catch (err) {
+      _showStatus('about-json-status', `❌ Export failed: ${err.message}`, 'error');
+    }
   });
 
   // ── Option 2: Connect own web3.storage ──────────────────────────────────
@@ -177,6 +186,7 @@ export function initDataControlModal({ connectW3upClient: connectFn } = {}) {
       if (result?.spaceDid) {
         setStorageMode('own-w3s');
         _refreshCurrentBadge();
+        _highlightActiveCard('own-w3s');
         const short = result.spaceDid.slice(0, 22) + '…';
         _showStatus('dc-w3s-status', `✅ Connected — space: ${short}`, 'success');
       } else {
@@ -187,34 +197,42 @@ export function initDataControlModal({ connectW3upClient: connectFn } = {}) {
     }
   });
 
-  // ── Option 3: DecentAgency opt-in ───────────────────────────────────────
+  // ── Option 3: DecentAgency (default) ────────────────────────────────────
   document.getElementById('dc-decent-optin-btn')?.addEventListener('click', () => {
-    const spaceDid = (window.CONTRACTS || {}).decentAgencySpaceDid || '';
-    if (!spaceDid) {
-      _showStatus(
-        'dc-decent-status',
-        '🔜 Managed storage is not yet configured. Check back soon or use JSON export in the meantime.',
-        'info',
-      );
-      return;
-    }
     setStorageMode('decent-agency');
     _refreshCurrentBadge();
+    _highlightActiveCard('decent');
     _showStatus(
       'dc-decent-status',
-      '✅ Opted in to DecentAgency managed storage. Your data will be uploaded to the project\'s IPFS space on the next snapshot.',
+      '✅ Using DecentAgency storage — snapshots will be pinned to our IPFS space.',
       'success',
     );
+    // Mark first-visit as done (in case they clicked through)
+    localStorage.setItem(FIRST_VISIT_KEY, '1');
   });
 
   // ── Switch-away / reset to JSON-only ────────────────────────────────────
   document.getElementById('dc-reset-mode-btn')?.addEventListener('click', () => {
     setStorageMode('json-only');
     _refreshCurrentBadge();
-    _showStatus('dc-reset-status', '✅ Switched back to JSON-only mode.', 'success');
+    _highlightActiveCard(null);
+    _showStatus('dc-reset-status', '✅ Switched to JSON-only — no IPFS uploads will occur.', 'success');
+    localStorage.setItem(FIRST_VISIT_KEY, '1');
   });
 
+  // ── Apply initial indicator and badge ───────────────────────────────────
+  _applyIpfsIndicator(getStorageMode());
   _refreshCurrentBadge();
+  _highlightActiveCard(_modeToCardPath(getStorageMode()));
+
+  // ── First-visit auto-open ────────────────────────────────────────────────
+  if (!localStorage.getItem(FIRST_VISIT_KEY)) {
+    // Wait for two animation frames so the page is fully painted before
+    // displaying the modal, avoiding a jarring flash on load.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      openDataControlModal();
+    }));
+  }
 }
 
 // ── Open / close (also exported for external callers) ────────────────────────
@@ -225,20 +243,14 @@ export function openDataControlModal() {
   modal.classList.remove('modal-hidden');
   document.body.classList.add('modal-active');
   _refreshCurrentBadge();
-  // Activate the first tab by default each open
-  const firstTab   = modal.querySelector('.dc-tab');
-  const firstPanel = firstTab && document.getElementById(firstTab.dataset.panel);
-  if (firstTab && firstPanel) {
-    modal.querySelectorAll('.dc-tab').forEach(t => t.classList.remove('dc-tab-active'));
-    modal.querySelectorAll('.dc-panel').forEach(p => { p.hidden = true; });
-    firstTab.classList.add('dc-tab-active');
-    firstPanel.hidden = false;
-  }
+  _highlightActiveCard(_modeToCardPath(getStorageMode()));
 }
 
 export function closeDataControlModal() {
   const modal = document.getElementById('data-control-modal');
   if (!modal) return;
+  // Mark first visit done when user closes the modal
+  localStorage.setItem(FIRST_VISIT_KEY, '1');
   modal.classList.add('modal-hidden');
   if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
     document.body.classList.remove('modal-active');
@@ -246,6 +258,43 @@ export function closeDataControlModal() {
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
+
+function _modeToCardPath(mode) {
+  if (mode === 'decent-agency') return 'decent';
+  if (mode === 'own-w3s')       return 'own-w3s';
+  return null; // json-only — no IPFS path card highlighted
+}
+
+function _highlightActiveCard(pathKey) {
+  const modal = document.getElementById('data-control-modal');
+  if (!modal) return;
+  modal.querySelectorAll('.dc-path-card').forEach(card => {
+    card.classList.toggle('dc-path-active', card.dataset.path === pathKey);
+  });
+}
+
+function _applyIpfsIndicator(mode) {
+  const icon       = document.getElementById('ipfsIcon');
+  const statusRing = document.getElementById('ipfs-status');
+
+  if (!icon) return;
+
+  icon.dataset.storageMode = mode;
+  if (statusRing) statusRing.dataset.storageMode = mode;
+
+  // Update ticker letter colours to match mode
+  document.querySelectorAll('.ticker-letter').forEach(el => {
+    el.dataset.storageMode = mode;
+  });
+
+  // Tooltip update
+  const tipMap = {
+    'decent-agency': '☁️ DecentAgency IPFS — blue glow',
+    'own-w3s':       '🔗 Your own Storacha space — green glow',
+    'json-only':     '📁 JSON-only — dimmed (no IPFS uploads)',
+  };
+  icon.title = tipMap[mode] || 'IPFS Storage';
+}
 
 function _showStatus(elId, msg, type) {
   const el = document.getElementById(elId);
