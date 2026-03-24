@@ -291,15 +291,16 @@ jobs:
                 ? creditLabel.match(/^idea-credit:\s*@?([-\w]+)$/i)[1]
                 : null;
 
-              const totalAmount = parseInt(amount, 10);
+              const totalAmount = parseFloat(amount);
               // Per-implementer 80/20 split: each implementer's bounty of `amount` BNUT is
               // split 80% to the implementer and 20% to the idea originator.  The originator
               // entry is accumulated after counting all successfully queued implementers.
+              // Decimal amounts are supported (e.g. 0.2 BNUT for a 1 BNUT bounty split).
               const perImplementerOriginatorShare = ideaOriginatorRaw
-                ? Math.round(totalAmount * 0.2)
+                ? parseFloat((totalAmount * 0.2).toFixed(4))
                 : 0;
               const implementerAmount = ideaOriginatorRaw
-                ? String(totalAmount - perImplementerOriginatorShare)
+                ? String(parseFloat((totalAmount * 0.8).toFixed(4)))
                 : amount;
 
               // Collect all contributors: PR author + all issue assignees (deduplicated).
@@ -338,8 +339,8 @@ jobs:
                 // When an idea-credit exists and the implementer amount is 0 (bounty too small
                 // to split), skip adding a zero-amount implementer entry.
                 const entryAmount = implementerAmount;
-                if (parseInt(entryAmount, 10) < 1) {
-                  console.log(`Implementer amount for @${canonicalGithub} rounds to 0 — skipping implementer entry (idea-credit split consumed full bounty).`);
+                if (parseFloat(entryAmount) <= 0) {
+                  console.log(`Implementer amount for @${canonicalGithub} is zero — skipping implementer entry.`);
                   skipped.push(canonicalGithub);
                   continue;
                 }
@@ -362,7 +363,7 @@ jobs:
 
                 // Update bnutPending and issuesClosed in contributor-accounts.json.
                 if (contribRecord) {
-                  contribRecord.bnutPending = (contribRecord.bnutPending || 0) + parseInt(entryAmount, 10);
+                  contribRecord.bnutPending = parseFloat(((contribRecord.bnutPending || 0) + parseFloat(entryAmount)).toFixed(4));
                   if (!Array.isArray(contribRecord.issuesClosed)) contribRecord.issuesClosed = [];
                   if (!contribRecord.issuesClosed.includes(issueRef)) {
                     contribRecord.issuesClosed.push(issueRef);
@@ -374,7 +375,7 @@ jobs:
               }
 
               // ── Queue idea originator payout (20% × number of implementers) ──
-              const totalOriginatorAmount = perImplementerOriginatorShare * queuedImplementerCount;
+              const totalOriginatorAmount = parseFloat((perImplementerOriginatorShare * queuedImplementerCount).toFixed(4));
               if (ideaOriginatorRaw && totalOriginatorAmount > 0) {
                 // Canonicalise the originator login against contributor-accounts.json.
                 const originatorRecord = accounts.contributors.find(
@@ -406,7 +407,7 @@ jobs:
 
                   // Update originator's bnutPending and ideasCredited in contributor-accounts.json.
                   if (originatorRecord) {
-                    originatorRecord.bnutPending = (originatorRecord.bnutPending || 0) + totalOriginatorAmount;
+                    originatorRecord.bnutPending = parseFloat(((originatorRecord.bnutPending || 0) + totalOriginatorAmount).toFixed(4));
                     if (!Array.isArray(originatorRecord.ideasCredited)) originatorRecord.ideasCredited = [];
                     if (!originatorRecord.ideasCredited.includes(issueRef)) {
                       originatorRecord.ideasCredited.push(issueRef);

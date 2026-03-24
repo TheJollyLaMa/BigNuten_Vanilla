@@ -11,7 +11,7 @@
  *   2. `issueRef` matches the canonical format:
  *      `<owner>/<repo>#<number>`  (e.g. `TheJollyLaMa/BigNuten_Vanilla#77`)
  *   3. `contributor` is a valid Ethereum address (0x + 40 hex chars).
- *   4. `amount` is a positive integer string.
+ *   4. `amount` is a positive decimal string (e.g. "0.5", "500").
  *   5. No duplicate (issueRef, contributorGithub) pairs in pending or settled.
  *   6. Every `contributorGithub` in the queue exists in contributor-accounts.json.
  *   7. Every wallet address in the queue matches the registered wallet in
@@ -38,7 +38,7 @@ const ACCOUNTS_PATH = path.join(ROOT, 'contributor-accounts.json');
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const ISSUE_REF_RE  = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#\d+$/;
 const ETH_ADDR_RE   = /^0x[0-9a-fA-F]{40}$/;
-const AMOUNT_RE     = /^\d+$/;
+const AMOUNT_RE     = /^\d+(\.\d+)?$/;
 
 let errors   = 0;
 let warnings = 0;
@@ -123,10 +123,10 @@ function validateSection(entries, sectionName) {
       warn(`${label} contributor wallet is empty — contributor @${entry.contributorGithub || '?'} may not be registered`);
     }
 
-    // 4. amount is a positive integer string
+    // 4. amount is a positive decimal string (integers and fractions like "0.5" are both valid)
     if (entry.amount !== undefined) {
-      if (!AMOUNT_RE.test(String(entry.amount)) || parseInt(entry.amount, 10) < 1) {
-        error(`${label} amount "${entry.amount}" is not a positive integer`);
+      if (!AMOUNT_RE.test(String(entry.amount)) || parseFloat(entry.amount) <= 0) {
+        error(`${label} amount "${entry.amount}" is not a positive number`);
       }
     }
 

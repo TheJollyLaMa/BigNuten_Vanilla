@@ -88,7 +88,7 @@ Before any $BNUT payout can be processed, the contributor must be registered in 
       "issueRef": "TheJollyLaMa/BigNuten_Vanilla#45",  // org/repo#issue_number
       "contributor": "0xABC...",                         // Optimism Mainnet address
       "contributorGithub": "octocat",                    // GitHub username
-      "amount": "500",                                   // BNUT (whole tokens, not wei)
+      "amount": "500",                                   // BNUT (decimal amounts supported, not wei; e.g. "0.5", "500")
       "role": "implementer",                             // optional: "implementer" | "idea-originator"
       "queuedAt": "2026-03-20T12:00:00.000Z",           // ISO 8601 timestamp
       "queuedBy": "bounty-bot"                          // "bounty-bot" or maintainer username
@@ -120,7 +120,7 @@ Every push or PR touching `payroll-queue.json` triggers `validate-payroll-queue.
 | Required fields | `issueRef`, `contributor`, `contributorGithub`, `amount`, `queuedAt` must be present |
 | `issueRef` format | Must match `org/repo#N` (e.g. `TheJollyLaMa/BigNuten_Vanilla#45`) |
 | `contributor` format | Must be a valid Ethereum address (`0x` + 40 hex chars) |
-| `amount` value | Must be a positive number |
+| `amount` value | Must be a positive number (integers and decimals like `"0.5"` are both valid) |
 | Duplicate prevention | No two entries may share the same `issueRef` + `contributor` + `role` combination |
 | Whitelist membership | `contributorGithub` must match an entry in `contributor-accounts.json` |
 
@@ -161,12 +161,12 @@ submits idea       ─►  marks idea-adopted   ─►  payout split
 
 | Total Bounty | Originator (20%) | Implementer (80%) |
 |---|---|---|
-| 1 BNUT | — (no originator entry; 1 BNUT rounds to 0) | 1 BNUT |
-| 4 BNUT | 1 BNUT | 3 BNUT |
+| 1 BNUT | 0.2 BNUT | 0.8 BNUT |
+| 4 BNUT | 0.8 BNUT | 3.2 BNUT |
 | 5 BNUT | 1 BNUT | 4 BNUT |
 | 10 BNUT | 2 BNUT | 8 BNUT |
 
-> The originator entry is only created if `Math.round(totalAmount * 0.2) >= 1`. For 1 BNUT bounties the split is not applied.
+> Decimal amounts are supported end-to-end. The originator entry is always created when an `idea-credit` label is present and the originator amount is greater than zero (e.g. `0.2 BNUT` for a 1 BNUT bounty). `$BNUT` has 18 decimals (like ETH), so fractions are valid on-chain via `ethers.parseEther(amount)`. The table above shows per-implementer splits; when multiple implementers are present each receives the listed implementer share.
 
 ### contributor-accounts.json additions
 
@@ -175,7 +175,7 @@ Idea originators who receive credits will have an `ideasCredited` array added to
 ```jsonc
 {
   "github": "octocat",
-  "bnutPending": 1,
+  "bnutPending": 0.2,
   "ideasCredited": ["TheJollyLaMa/BigNuten_Vanilla#42"],  // issues where their idea was credited
   "issuesClosed": ["TheJollyLaMa/BigNuten_Vanilla#42"]    // also included here for unified ledger
 }
@@ -397,4 +397,4 @@ Or use the view helpers on the contract:
 
 ---
 
-*Last updated: 2026-03-20 — reflects v2.0.0.*
+*Last updated: 2026-03-24 — reflects v2.1.0 (decimal BNUT payout support).*

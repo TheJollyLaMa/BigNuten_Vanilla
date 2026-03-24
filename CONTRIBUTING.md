@@ -56,8 +56,8 @@ BigNuten recognises that great ideas often come from community members who may n
    - 🔵 `idea-credit: @you` label — credits you as the idea originator.
 4. **Implementation** — a contributor (possibly you!) implements it and opens a PR closing the issue.
 5. **Automatic payout split** — when the PR is merged, the Bounty Bot queues two payroll entries:
-   - **20% of the bounty** → you (idea originator, `role: "idea-originator"`)
-   - **80% of the bounty** → the implementer (`role: "implementer"`)
+   - **20% of the bounty** → you (idea originator, `role: "idea-originator"`) — e.g. `0.2 BNUT` for a 1 BNUT bounty
+   - **80% of the bounty** → the implementer (`role: "implementer"`) — e.g. `0.8 BNUT` for a 1 BNUT bounty
 6. **Settled** — the maintainer processes payroll as normal. Your $BNUT lands in your whitelisted wallet.
 7. **Feature Originator DNFT (major features)** — for significant features, the maintainer may also mint a **Feature Originator DNFT** and send it to your wallet as a permanent on-chain record.
 
