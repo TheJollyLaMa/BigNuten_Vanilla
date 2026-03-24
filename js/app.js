@@ -1308,13 +1308,22 @@ function showFoodGraphPopup(foodName, anchorElement) {
   const ctx = document.getElementById('supplementChart')?.getContext('2d');
   if (ctx) {
     if (window._supplementChart) window._supplementChart.destroy();
+    const grouped = {};
+    entries.forEach(entry => {
+      const dateStr = getEntryDateStr(entry);
+      if (!dateStr) return;
+      grouped[dateStr] = (grouped[dateStr] || 0) + (parseFloat(entry.amount) || 0);
+    });
+    const dateRange = getLast14Days();
+    const chartLabels = dateRange;
+    const amounts = dateRange.map(d => grouped[d] || 0);
     window._supplementChart = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: entries.map(e => `${e.date} ${e.time || ''}`),
+        labels: chartLabels,
         datasets: [{
           label: foodName,
-          data: entries.map(e => parseFloat(e.amount)),
+          data: amounts,
           borderColor: '#ffcc00',
           backgroundColor: 'rgba(255,204,0,0.3)',
           tension: 0.3
@@ -1322,7 +1331,7 @@ function showFoodGraphPopup(foodName, anchorElement) {
       },
       options: {
         scales: {
-          x: { title: { display: true, text: 'Time' } },
+          x: { title: { display: true, text: 'Date' } },
           y: { beginAtZero: true, title: { display: true, text: 'Amount' } }
         }
       }
@@ -1481,13 +1490,22 @@ function showSupplementGraphPopup(supplementName, anchorElement) {
   const ctx = document.getElementById('supplementChart')?.getContext('2d');
   if (ctx) {
     if (window._supplementChart) window._supplementChart.destroy();
+    const grouped = {};
+    entries.forEach(entry => {
+      const dateStr = getEntryDateStr(entry);
+      if (!dateStr) return;
+      grouped[dateStr] = (grouped[dateStr] || 0) + (parseFloat(entry.weight) || 0);
+    });
+    const dateRange = getLast14Days();
+    const chartLabels = dateRange;
+    const doses = dateRange.map(d => grouped[d] || 0);
     window._supplementChart = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: entries.map(e => `${e.date}${e.time ? ' ' + e.time : ''}`),
+        labels: chartLabels,
         datasets: [{
           label: supplementName,
-          data: entries.map(e => e.weight),
+          data: doses,
           borderColor: '#00e5ff',
           backgroundColor: 'rgba(0,229,255,0.2)',
           tension: 0.4
@@ -1495,7 +1513,7 @@ function showSupplementGraphPopup(supplementName, anchorElement) {
       },
       options: {
         scales: {
-          x: { title: { display: true, text: 'Time' } },
+          x: { title: { display: true, text: 'Date' } },
           y: { beginAtZero: true, title: { display: true, text: 'Amount (mg)' } }
         }
       }
@@ -3675,18 +3693,32 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 // --- Chart Data Grouping and Preparation for Exercise Graph ---
+const CHART_DAYS_RANGE = 14;
+
+function getLast14Days() {
+  const days = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  for (let i = CHART_DAYS_RANGE - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  return days;
+}
+
+function getEntryDateStr(entry) {
+  if (entry.date) return entry.date;
+  if (entry.timestamp) return entry.timestamp.split('T')[0];
+  return null;
+}
+
 function groupByDate(data, type) {
   const grouped = {};
   data.forEach(entry => {
     // Use date only (YYYY-MM-DD) for grouping
-    let dateStr = '';
-    if (entry.timestamp) {
-      dateStr = entry.timestamp.split('T')[0];
-    } else if (entry.date) {
-      dateStr = entry.date;
-    } else {
-      return;
-    }
+    const dateStr = getEntryDateStr(entry);
+    if (!dateStr) return;
     const reps = parseInt(entry.reps) || 0;
     if (!grouped[dateStr]) {
       grouped[dateStr] = { total: 0, sets: [], weights: [] };
@@ -3700,16 +3732,24 @@ function groupByDate(data, type) {
 
 function prepareGraphData(data, type) {
   const grouped = groupByDate(data, type);
-  const labels = Object.keys(grouped).sort();
+  const dateRange = getLast14Days();
+  const labels = [];
   const reps = [];
   const weights = [];
   const tooltips = [];
 
-  labels.forEach(date => {
-    const sets = grouped[date].sets;
-    reps.push(sets.reduce((a, b) => a + b, 0));
-    weights.push(grouped[date].weights?.length ? Math.max(...grouped[date].weights) : 0);
-    tooltips.push(`Reps: ${sets.join(', ')}`);
+  dateRange.forEach(date => {
+    labels.push(date);
+    if (grouped[date]) {
+      const sets = grouped[date].sets;
+      reps.push(sets.reduce((a, b) => a + b, 0));
+      weights.push(grouped[date].weights?.length ? Math.max(...grouped[date].weights) : 0);
+      tooltips.push(`Reps: ${sets.join(', ')}`);
+    } else {
+      reps.push(0);
+      weights.push(0);
+      tooltips.push('Rest day');
+    }
   });
 
   return { labels, reps, weights, tooltips };
