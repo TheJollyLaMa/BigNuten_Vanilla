@@ -130,9 +130,11 @@ function validateSection(entries, sectionName) {
       }
     }
 
-    // 5. Duplicate (issueRef, contributorGithub) check
+    // 5. Duplicate (issueRef, contributorGithub, role) check
+    // The role field distinguishes implementer entries from idea-originator entries,
+    // allowing one entry of each role per (issueRef, contributorGithub) pair.
     if (entry.issueRef && entry.contributorGithub !== undefined) {
-      const key = `${entry.issueRef}::${(entry.contributorGithub || '').toLowerCase()}`;
+      const key = `${entry.issueRef}::${(entry.contributorGithub || '').toLowerCase()}::${entry.role || ''}`;
       if (seen.has(key)) {
         error(`${label} Duplicate entry: (${entry.issueRef}, @${entry.contributorGithub})`);
       } else {
@@ -171,14 +173,14 @@ function checkCrossSectionDuplicates() {
   const settledKeys = new Set(
     settled
       .filter(e => e.issueRef && e.contributorGithub !== undefined)
-      .map(e => `${e.issueRef}::${(e.contributorGithub || '').toLowerCase()}`)
+      .map(e => `${e.issueRef}::${(e.contributorGithub || '').toLowerCase()}::${e.role || ''}`)
   );
 
   for (const [idx, entry] of pending.entries()) {
     if (!entry.issueRef || entry.contributorGithub === undefined) continue;
-    const key = `${entry.issueRef}::${(entry.contributorGithub || '').toLowerCase()}`;
+    const key = `${entry.issueRef}::${(entry.contributorGithub || '').toLowerCase()}::${entry.role || ''}`;
     if (settledKeys.has(key)) {
-      error(`[pending][${idx}] Entry (${entry.issueRef}, @${entry.contributorGithub}) also exists in settled`);
+      error(`[pending][${idx}] Entry (${entry.issueRef}, @${entry.contributorGithub}${entry.role ? ', role:' + entry.role : ''}) also exists in settled`);
     }
   }
   if (errors === 0 && warnings === 0) {

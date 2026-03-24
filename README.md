@@ -248,7 +248,8 @@ See [`docs/TOKENOMICS.md`](docs/TOKENOMICS.md) for full bounty and payout econom
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
 | Bounty Label | [`.github/workflows/bounty-label.yml`](.github/workflows/bounty-label.yml) | Manual (`workflow_dispatch`) | Create bounty label + apply to issue + post announcement |
-| Bounty Bot | [`.github/workflows/bounty-bot.yml`](.github/workflows/bounty-bot.yml) | Issue assigned + PR merged | Auto-announce reward; auto-queue payout on merge |
+| Idea Adopted Label | [`.github/workflows/idea-label.yml`](.github/workflows/idea-label.yml) | Manual (`workflow_dispatch`) | Mark idea as adopted, credit originator with `idea-credit` label; enables 80/20 payout split on merge |
+| Bounty Bot | [`.github/workflows/bounty-bot.yml`](.github/workflows/bounty-bot.yml) | Issue assigned + PR merged | Auto-announce reward; auto-queue payout on merge (with 80/20 split when `idea-credit` label present) |
 | Bounty Payout | [`.github/workflows/bounty-payout.yml`](.github/workflows/bounty-payout.yml) | Manual (`workflow_dispatch`) | Fallback: manually queue a payout entry |
 | Settle Payroll | [`.github/workflows/settle-payroll.yml`](.github/workflows/settle-payroll.yml) | Manual (`workflow_dispatch`) | Move entries from `pending[]` → `settled[]` after on-chain tx |
 | Validate Queue | [`.github/workflows/validate-payroll-queue.yml`](.github/workflows/validate-payroll-queue.yml) | Push / PR to queue files | Block merges with invalid or duplicate queue entries |

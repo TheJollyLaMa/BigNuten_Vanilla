@@ -5794,6 +5794,13 @@ document.addEventListener('DOMContentLoaded', () => {
           ? `<code class="payroll-wallet-addr" title="${p.contributor}">${p.contributor.slice(0, 10)}…${p.contributor.slice(-4)}</code>`
           : `<span class="payroll-badge payroll-badge--needs-wallet">⚠️ needs wallet</span>`;
 
+        // Role badge for idea-originator entries.
+        const roleBadge = p.role === 'idea-originator'
+          ? `<span class="payroll-badge payroll-badge--idea-originator" title="Idea originator — receives 20% of bounty">💡 idea</span> `
+          : (p.role === 'implementer'
+            ? `<span class="payroll-badge payroll-badge--implementer" title="Implementer — receives 80% of bounty">🔨</span> `
+            : '');
+
         let statusCell;
         if (status === 'needs-wallet') {
           statusCell = '<span class="payroll-status payroll-status--needs-wallet">needs-wallet</span>';
@@ -5813,8 +5820,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const disableActions = !hasWallet;
 
         html += `
-          <tr id="payroll-row-${i}" class="payroll-row${!hasWallet ? ' payroll-row--needs-wallet' : ''}">
-            <td>@${p.contributorGithub || '—'}</td>
+          <tr id="payroll-row-${i}" class="payroll-row${!hasWallet ? ' payroll-row--needs-wallet' : ''}${p.role === 'idea-originator' ? ' payroll-row--idea-originator' : ''}">
+            <td>${roleBadge}@${p.contributorGithub || '—'}</td>
             <td>${issueCell}</td>
             <td>
               <span class="payroll-amount-display">${p.amount || '1'} BNUT</span>
@@ -5980,6 +5987,76 @@ document.addEventListener('DOMContentLoaded', () => {
       listEl.innerHTML = html;
     }
 
+    // ── Feature Originator DNFT panel ─────────────────────────────────────
+
+    function renderDnftOriginatorList(pending) {
+      const dnftListEl = document.getElementById('payroll-dnft-list');
+      if (!dnftListEl) return;
+
+      const originators = (pending || []).filter(p => p.role === 'idea-originator');
+
+      if (originators.length === 0) {
+        dnftListEl.innerHTML = '<p class="gov-loading" style="color:#aacfdd;">No pending Feature Originator DNFT entries — queue idea-originator payouts via the bounty bot first.</p>';
+        return;
+      }
+
+      let html = `
+        <table class="payroll-table" style="margin-bottom:0.75rem;">
+          <thead>
+            <tr>
+              <th>Originator</th>
+              <th>Issue</th>
+              <th>BNUT (20%)</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      originators.forEach((p, idx) => {
+        const issueNum  = (p.issueRef || '').match(/#(\d+)/)?.[1] || '';
+        const repoSlug  = (p.issueRef || '').split('#')[0] || REPO_SLUG;
+        const issueHref = issueNum ? `https://github.com/${repoSlug}/issues/${issueNum}` : '#';
+        const issueCell = issueNum
+          ? `<a href="${issueHref}" target="_blank" rel="noopener" class="payroll-issue-link">#${issueNum}</a>`
+          : (p.issueRef || '—');
+
+        html += `
+          <tr>
+            <td>💡 @${p.contributorGithub || '—'}</td>
+            <td>${issueCell}</td>
+            <td>${p.amount || '—'} BNUT</td>
+            <td>
+              <button class="gov-admin-action-btn payroll-dnft-open-btn"
+                style="font-size:0.75rem;padding:0.3rem 0.6rem;"
+                data-wallet="${p.contributor || ''}"
+                data-issueref="${p.issueRef || ''}"
+                data-github="${p.contributorGithub || ''}">
+                🎖️ Mint DNFT
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      dnftListEl.innerHTML = html;
+
+      // Wire open-form buttons
+      dnftListEl.querySelectorAll('.payroll-dnft-open-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const form       = document.getElementById('payroll-dnft-mint-form');
+          const recipientEl = document.getElementById('payroll-dnft-recipient');
+          const issueRefEl  = document.getElementById('payroll-dnft-issueref');
+          if (!form) return;
+          if (recipientEl) recipientEl.value = btn.dataset.wallet || '';
+          if (issueRefEl)  issueRefEl.value  = btn.dataset.issueref || '';
+          form.style.display = 'block';
+          form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+      });
+    }
+
     // ── Load payroll data and populate modal ──────────────────────────────
 
     async function refreshPayrollModal() {
@@ -6005,6 +6082,9 @@ document.addEventListener('DOMContentLoaded', () => {
           } catch (_) {}
         }));
         renderPendingList(pending, paidOnChain);
+
+        // Populate the Feature Originator DNFT panel
+        renderDnftOriginatorList(pending);
 
         // Settled: query ContributorPaid events directly from the chain
         let events = [];
@@ -6267,6 +6347,84 @@ document.addEventListener('DOMContentLoaded', () => {
           if (dsStatusEl) dsStatusEl.textContent = `❌ ${err.reason || err.message || err}`;
         } finally {
           dsSettleBtn.disabled = false;
+        }
+      });
+    }
+
+    // ── Feature Originator DNFT — mint form wire-up ──────────────────────
+
+    const dnftSendBtn   = document.getElementById('payroll-dnft-send-btn');
+    const dnftCancelBtn = document.getElementById('payroll-dnft-cancel-btn');
+    const dnftStatusEl  = document.getElementById('payroll-dnft-status');
+    const dnftMintForm  = document.getElementById('payroll-dnft-mint-form');
+
+    if (dnftCancelBtn && dnftMintForm) {
+      dnftCancelBtn.addEventListener('click', () => {
+        dnftMintForm.style.display = 'none';
+        if (dnftStatusEl) dnftStatusEl.textContent = '';
+      });
+    }
+
+    if (dnftSendBtn) {
+      dnftSendBtn.addEventListener('click', async () => {
+        const recipientEl = document.getElementById('payroll-dnft-recipient');
+        const issueRefEl  = document.getElementById('payroll-dnft-issueref');
+        const descEl      = document.getElementById('payroll-dnft-desc');
+
+        const recipient = recipientEl?.value.trim() || '';
+        const issueRef  = issueRefEl?.value.trim() || '';
+        const desc      = descEl?.value.trim() || 'Feature Originator';
+
+        if (!recipient || !/^0x[0-9a-fA-F]{40}$/.test(recipient)) {
+          if (dnftStatusEl) dnftStatusEl.textContent = '⚠️ Please enter a valid 0x wallet address.';
+          return;
+        }
+        if (!issueRef) {
+          if (dnftStatusEl) dnftStatusEl.textContent = '⚠️ Please enter the issue reference.';
+          return;
+        }
+
+        dnftSendBtn.disabled = true;
+        if (dnftStatusEl) dnftStatusEl.textContent = '⏳ Initiating DNFT transfer via MetaMask…';
+
+        try {
+          // Use the DecentEscrow withdrawNFT function to transfer an existing
+          // Feature Originator DNFT from the escrow to the recipient.
+          // The escrow must have a DNFT available (deposit via admin DecentEscrow).
+          const ESCROW_ADDR = window.CONTRACTS?.subscription || '';
+          if (!ESCROW_ADDR || ESCROW_ADDR === '0x0000000000000000000000000000000000000000') {
+            throw new Error('Escrow contract address not configured — cannot transfer DNFT on-chain. Please transfer manually from the DecentEscrow admin panel.');
+          }
+
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer   = await provider.getSigner();
+
+          const escrowAbi = [
+            'function withdrawNFT(address nftContract, address to, uint256 tokenId, uint256 amount) external',
+          ];
+
+          const escrow = new ethers.Contract(ESCROW_ADDR, escrowAbi, signer);
+
+          // tokenId 0 = genesis Feature Originator DNFT (owner configures token contract + tokenId separately)
+          const nftContract = window.DNFT_CONTRACT_ADDRESS || ESCROW_ADDR;
+          const tokenId = 0;
+          const tx = await escrow.withdrawNFT(nftContract, recipient, tokenId, 1);
+          await tx.wait();
+
+          const txUrl = `https://optimistic.etherscan.io/tx/${tx.hash}`;
+          if (dnftStatusEl) {
+            dnftStatusEl.innerHTML = `🎖️ Feature Originator DNFT sent to <code>${recipient.slice(0, 10)}…</code>!<br>` +
+              `<a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View tx on Optimism Explorer ↗</a><br>` +
+              `<small style="color:#aacfdd;">Issue: ${issueRef} · Feature: ${desc}</small>`;
+          }
+        } catch (err) {
+          if (dnftStatusEl) {
+            dnftStatusEl.innerHTML = `❌ ${err.reason || err.message || err}<br>` +
+              `<small style="color:#aacfdd;">You can transfer the DNFT manually via the DecentEscrow admin or directly via a wallet.</small>`;
+          }
+        } finally {
+          dnftSendBtn.disabled = false;
         }
       });
     }

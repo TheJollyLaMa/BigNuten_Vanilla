@@ -3416,6 +3416,22 @@ svg text {
   color: #ffaa33;
 }
 
+.payroll-badge--idea-originator {
+  background: rgba(124, 58, 237, 0.2);
+  border: 1px solid rgba(124, 58, 237, 0.55);
+  color: #c4b5fd;
+}
+
+.payroll-badge--implementer {
+  background: rgba(8, 145, 178, 0.15);
+  border: 1px solid rgba(8, 145, 178, 0.4);
+  color: #67e8f9;
+}
+
+.payroll-row--idea-originator td {
+  background: rgba(124, 58, 237, 0.06);
+}
+
 .payroll-status {
   display: inline-block;
   padding: 0.15rem 0.5rem;

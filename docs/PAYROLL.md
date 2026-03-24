@@ -9,10 +9,11 @@ This document describes the complete payroll queue system introduced in v2.0.0 �
 1. [Overview](#overview)
 2. [Contributor Registration](#contributor-registration)
 3. [Payroll Queue Structure](#payroll-queue-structure)
-4. [Workflow Reference](#workflow-reference)
-5. [Scripts Reference](#scripts-reference)
-6. [Settle Cycle Step-by-Step](#settle-cycle-step-by-step)
-7. [Audit & Verification](#audit--verification)
+4. [Idea → Bounty Credit Flow](#idea--bounty-credit-flow)
+5. [Workflow Reference](#workflow-reference)
+6. [Scripts Reference](#scripts-reference)
+7. [Settle Cycle Step-by-Step](#settle-cycle-step-by-step)
+8. [Audit & Verification](#audit--verification)
 
 ---
 
@@ -88,6 +89,7 @@ Before any $BNUT payout can be processed, the contributor must be registered in 
       "contributor": "0xABC...",                         // Optimism Mainnet address
       "contributorGithub": "octocat",                    // GitHub username
       "amount": "500",                                   // BNUT (whole tokens, not wei)
+      "role": "implementer",                             // optional: "implementer" | "idea-originator"
       "queuedAt": "2026-03-20T12:00:00.000Z",           // ISO 8601 timestamp
       "queuedBy": "bounty-bot"                          // "bounty-bot" or maintainer username
     }
@@ -98,6 +100,7 @@ Before any $BNUT payout can be processed, the contributor must be registered in 
       "contributor": "0xABC...",
       "contributorGithub": "octocat",
       "amount": "500",
+      "role": "implementer",                             // optional
       "queuedAt": "2026-03-19T12:00:00.000Z",
       "queuedBy": "bounty-bot",
       "settledAt": "2026-03-19T18:00:00.000Z",          // When settled on-chain
@@ -118,8 +121,65 @@ Every push or PR touching `payroll-queue.json` triggers `validate-payroll-queue.
 | `issueRef` format | Must match `org/repo#N` (e.g. `TheJollyLaMa/BigNuten_Vanilla#45`) |
 | `contributor` format | Must be a valid Ethereum address (`0x` + 40 hex chars) |
 | `amount` value | Must be a positive number |
-| Duplicate prevention | No two entries may share the same `issueRef` + `contributor` combination |
+| Duplicate prevention | No two entries may share the same `issueRef` + `contributor` + `role` combination |
 | Whitelist membership | `contributorGithub` must match an entry in `contributor-accounts.json` |
+
+> **Note:** The optional `role` field (`"implementer"` or `"idea-originator"`) is used for idea-credit payout splits (see [Idea → Bounty Credit Flow](#idea--bounty-credit-flow)). Entries without a `role` are treated as standard contributor payouts (backward-compatible with the pre-idea-credit queue format).
+
+---
+
+## Idea → Bounty Credit Flow
+
+BigNuten recognises that brilliant ideas often come from community members who may not write the code. This flow ensures idea originators are rewarded alongside the implementer.
+
+### Overview
+
+```
+Community member         Maintainer              PR merged
+submits idea       ─►  marks idea-adopted   ─►  payout split
+     │                  idea-label.yml           bounty-bot.yml
+     │                       │                        │
+  Discussion/Issue       idea-adopted label     80% → implementer
+                       idea-credit: @user       20% → originator
+```
+
+### Step-by-Step
+
+1. **Idea Submission** — A community member opens a Discussion or Issue with a clearly described feature idea.
+2. **Validation** — Maintainers and community upvote, comment, and iterate.
+3. **Adoption** — Maintainer runs **Actions → Idea Adopted Label → Run workflow**:
+   - Inputs: `issue_number`, `idea_credit_username` (originator's GitHub handle), `major_feature` (boolean)
+   - Creates and applies `idea-adopted` (purple) and `idea-credit: @<username>` (teal) labels to the issue.
+   - Posts an adoption comment explaining the split.
+4. **Implementation** — A contributor (may be a different person) is assigned and opens a PR closing the idea issue.
+5. **Payout on Merge** — The Bounty Bot detects the `idea-credit` label and automatically queues:
+   - **80% of the bounty** → PR implementer(s) (entry `role: "implementer"`)
+   - **20% of the bounty** → idea originator (entry `role: "idea-originator"`)
+6. **DNFT (optional)** — For major features, the maintainer opens **Payroll → 🎖️ Feature Originator DNFTs** in the BigNuten app and mints a "Feature Originator" DNFT to the originator's wallet.
+
+### Payout Split Math
+
+| Total Bounty | Originator (20%) | Implementer (80%) |
+|---|---|---|
+| 1 BNUT | — (no originator entry; 1 BNUT rounds to 0) | 1 BNUT |
+| 4 BNUT | 1 BNUT | 3 BNUT |
+| 5 BNUT | 1 BNUT | 4 BNUT |
+| 10 BNUT | 2 BNUT | 8 BNUT |
+
+> The originator entry is only created if `Math.round(totalAmount * 0.2) >= 1`. For 1 BNUT bounties the split is not applied.
+
+### contributor-accounts.json additions
+
+Idea originators who receive credits will have an `ideasCredited` array added to their account entry:
+
+```jsonc
+{
+  "github": "octocat",
+  "bnutPending": 1,
+  "ideasCredited": ["TheJollyLaMa/BigNuten_Vanilla#42"],  // issues where their idea was credited
+  "issuesClosed": ["TheJollyLaMa/BigNuten_Vanilla#42"]    // also included here for unified ledger
+}
+```
 
 ---
 
@@ -136,6 +196,20 @@ Every push or PR touching `payroll-queue.json` triggers `validate-payroll-queue.
 
 ---
 
+### [`idea-label.yml`](../.github/workflows/idea-label.yml)
+
+**Trigger:** `workflow_dispatch` (manual)  
+**Inputs:** `issue_number`, `idea_credit_username`, `major_feature` (true/false)  
+**Actions:**
+1. Create `idea-adopted` label (purple, `#7c3aed`) if it doesn't exist
+2. Create `idea-credit: @<username>` label (teal, `#0891b2`) if it doesn't exist
+3. Apply both labels to the issue
+4. Post an adoption announcement comment crediting the originator and explaining the 80/20 split
+
+> Run this after validating a community idea. On PR merge, `bounty-bot.yml` detects the `idea-credit` label and automatically splits the payout.
+
+---
+
 ### [`bounty-bot.yml`](../.github/workflows/bounty-bot.yml)
 
 **Trigger:** Issue assigned (`issues: [assigned]`) + PR merged (`pull_request: [closed]` where `merged == true`)  
@@ -146,11 +220,13 @@ Every push or PR touching `payroll-queue.json` triggers `validate-payroll-queue.
 **On PR merged:**
 1. Parse the `Closes #N` reference in the PR body to find the issue
 2. Look up the bounty label amount on that issue
-3. Look up the assignee's wallet in `contributor-accounts.json`
-4. Append a new entry to `payroll-queue.json` (`pending[]`)
-5. Increment `bnutPending` in `contributor-accounts.json`
-6. Commit both files
-7. Post a confirmation comment on the issue
+3. Check for an `idea-credit: @<username>` label on the issue
+   - If found: split the bounty (20% to originator, 80% to implementer)
+4. Look up each contributor's wallet in `contributor-accounts.json`
+5. Append entries to `payroll-queue.json` (`pending[]`) — with `role` field when idea-credit is in effect
+6. Increment `bnutPending` in `contributor-accounts.json`; add `ideasCredited` entry for the originator
+7. Commit both files
+8. Post a confirmation comment on the issue (includes split summary when applicable)
 
 ---
 

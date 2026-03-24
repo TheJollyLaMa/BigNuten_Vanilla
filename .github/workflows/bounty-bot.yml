@@ -282,6 +282,23 @@ jobs:
 
               const issueRef = `${repoFull}#${issueNumber}`;
 
+              // ── Idea-credit detection ─────────────────────────────────────
+              // If the issue carries an "idea-credit: @<username>" label (applied by
+              // idea-label.yml), split the bounty: 20% to the idea originator and
+              // 80% to the implementer(s).
+              const creditLabel = labels.find(l => /^idea-credit:\s*@?([-\w]+)$/i.test(l));
+              const ideaOriginatorRaw = creditLabel
+                ? creditLabel.match(/^idea-credit:\s*@?([-\w]+)$/i)[1]
+                : null;
+
+              const totalAmount = parseInt(amount, 10);
+              const originatorAmount = ideaOriginatorRaw
+                ? Math.round(totalAmount * 0.2)
+                : 0;
+              const implementerAmount = ideaOriginatorRaw
+                ? String(totalAmount - originatorAmount)
+                : amount;
+
               // Collect all contributors: PR author + all issue assignees (deduplicated).
               const issueAssignees = (issue.assignees || []).map(a => a.login);
               const allContributors = [...new Set([prAuthor, ...issueAssignees])];
@@ -314,28 +331,89 @@ jobs:
                   missing.push(canonicalGithub);
                 }
 
+                // When an idea-credit exists and the implementer amount is 0 (bounty too small
+                // to split), skip adding a zero-amount implementer entry.
+                const entryAmount = implementerAmount;
+                if (parseInt(entryAmount, 10) < 1) {
+                  console.log(`Implementer amount for @${canonicalGithub} rounds to 0 — skipping implementer entry (idea-credit split consumed full bounty).`);
+                  skipped.push(canonicalGithub);
+                  continue;
+                }
+
                 // Append entry to payroll queue using canonical github name.
-                queue.pending.push({
+                const entry = {
                   issueRef,
                   contributor: walletAddress,
                   contributorGithub: canonicalGithub,
-                  amount,
+                  amount: entryAmount,
                   queuedAt: new Date().toISOString(),
                   queuedBy: 'github-actions[bot]',
-                });
+                };
+                // Tag the role when an idea-credit split is in effect.
+                if (ideaOriginatorRaw) entry.role = 'implementer';
+
+                queue.pending.push(entry);
                 filesChanged = true;
 
                 // Update bnutPending and issuesClosed in contributor-accounts.json.
                 if (contribRecord) {
-                  contribRecord.bnutPending = (contribRecord.bnutPending || 0) + parseInt(amount, 10);
+                  contribRecord.bnutPending = (contribRecord.bnutPending || 0) + parseInt(entryAmount, 10);
                   if (!Array.isArray(contribRecord.issuesClosed)) contribRecord.issuesClosed = [];
                   if (!contribRecord.issuesClosed.includes(issueRef)) {
                     contribRecord.issuesClosed.push(issueRef);
                   }
                 }
 
-                queued.push({ github: canonicalGithub, wallet: walletAddress });
-                console.log(`Auto-queued ${amount} BNUT for @${canonicalGithub} (${walletAddress || 'NO WALLET'}) — ${issueRef}`);
+                queued.push({ github: canonicalGithub, wallet: walletAddress, role: ideaOriginatorRaw ? 'implementer' : 'contributor' });
+                console.log(`Auto-queued ${entryAmount} BNUT for @${canonicalGithub} (${walletAddress || 'NO WALLET'}) as implementer — ${issueRef}`);
+              }
+
+              // ── Queue idea originator payout (20%) ────────────────────────
+              if (ideaOriginatorRaw && originatorAmount > 0) {
+                // Canonicalise the originator login against contributor-accounts.json.
+                const originatorRecord = accounts.contributors.find(
+                  c => c.github.toLowerCase() === ideaOriginatorRaw.toLowerCase()
+                );
+                const canonicalOriginator = originatorRecord ? originatorRecord.github : ideaOriginatorRaw;
+                const originatorWallet   = originatorRecord ? (originatorRecord.walletAddress || '') : '';
+
+                // Deduplication: skip if originator is already in queue for this issue.
+                const originatorQueued =
+                  queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalOriginator && e.role === 'idea-originator') ||
+                  queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalOriginator && e.role === 'idea-originator');
+
+                if (originatorQueued) {
+                  console.log(`Idea originator @${canonicalOriginator} already queued for ${issueRef}. Skipping.`);
+                } else {
+                  if (!originatorWallet) missing.push(canonicalOriginator);
+
+                  queue.pending.push({
+                    issueRef,
+                    contributor: originatorWallet,
+                    contributorGithub: canonicalOriginator,
+                    amount: String(originatorAmount),
+                    role: 'idea-originator',
+                    queuedAt: new Date().toISOString(),
+                    queuedBy: 'github-actions[bot]',
+                  });
+                  filesChanged = true;
+
+                  // Update originator's bnutPending and ideasCredited in contributor-accounts.json.
+                  if (originatorRecord) {
+                    originatorRecord.bnutPending = (originatorRecord.bnutPending || 0) + originatorAmount;
+                    if (!Array.isArray(originatorRecord.ideasCredited)) originatorRecord.ideasCredited = [];
+                    if (!originatorRecord.ideasCredited.includes(issueRef)) {
+                      originatorRecord.ideasCredited.push(issueRef);
+                    }
+                    if (!Array.isArray(originatorRecord.issuesClosed)) originatorRecord.issuesClosed = [];
+                    if (!originatorRecord.issuesClosed.includes(issueRef)) {
+                      originatorRecord.issuesClosed.push(issueRef);
+                    }
+                  }
+
+                  queued.push({ github: canonicalOriginator, wallet: originatorWallet, role: 'idea-originator' });
+                  console.log(`Auto-queued ${originatorAmount} BNUT (20% idea-credit) for @${canonicalOriginator} (${originatorWallet || 'NO WALLET'}) as idea-originator — ${issueRef}`);
+                }
               }
 
               // Scene art pool — chosen by issue number for variety.
@@ -391,17 +469,33 @@ jobs:
                 // All contributors were already queued — dedup notice only.
                 lines.push(`⚠️ Payout for \`${issueRef}\` is already in the payroll queue for all contributors — no duplicate entries added.`);
               } else {
+                // Idea-credit split summary (shown when applicable).
+                if (ideaOriginatorRaw && originatorAmount > 0) {
+                  lines.push(`💡 **Idea-Credit Split Applied** — total bounty of **${amount} BNUT** split:`);
+                  lines.push('');
+                  lines.push(`| Role | Recipient | Amount |`);
+                  lines.push(`|---|---|---|`);
+                  lines.push(`| 💡 Idea Originator (20%) | @${ideaOriginatorRaw} | **${originatorAmount} BNUT** |`);
+                  const implementerLabel = allContributors.length > 1
+                    ? `**${implementerAmount} BNUT** each (${allContributors.length} implementers)`
+                    : `**${implementerAmount} BNUT**`;
+                  lines.push(`| 🔨 Implementer (80%) | ${allContributors.map(g => `@${g}`).join(', ')} | ${implementerLabel} |`);
+                  lines.push('');
+                }
+
                 // Personalized welcome-back block for returning contributors.
-                for (const { github: gh } of returningQueued) {
+                for (const { github: gh, role } of returningQueued) {
                   const rec = accounts.contributors.find(
                     c => c.github.toLowerCase() === gh.toLowerCase()
                   );
                   const issuesCompleted = Array.isArray(rec.issuesClosed) ? rec.issuesClosed.length : 0;
                   const totalEarned = (rec.bnutEarned || 0) + (rec.bnutPending || 0);
                   const hasWallet = !!(rec.walletAddress);
-                  lines.push(`🏅 Great work, @${gh}! That's **${issuesCompleted} issue${issuesCompleted !== 1 ? 's' : ''} completed** and **${totalEarned} BNUT** earned so far! \\♆//`);
+                  const entryAmt = role === 'idea-originator' ? originatorAmount : implementerAmount;
+                  const roleLabel = role === 'idea-originator' ? ' 💡 *(idea originator)*' : '';
+                  lines.push(`🏅 Great work, @${gh}${roleLabel}! That's **${issuesCompleted} issue${issuesCompleted !== 1 ? 's' : ''} completed** and **${totalEarned} BNUT** earned so far! \\♆//`);
                   lines.push('');
-                  lines.push(`**${amount} BNUT** for \`${issueRef}\` (PR #${prNumber}) has been added to the payroll queue. Payout coming soon! 🌊✨`);
+                  lines.push(`**${entryAmt} BNUT** for \`${issueRef}\` (PR #${prNumber}) has been added to the payroll queue. Payout coming soon! 🌊✨`);
                   if (!hasWallet) {
                     lines.push('');
                     lines.push(`> ⚠️ No wallet address on file for @${gh}. Contact \`@TheJollyLaMa\` to register before payout can be processed.`);
@@ -415,11 +509,13 @@ jobs:
                 if (newQueued.length > 0) {
                   lines.push(`🤖 **Payroll Auto-Queue Update** for \`${issueRef}\` (PR #${prNumber})`);
                   lines.push('');
-                  lines.push(`| Contributor | Wallet | Amount | Status |`);
-                  lines.push(`|---|---|---|---|`);
-                  for (const { github: gh, wallet } of newQueued) {
+                  lines.push(`| Contributor | Role | Wallet | Amount | Status |`);
+                  lines.push(`|---|---|---|---|---|`);
+                  for (const { github: gh, wallet, role } of newQueued) {
                     const walletDisplay = wallet ? `\`${wallet}\`` : '⚠️ *no wallet on file*';
-                    lines.push(`| @${gh} | ${walletDisplay} | **${amount} BNUT** | ⏳ Queued |`);
+                    const roleDisplay = role === 'idea-originator' ? '💡 Idea Originator' : '🔨 Implementer';
+                    const entryAmt = role === 'idea-originator' ? originatorAmount : implementerAmount;
+                    lines.push(`| @${gh} | ${roleDisplay} | ${walletDisplay} | **${entryAmt} BNUT** | ⏳ Queued |`);
                   }
                   lines.push('');
                 }
@@ -448,7 +544,8 @@ jobs:
                 body: lines.join('\n'),
               });
 
-              console.log(`Auto-queue status posted on issue #${issueNumber} — ${amount} BNUT for ${allContributors.map(g => '@'+g).join(', ')}`);
+              const allParticipants = [...allContributors, ...(ideaOriginatorRaw ? [ideaOriginatorRaw] : [])];
+              console.log(`Auto-queue status posted on issue #${issueNumber} — ${amount} BNUT for ${allParticipants.map(g => '@'+g).join(', ')}`);
             }
 
             if (filesChanged) {

@@ -7,10 +7,11 @@ Thank you for your interest in contributing to **BigNuten**! This project uses a
 ## 📋 Table of Contents
 
 1. [Bounty System Overview](#bounty-system-overview)
-2. [Whitelist Registration](#whitelist-registration)
-3. [How to Claim a Bounty](#how-to-claim-a-bounty)
-4. [Payout Timeline](#payout-timeline)
-5. [Code of Conduct](#code-of-conduct)
+2. [Idea → Bounty Credit Flow](#idea--bounty-credit-flow)
+3. [Whitelist Registration](#whitelist-registration)
+4. [How to Claim a Bounty](#how-to-claim-a-bounty)
+5. [Payout Timeline](#payout-timeline)
+6. [Code of Conduct](#code-of-conduct)
 
 ---
 
@@ -39,6 +40,35 @@ BigNuten uses a **$BNUT bounty system** powered by GitHub Actions to reward cont
 7. $BNUT lands in the contributor's wallet on Optimism.
 
 See [`docs/TOKENOMICS.md`](docs/TOKENOMICS.md) for the full payroll queue and settle cycle details.
+
+---
+
+## Idea → Bounty Credit Flow
+
+BigNuten recognises that great ideas often come from community members who may not write the code. If your idea is adopted for implementation, you earn $BNUT too — automatically.
+
+### How It Works
+
+1. **Submit your idea** — open a Discussion or non-code Issue with a clearly described feature or improvement.
+2. **Community validates** — upvotes, comments, and discussion help maintainers assess the idea.
+3. **Maintainer adopts** — if chosen, the maintainer runs **Actions → Idea Adopted Label** with your GitHub username. This applies:
+   - 🟣 `idea-adopted` label — marks the idea as accepted for implementation.
+   - 🔵 `idea-credit: @you` label — credits you as the idea originator.
+4. **Implementation** — a contributor (possibly you!) implements it and opens a PR closing the issue.
+5. **Automatic payout split** — when the PR is merged, the Bounty Bot queues two payroll entries:
+   - **20% of the bounty** → you (idea originator, `role: "idea-originator"`)
+   - **80% of the bounty** → the implementer (`role: "implementer"`)
+6. **Settled** — the maintainer processes payroll as normal. Your $BNUT lands in your whitelisted wallet.
+7. **Feature Originator DNFT (major features)** — for significant features, the maintainer may also mint a **Feature Originator DNFT** and send it to your wallet as a permanent on-chain record.
+
+> 💡 **Don't have a wallet yet?** Contact `@TheJollyLaMa` to complete onboarding and register your Optimism Mainnet address before the payout is processed.
+
+### Tips for a Strong Idea Submission
+
+- Be specific: describe the _problem_ and a possible _solution_.
+- Include context: why this matters to the BigNuten community.
+- Reference related issues or discussions if any exist.
+- Add mockups or examples if helpful.
 
 ---
 

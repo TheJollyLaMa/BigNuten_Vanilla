@@ -2031,6 +2031,44 @@
         </div>
       </details>
 
+      <!-- Feature Originator DNFT -->
+      <details id="payroll-dnft-section" class="gov-admin-section" style="margin-top:1.5rem;">
+        <summary>🎖️ Feature Originator DNFTs</summary>
+        <div class="gov-admin-section-body">
+          <p style="font-size:0.85rem;color:#aacfdd;margin:0 0 0.75rem;">
+            Mint a versioned <strong>Feature Originator DNFT</strong> to recognise a community member
+            whose idea was adopted and shipped. Only available for payroll entries tagged
+            <code>idea-originator</code>. The DNFT references the originating issue in its metadata.
+          </p>
+          <div id="payroll-dnft-list">
+            <p class="gov-loading">Loading eligible idea originators…</p>
+          </div>
+          <!-- Manual DNFT mint form -->
+          <div id="payroll-dnft-mint-form" style="margin-top:1rem;padding:0.75rem;background:rgba(124,58,237,0.1);border:1px solid #7c3aed;border-radius:8px;display:none;">
+            <h4 style="margin:0 0 0.5rem;color:#c4b5fd;font-size:0.9rem;">🎖️ Mint Feature Originator DNFT</h4>
+            <div style="display:flex;flex-direction:column;gap:0.5rem;">
+              <label style="font-size:0.8rem;color:#aacfdd;">
+                Recipient wallet
+                <input id="payroll-dnft-recipient" type="text" class="payroll-ds-input" placeholder="0x… wallet address" style="display:block;width:100%;margin-top:0.25rem;" />
+              </label>
+              <label style="font-size:0.8rem;color:#aacfdd;">
+                Issue reference
+                <input id="payroll-dnft-issueref" type="text" class="payroll-ds-input" placeholder="e.g. TheJollyLaMa/BigNuten_Vanilla#42" style="display:block;width:100%;margin-top:0.25rem;" />
+              </label>
+              <label style="font-size:0.8rem;color:#aacfdd;">
+                Feature description (stored in DNFT metadata)
+                <input id="payroll-dnft-desc" type="text" class="payroll-ds-input" placeholder="Short description of the shipped feature" style="display:block;width:100%;margin-top:0.25rem;" />
+              </label>
+            </div>
+            <div style="margin-top:0.6rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+              <button id="payroll-dnft-send-btn" class="gov-admin-action-btn" style="padding:0.35rem 0.9rem;font-size:0.8rem;">🚀 Transfer DNFT</button>
+              <button id="payroll-dnft-cancel-btn" class="gov-admin-action-btn" style="padding:0.35rem 0.75rem;font-size:0.8rem;background:rgba(255,255,255,0.08);">Cancel</button>
+            </div>
+            <p id="payroll-dnft-status" class="gov-form-status" style="margin-top:0.5rem;"></p>
+          </div>
+        </div>
+      </details>
+
       <!-- Data Sharing Reward Settlement -->
       <details id="payroll-datasharing-section" class="gov-admin-section" style="margin-top:1.5rem;">
         <summary>📡 Settle Data Sharing Rewards</summary>
