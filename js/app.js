@@ -834,24 +834,82 @@ import { initCommunityDashboard } from './communityDashboard.js';
 /** Returns the nutritional info stored for a food name, or null if unknown */
 function getDietNutrCache(foodName) {
   const cache = JSON.parse(localStorage.getItem('dietNutrCache') || '{}');
-  return cache[foodName.toLowerCase()] || null;
+  const entry = cache[foodName.toLowerCase()];
+  if (!entry) return null;
+  // Support new format { nutr, amount, unit } and legacy format (plain nutr object)
+  if (entry.nutr && typeof entry.nutr === 'object') return entry;
+  return { nutr: entry, amount: null, unit: null };
 }
 
-/** Saves nutritional info for a food name into the cache */
-function setDietNutrCache(foodName, nutr) {
+/** Saves nutritional info for a food name into the cache, including last-used amount and unit */
+function setDietNutrCache(foodName, nutr, amount, unit) {
   const cache = JSON.parse(localStorage.getItem('dietNutrCache') || '{}');
-  cache[foodName.toLowerCase()] = nutr;
+  cache[foodName.toLowerCase()] = { nutr, amount: amount ?? null, unit: unit ?? null };
   localStorage.setItem('dietNutrCache', JSON.stringify(cache));
 }
 
-/** Populates the diet nutritional fields from cache for the given food name */
+/** Tracks the base nutrition values (for the prefilled amount) used for proportional scaling */
+let _dietNutrBase = null;
+
+/** Updates the nutrition card sub-title to reflect the current amount and unit */
+function updateNutrCardTitle() {
+  const label = document.getElementById('dietNutrCardServingLabel');
+  if (!label) return;
+  const amount = document.getElementById('dietFoodAmount')?.value;
+  const unit = document.getElementById('dietFoodUnit')?.value;
+  label.textContent = (amount && unit) ? `for ${amount} ${unit}` : 'per serving';
+}
+
+/** Recalculates and updates nutrition fields proportionally based on the current amount */
+function recalcDietNutrForAmount() {
+  if (!_dietNutrBase || !_dietNutrBase.nutr || _dietNutrBase.amount == null) return;
+  const newAmount = parseFloat(document.getElementById('dietFoodAmount')?.value);
+  if (isNaN(newAmount) || newAmount <= 0 || _dietNutrBase.amount <= 0) return;
+  const scale = newAmount / _dietNutrBase.amount;
+  const fields = ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar'];
+  fields.forEach(f => {
+    const el = document.getElementById(`dietNutr${f}`);
+    if (!el) return;
+    const baseVal = _dietNutrBase.nutr[f.toLowerCase()];
+    if (baseVal != null) {
+      const scaled = baseVal * scale;
+      // Calories and Potassium rounded to integers; others to 1 decimal place
+      el.value = (f === 'Calories' || f === 'Potassium' || f === 'Sodium')
+        ? Math.round(scaled)
+        : Math.round(scaled * 10) / 10;
+    }
+  });
+  updateNutrCardTitle();
+}
+
+/** Populates the diet nutritional fields from cache for the given food name.
+ *  Also prefills the amount/unit fields with the last-used values and sets _dietNutrBase. */
 function prefillDietNutr(foodName) {
-  const nutr = getDietNutrCache(foodName);
+  const entry = getDietNutrCache(foodName);
+  const nutr = entry ? entry.nutr : null;
+
+  // Set the base for proportional scaling when the user changes the amount
+  _dietNutrBase = entry && entry.amount != null
+    ? { nutr: structuredClone(nutr), amount: entry.amount }
+    : null;
+
   const fields = ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar'];
   fields.forEach(f => {
     const el = document.getElementById(`dietNutr${f}`);
     if (el) el.value = (nutr && nutr[f.toLowerCase()] != null) ? nutr[f.toLowerCase()] : '';
   });
+
+  // Prefill amount and unit with last-used values
+  if (entry && entry.amount != null) {
+    const amountEl = document.getElementById('dietFoodAmount');
+    if (amountEl) amountEl.value = entry.amount;
+  }
+  if (entry && entry.unit) {
+    const unitEl = document.getElementById('dietFoodUnit');
+    if (unitEl) unitEl.value = entry.unit;
+  }
+
+  updateNutrCardTitle();
 }
 
 const KNOWN_NUTR_KEYS = new Set(['calories','protein','carbs','fat','fiber','potassium','sodium','sugar']);
@@ -971,6 +1029,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Dynamically recalculate nutrition macros when serving amount changes
+  const dietFoodAmountEl = document.getElementById('dietFoodAmount');
+  if (dietFoodAmountEl) {
+    dietFoodAmountEl.addEventListener('input', recalcDietNutrForAmount);
+  }
+
+  // Update nutrition card title when unit changes
+  const dietFoodUnitEl = document.getElementById('dietFoodUnit');
+  if (dietFoodUnitEl) {
+    dietFoodUnitEl.addEventListener('change', updateNutrCardTitle);
+  }
+
   // Diet form submission
   const dietForm = document.getElementById('dietForm');
   if (dietForm) {
@@ -999,8 +1069,8 @@ document.addEventListener('DOMContentLoaded', () => {
         nutr: hasNutr ? nutr : undefined,
         date: new Date().toISOString()
       };
-      // Cache nutritional info so it pre-fills next time
-      if (hasNutr) setDietNutrCache(name, nutr);
+      // Cache nutritional info (with last-used amount and unit) so it pre-fills next time
+      if (hasNutr) setDietNutrCache(name, nutr, amount, unit);
 
       // Add to foods list in fitness data
       const data = getFitnessData();
@@ -1011,7 +1081,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // Update the all-time log and suggestions inside the modal
       refreshDietFoodSuggestions();
       renderDietAllTimeLog();
+      _dietNutrBase = null;
       dietForm.reset();
+      updateNutrCardTitle();
     });
   }
 
