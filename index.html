@@ -1627,6 +1627,31 @@
         </p>
       </section>
 
+      <!-- Genie AI Assistant Section -->
+      <section class="settings-section">
+        <h3>🧞 Genie AI Assistant</h3>
+        <p class="settings-desc">
+          Embed a local AI chat assistant inside each side panel. Uses
+          <strong>WebLLM</strong> to run a quantized language model entirely
+          in your browser — <em>your data never leaves your device</em>.
+          The model (~700 MB) is downloaded once and cached for fast future
+          start-up.
+        </p>
+        <div class="genie-settings-row">
+          <label for="genie-enabled-toggle" class="genie-settings-label">
+            Enable Genie AI assistant in side panels
+          </label>
+          <label class="genie-toggle" aria-label="Toggle Genie AI assistant">
+            <input type="checkbox" id="genie-enabled-toggle" />
+            <span class="genie-toggle-slider"></span>
+          </label>
+        </div>
+        <p class="settings-hint" id="genie-settings-hint">
+          🔒 All AI processing happens locally. Enable WebGPU in your browser
+          for best performance.
+        </p>
+      </section>
+
     </div>
   </div>
 

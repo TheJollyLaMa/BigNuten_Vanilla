@@ -4,6 +4,7 @@ import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, i
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
+import { initGenieChat, setGenieEnabled, isGenieEnabled } from './genieChat.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -7306,4 +7307,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   })();
+
+  // ── Genie AI Chat ─────────────────────────────────────────────────────────
+  initGenieChat();
+
+  // Wire up the Settings toggle for the Genie assistant.
+  const genieToggleEl = document.getElementById('genie-enabled-toggle');
+  if (genieToggleEl) {
+    // Restore persisted state.
+    genieToggleEl.checked = isGenieEnabled();
+    genieToggleEl.addEventListener('change', () => {
+      setGenieEnabled(genieToggleEl.checked);
+    });
+  }
 });
