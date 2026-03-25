@@ -22,20 +22,16 @@ const LS_OPEN      = 'genieChatOpen';    // JSON object: { panelId: true/false }
 const LS_MODEL_ID  = 'genieModelId';
 const STORAGE_KEY  = 'fitnessTrackerData';
 
-// WebLLM CDN – use a small but capable quantized model.
-const WEBLLM_CDN = 'https://esm.run/@mlc-ai/web-llm';
+// WebLLM CDN – pinned to a released version that fully supports Phi-3.5-mini
+// and its 128K context window (requires >=0.2.73).
+const WEBLLM_CDN = 'https://esm.run/@mlc-ai/web-llm@0.2.73';
 
 // Available models: id → { label, sizeDesc, contextTokens }
 const GENIE_MODELS = {
   'Phi-3.5-mini-instruct-q4f16_1-MLC': {
-    label:         'Phi-3.5-mini (2.2 GB, 128K context) — Recommended',
+    label:         'Phi-3.5-mini (2.2 GB, 128K context)',
     sizeDesc:      '~2.2 GB',
     contextTokens: 131_072,
-  },
-  'Llama-3.2-1B-Instruct-q4f32_1-MLC': {
-    label:         'Llama-3.2-1B (0.7 GB, 4K context) — Low-spec devices',
-    sizeDesc:      '~0.7 GB',
-    contextTokens: 4_096,
   },
 };
 
@@ -160,26 +156,28 @@ function _injectGenieIcon(panel) {
   }
 }
 
-/** Position icon on the outer edge of the panel (just touching). */
+/** Position icon at the true corner of the panel (45° overlap on both edges). */
 function _positionGenieIcon(btn, panel) {
-  const rect     = panel.getBoundingClientRect();
-  const ICON_W   = 36;
-  const OVERLAP  = 4;  // px the icon overlaps the panel border
+  const rect    = panel.getBoundingClientRect();
+  const ICON_W  = 36;
+  // Half the icon overlaps each edge so the centre sits exactly on the corner.
+  const HALF    = ICON_W / 2;
 
   btn.style.position = 'fixed';
-  btn.style.top      = (rect.top + 10) + 'px';
-  btn.style.zIndex   = '1200';
+  btn.style.zIndex   = '99999';
 
   if (_isMobile()) {
-    // On mobile the panels span full width at the bottom; hang icon off the top edge.
-    btn.style.top  = (rect.top - ICON_W + OVERLAP) + 'px';
-    btn.style.left = (rect.right - ICON_W - 10) + 'px';
+    // Mobile panels span full width at the bottom; place icon at the top-right corner.
+    btn.style.top  = (rect.top - HALF) + 'px';
+    btn.style.left = (rect.right - HALF) + 'px';
   } else if (_isLeftPanel(panel.id)) {
-    // Left panel → icon hangs off its RIGHT (inner) edge toward the page centre.
-    btn.style.left = (rect.right - OVERLAP) + 'px';
+    // Left panel → icon sits at the top-right corner.
+    btn.style.top  = (rect.top - HALF) + 'px';
+    btn.style.left = (rect.right - HALF) + 'px';
   } else {
-    // Right panel → icon hangs off its LEFT (inner) edge toward the page centre.
-    btn.style.left = (rect.left - ICON_W + OVERLAP) + 'px';
+    // Right panel → icon sits at the top-left corner.
+    btn.style.top  = (rect.top - HALF) + 'px';
+    btn.style.left = (rect.left - HALF) + 'px';
   }
 }
 
