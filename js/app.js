@@ -1248,7 +1248,9 @@ function getDVVisibleNutrients() {
   try {
     const s = localStorage.getItem(DV_VISIBLE_KEY);
     if (s) return JSON.parse(s);
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.warn('[DV] Failed to read visible nutrients from localStorage:', err);
+  }
   return [...DV_DEFAULT_VISIBLE];
 }
 
@@ -1258,12 +1260,15 @@ function setDVVisibleNutrients(arr) {
 
 function getDVCustomGoals() {
   try { return JSON.parse(localStorage.getItem(DV_CUSTOM_GOALS_KEY) || '{}'); }
-  catch { return {}; }
+  catch (err) {
+    console.warn('[DV] Failed to read custom goals from localStorage:', err);
+    return {};
+  }
 }
 
 function setDVCustomGoal(key, value) {
   const goals = getDVCustomGoals();
-  if (value == null) {
+  if (value === null || value === undefined) {
     delete goals[key];
   } else {
     goals[key] = value;
@@ -1273,7 +1278,7 @@ function setDVCustomGoal(key, value) {
 
 function getDVEffectiveGoal(key) {
   const custom = getDVCustomGoals();
-  return (custom[key] != null) ? custom[key] : (INTAKE_DV_MASTER[key]?.goal ?? 0);
+  return (custom[key] !== null && custom[key] !== undefined) ? custom[key] : (INTAKE_DV_MASTER[key]?.goal ?? 0);
 }
 
 const INTAKE_PERIOD_DAYS = { daily: 1, weekly: 7, monthly: 30, annual: 365 };
@@ -1330,13 +1335,14 @@ function renderRawIntakeDVCard() {
       const valFmt = val % 1 === 0 ? val.toLocaleString() : val.toFixed(1);
       const goalFmt = goal % 1 === 0 ? goal.toLocaleString() : goal.toFixed(1);
       const barColor = pct >= 100 ? '#00ff99' : pct >= 75 ? '#00e5ff' : pct >= 50 ? '#ffcc00' : '#ff6e6e';
-      const isCustom = getDVCustomGoals()[key] != null;
+      const isCustom = getDVCustomGoals()[key] !== undefined && getDVCustomGoals()[key] !== null;
+      const customBadge = isCustom ? '<span class="dv-custom-indicator">✎</span>' : '';
       return `<div class="dv-row">
         <div class="dv-row__main">
           <span class="dv-row__icon">${cfg.icon}</span>
           <span class="dv-row__label">${cfg.label}</span>
           <div class="dv-row__bar-wrap"><div class="dv-row__bar" style="width:${pct}%;background:${barColor};"></div></div>
-          <button class="dv-row__pct dv-row__pct--btn" data-nutr-key="${key}" title="Customize goal for ${cfg.label}" aria-label="Customize ${cfg.label} goal">${pct}%${isCustom ? '<span class="dv-custom-indicator">✎</span>' : ''}</button>
+          <button class="dv-row__pct dv-row__pct--btn" data-nutr-key="${key}" title="Customize goal for ${cfg.label}" aria-label="Customize ${cfg.label} goal">${pct}%${customBadge}</button>
         </div>
         <div class="dv-row__vals">${valFmt} / ${goalFmt} ${cfg.unit}</div>
       </div>`;
@@ -1477,15 +1483,16 @@ function renderDVManageList() {
 
   list.innerHTML = Object.entries(INTAKE_DV_MASTER).map(([key, cfg]) => {
     const isVisible = visible.includes(key);
-    const effectiveGoal = customGoals[key] != null ? customGoals[key] : cfg.goal;
-    const isCustom = customGoals[key] != null;
+    const isCustom = customGoals[key] !== null && customGoals[key] !== undefined;
+    const effectiveGoal = isCustom ? customGoals[key] : cfg.goal;
+    const customBadge = isCustom ? ' <span class="dv-custom-indicator">✎</span>' : '';
     return `<div class="dv-manage-row">
       <label class="dv-manage-check-label">
         <input type="checkbox" class="dv-manage-checkbox" data-nutr-key="${key}" ${isVisible ? 'checked' : ''} />
         <span class="dv-manage-icon">${cfg.icon}</span>
         <span class="dv-manage-name">${cfg.label}</span>
       </label>
-      <span class="dv-manage-goal">${effectiveGoal} ${cfg.unit}${isCustom ? ' <span class="dv-custom-indicator">✎</span>' : ''}</span>
+      <span class="dv-manage-goal">${effectiveGoal} ${cfg.unit}${customBadge}</span>
     </div>`;
   }).join('');
 
@@ -1555,7 +1562,7 @@ function initDVManageModal() {
           renderDVManageList();
           renderRawIntakeDVCard();
         } catch {
-          alert('Invalid goals file.');
+          alert('Failed to parse goals file. Please ensure it is a valid JSON file exported from this application.');
         }
       };
       reader.readAsText(file);
