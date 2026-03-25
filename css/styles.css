@@ -3064,7 +3064,6 @@ svg text {
 /* Hide all panels by default; show only when .panel-visible is added */
 .dashboard-panel {
   display: none;
-  position: relative; /* enables absolute positioning of genie icon/chat */
 }
 .dashboard-panel.panel-visible {
   display: block;
@@ -6206,11 +6205,8 @@ svg text {
 
 /* ── Genie icon button ─────────────────────────────────────────────────────── */
 .genie-icon-btn {
-  position: absolute;
-  top: 10px;
-  /* Left-side panels: icon on the right inner edge; right-side panels: left inner edge.
-     Default to right inner edge; JS can override via .genie-icon-right / .genie-icon-left */
-  right: 10px;
+  /* position: fixed and coordinates are set by JS via getBoundingClientRect() */
+  position: fixed;
   width: 36px;
   height: 36px;
   background: rgba(115, 0, 255, 0.18);
@@ -6222,7 +6218,7 @@ svg text {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 20;
+  z-index: 1200;
   transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
   box-shadow: 0 0 8px rgba(115, 0, 255, 0.4);
 }
@@ -6233,37 +6229,19 @@ svg text {
   transform: scale(1.1);
 }
 
-/* Right-side panels: icon on the left inner edge */
-#recent-exercises-list .genie-icon-btn,
-#workout-set-list .genie-icon-btn {
-  right: auto;
-  left: 10px;
-}
-
 /* ── Genie chat window ─────────────────────────────────────────────────────── */
 .genie-chat-window {
-  position: absolute;
-  /* Sit below the genie icon */
-  top: 54px;
-  right: 4px;
-  width: min(320px, calc(100% - 16px));
-  max-height: 420px;
+  /* position: fixed and coordinates are set by JS via getBoundingClientRect() */
+  position: fixed;
   display: flex;
   flex-direction: column;
   background: linear-gradient(160deg, rgba(0, 5, 22, 0.97) 0%, rgba(10, 0, 40, 0.97) 100%);
   border: 1px solid rgba(115, 0, 255, 0.5);
   border-radius: 12px;
   box-shadow: 0 6px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(115, 0, 255, 0.2);
-  z-index: 30;
+  z-index: 1150;
   overflow: hidden;
   animation: genie-pop 0.2s ease;
-}
-
-/* Right-side panels: chat window on the left inner edge */
-#recent-exercises-list .genie-chat-window,
-#workout-set-list .genie-chat-window {
-  right: auto;
-  left: 4px;
 }
 
 @keyframes genie-pop {
@@ -6472,14 +6450,5 @@ svg text {
 
 /* ── Mobile tweaks ─────────────────────────────────────────────────────────── */
 @media (max-width: 700px) {
-  .genie-chat-window {
-    width: calc(100% - 12px);
-    right: 6px;
-    max-height: 55vh;
-  }
-  #recent-exercises-list .genie-chat-window,
-  #workout-set-list .genie-chat-window {
-    left: 6px;
-    right: auto;
-  }
+  /* JS handles mobile positioning; no static overrides needed. */
 }

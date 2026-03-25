@@ -6,10 +6,14 @@
  *
  * Behaviour:
  *   • Reads the 'genieEnabled' key in localStorage (true/false).
- *   • When enabled, injects a genie icon button into each .dashboard-panel.
- *   • Clicking the icon toggles an attached chat window that uses the
- *     user's local BigNuten data as context for the LLM.
- *   • WebLLM (via CDN) is lazy-loaded only when the user first opens a chat.
+ *   • When enabled, injects a genie icon button onto document.body, positioned
+ *     via getBoundingClientRect() so it hangs off the outer edge of each open
+ *     side panel.
+ *   • Clicking the icon toggles a chat window that sits ALONGSIDE the panel
+ *     (toward the page centre), never on top of it.
+ *   • WebLLM (via CDN) is lazy-loaded only when the user first sends a message.
+ *   • LLM is strictly data-driven: it only reports what is in the logs and says
+ *     "The logs don't show data for that" when information is missing.
  *   • Per-panel open/close state is preserved in localStorage.
  */
 
@@ -18,12 +22,15 @@ const LS_OPEN     = 'genieChatOpen';   // JSON object: { panelId: true/false }
 const STORAGE_KEY = 'fitnessTrackerData';
 
 // WebLLM CDN – use a small but capable quantized model.
-const WEBLLM_CDN  = 'https://esm.run/@mlc-ai/web-llm';
-// Model to use: Llama-3.2-1B-Instruct-q4f32_1-MLC is small (~0.7 GB) and fast.
-const MODEL_ID    = 'Llama-3.2-1B-Instruct-q4f32_1-MLC';
+const WEBLLM_CDN = 'https://esm.run/@mlc-ai/web-llm';
+// Model: Llama-3.2-1B-Instruct-q4f32_1-MLC is small (~0.7 GB) and fast.
+const MODEL_ID   = 'Llama-3.2-1B-Instruct-q4f32_1-MLC';
 
-let _engine = null;          // singleton WebLLM engine
-let _engineLoading = false;  // guard against concurrent init calls
+// Panels that live on the LEFT side of the screen.
+const LEFT_PANEL_IDS = new Set(['recent-supplements-list', 'recent-foods-list']);
+
+let _engine        = null;
+let _engineLoading = false;
 let _engineReady   = false;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,27 +40,30 @@ let _engineReady   = false;
 export function initGenieChat() {
   _applyEnabledState();
 
-  // When a panel opens/closes (class toggle), re-evaluate genie icon visibility.
+  // Watch all dashboard-panel class changes to show/hide genie elements.
   const observer = new MutationObserver((mutations) => {
     for (const m of mutations) {
-      if (m.type === 'attributes' && m.attributeName === 'class') {
-        const panel = /** @type {HTMLElement} */ (m.target);
-        if (panel.classList.contains('dashboard-panel')) {
-          if (panel.classList.contains('panel-visible')) {
-            _injectGenieIcon(panel);
-          }
-        }
+      if (m.type !== 'attributes' || m.attributeName !== 'class') continue;
+      const panel = /** @type {HTMLElement} */ (m.target);
+      if (!panel.classList.contains('dashboard-panel')) continue;
+
+      if (panel.classList.contains('panel-visible')) {
+        _injectGenieIcon(panel);
+      } else {
+        _removeGenieElements(panel.id);
       }
     }
   });
 
   document.querySelectorAll('.dashboard-panel').forEach(panel => {
     observer.observe(panel, { attributes: true });
-    // If panel is already visible on load, inject immediately.
     if (panel.classList.contains('panel-visible')) {
       _injectGenieIcon(panel);
     }
   });
+
+  // Keep icon/chat positions in sync when the window is resized.
+  window.addEventListener('resize', _updateAllPositions);
 }
 
 /** Called by the Settings toggle. */
@@ -71,70 +81,159 @@ export function isGenieEnabled() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function _applyEnabledState() {
-  const enabled = isGenieEnabled();
-  if (enabled) {
-    // Inject into currently visible panels.
+  if (isGenieEnabled()) {
     document.querySelectorAll('.dashboard-panel.panel-visible').forEach(_injectGenieIcon);
-    // Restore open chat windows.
     _restoreOpenChats();
   } else {
-    // Remove all genie UI.
     document.querySelectorAll('.genie-icon-btn').forEach(el => el.remove());
     document.querySelectorAll('.genie-chat-window').forEach(el => el.remove());
   }
 }
 
+function _isLeftPanel(panelId) {
+  return LEFT_PANEL_IDS.has(panelId);
+}
+
+/** Append a genie icon to document.body and position it on the outer edge of panel. */
 function _injectGenieIcon(panel) {
   if (!isGenieEnabled()) return;
-  if (panel.querySelector('.genie-icon-btn')) return;  // already injected
+  if (document.querySelector(`.genie-icon-btn[data-panel="${panel.id}"]`)) return;
 
   const btn = document.createElement('button');
   btn.className = 'genie-icon-btn';
+  btn.dataset.panel = panel.id;
   btn.setAttribute('aria-label', 'Open Genie AI assistant');
   btn.setAttribute('title', 'Ask your AI Genie 🧞');
   btn.innerHTML = '🧞';
 
+  // stopPropagation so the panel's outside-click handler doesn't close the panel.
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
     _toggleChatWindow(panel);
   });
 
-  panel.appendChild(btn);
+  document.body.appendChild(btn);
+  _positionGenieIcon(btn, panel);
 
-  // Restore open state if this chat was previously open.
+  // Restore previously-open chat window for this panel.
   const openState = _loadOpenState();
   if (openState[panel.id]) {
     _openChatWindow(panel);
   }
 }
 
+/** Position icon on the outer edge of the panel (just touching). */
+function _positionGenieIcon(btn, panel) {
+  const rect     = panel.getBoundingClientRect();
+  const ICON_W   = 36;
+  const OVERLAP  = 4;  // px the icon overlaps the panel border
+
+  btn.style.position = 'fixed';
+  btn.style.top      = (rect.top + 10) + 'px';
+  btn.style.zIndex   = '1200';
+
+  if (_isMobile()) {
+    // On mobile the panels span full width at the bottom; hang icon off the top edge.
+    btn.style.top  = (rect.top - ICON_W + OVERLAP) + 'px';
+    btn.style.left = (rect.right - ICON_W - 10) + 'px';
+  } else if (_isLeftPanel(panel.id)) {
+    // Left panel → icon hangs off its RIGHT (inner) edge toward the page centre.
+    btn.style.left = (rect.right - OVERLAP) + 'px';
+  } else {
+    // Right panel → icon hangs off its LEFT (inner) edge toward the page centre.
+    btn.style.left = (rect.left - ICON_W + OVERLAP) + 'px';
+  }
+}
+
+/** Remove icon + chat from body when a panel is hidden. */
+function _removeGenieElements(panelId) {
+  document.querySelector(`.genie-icon-btn[data-panel="${panelId}"]`)?.remove();
+  const win = document.querySelector(`.genie-chat-window[data-panel="${panelId}"]`);
+  if (win) {
+    win.remove();
+    _saveOpenState(panelId, false);
+  }
+}
+
+/** Re-position all genie elements (called on window resize). */
+function _updateAllPositions() {
+  document.querySelectorAll('.genie-icon-btn[data-panel]').forEach(btn => {
+    const panelId = btn.dataset.panel;
+    const panel   = document.getElementById(panelId);
+    if (panel && panel.classList.contains('panel-visible')) {
+      _positionGenieIcon(btn, panel);
+      const win = document.querySelector(`.genie-chat-window[data-panel="${panelId}"]`);
+      if (win) _positionChatWindow(win, panel);
+    }
+  });
+}
+
 function _toggleChatWindow(panel) {
-  const existing = panel.querySelector('.genie-chat-window');
+  const existing = document.querySelector(`.genie-chat-window[data-panel="${panel.id}"]`);
   if (existing) {
-    _closeChatWindow(panel);
+    _closeChatWindow(panel.id);
   } else {
     _openChatWindow(panel);
   }
 }
 
 function _openChatWindow(panel) {
-  if (panel.querySelector('.genie-chat-window')) return;
+  if (document.querySelector(`.genie-chat-window[data-panel="${panel.id}"]`)) return;
 
   const win = _buildChatWindow(panel);
-  panel.appendChild(win);
+  win.dataset.panel = panel.id;
+  document.body.appendChild(win);
+  _positionChatWindow(win, panel);
   _saveOpenState(panel.id, true);
 
-  // Focus the input.
   const input = win.querySelector('.genie-chat-input');
   if (input) setTimeout(() => input.focus(), 50);
 }
 
-function _closeChatWindow(panel) {
-  const win = panel.querySelector('.genie-chat-window');
+function _closeChatWindow(panelId) {
+  const win = document.querySelector(`.genie-chat-window[data-panel="${panelId}"]`);
   if (win) {
     win.remove();
-    _saveOpenState(panel.id, false);
+    _saveOpenState(panelId, false);
   }
+}
+
+/** Position chat window ALONGSIDE the panel (toward the page centre). */
+function _positionChatWindow(win, panel) {
+  const rect      = panel.getBoundingClientRect();
+  const CHAT_W    = 320;
+  const GAP       = 8;   // gap between panel edge and chat window
+  const TOP_OFFSET = 46; // drop below the genie icon (36px) + small gap
+
+  const rawTop  = rect.top + TOP_OFFSET;
+  const top     = Math.max(8, rawTop);
+  const maxH    = window.innerHeight - top - 12;
+
+  win.style.position  = 'fixed';
+  win.style.width     = CHAT_W + 'px';
+  win.style.maxHeight = Math.min(420, maxH) + 'px';
+  win.style.top       = top + 'px';
+  win.style.zIndex    = '1150';
+
+  if (_isMobile()) {
+    // On mobile open chat ABOVE the panel.
+    const chatH  = Math.min(420, maxH);
+    win.style.top    = Math.max(8, rect.top - chatH - GAP) + 'px';
+    win.style.left   = '8px';
+    win.style.width  = (window.innerWidth - 16) + 'px';
+  } else if (_isLeftPanel(panel.id)) {
+    // Left panel → chat opens to its RIGHT (toward centre).
+    const left = rect.right + GAP;
+    win.style.left = Math.min(left, window.innerWidth - CHAT_W - 10) + 'px';
+  } else {
+    // Right panel → chat opens to its LEFT (toward centre).
+    const left = rect.left - CHAT_W - GAP;
+    win.style.left = Math.max(10, left) + 'px';
+  }
+}
+
+function _isMobile() {
+  return window.innerWidth <= 700;
 }
 
 function _buildChatWindow(panel) {
@@ -157,50 +256,53 @@ function _buildChatWindow(panel) {
     <div class="genie-chat-hint">Your data stays local — powered by WebLLM 🔒</div>
   `;
 
-  // Close button
+  // Prevent clicks inside the chat from bubbling to the document outside-click
+  // handler (which would close the side panel).
+  win.addEventListener('click', (e) => e.stopPropagation());
+
   win.querySelector('.genie-chat-close').addEventListener('click', (e) => {
     e.stopPropagation();
-    _closeChatWindow(panel);
+    _closeChatWindow(panel.id);
   });
 
-  // Send on button click or Enter (Shift+Enter = newline)
-  const sendBtn  = win.querySelector('.genie-chat-send');
-  const inputEl  = win.querySelector('.genie-chat-input');
+  const sendBtn    = win.querySelector('.genie-chat-send');
+  const inputEl    = win.querySelector('.genie-chat-input');
   const messagesEl = win.querySelector('.genie-chat-messages');
   const statusEl   = win.querySelector('.genie-chat-status');
 
-  sendBtn.addEventListener('click', () => _sendMessage(panel, inputEl, messagesEl, statusEl));
+  sendBtn.addEventListener('click', () => _sendMessage(panel.id, inputEl, messagesEl, statusEl));
   inputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      _sendMessage(panel, inputEl, messagesEl, statusEl);
+      _sendMessage(panel.id, inputEl, messagesEl, statusEl);
     }
   });
 
-  // Show a welcome message and prime the context.
-  _appendMessage(messagesEl, 'genie', _getWelcomeMessage(panel));
+  _appendMessage(messagesEl, 'genie', _getWelcomeMessage(panel.id));
 
   return win;
 }
 
-function _getWelcomeMessage(panel) {
-  const panelId = panel.id;
+function _getWelcomeMessage(panelId) {
   const msgs = {
-    'recent-supplements-list': "Hi! I'm your supplement Genie 🧞. Ask me about your supplement regimen or recommendations!",
-    'recent-foods-list':       "Hi! I'm your nutrition Genie 🧞. Ask me about your diet, daily values, or meal suggestions!",
-    'recent-exercises-list':   "Hi! I'm your exercise Genie 🧞. Ask me about your workout history or what to work on next!",
-    'workout-set-list':        "Hi! I'm your workout Genie 🧞. Ask me to plan your session or review your progress!",
+    'recent-supplements-list': "Hi! I'm your supplement Genie 🧞. Ask me what your logs show — e.g. \"What supplements did I take this week?\"",
+    'recent-foods-list':       "Hi! I'm your nutrition Genie 🧞. Ask me what the logs say — e.g. \"What did I eat yesterday?\"",
+    'recent-exercises-list':   "Hi! I'm your exercise Genie 🧞. Ask me what the logs show — e.g. \"What muscles have I worked this month?\"",
+    'workout-set-list':        "Hi! I'm your workout Genie 🧞. Ask me what the logs say — e.g. \"What did I do in my last session?\"",
   };
-  return msgs[panelId] || "Hi! I'm your BigNuten Genie 🧞. Ask me anything about your health data!";
+  return msgs[panelId] || "Hi! I'm your BigNuten Genie 🧞. Ask me what your logs say!";
 }
 
-async function _sendMessage(panel, inputEl, messagesEl, statusEl) {
+async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
   const text = inputEl.value.trim();
   if (!text) return;
 
-  inputEl.value = '';
+  inputEl.value    = '';
   inputEl.disabled = true;
-  panel.querySelector('.genie-chat-send').disabled = true;
+
+  const win     = document.querySelector(`.genie-chat-window[data-panel="${panelId}"]`);
+  const sendBtn = win ? win.querySelector('.genie-chat-send') : null;
+  if (sendBtn) sendBtn.disabled = true;
 
   _appendMessage(messagesEl, 'user', text);
 
@@ -211,7 +313,7 @@ async function _sendMessage(panel, inputEl, messagesEl, statusEl) {
     }
 
     statusEl.textContent = '🧞 Thinking…';
-    const reply = await _chat(text, panel, statusEl);
+    const reply = await _chat(text, panelId, statusEl);
     _appendMessage(messagesEl, 'genie', reply);
     statusEl.textContent = '';
   } catch (err) {
@@ -220,7 +322,6 @@ async function _sendMessage(panel, inputEl, messagesEl, statusEl) {
     statusEl.textContent = '';
   } finally {
     inputEl.disabled = false;
-    const sendBtn = panel.querySelector('.genie-chat-send');
     if (sendBtn) sendBtn.disabled = false;
     inputEl.focus();
   }
@@ -241,7 +342,6 @@ function _appendMessage(messagesEl, role, text) {
 async function _loadEngine(statusEl) {
   if (_engineReady) return;
   if (_engineLoading) {
-    // Wait for the in-progress load to finish.
     await _waitUntilReady();
     return;
   }
@@ -261,7 +361,7 @@ async function _loadEngine(statusEl) {
         }
       },
     });
-    _engine = engine;
+    _engine        = engine;
     _engineReady   = true;
     _engineLoading = false;
   } catch (err) {
@@ -287,20 +387,20 @@ function _waitUntilReady(maxWait = 120_000) {
 // Chat logic (with BigNuten context injection)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function _chat(userMessage, panel, statusEl) {
-  const systemPrompt = _buildSystemPrompt(panel);
+async function _chat(userMessage, panelId, statusEl) {
+  const systemPrompt = _buildSystemPrompt(panelId);
 
   const messages = [
-    { role: 'system',    content: systemPrompt },
-    { role: 'user',      content: userMessage  },
+    { role: 'system', content: systemPrompt },
+    { role: 'user',   content: userMessage  },
   ];
 
   // Stream the reply for a responsive feel.
-  let reply = '';
+  let reply  = '';
   const chunks = await _engine.chat.completions.create({
     messages,
     stream:      true,
-    temperature: 0.7,
+    temperature: 0,    // greedy decoding for consistent responses
     max_tokens:  512,
   });
 
@@ -310,34 +410,32 @@ async function _chat(userMessage, panel, statusEl) {
     if (statusEl) statusEl.textContent = '🧞 Typing…';
   }
 
-  return reply.trim() || '(no response)';
+  return reply.trim() || "(no response)";
 }
 
-function _buildSystemPrompt(panel) {
+function _buildSystemPrompt(panelId) {
   const data = _loadFitnessData();
-  const now  = new Date().toISOString();
+  const now  = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 
-  // Gather panel-relevant context.
   const sections = [];
-  const panelId  = panel.id;
 
   if (['recent-exercises-list', 'workout-set-list'].includes(panelId)) {
     const entries = _getRecentExercises(data, 90);
-    sections.push(`## Exercise History (last 90 days)\n${JSON.stringify(entries, null, 2)}`);
+    sections.push(`## Exercise Log (last 90 days, ${entries.length} entries)\n${JSON.stringify(entries, null, 2)}`);
     const sessionLog = (data.sessionLog || []).slice(-20);
     if (sessionLog.length) {
-      sections.push(`## Recent Workout Sessions (last 20)\n${JSON.stringify(sessionLog, null, 2)}`);
+      sections.push(`## Workout Sessions (last 20)\n${JSON.stringify(sessionLog, null, 2)}`);
     }
   }
 
-  if (['recent-supplements-list'].includes(panelId)) {
+  if (panelId === 'recent-supplements-list') {
     const supps = (data.supplements || []).slice(-50);
     sections.push(`## Supplement Log (last 50 entries)\n${JSON.stringify(supps, null, 2)}`);
   }
 
-  if (['recent-foods-list'].includes(panelId)) {
+  if (panelId === 'recent-foods-list') {
     const foods = (data.foods || []).slice(-50);
-    sections.push(`## Diet / Food Log (last 50 entries)\n${JSON.stringify(foods, null, 2)}`);
+    sections.push(`## Food / Diet Log (last 50 entries)\n${JSON.stringify(foods, null, 2)}`);
     const weights = (data.weightLogs || []).slice(-30);
     if (weights.length) {
       sections.push(`## Weight Logs (last 30)\n${JSON.stringify(weights, null, 2)}`);
@@ -346,17 +444,26 @@ function _buildSystemPrompt(panel) {
 
   const contextBlock = sections.length
     ? sections.join('\n\n')
-    : 'No data available yet.';
+    : '(no data logged yet)';
 
-  return `You are Genie, a friendly and knowledgeable fitness assistant embedded in the BigNuten health tracker app. \
-You have access to the user's personal health data stored locally on their device. \
-All data stays local — nothing is sent to a server. Current time: ${now}.
+  return `You are Genie, a data-query assistant for the BigNuten fitness tracker. \
+Your ONLY job is to answer questions about the user's actual logged data shown below. \
+All data is stored locally — nothing is sent to any server.
 
-Here is the user's relevant BigNuten data:
+Current date/time: ${now}
+
+--- USER DATA ---
 ${contextBlock}
+--- END USER DATA ---
 
-Answer the user's questions helpfully and concisely, focusing on their personal data where relevant. \
-Use clear, encouraging language and always respect user privacy.`;
+STRICT RULES — follow these exactly:
+1. ONLY state facts that are explicitly present in the data above.
+2. If the data does not contain the answer, reply with exactly: "The logs don't show data for that."
+3. Do NOT make up, estimate, infer, or guess any value not in the data.
+4. Do NOT give generic health or fitness advice unless the user explicitly asks for it AND it is directly supported by the data.
+5. When asked what was eaten, taken, or exercised on a specific date, search the data by date and list exactly what the entries show.
+6. Be concise. State the facts, cite the relevant log entries, and stop. Do not pad responses.
+7. If data is empty or missing, say so clearly and briefly.`;
 }
 
 function _getRecentExercises(data, days) {
@@ -401,3 +508,4 @@ function _restoreOpenChats() {
     }
   });
 }
+

@@ -1524,6 +1524,7 @@
     document.addEventListener('click', (e) => {
       if (!activePanel) return;
       if (e.target.closest('.dashboard-panel') || e.target.closest('.side-toolbar')) return;
+      if (e.target.closest('.genie-icon-btn') || e.target.closest('.genie-chat-window')) return;
       const panel = document.getElementById(activePanel);
       if (panel) panel.classList.remove('panel-visible');
       toggleBtns.forEach(b => b.classList.remove('active'));
