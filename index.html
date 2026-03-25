@@ -2644,5 +2644,30 @@
     </div>
   </div>
 
+  <!-- DV Goal Customization Modal -->
+  <div id="dv-goal-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="dv-goal-modal-title">
+    <div class="modal">
+      <button class="modal-close" id="dv-goal-modal-close" aria-label="Close DV goal modal">×</button>
+      <h2 id="dv-goal-modal-title">⚙️ Customize Daily Goal</h2>
+      <div id="dv-goal-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- DV Manage Nutrients Modal -->
+  <div id="dv-manage-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="dv-manage-modal-title">
+    <div class="modal">
+      <button class="modal-close" id="dv-manage-modal-close" aria-label="Close manage nutrients modal">×</button>
+      <h2 id="dv-manage-modal-title">📋 Manage Tracked Nutrients</h2>
+      <p style="font-size:0.8rem;color:rgba(200,235,255,0.7);margin-bottom:1rem;">Check which nutrients to show in your daily intake card. Click any DV% badge to customize a goal.</p>
+      <div id="dv-manage-list"></div>
+      <div class="dv-manage-actions">
+        <button id="dv-manage-reset-btn" class="dv-manage-action-btn">↩ Reset Defaults</button>
+        <button id="dv-manage-export-btn" class="dv-manage-action-btn">⬇️ Export Goals</button>
+        <button id="dv-manage-import-btn" class="dv-manage-action-btn">📂 Import Goals</button>
+        <input id="dv-manage-import-file" type="file" accept=".json,application/json" style="display:none;" />
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
