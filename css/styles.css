@@ -6448,6 +6448,22 @@ svg text {
   transform: translateX(18px);
 }
 
+.genie-model-select {
+  background: rgba(30, 20, 60, 0.85);
+  color: #cceeff;
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  max-width: 260px;
+}
+
+.genie-model-select:focus {
+  outline: 2px solid rgba(168, 85, 247, 0.7);
+}
+
 /* ── Mobile tweaks ─────────────────────────────────────────────────────────── */
 @media (max-width: 700px) {
   /* JS handles mobile positioning; no static overrides needed. */

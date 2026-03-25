@@ -17,14 +17,29 @@
  *   • Per-panel open/close state is preserved in localStorage.
  */
 
-const LS_ENABLED  = 'genieEnabled';
-const LS_OPEN     = 'genieChatOpen';   // JSON object: { panelId: true/false }
-const STORAGE_KEY = 'fitnessTrackerData';
+const LS_ENABLED   = 'genieEnabled';
+const LS_OPEN      = 'genieChatOpen';    // JSON object: { panelId: true/false }
+const LS_MODEL_ID  = 'genieModelId';
+const STORAGE_KEY  = 'fitnessTrackerData';
 
 // WebLLM CDN – use a small but capable quantized model.
 const WEBLLM_CDN = 'https://esm.run/@mlc-ai/web-llm';
-// Model: Llama-3.2-1B-Instruct-q4f32_1-MLC is small (~0.7 GB) and fast.
-const MODEL_ID   = 'Llama-3.2-1B-Instruct-q4f32_1-MLC';
+
+// Available models: id → { label, sizeDesc, contextTokens }
+const GENIE_MODELS = {
+  'Phi-3.5-mini-instruct-q4f16_1-MLC': {
+    label:         'Phi-3.5-mini (2.2 GB, 128K context) — Recommended',
+    sizeDesc:      '~2.2 GB',
+    contextTokens: 131_072,
+  },
+  'Llama-3.2-1B-Instruct-q4f32_1-MLC': {
+    label:         'Llama-3.2-1B (0.7 GB, 4K context) — Low-spec devices',
+    sizeDesc:      '~0.7 GB',
+    contextTokens: 4_096,
+  },
+};
+
+const DEFAULT_MODEL_ID = 'Phi-3.5-mini-instruct-q4f16_1-MLC';
 
 // Panels that live on the LEFT side of the screen.
 const LEFT_PANEL_IDS = new Set(['recent-supplements-list', 'recent-foods-list']);
@@ -32,6 +47,7 @@ const LEFT_PANEL_IDS = new Set(['recent-supplements-list', 'recent-foods-list'])
 let _engine        = null;
 let _engineLoading = false;
 let _engineReady   = false;
+let _loadedModelId = null;   // which model is currently loaded in the engine
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
@@ -74,6 +90,28 @@ export function setGenieEnabled(enabled) {
 
 export function isGenieEnabled() {
   return localStorage.getItem(LS_ENABLED) === 'true';
+}
+
+/** Returns the currently selected model ID (persisted in localStorage). */
+export function getGenieModelId() {
+  const stored = localStorage.getItem(LS_MODEL_ID);
+  return (stored && GENIE_MODELS[stored]) ? stored : DEFAULT_MODEL_ID;
+}
+
+/** Switch the active model. Resets the engine so it reloads on next use. */
+export function setGenieModelId(modelId) {
+  if (!GENIE_MODELS[modelId]) return;
+  localStorage.setItem(LS_MODEL_ID, modelId);
+  // Force engine reload on next message.
+  _engine        = null;
+  _engineReady   = false;
+  _engineLoading = false;
+  _loadedModelId = null;
+}
+
+/** Returns the map of all available models (id → metadata). */
+export function getGenieModels() {
+  return GENIE_MODELS;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -307,8 +345,12 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
   _appendMessage(messagesEl, 'user', text);
 
   try {
-    if (!_engineReady) {
-      statusEl.textContent = '⏳ Loading AI model (first-time download, ~700 MB cached for future use)…';
+    const modelId   = getGenieModelId();
+    const modelMeta = GENIE_MODELS[modelId] || GENIE_MODELS[DEFAULT_MODEL_ID];
+    const sizeDesc  = modelMeta.sizeDesc;
+
+    if (!_engineReady || _loadedModelId !== modelId) {
+      statusEl.textContent = `⏳ Loading AI model (first-time download, ${sizeDesc} cached for future use)…`;
       await _loadEngine(statusEl);
     }
 
@@ -340,18 +382,28 @@ function _appendMessage(messagesEl, role, text) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function _loadEngine(statusEl) {
-  if (_engineReady) return;
+  const modelId = getGenieModelId();
+
+  // If already loaded with the same model, nothing to do.
+  if (_engineReady && _loadedModelId === modelId) return;
+
+  // If a different model was requested while loading, let the current load finish
+  // then the caller will detect the mismatch and reload.
   if (_engineLoading) {
     await _waitUntilReady();
     return;
   }
 
   _engineLoading = true;
+  _engineReady   = false;
+  _engine        = null;
+
+  const sizeDesc = GENIE_MODELS[modelId]?.sizeDesc ?? '';
 
   try {
     // Lazy-import WebLLM from CDN (code-split; only fetched when first needed).
     const webllm = await import(/* webpackIgnore: true */ WEBLLM_CDN);
-    const engine = await webllm.CreateMLCEngine(MODEL_ID, {
+    const engine = await webllm.CreateMLCEngine(modelId, {
       initProgressCallback: (progress) => {
         if (statusEl) {
           const pct = progress.progress != null
@@ -362,6 +414,7 @@ async function _loadEngine(statusEl) {
       },
     });
     _engine        = engine;
+    _loadedModelId = modelId;
     _engineReady   = true;
     _engineLoading = false;
   } catch (err) {
@@ -384,11 +437,121 @@ function _waitUntilReady(maxWait = 120_000) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Token-budget guard
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Rough token estimator: 1 token ≈ 4 characters (standard heuristic).
+ * Errs on the side of over-counting to stay safe.
+ */
+function _estimateTokens(text) {
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * Context-window budget constants.
+ * We reserve space for system preamble/rules (~400 tokens) and the reply
+ * (~512 tokens), leaving the rest for the data block.
+ */
+const TOKEN_RESERVE_OVERHEAD = 400;
+const TOKEN_RESERVE_REPLY    = 512;
+// Fraction of the data budget allocated to the food-log section (the rest goes to weight logs).
+const FOOD_SECTION_BUDGET_RATIO = 0.6;
+// Minimum token budget to allocate for the weight-log section.
+const MIN_WEIGHT_LOG_TOKENS = 200;
+
+/**
+ * Build data sections for the given panel, automatically trimming entries to
+ * fit within `budgetTokens`. Returns { sections, trimmed } where `trimmed` is
+ * true when data had to be cut.
+ */
+function _buildDataSections(panelId, budgetTokens) {
+  const data = _loadFitnessData();
+  const sections = [];
+  let trimmed = false;
+
+  /** Fit a JSON array into `maxTokens`, removing oldest entries first. */
+  function fitArray(arr, maxTokens, label) {
+    if (!arr || arr.length === 0) return null;
+    let slice = arr;
+    let json  = JSON.stringify(slice, null, 2);
+    while (_estimateTokens(json) > maxTokens && slice.length > 1) {
+      // Remove at least one entry per iteration, targeting ~20% reduction.
+      const dropCount = Math.max(1, Math.floor(slice.length * 0.2));
+      slice = slice.slice(dropCount);
+      json  = JSON.stringify(slice, null, 2);
+      trimmed = true;
+    }
+    if (_estimateTokens(json) > maxTokens) {
+      // Even a single entry is too large — surface this gracefully.
+      trimmed = true;
+      return null;
+    }
+    const note = trimmed ? ` (trimmed to ${slice.length} most-recent entries to fit context window)` : ` (${slice.length} entries)`;
+    return `${label}${note}\n${json}`;
+  }
+
+  if (['recent-exercises-list', 'workout-set-list'].includes(panelId)) {
+    const perSectionBudget = Math.floor(budgetTokens / 2);
+    const exercises = _getRecentExercises(data, 90);
+    const exSection = fitArray(exercises, perSectionBudget, '## Exercise Log (last 90 days)');
+    if (exSection) sections.push(exSection);
+
+    const sessionLog = (data.sessionLog || []).slice(-20);
+    const sesSection = fitArray(sessionLog, perSectionBudget, '## Workout Sessions (last 20)');
+    if (sesSection) sections.push(sesSection);
+  }
+
+  if (panelId === 'recent-supplements-list') {
+    const supps = (data.supplements || []).slice(-50);
+    const sec = fitArray(supps, budgetTokens, '## Supplement Log (last 50 entries)');
+    if (sec) sections.push(sec);
+  }
+
+  if (panelId === 'recent-foods-list') {
+    const perSectionBudget = Math.floor(budgetTokens * FOOD_SECTION_BUDGET_RATIO);
+    const foods = (data.foods || []).slice(-50);
+    const foodSec = fitArray(foods, perSectionBudget, '## Food / Diet Log (last 50 entries)');
+    if (foodSec) sections.push(foodSec);
+
+    const weights = (data.weightLogs || []).slice(-30);
+    const foodTokensUsed = foodSec ? _estimateTokens(foodSec) : 0;
+    const wtBudget = Math.max(MIN_WEIGHT_LOG_TOKENS, budgetTokens - foodTokensUsed);
+    const wtSec = fitArray(weights, wtBudget, '## Weight Logs (last 30)');
+    if (wtSec) sections.push(wtSec);
+  }
+
+  return { sections, trimmed };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Chat logic (with BigNuten context injection)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function _chat(userMessage, panelId, statusEl) {
-  const systemPrompt = _buildSystemPrompt(panelId);
+  const modelId       = getGenieModelId();
+  const contextTokens = GENIE_MODELS[modelId]?.contextTokens ?? 4_096;
+  const dataBudget    = contextTokens - TOKEN_RESERVE_OVERHEAD - TOKEN_RESERVE_REPLY
+                        - _estimateTokens(userMessage);
+
+  if (dataBudget < 50) {
+    // Even with an empty data block, the prompt is too large.
+    return "⚠️ Your message is too long for the selected model's context window. Please try a shorter question, or switch to Phi-3.5-mini (128K context) in Settings.";
+  }
+
+  const { sections, trimmed } = _buildDataSections(panelId, dataBudget);
+
+  const contextBlock = sections.length
+    ? sections.join('\n\n')
+    : '(no data logged yet)';
+
+  // Final safety check after building the full prompt.
+  const systemPrompt = _buildSystemPromptText(contextBlock, trimmed);
+  const fullTokenEst = _estimateTokens(systemPrompt) + _estimateTokens(userMessage);
+  if (fullTokenEst > contextTokens - TOKEN_RESERVE_REPLY) {
+    return "⚠️ Your logs are too large to fit in the context window even after trimming. " +
+           "Try asking about a shorter time range, or switch to Phi-3.5-mini (128K context) in Genie Settings for larger logs.";
+  }
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -413,44 +576,17 @@ async function _chat(userMessage, panelId, statusEl) {
   return reply.trim() || "(no response)";
 }
 
-function _buildSystemPrompt(panelId) {
-  const data = _loadFitnessData();
-  const now  = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-
-  const sections = [];
-
-  if (['recent-exercises-list', 'workout-set-list'].includes(panelId)) {
-    const entries = _getRecentExercises(data, 90);
-    sections.push(`## Exercise Log (last 90 days, ${entries.length} entries)\n${JSON.stringify(entries, null, 2)}`);
-    const sessionLog = (data.sessionLog || []).slice(-20);
-    if (sessionLog.length) {
-      sections.push(`## Workout Sessions (last 20)\n${JSON.stringify(sessionLog, null, 2)}`);
-    }
-  }
-
-  if (panelId === 'recent-supplements-list') {
-    const supps = (data.supplements || []).slice(-50);
-    sections.push(`## Supplement Log (last 50 entries)\n${JSON.stringify(supps, null, 2)}`);
-  }
-
-  if (panelId === 'recent-foods-list') {
-    const foods = (data.foods || []).slice(-50);
-    sections.push(`## Food / Diet Log (last 50 entries)\n${JSON.stringify(foods, null, 2)}`);
-    const weights = (data.weightLogs || []).slice(-30);
-    if (weights.length) {
-      sections.push(`## Weight Logs (last 30)\n${JSON.stringify(weights, null, 2)}`);
-    }
-  }
-
-  const contextBlock = sections.length
-    ? sections.join('\n\n')
-    : '(no data logged yet)';
+function _buildSystemPromptText(contextBlock, trimmed) {
+  const now = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  const trimNote = trimmed
+    ? '\nNote: Some older log entries were omitted to fit the context window.'
+    : '';
 
   return `You are Genie, a data-query assistant for the BigNuten fitness tracker. \
 Your ONLY job is to answer questions about the user's actual logged data shown below. \
 All data is stored locally — nothing is sent to any server.
 
-Current date/time: ${now}
+Current date/time: ${now}${trimNote}
 
 --- USER DATA ---
 ${contextBlock}

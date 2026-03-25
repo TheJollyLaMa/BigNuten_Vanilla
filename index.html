@@ -1635,8 +1635,7 @@
           Embed a local AI chat assistant inside each side panel. Uses
           <strong>WebLLM</strong> to run a quantized language model entirely
           in your browser — <em>your data never leaves your device</em>.
-          The model (~700 MB) is downloaded once and cached for fast future
-          start-up.
+          The model is downloaded once and cached for fast future start-up.
         </p>
         <div class="genie-settings-row">
           <label for="genie-enabled-toggle" class="genie-settings-label">
@@ -1647,9 +1646,18 @@
             <span class="genie-toggle-slider"></span>
           </label>
         </div>
+        <div class="genie-settings-row">
+          <label for="genie-model-select" class="genie-settings-label">
+            AI Model
+          </label>
+          <select id="genie-model-select" class="genie-model-select" aria-label="Select Genie AI model">
+            <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi-3.5-mini (2.2 GB, 128K context) — Recommended</option>
+            <option value="Llama-3.2-1B-Instruct-q4f32_1-MLC">Llama-3.2-1B (0.7 GB, 4K context) — Low-spec devices</option>
+          </select>
+        </div>
         <p class="settings-hint" id="genie-settings-hint">
           🔒 All AI processing happens locally. Enable WebGPU in your browser
-          for best performance.
+          for best performance. Switching models requires a new download (cached after first use).
         </p>
       </section>
 

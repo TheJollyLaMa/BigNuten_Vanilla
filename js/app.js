@@ -4,7 +4,7 @@ import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, i
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
-import { initGenieChat, setGenieEnabled, isGenieEnabled } from './genieChat.js';
+import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId } from './genieChat.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -7318,6 +7318,15 @@ document.addEventListener('DOMContentLoaded', () => {
     genieToggleEl.checked = isGenieEnabled();
     genieToggleEl.addEventListener('change', () => {
       setGenieEnabled(genieToggleEl.checked);
+    });
+  }
+
+  // Wire up the model selector.
+  const genieModelSelectEl = document.getElementById('genie-model-select');
+  if (genieModelSelectEl) {
+    genieModelSelectEl.value = getGenieModelId();
+    genieModelSelectEl.addEventListener('change', () => {
+      setGenieModelId(genieModelSelectEl.value);
     });
   }
 });
