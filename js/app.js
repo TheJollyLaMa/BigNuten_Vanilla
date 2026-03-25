@@ -1215,16 +1215,66 @@ function displayCurrentWeight() {
 }
 // ── Daily Value Nutrition Card (Raw Intake side panel) ─────────────────────
 
-const INTAKE_DV_DAILY = {
-  calories:  { label: 'Calories',  unit: 'kcal', goal: 2000,  icon: '🔥' },
-  protein:   { label: 'Protein',   unit: 'g',    goal: 50,    icon: '💪' },
-  fat:       { label: 'Fat',       unit: 'g',    goal: 65,    icon: '🫙' },
-  sugar:     { label: 'Sugar',     unit: 'g',    goal: 25,    icon: '🍬' },
-  potassium: { label: 'Potassium', unit: 'mg',   goal: 3400,  icon: '🍌', factor: 34 }, // potassium stored as %DV; 1 %DV = 34 mg (3400 mg goal ÷ 100)
-  magnesium: { label: 'Magnesium', unit: 'mg',   goal: 400,   icon: '🔩' },
-  iron:      { label: 'Iron',      unit: 'mg',   goal: 18,    icon: '⚙️' },
-  calcium:   { label: 'Calcium',   unit: 'mg',   goal: 1000,  icon: '🦷' },
+/** Master list of all trackable nutrients with FDA/WHO default daily goals */
+const INTAKE_DV_MASTER = {
+  calories:     { label: 'Calories',    unit: 'kcal', goal: 2000,  icon: '🔥' },
+  protein:      { label: 'Protein',     unit: 'g',    goal: 50,    icon: '💪' },
+  fat:          { label: 'Fat',         unit: 'g',    goal: 65,    icon: '🫙' },
+  carbs:        { label: 'Carbs',       unit: 'g',    goal: 275,   icon: '🌾' },
+  sugar:        { label: 'Sugar',       unit: 'g',    goal: 25,    icon: '🍬' },
+  fiber:        { label: 'Fiber',       unit: 'g',    goal: 28,    icon: '🌿' },
+  sodium:       { label: 'Sodium',      unit: 'mg',   goal: 2300,  icon: '🧂' },
+  potassium:    { label: 'Potassium',   unit: 'mg',   goal: 3400,  icon: '🍌', factor: 34 }, // stored as %DV; 1 %DV = 34 mg
+  magnesium:    { label: 'Magnesium',   unit: 'mg',   goal: 400,   icon: '🔩' },
+  iron:         { label: 'Iron',        unit: 'mg',   goal: 18,    icon: '⚙️' },
+  calcium:      { label: 'Calcium',     unit: 'mg',   goal: 1000,  icon: '🦷' },
+  vitaminC:     { label: 'Vitamin C',   unit: 'mg',   goal: 90,    icon: '🍊' },
+  vitaminD:     { label: 'Vitamin D',   unit: 'IU',   goal: 800,   icon: '☀️' },
+  zinc:         { label: 'Zinc',        unit: 'mg',   goal: 11,    icon: '⚡' },
+  saturatedFat: { label: 'Sat. Fat',    unit: 'g',    goal: 20,    icon: '🥩' },
+  cholesterol:  { label: 'Cholesterol', unit: 'mg',   goal: 300,   icon: '🫀' },
 };
+
+/** Backward-compat alias used by other code */
+const INTAKE_DV_DAILY = INTAKE_DV_MASTER;
+
+/** Nutrients shown by default (matching the original list) */
+const DV_DEFAULT_VISIBLE = ['calories','protein','fat','sugar','potassium','magnesium','iron','calcium'];
+
+const DV_VISIBLE_KEY = 'dvVisibleNutrients';
+const DV_CUSTOM_GOALS_KEY = 'dvCustomGoals';
+
+function getDVVisibleNutrients() {
+  try {
+    const s = localStorage.getItem(DV_VISIBLE_KEY);
+    if (s) return JSON.parse(s);
+  } catch { /* ignore */ }
+  return [...DV_DEFAULT_VISIBLE];
+}
+
+function setDVVisibleNutrients(arr) {
+  localStorage.setItem(DV_VISIBLE_KEY, JSON.stringify(arr));
+}
+
+function getDVCustomGoals() {
+  try { return JSON.parse(localStorage.getItem(DV_CUSTOM_GOALS_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function setDVCustomGoal(key, value) {
+  const goals = getDVCustomGoals();
+  if (value == null) {
+    delete goals[key];
+  } else {
+    goals[key] = value;
+  }
+  localStorage.setItem(DV_CUSTOM_GOALS_KEY, JSON.stringify(goals));
+}
+
+function getDVEffectiveGoal(key) {
+  const custom = getDVCustomGoals();
+  return (custom[key] != null) ? custom[key] : (INTAKE_DV_MASTER[key]?.goal ?? 0);
+}
 
 const INTAKE_PERIOD_DAYS = { daily: 1, weekly: 7, monthly: 30, annual: 365 };
 
@@ -1248,12 +1298,12 @@ function renderRawIntakeDVCard() {
     return !isNaN(d) && d >= cutoff;
   });
 
-  // Sum nutrients across all entries in the period
+  // Sum nutrients across ALL master nutrients for the period
   const totals = {};
-  Object.keys(INTAKE_DV_DAILY).forEach(k => { totals[k] = 0; });
+  Object.keys(INTAKE_DV_MASTER).forEach(k => { totals[k] = 0; });
   foods.forEach(food => {
     if (!food.nutr) return;
-    Object.entries(INTAKE_DV_DAILY).forEach(([key, cfg]) => {
+    Object.entries(INTAKE_DV_MASTER).forEach(([key, cfg]) => {
       const raw = food.nutr[key];
       if (raw != null && !isNaN(parseFloat(raw))) {
         totals[key] += parseFloat(raw) * (cfg.factor || 1);
@@ -1262,29 +1312,35 @@ function renderRawIntakeDVCard() {
   });
 
   const goalMultiplier = days;
-  const calGoal = INTAKE_DV_DAILY.calories.goal * goalMultiplier;
+  const calGoal = getDVEffectiveGoal('calories') * goalMultiplier;
   // overallPct may exceed 100 when intake surpasses the daily calorie goal
   const overallPct = calGoal > 0 ? Math.round((totals.calories / calGoal) * 100) : 0;
 
   const periodLabel = { daily: 'Today', weekly: 'This Week', monthly: 'This Month', annual: 'This Year' }[_rawIntakePeriod] || '';
 
-  const rows = Object.entries(INTAKE_DV_DAILY).map(([key, cfg]) => {
-    const goal = cfg.goal * goalMultiplier;
-    const val = totals[key];
-    const pct = goal > 0 ? Math.min(100, Math.round((val / goal) * 100)) : 0; // capped at 100 for progress-bar display
-    const valFmt = val % 1 === 0 ? val.toLocaleString() : val.toFixed(1);
-    const goalFmt = goal % 1 === 0 ? goal.toLocaleString() : goal.toFixed(1);
-    const barColor = pct >= 100 ? '#00ff99' : pct >= 75 ? '#00e5ff' : pct >= 50 ? '#ffcc00' : '#ff6e6e';
-    return `<div class="dv-row">
-      <div class="dv-row__main">
-        <span class="dv-row__icon">${cfg.icon}</span>
-        <span class="dv-row__label">${cfg.label}</span>
-        <div class="dv-row__bar-wrap"><div class="dv-row__bar" style="width:${pct}%;background:${barColor};"></div></div>
-        <span class="dv-row__pct">${pct}%</span>
-      </div>
-      <div class="dv-row__vals">${valFmt} / ${goalFmt} ${cfg.unit}</div>
-    </div>`;
-  }).join('');
+  const visibleKeys = getDVVisibleNutrients();
+  const rows = visibleKeys
+    .filter(key => INTAKE_DV_MASTER[key])
+    .map(key => {
+      const cfg = INTAKE_DV_MASTER[key];
+      const effectiveGoal = getDVEffectiveGoal(key);
+      const goal = effectiveGoal * goalMultiplier;
+      const val = totals[key] || 0;
+      const pct = goal > 0 ? Math.min(100, Math.round((val / goal) * 100)) : 0; // capped at 100 for progress-bar display
+      const valFmt = val % 1 === 0 ? val.toLocaleString() : val.toFixed(1);
+      const goalFmt = goal % 1 === 0 ? goal.toLocaleString() : goal.toFixed(1);
+      const barColor = pct >= 100 ? '#00ff99' : pct >= 75 ? '#00e5ff' : pct >= 50 ? '#ffcc00' : '#ff6e6e';
+      const isCustom = getDVCustomGoals()[key] != null;
+      return `<div class="dv-row">
+        <div class="dv-row__main">
+          <span class="dv-row__icon">${cfg.icon}</span>
+          <span class="dv-row__label">${cfg.label}</span>
+          <div class="dv-row__bar-wrap"><div class="dv-row__bar" style="width:${pct}%;background:${barColor};"></div></div>
+          <button class="dv-row__pct dv-row__pct--btn" data-nutr-key="${key}" title="Customize goal for ${cfg.label}" aria-label="Customize ${cfg.label} goal">${pct}%${isCustom ? '<span class="dv-custom-indicator">✎</span>' : ''}</button>
+        </div>
+        <div class="dv-row__vals">${valFmt} / ${goalFmt} ${cfg.unit}</div>
+      </div>`;
+    }).join('');
 
   card.innerHTML = `
     <div class="dv-summary-header">
@@ -1292,21 +1348,220 @@ function renderRawIntakeDVCard() {
       <span class="dv-summary-overpct">${overallPct}% DV</span>
     </div>
     <div class="dv-rows">${rows}</div>
+    <button class="dv-manage-btn" id="dv-manage-open-btn" title="Add or remove nutrients from tracking">⚙️ Manage Nutrients</button>
   `;
 }
 
-/** Wires up the period toggle buttons for the DV card (call once after DOM ready) */
+/** Wires up the period toggle buttons and DV% click for the DV card (call once after DOM ready) */
 function initRawIntakeDVCard() {
   const container = document.getElementById('raw-intake-dv-card');
   if (!container) return;
   container.addEventListener('click', e => {
     const btn = e.target.closest('.dv-period-btn');
-    if (!btn) return;
-    _rawIntakePeriod = btn.dataset.period;
-    container.querySelectorAll('.dv-period-btn').forEach(b => b.classList.toggle('active', b === btn));
-    renderRawIntakeDVCard();
+    if (btn) {
+      _rawIntakePeriod = btn.dataset.period;
+      container.querySelectorAll('.dv-period-btn').forEach(b => b.classList.toggle('active', b === btn));
+      renderRawIntakeDVCard();
+      return;
+    }
+    const pctBtn = e.target.closest('.dv-row__pct--btn');
+    if (pctBtn) {
+      openDVGoalModal(pctBtn.dataset.nutrKey);
+      return;
+    }
+    const manageBtn = e.target.closest('#dv-manage-open-btn');
+    if (manageBtn) {
+      openDVManageModal();
+    }
   });
   renderRawIntakeDVCard();
+}
+
+// ── DV Goal Customization Modal ──────────────────────────────────────────────
+
+let _dvGoalModalKey = null;
+
+function openDVGoalModal(key) {
+  const cfg = INTAKE_DV_MASTER[key];
+  if (!cfg) return;
+  _dvGoalModalKey = key;
+  const modal = document.getElementById('dv-goal-modal');
+  if (!modal) return;
+
+  const defaultGoal = cfg.goal;
+  const customGoal = getDVCustomGoals()[key];
+  const currentGoal = customGoal != null ? customGoal : defaultGoal;
+
+  const body = document.getElementById('dv-goal-modal-body');
+  if (body) {
+    body.innerHTML = `
+      <div class="dv-goal-modal-nutrient">
+        <span class="dv-goal-modal-icon">${cfg.icon}</span>
+        <span class="dv-goal-modal-name">${cfg.label}</span>
+      </div>
+      <label class="dv-goal-label">Daily Goal (${cfg.unit})
+        <input id="dv-goal-input" class="dv-goal-input" type="number" min="0" step="any" value="${currentGoal}" />
+      </label>
+      <p class="dv-goal-hint">FDA/WHO default: <strong>${defaultGoal} ${cfg.unit}</strong></p>
+      <div class="dv-goal-actions">
+        <button id="dv-goal-save-btn" class="dv-goal-btn dv-goal-btn--primary">✅ Save Goal</button>
+        <button id="dv-goal-reset-btn" class="dv-goal-btn dv-goal-btn--secondary">↩ Reset to Default</button>
+        <button id="dv-goal-hide-btn" class="dv-goal-btn dv-goal-btn--danger">🙈 Hide from Table</button>
+      </div>
+    `;
+
+    document.getElementById('dv-goal-save-btn').addEventListener('click', () => {
+      const val = parseFloat(document.getElementById('dv-goal-input').value);
+      if (!isNaN(val) && val >= 0) {
+        setDVCustomGoal(_dvGoalModalKey, val);
+        closeDVGoalModal();
+        renderRawIntakeDVCard();
+      }
+    });
+
+    document.getElementById('dv-goal-reset-btn').addEventListener('click', () => {
+      setDVCustomGoal(_dvGoalModalKey, null);
+      closeDVGoalModal();
+      renderRawIntakeDVCard();
+    });
+
+    document.getElementById('dv-goal-hide-btn').addEventListener('click', () => {
+      const visible = getDVVisibleNutrients().filter(k => k !== _dvGoalModalKey);
+      setDVVisibleNutrients(visible);
+      closeDVGoalModal();
+      renderRawIntakeDVCard();
+    });
+  }
+
+  modal.classList.remove('modal-hidden');
+}
+
+function closeDVGoalModal() {
+  const modal = document.getElementById('dv-goal-modal');
+  if (modal) modal.classList.add('modal-hidden');
+  _dvGoalModalKey = null;
+}
+
+function initDVGoalModal() {
+  const closeBtn = document.getElementById('dv-goal-modal-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeDVGoalModal);
+  const modal = document.getElementById('dv-goal-modal');
+  if (modal) {
+    modal.addEventListener('click', e => {
+      if (e.target === modal) closeDVGoalModal();
+    });
+  }
+}
+
+// ── DV Manage Nutrients Modal ────────────────────────────────────────────────
+
+function openDVManageModal() {
+  const modal = document.getElementById('dv-manage-modal');
+  if (!modal) return;
+
+  renderDVManageList();
+  modal.classList.remove('modal-hidden');
+}
+
+function closeDVManageModal() {
+  const modal = document.getElementById('dv-manage-modal');
+  if (modal) modal.classList.add('modal-hidden');
+}
+
+function renderDVManageList() {
+  const list = document.getElementById('dv-manage-list');
+  if (!list) return;
+
+  const visible = getDVVisibleNutrients();
+  const customGoals = getDVCustomGoals();
+
+  list.innerHTML = Object.entries(INTAKE_DV_MASTER).map(([key, cfg]) => {
+    const isVisible = visible.includes(key);
+    const effectiveGoal = customGoals[key] != null ? customGoals[key] : cfg.goal;
+    const isCustom = customGoals[key] != null;
+    return `<div class="dv-manage-row">
+      <label class="dv-manage-check-label">
+        <input type="checkbox" class="dv-manage-checkbox" data-nutr-key="${key}" ${isVisible ? 'checked' : ''} />
+        <span class="dv-manage-icon">${cfg.icon}</span>
+        <span class="dv-manage-name">${cfg.label}</span>
+      </label>
+      <span class="dv-manage-goal">${effectiveGoal} ${cfg.unit}${isCustom ? ' <span class="dv-custom-indicator">✎</span>' : ''}</span>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.dv-manage-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const allChecked = [...list.querySelectorAll('.dv-manage-checkbox')]
+        .filter(c => c.checked).map(c => c.dataset.nutrKey);
+      setDVVisibleNutrients(allChecked);
+      renderRawIntakeDVCard();
+    });
+  });
+}
+
+function initDVManageModal() {
+  const closeBtn = document.getElementById('dv-manage-modal-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeDVManageModal);
+
+  const modal = document.getElementById('dv-manage-modal');
+  if (modal) {
+    modal.addEventListener('click', e => {
+      if (e.target === modal) closeDVManageModal();
+    });
+  }
+
+  const resetBtn = document.getElementById('dv-manage-reset-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      setDVVisibleNutrients([...DV_DEFAULT_VISIBLE]);
+      localStorage.removeItem(DV_CUSTOM_GOALS_KEY);
+      renderDVManageList();
+      renderRawIntakeDVCard();
+    });
+  }
+
+  const exportBtn = document.getElementById('dv-manage-export-btn');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      const payload = {
+        visibleNutrients: getDVVisibleNutrients(),
+        customGoals: getDVCustomGoals(),
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'dv-goals.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  const importBtn = document.getElementById('dv-manage-import-btn');
+  const importFile = document.getElementById('dv-manage-import-file');
+  if (importBtn && importFile) {
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', () => {
+      const file = importFile.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          if (parsed.visibleNutrients) setDVVisibleNutrients(parsed.visibleNutrients);
+          if (parsed.customGoals) {
+            Object.entries(parsed.customGoals).forEach(([k, v]) => setDVCustomGoal(k, v));
+          }
+          renderDVManageList();
+          renderRawIntakeDVCard();
+        } catch {
+          alert('Invalid goals file.');
+        }
+      };
+      reader.readAsText(file);
+      importFile.value = '';
+    });
+  }
 }
 
 // Display recent foods (7 days)
@@ -7023,6 +7278,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Raw Intake DV Card ────────────────────────────────────────────────────
   initRawIntakeDVCard();
+  initDVGoalModal();
+  initDVManageModal();
 
   // ── Restore timezone from fitness data if previously saved ───────────────
   (function restoreTimezoneFromData() {
