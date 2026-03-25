@@ -298,9 +298,10 @@ export async function getContributorPaidEvents() {
 
   const events = allLogs.map((log) => ({
     contributor: log.args.contributor,
-    // Strip the compound-key wallet suffix (":0x…") before storing the display ref.
-    // The raw compound key is stored on-chain; we only need the human part for display.
-    issueRef:    (log.args.issueRef || '').replace(/:0x[0-9a-fA-F]+$/i, ''),
+    // Strip the compound-key wallet+role suffix (":0x…" or ":0x…:role") before
+    // storing the display ref.  The raw compound key lives on-chain; we only need
+    // the human-readable GitHub ref for display purposes.
+    issueRef:    (log.args.issueRef || '').replace(/:0x[0-9a-fA-F]+(?::[a-z][a-z-]*)?$/i, ''),
     amount:      Number(ethers.formatEther(log.args.amount)),
     txHash:      log.transactionHash,
     blockNumber: log.blockNumber,

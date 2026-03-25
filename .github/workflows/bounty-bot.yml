@@ -343,9 +343,14 @@ jobs:
                 const canonicalGithub = contribRecord ? contribRecord.github : contributorGithub;
 
                 // Deduplication: skip if this contributor is already in pending or settled for this issue.
-                const alreadyQueued =
-                  queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub) ||
-                  queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub);
+                // For idea-credit splits we check specifically for the 'implementer' role so that a
+                // contributor who also originated the idea isn't incorrectly skipped just because their
+                // 'idea-originator' entry already exists in the queue.
+                const alreadyQueued = ideaOriginatorRaw
+                  ? (queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub && e.role === 'implementer') ||
+                     queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub && e.role === 'implementer'))
+                  : (queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub) ||
+                     queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub));
                 if (alreadyQueued) {
                   console.log(`Issue ${issueRef} for @${canonicalGithub} is already in the payroll queue. Skipping.`);
                   skipped.push(canonicalGithub);
@@ -801,9 +806,14 @@ jobs:
                 const canonicalGithub = contribRecord ? contribRecord.github : contributorGithub;
 
                 // Deduplication: skip if already in pending or settled for this issue.
-                const alreadyQueued =
-                  queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub) ||
-                  queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub);
+                // For idea-credit splits we check specifically for the 'implementer' role so that a
+                // contributor who also originated the idea isn't incorrectly skipped just because their
+                // 'idea-originator' entry already exists in the queue.
+                const alreadyQueued = ideaOriginatorRaw
+                  ? (queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub && e.role === 'implementer') ||
+                     queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub && e.role === 'implementer'))
+                  : (queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub) ||
+                     queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub));
                 if (alreadyQueued) {
                   console.log(`Issue ${issueRef} for @${canonicalGithub} is already in the payroll queue. Skipping.`);
                   skipped.push(canonicalGithub);

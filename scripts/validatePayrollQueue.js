@@ -95,9 +95,10 @@ const knownGithubHandles = new Set(contribs.map(c => c.github.toLowerCase()));
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 function onChainKey(entry) {
   const addr = (entry.contributor || '').toLowerCase();
-  return addr && addr !== ZERO_ADDR
-    ? `${entry.issueRef}:${addr}`
-    : entry.issueRef;
+  if (!addr || addr === ZERO_ADDR) return entry.issueRef;
+  return entry.role
+    ? `${entry.issueRef}:${addr}:${entry.role}`
+    : `${entry.issueRef}:${addr}`;
 }
 
 // ── Validate a section of the queue (pending or settled) ─────────────────────
