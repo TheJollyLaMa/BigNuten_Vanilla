@@ -6089,7 +6089,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const p    = _pendingQueue[idx];
           if (!p) return;
 
-          const amount = Math.max(1, parseInt(p.amount || '1', 10));
+          const amount = parseFloat(p.amount) > 0 ? parseFloat(p.amount) : 1;
           const msgEl  = document.getElementById(`payroll-row-msg-${idx}`);
 
           btn.disabled = true;
@@ -6419,7 +6419,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // multiple contributors on the same issue each get an independent
         // issuePaid record, preventing cross-contributor revert.
         const payouts = toSettle.map(({ p }) => {
-          const amount = Math.max(1, parseInt(p.amount || '1', 10));
+          const amount = parseFloat(p.amount) > 0 ? parseFloat(p.amount) : 1;
           return { contributor: p.contributor, amount: String(amount), issueRef: entryKey(p) };
         });
 

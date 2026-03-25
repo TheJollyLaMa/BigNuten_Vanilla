@@ -91,11 +91,21 @@ const walletByGithub = Object.fromEntries(
 );
 const knownGithubHandles = new Set(contribs.map(c => c.github.toLowerCase()));
 
+// ── Shared: compute the on-chain compound key, same logic as entryKey() in app.js ──
+const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+function onChainKey(entry) {
+  const addr = (entry.contributor || '').toLowerCase();
+  return addr && addr !== ZERO_ADDR
+    ? `${entry.issueRef}:${addr}`
+    : entry.issueRef;
+}
+
 // ── Validate a section of the queue (pending or settled) ─────────────────────
 function validateSection(entries, sectionName) {
   console.log(`\n── ${sectionName} (${entries.length} entries) ─────────────────────────`);
 
-  const seen = new Set(); // track (issueRef, contributorGithub) duplicates
+  const seen       = new Set(); // track (issueRef, contributorGithub, role) duplicates
+  const seenOnChainKeys = new Set(); // track on-chain compound key duplicates
 
   entries.forEach((entry, idx) => {
     const label = `[${sectionName}][${idx}]`;
@@ -139,6 +149,22 @@ function validateSection(entries, sectionName) {
         error(`${label} Duplicate entry: (${entry.issueRef}, @${entry.contributorGithub})`);
       } else {
         seen.add(key);
+      }
+    }
+
+    // 5b. On-chain compound key duplicate check: same issueRef:contributorAddress pair
+    // would cause "Treasury: issue already paid" revert in batchPayContributors.
+    if (entry.issueRef) {
+      const ck = onChainKey(entry);
+      if (seenOnChainKeys.has(ck)) {
+        error(
+          `${label} Duplicate on-chain key "${ck}" — two entries share the same ` +
+          `issueRef+wallet compound key and would cause a contract revert. ` +
+          `(Hint: @${entry.contributorGithub || '?'} is listed as both implementer ` +
+          `and idea-originator for ${entry.issueRef} with the same wallet address.)`
+        );
+      } else {
+        seenOnChainKeys.add(ck);
       }
     }
 
