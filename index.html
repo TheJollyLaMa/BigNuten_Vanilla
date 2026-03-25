@@ -77,6 +77,8 @@
         <button class="aes-menu-item" id="aes-storage-btn" role="menuitem">💾 Data &amp; Storage</button>
         <button class="aes-menu-item" id="aes-challenge-btn" role="menuitem">🏋️ Monthly Challenge</button>
         <button class="aes-menu-item" id="aes-bounty-register-btn" role="menuitem">💰 Bounty Register</button>
+        <hr class="aes-divider" />
+        <button class="aes-menu-item" id="aes-settings-btn"         role="menuitem">⚙️ Settings</button>
       </div>
     </div>
     <div id="walletIconWrapper">
@@ -1581,6 +1583,50 @@
         <li>🏋️ 100 Workouts Completed</li>
       </ul>
       <p class="aes-stub-coming-soon">🚧 Full achievement tracking &amp; $BNUT rewards coming soon!</p>
+    </div>
+  </div>
+
+  <!-- ── Settings Modal ────────────────────────────────────────────────────── -->
+  <div id="settings-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+    <div class="modal settings-modal">
+      <button class="modal-close" id="settings-modal-close" aria-label="Close Settings">×</button>
+
+      <div class="settings-header">
+        <span class="settings-gear-icon" aria-hidden="true">⚙️</span>
+        <h2 id="settings-modal-title">Settings</h2>
+      </div>
+
+      <!-- Day Cycle Section -->
+      <section class="settings-section">
+        <h3>🌅 Day Cycle Start / End Time</h3>
+        <p class="settings-desc">
+          Set when your personal day begins. All stats (water, steps, exercise, supplements, etc.)
+          reset at this time. Useful for shift workers or early risers.
+          <br><em>Default: 04:30 AM. Community leaderboards always use UTC midnight.</em>
+        </p>
+
+        <div class="settings-row">
+          <label for="settings-day-cycle-input" class="settings-label">Day starts at:</label>
+          <input
+            id="settings-day-cycle-input"
+            type="time"
+            class="settings-time-input"
+            value="04:30"
+            aria-label="Day cycle start time"
+            title="Enter the time your personal day begins (24 h format)"
+          />
+          <button id="settings-day-cycle-save" class="settings-save-btn" type="button">Save</button>
+        </div>
+
+        <p id="settings-day-cycle-status" class="settings-status" aria-live="polite"></p>
+
+        <p class="settings-hint">
+          💡 Examples: <strong>00:00</strong> = midnight &nbsp;·&nbsp;
+          <strong>04:30</strong> = 4:30 AM (default) &nbsp;·&nbsp;
+          <strong>18:00</strong> = 6 PM (third-shift workers)
+        </p>
+      </section>
+
     </div>
   </div>
 

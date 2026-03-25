@@ -3126,6 +3126,123 @@ svg text {
   outline: none;
 }
 
+/* ── Settings Modal ─────────────────────────────────────────────────────── */
+
+.settings-modal {
+  max-width: 480px;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.4rem;
+}
+
+.settings-gear-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-family: 'Bungee', sans-serif;
+  font-size: 1.5rem;
+  color: #00e5ff;
+  text-shadow: 0 0 10px #00e5ff, 0 0 20px #7300ff;
+}
+
+.settings-section {
+  margin-bottom: 1.2rem;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.15);
+  padding-bottom: 1.2rem;
+}
+
+.settings-section:last-of-type {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.settings-section h3 {
+  color: #00e5ff;
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+  text-shadow: 0 0 6px #7300ff;
+}
+
+.settings-desc {
+  font-size: 0.85rem;
+  color: #c0d8f0;
+  margin: 0 0 0.9rem;
+  line-height: 1.5;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.settings-label {
+  font-size: 0.9rem;
+  color: #7ecfea;
+  white-space: nowrap;
+}
+
+.settings-time-input {
+  background: rgba(0, 0, 50, 0.7);
+  border: 1px solid rgba(0, 229, 255, 0.5);
+  border-radius: 6px;
+  color: #e0f4ff;
+  font-size: 1rem;
+  padding: 0.3rem 0.5rem;
+  width: 7rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.settings-time-input:focus {
+  border-color: #00e5ff;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+}
+
+.settings-save-btn {
+  background: linear-gradient(135deg, #0077cc 0%, #00e5ff 100%);
+  border: none;
+  border-radius: 6px;
+  color: #000d1a;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.35rem 1rem;
+  cursor: pointer;
+  transition: opacity 0.2s, box-shadow 0.2s;
+}
+
+.settings-save-btn:hover {
+  opacity: 0.88;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+}
+
+.settings-status {
+  font-size: 0.82rem;
+  min-height: 1.2rem;
+  margin: 0.4rem 0 0;
+}
+
+.settings-status-success { color: #00dc90; }
+.settings-status-error   { color: #ff6b6b; }
+
+.settings-hint {
+  font-size: 0.8rem;
+  color: #7a9ab8;
+  margin: 0.6rem 0 0;
+}
+
+.settings-hint strong { color: #a0ccee; }
+
 .aesculapius-dropdown {
   position: absolute;
   top: calc(100% + 6px);

@@ -2,7 +2,7 @@ import { initDnftPayPalPurchase, initDnftStripePurchase, listDecentEscrowPlans, 
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
 import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
-import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
+import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
 
 // --- Raw Food Modal Logic ---
@@ -3697,19 +3697,24 @@ const CHART_DAYS_RANGE = 14;
 
 function getLast14Days() {
   const days = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getTodayInUserTz(); // timezone + day-cycle aware
+  const [y, m, d] = today.split('-').map(Number);
   for (let i = CHART_DAYS_RANGE - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    days.push(d.toISOString().split('T')[0]);
+    const date = new Date(y, m - 1, d - i);
+    const dy = date.getFullYear();
+    const dm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    days.push(`${dy}-${dm}-${dd}`);
   }
   return days;
 }
 
 function getEntryDateStr(entry) {
+  // Prefer the timestamp (with timezone + day-cycle correction) so that
+  // late-night entries are attributed to the correct cycle day.
+  // Fall back to the stored date string if no timestamp is present.
+  if (entry.timestamp) return getDateInUserTz(entry.timestamp);
   if (entry.date) return entry.date;
-  if (entry.timestamp) return entry.timestamp.split('T')[0];
   return null;
 }
 
@@ -4371,6 +4376,56 @@ document.addEventListener('DOMContentLoaded', () => {
     wireModal('admin-contributors-btn', 'contributors-admin-modal', 'contributors-admin-modal-close', () => {
       if (typeof window.__loadContributorsTable === 'function') window.__loadContributorsTable();
     });
+  })();
+
+  // ── Settings modal (⚙️ gear in aesculapius dropdown) ─────────────────────
+
+  (function initSettingsModal() {
+    const settingsBtn   = document.getElementById('aes-settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const settingsClose = document.getElementById('settings-modal-close');
+    const cycleInput    = document.getElementById('settings-day-cycle-input');
+    const cycleSaveBtn  = document.getElementById('settings-day-cycle-save');
+    const cycleStatus   = document.getElementById('settings-day-cycle-status');
+
+    if (!settingsModal) return;
+
+    function openSettings() {
+      closeAesDropdown();
+      if (cycleInput) cycleInput.value = getDayCycleStart();
+      if (cycleStatus) cycleStatus.textContent = '';
+      settingsModal.classList.remove('modal-hidden');
+      document.body.classList.add('modal-active');
+    }
+
+    function closeSettings() {
+      settingsModal.classList.add('modal-hidden');
+      if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
+        document.body.classList.remove('modal-active');
+      }
+    }
+
+    if (settingsBtn)   settingsBtn.addEventListener('click', openSettings);
+    if (settingsClose) settingsClose.addEventListener('click', closeSettings);
+    settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettings(); });
+
+    if (cycleSaveBtn) {
+      cycleSaveBtn.addEventListener('click', () => {
+        const val = cycleInput?.value?.trim();
+        if (!val || !/^([01]?\d|2[0-3]):[0-5]\d$/.test(val)) {
+          if (cycleStatus) { cycleStatus.textContent = '⚠️ Invalid time format (use HH:MM, 0–23 h).'; cycleStatus.className = 'settings-status settings-status-error'; }
+          return;
+        }
+        const [h, min] = val.split(':').map(Number);
+        const normalized = `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+        setDayCycleStart(normalized);
+        if (cycleInput) cycleInput.value = normalized;
+        if (cycleStatus) {
+          cycleStatus.textContent = '✅ Saved! Day boundary updated.';
+          cycleStatus.className = 'settings-status settings-status-success';
+        }
+      });
+    }
   })();
 
   // ── Staff of Aesculapius dropdown ────────────────────────────────────────
