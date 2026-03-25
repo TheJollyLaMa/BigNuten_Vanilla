@@ -1321,7 +1321,7 @@ function displayRecentFoods() {
   const past7 = new Date();
   past7.setDate(past7.getDate() - 6); // includes today
 
-  // Show all entries in last 7 days
+  // Show all entries in last 7 days, newest first
   const foods = (data.foods || []).filter(food => {
     let foodDate = food.date || food.timestamp || '';
     if (!foodDate) return false;
@@ -1332,7 +1332,7 @@ function displayRecentFoods() {
       dateObj = new Date(foodDate);
     }
     return dateObj >= past7;
-  });
+  }).reverse();
 
   foods.forEach(food => {
     const li = document.createElement('li');
@@ -1341,8 +1341,8 @@ function displayRecentFoods() {
     const dateStr = food.date ? (food.date.length > 10 ? formatInUserTz(food.date, { year: 'numeric', month: 'short', day: 'numeric' }) : food.date) : '';
     li.innerHTML = `<span class="supplement-name-hover">${food.name}</span>${desc} — ${amountStr} on ${dateStr}`;
     
-    li.addEventListener('mouseenter', () => showFoodGraphPopup(food.name, li));
-    li.addEventListener('mouseleave', hideSupplementGraphPopup);
+    li.addEventListener('mouseenter', () => showFoodNutrPopup(food, li));
+    li.addEventListener('mouseleave', hideFoodNutrPopup);
 
     li.addEventListener('click', () => {
       const entries = getFitnessData().foods.filter(f => f.name === food.name);
@@ -1410,6 +1410,63 @@ function showFoodGraphPopup(foodName, anchorElement) {
     });
   }
 }
+// --- Food nutrition card popover for Raw Intake log ---
+function showFoodNutrPopup(food, anchorElement) {
+  let popup = document.getElementById('food-nutr-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'food-nutr-popup';
+    popup.className = 'diet-nutr-card food-nutr-popup';
+    document.body.appendChild(popup);
+    popup.addEventListener('mouseenter', () => { popup.style.display = 'block'; });
+    popup.addEventListener('mouseleave', () => { popup.style.display = 'none'; });
+  }
+
+  const nutr = food.nutr || {};
+  const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '1 serving';
+  const fields = [
+    { key: 'calories',   label: 'Calories',     unit: 'kcal', icon: '🔥' },
+    { key: 'protein',    label: 'Protein',       unit: 'g',    icon: '💪' },
+    { key: 'carbs',      label: 'Carbs',         unit: 'g',    icon: '🌾' },
+    { key: 'fat',        label: 'Fat',           unit: 'g',    icon: '🫙' },
+    { key: 'fiber',      label: 'Fiber',         unit: 'g',    icon: '🌿' },
+    { key: 'potassium',  label: 'Potassium',     unit: '%DV',  icon: '🍌' },
+    { key: 'sodium',     label: 'Sodium',        unit: 'mg',   icon: '🧂' },
+    { key: 'sugar',      label: 'Sugar',         unit: 'g',    icon: '🍬' },
+  ];
+  const hasNutr = fields.some(f => nutr[f.key] != null);
+  const rows = hasNutr
+    ? fields.filter(f => nutr[f.key] != null).map(f =>
+        `<div class="diet-nutr-field food-nutr-popup__row">
+          <span class="food-nutr-popup__icon">${f.icon}</span>
+          <span class="food-nutr-popup__label">${f.label}</span>
+          <span class="food-nutr-popup__val">${nutr[f.key]} ${f.unit}</span>
+        </div>`
+      ).join('')
+    : `<div style="color:rgba(180,220,240,0.5);font-size:0.78rem;text-align:center;">No nutrition data</div>`;
+
+  popup.innerHTML = `
+    <div class="diet-nutr-card__header">
+      <span class="diet-nutr-card__icon">📊</span>
+      <span class="diet-nutr-card__title">${food.name} <em>for ${amountStr}</em></span>
+    </div>
+    <div class="diet-nutr-grid">${rows}</div>
+  `;
+
+  const rect = anchorElement.getBoundingClientRect();
+  const popupWidth = 280;
+  let left = rect.left + window.scrollX;
+  if (left + popupWidth > window.innerWidth) left = window.innerWidth - popupWidth - 8;
+  popup.style.top = `${rect.bottom + window.scrollY + 4}px`;
+  popup.style.left = `${Math.max(4, left)}px`;
+  popup.style.display = 'block';
+}
+
+function hideFoodNutrPopup() {
+  const popup = document.getElementById('food-nutr-popup');
+  if (popup) popup.style.display = 'none';
+}
+
   // --- Raw Intake logging button logic ---
   const logFoodsBtn = document.getElementById('log-foods');
   logFoodsBtn?.addEventListener('click', () => {
