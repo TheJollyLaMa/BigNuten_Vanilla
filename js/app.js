@@ -380,6 +380,126 @@ function hideModal(id) {
   }
 }
 
+// --- Pain Log Modal (Sacral Chakra) ---
+function renderPainLogList() {
+  const list = document.getElementById('pain-log-list');
+  if (!list) return;
+  const data = getFitnessData();
+  const logs = (data.painLogs || []).slice().reverse(); // newest first
+  if (!logs.length) {
+    list.innerHTML = '<li style="color:rgba(255,200,140,0.45);text-align:center;font-size:0.82rem;">No pain logs yet.</li>';
+    return;
+  }
+  list.innerHTML = logs.map((entry, idx) => {
+    const realIdx = (data.painLogs.length - 1) - idx;
+    const severityLevel = entry.severity <= 3 ? 'low' : entry.severity <= 6 ? 'medium' : 'high';
+    const dateStr = entry.timestamp ? new Date(entry.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '';
+    const areaLabel = [entry.bodyArea, entry.specificPart].filter(Boolean).join(' › ');
+    return `<li class="pain-log-entry">
+      <button class="pain-entry-delete" data-idx="${realIdx}" title="Delete">✕</button>
+      <div class="pain-entry-header">
+        <span class="pain-entry-area">${escapeHtml(areaLabel)}</span>
+        <span class="pain-entry-severity" data-level="${severityLevel}">⚡ ${entry.severity}/10</span>
+        <span class="pain-entry-status">${escapeHtml(entry.status || 'active')}</span>
+        <span class="pain-entry-date">${escapeHtml(dateStr)}</span>
+      </div>
+      ${entry.description ? `<div class="pain-entry-desc">${escapeHtml(entry.description)}</div>` : ''}
+      ${entry.hunch ? `<div class="pain-entry-desc" style="color:rgba(255,180,100,0.6);font-size:0.78rem;">💡 ${escapeHtml(entry.hunch)}</div>` : ''}
+    </li>`;
+  }).join('');
+
+  // Delete handlers
+  list.querySelectorAll('.pain-entry-delete').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = parseInt(btn.dataset.idx, 10);
+      const d = getFitnessData();
+      if (!Array.isArray(d.painLogs)) return;
+      d.painLogs.splice(i, 1);
+      saveFitnessData(d);
+      renderPainLogList();
+    });
+  });
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function initPainLogModal() {
+  // Open on sacral chakra click
+  document.getElementById('chakra-sacral')?.addEventListener('click', () => {
+    // Pre-fill datetime to now
+    const dtInput = document.getElementById('pain-datetime');
+    if (dtInput && !dtInput.value) {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      dtInput.value = now.toISOString().slice(0, 16);
+    }
+    renderPainLogList();
+    showModal('pain-log-modal');
+  });
+
+  // Close button
+  document.getElementById('pain-log-modal-close')?.addEventListener('click', () => {
+    hideModal('pain-log-modal');
+  });
+
+  // Click outside to close
+  document.getElementById('pain-log-modal')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('pain-log-modal')) hideModal('pain-log-modal');
+  });
+
+  // Severity slider live label
+  document.getElementById('pain-severity')?.addEventListener('input', (e) => {
+    const el = document.getElementById('pain-severity-value');
+    if (el) el.textContent = e.target.value;
+  });
+
+  // Form submission
+  document.getElementById('pain-log-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const bodyArea    = document.getElementById('pain-body-area')?.value || '';
+    const specificPart = document.getElementById('pain-specific-part')?.value.trim() || '';
+    const description = document.getElementById('pain-description')?.value.trim() || '';
+    const hunch       = document.getElementById('pain-hunch')?.value.trim() || '';
+    const severity    = parseInt(document.getElementById('pain-severity')?.value || '5', 10);
+    const datetime    = document.getElementById('pain-datetime')?.value || new Date().toISOString();
+    const status      = document.getElementById('pain-status')?.value || 'active';
+
+    if (!bodyArea) {
+      alert('Please select a body area.');
+      return;
+    }
+
+    const entry = {
+      bodyArea,
+      specificPart,
+      description,
+      hunch,
+      severity,
+      status,
+      timestamp: new Date(datetime).toISOString()
+    };
+
+    const data = getFitnessData();
+    if (!Array.isArray(data.painLogs)) data.painLogs = [];
+    data.painLogs.push(entry);
+    saveFitnessData(data);
+
+    // Reset form (keep datetime pre-filled for quick sequential logs)
+    document.getElementById('pain-body-area').value = '';
+    document.getElementById('pain-specific-part').value = '';
+    document.getElementById('pain-description').value = '';
+    document.getElementById('pain-hunch').value = '';
+    document.getElementById('pain-severity').value = '5';
+    const sevLabel = document.getElementById('pain-severity-value');
+    if (sevLabel) sevLabel.textContent = '5';
+    document.getElementById('pain-status').value = 'active';
+
+    renderPainLogList();
+  });
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('emotion-icon')?.addEventListener('click', () => {
     showModal('emotion-modal');
@@ -421,6 +541,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target === document.getElementById('moon-modal')) hideModal('moon-modal');
   });
 
+  // --- Pain Log Modal (Sacral Chakra) ---
+  initPainLogModal();
   // --- Emotion Wheel SVG Three-Ring Rendering (Full Hierarchy) ---
   // Only run if the SVG and group exist
   const svg = document.getElementById('emotionWheelSVG');
@@ -721,7 +843,8 @@ const defaultData = {
     types: ['Sit-ups', 'Push-ups', 'Pull-ups'],
     entries: []
   },
-  sessionLog: []
+  sessionLog: [],
+  painLogs: []
 };
 
 function getFitnessData() {

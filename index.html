@@ -268,6 +268,104 @@
       </form>
     </div>
   </div>
+
+  <!-- Pain Log Modal (Sacral Chakra) -->
+  <div id="pain-log-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="pain-log-modal-title">
+    <div class="modal pain-log-modal">
+      <button class="modal-close" id="pain-log-modal-close">×</button>
+      <h2 id="pain-log-modal-title">🟠 Pain &amp; Body Log</h2>
+      <p class="pain-log-intro">Log a pain, injury, or bodily discomfort — and reflect on its cause.</p>
+
+      <form id="pain-log-form" class="pain-log-form" autocomplete="off">
+
+        <!-- Body Area -->
+        <div class="pain-form-group">
+          <label class="pain-label" for="pain-body-area">Body Area</label>
+          <select id="pain-body-area" class="pain-select" required>
+            <option value="">— Select area —</option>
+            <option value="Head / Skull">Head / Skull</option>
+            <option value="Face / Jaw">Face / Jaw</option>
+            <option value="Neck / Throat">Neck / Throat</option>
+            <option value="Left Shoulder">Left Shoulder</option>
+            <option value="Right Shoulder">Right Shoulder</option>
+            <option value="Left Arm / Elbow">Left Arm / Elbow</option>
+            <option value="Right Arm / Elbow">Right Arm / Elbow</option>
+            <option value="Left Wrist / Hand">Left Wrist / Hand</option>
+            <option value="Right Wrist / Hand">Right Wrist / Hand</option>
+            <option value="Upper Back">Upper Back</option>
+            <option value="Mid Back">Mid Back</option>
+            <option value="Lower Back">Lower Back</option>
+            <option value="Chest / Sternum">Chest / Sternum</option>
+            <option value="Abdomen / Core">Abdomen / Core</option>
+            <option value="Hips / Pelvis">Hips / Pelvis</option>
+            <option value="Sacral / Coccyx">Sacral / Coccyx</option>
+            <option value="Left Hip / Glute">Left Hip / Glute</option>
+            <option value="Right Hip / Glute">Right Hip / Glute</option>
+            <option value="Left Knee">Left Knee</option>
+            <option value="Right Knee">Right Knee</option>
+            <option value="Left Ankle / Foot">Left Ankle / Foot</option>
+            <option value="Right Ankle / Foot">Right Ankle / Foot</option>
+            <option value="Left Shin / Calf">Left Shin / Calf</option>
+            <option value="Right Shin / Calf">Right Shin / Calf</option>
+            <option value="Left Thigh">Left Thigh</option>
+            <option value="Right Thigh">Right Thigh</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <!-- Specific Part -->
+        <div class="pain-form-group">
+          <label class="pain-label" for="pain-specific-part">Specific Part (optional)</label>
+          <input type="text" id="pain-specific-part" class="pain-input" placeholder="e.g. outer tendon, inner joint…" />
+        </div>
+
+        <!-- Description -->
+        <div class="pain-form-group">
+          <label class="pain-label" for="pain-description">Description</label>
+          <textarea id="pain-description" class="pain-textarea" rows="3" placeholder="How does it feel? Sharp, dull, burning? When does it occur?" required></textarea>
+        </div>
+
+        <!-- Hunch / Cause -->
+        <div class="pain-form-group">
+          <label class="pain-label" for="pain-hunch">Hunch on Cause</label>
+          <textarea id="pain-hunch" class="pain-textarea" rows="2" placeholder="What do you think caused or contributed to this?"></textarea>
+        </div>
+
+        <!-- Severity -->
+        <div class="pain-form-group">
+          <label class="pain-label" for="pain-severity">Severity: <span id="pain-severity-value">5</span> / 10</label>
+          <input type="range" id="pain-severity" class="pain-range" min="1" max="10" value="5" />
+          <div class="pain-severity-labels">
+            <span>Mild</span><span>Moderate</span><span>Severe</span>
+          </div>
+        </div>
+
+        <!-- Date / Time -->
+        <div class="pain-form-group">
+          <label class="pain-label" for="pain-datetime">Date &amp; Time</label>
+          <input type="datetime-local" id="pain-datetime" class="pain-input" required />
+        </div>
+
+        <!-- Status -->
+        <div class="pain-form-group">
+          <label class="pain-label" for="pain-status">Status</label>
+          <select id="pain-status" class="pain-select">
+            <option value="active">Active / Ongoing</option>
+            <option value="improved">Improved</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+
+        <button type="submit" class="pain-submit-btn">🟠 Save Pain Log</button>
+      </form>
+
+      <!-- Existing Pain Logs -->
+      <div class="pain-log-history" id="pain-log-history">
+        <h3 class="pain-history-title">Recent Logs</h3>
+        <ul id="pain-log-list" class="pain-log-list"></ul>
+      </div>
+    </div>
+  </div>
   </main>
 
   <footer>

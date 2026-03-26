@@ -6468,3 +6468,255 @@ svg text {
 @media (max-width: 700px) {
   /* JS handles mobile positioning; no static overrides needed. */
 }
+
+/* ── Pain Log Modal (Sacral Chakra) ─────────────────────────────────────── */
+.pain-log-modal {
+  background: linear-gradient(160deg, rgba(30,10,0,0.97) 0%, rgba(50,20,0,0.97) 100%);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 140, 0, 0.45);
+  box-shadow: 0 0 30px rgba(255,100,0,0.35), inset 0 0 60px rgba(60,20,0,0.5);
+  padding: 1.8rem 1.6rem 1.4rem;
+  max-width: 520px;
+  width: 95%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.pain-log-modal h2 {
+  text-align: center;
+  font-size: 1.3rem;
+  letter-spacing: 0.05em;
+  color: #ffd0a0;
+  margin: 0 0 0.4rem;
+  text-shadow: 0 0 12px #ff8c00;
+}
+
+.pain-log-intro {
+  text-align: center;
+  font-size: 0.88rem;
+  color: rgba(255,200,140,0.75);
+  margin: 0 0 1.2rem;
+}
+
+.pain-log-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.pain-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.pain-label {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: rgba(255,200,140,0.9);
+  letter-spacing: 0.03em;
+}
+
+.pain-input,
+.pain-select,
+.pain-textarea {
+  background: rgba(40,15,0,0.7);
+  border: 1px solid rgba(255,140,0,0.35);
+  border-radius: 8px;
+  color: #ffd0a0;
+  font-size: 0.92rem;
+  padding: 0.5rem 0.75rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+
+.pain-input:focus,
+.pain-select:focus,
+.pain-textarea:focus {
+  border-color: rgba(255,140,0,0.75);
+  box-shadow: 0 0 8px rgba(255,100,0,0.3);
+}
+
+.pain-select option {
+  background: #1a0a00;
+  color: #ffd0a0;
+}
+
+.pain-textarea {
+  resize: vertical;
+  min-height: 3.5rem;
+}
+
+.pain-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #ff4500, #ff8c00, #ffcc00);
+  outline: none;
+  cursor: pointer;
+}
+
+.pain-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff8c00;
+  box-shadow: 0 0 6px #ff4500;
+  cursor: pointer;
+}
+
+.pain-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff8c00;
+  box-shadow: 0 0 6px #ff4500;
+  border: none;
+  cursor: pointer;
+}
+
+.pain-severity-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: rgba(255,180,100,0.6);
+  margin-top: 0.2rem;
+}
+
+.pain-submit-btn {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 1.2rem;
+  background: rgba(255, 100, 0, 0.2);
+  border: 1px solid rgba(255,140,0,0.6);
+  border-radius: 10px;
+  color: #ffd0a0;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  margin-top: 0.4rem;
+  letter-spacing: 0.04em;
+}
+
+.pain-submit-btn:hover {
+  background: rgba(255,100,0,0.38);
+  box-shadow: 0 0 14px rgba(255,100,0,0.45);
+}
+
+/* Pain log history list */
+.pain-log-history {
+  margin-top: 1.4rem;
+  border-top: 1px solid rgba(255,140,0,0.25);
+  padding-top: 1rem;
+}
+
+.pain-history-title {
+  font-size: 0.95rem;
+  color: rgba(255,200,140,0.85);
+  margin: 0 0 0.6rem;
+  text-align: center;
+}
+
+.pain-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.pain-log-entry {
+  background: rgba(50,20,0,0.6);
+  border: 1px solid rgba(255,140,0,0.25);
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.85rem;
+  color: #ffd0a0;
+  position: relative;
+}
+
+.pain-entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.3rem;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.pain-entry-area {
+  font-weight: 700;
+  color: #ffb060;
+}
+
+.pain-entry-date {
+  font-size: 0.75rem;
+  color: rgba(255,180,100,0.6);
+}
+
+.pain-entry-severity {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 700;
+}
+.pain-entry-severity[data-level="low"] {
+  background: rgba(255,200,0,0.15);
+  color: #ffcc00;
+  border: 1px solid rgba(255,200,0,0.35);
+}
+.pain-entry-severity[data-level="medium"] {
+  background: rgba(255,120,0,0.18);
+  color: #ff8c00;
+  border: 1px solid rgba(255,120,0,0.4);
+}
+.pain-entry-severity[data-level="high"] {
+  background: rgba(255,50,0,0.18);
+  color: #ff4500;
+  border: 1px solid rgba(255,50,0,0.4);
+}
+
+.pain-entry-status {
+  font-size: 0.75rem;
+  color: rgba(255,200,140,0.65);
+  text-transform: capitalize;
+}
+
+.pain-entry-desc {
+  font-size: 0.82rem;
+  color: rgba(255,210,170,0.8);
+  margin-top: 0.2rem;
+  word-break: break-word;
+}
+
+.pain-entry-delete {
+  background: none;
+  border: none;
+  color: rgba(255,80,0,0.5);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0 0.2rem;
+  transition: color 0.15s;
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+}
+
+.pain-entry-delete:hover {
+  color: rgba(255,80,0,0.9);
+}
+
+@media (max-width: 600px) {
+  .pain-log-modal {
+    padding: 1.2rem 1rem 1rem;
+  }
+}
