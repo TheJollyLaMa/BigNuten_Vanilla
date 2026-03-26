@@ -16,7 +16,8 @@ const defaultData = {
     entries: []
   },
   sessionLog: [],
-  painLogs: []
+  painLogs: [],
+  emotions: []
 };
 
 /**
@@ -59,6 +60,7 @@ export function normalizeFitnessData(data) {
   if (!Array.isArray(data.measurements)) data.measurements = [];
   if (!Array.isArray(data.sessionLog)) data.sessionLog = [];
   if (!Array.isArray(data.painLogs)) data.painLogs = [];
+  if (!Array.isArray(data.emotions)) data.emotions = [];
   if (typeof data.timeZone !== 'string') data.timeZone = '';
 
   data.dataVersion = DATA_VERSION;
@@ -236,7 +238,7 @@ export function mergeSnapshotData(current, imported) {
   const merged = { ...current };
 
   // Simple array fields — deduplicate by timestamp (or full JSON if no timestamp)
-  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs'];
+  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions'];
   simpleArrayFields.forEach(field => {
     const a = Array.isArray(current[field]) ? current[field] : [];
     const b = Array.isArray(imported[field]) ? imported[field] : [];
@@ -302,13 +304,13 @@ export async function importAndMergeFromCID(cid) {
     throw new Error('Invalid snapshot structure: missing expected data fields.');
   }
 
-  ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs'].forEach(f => {
+  ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions'].forEach(f => {
     if (!Array.isArray(imported[f])) imported[f] = [];
   });
 
   const currentRaw = localStorage.getItem(STORAGE_KEY);
   const current = currentRaw ? JSON.parse(currentRaw) : { ...defaultData };
-  ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs'].forEach(f => {
+  ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions'].forEach(f => {
     if (!Array.isArray(current[f])) current[f] = [];
   });
 

@@ -1,6 +1,7 @@
 /* Utility: hide elements */
 .hidden { display: none !important; }
 
+/* Emotion wheel SVG text styles (overridden in main emotion section below) */
 #emotionWheelSVG text {
   font-size: 9px;
   fill: #fff;
@@ -9,13 +10,10 @@
   paint-order: stroke fill;
   stroke: #000;
   stroke-width: 0.4px;
+  pointer-events: none;
+  user-select: none;
 }
 
-.emotion-slice:hover {
-  stroke: #00e5ff;
-  stroke-width: 2;
-  cursor: pointer;
-}
 #emotion-map {
   position: absolute;
   top: 0;
@@ -1462,37 +1460,168 @@ footer {
 /* Emotion wheel container - responsive wrapper */
 .emotion-wheel-container {
   position: relative;
-  width: 600px;
-  height: 600px;
+  width: 580px;
+  height: 580px;
   margin: 0 auto;
+  max-width: 100%;
 }
 
 .emotion-log-modal {
   position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
-.emotion-wheel-img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.emotion-wheel-overlay-svg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 10;
-  pointer-events: none;
-}
-
-#selectedEmotion {
+.emotion-wheel-hint {
   text-align: center;
-  font-size: 1.1rem;
-  margin-top: 1rem;
-  color: #00e5ff;
+  font-size: 0.85rem;
+  color: #aaa;
+  margin: 0.3rem 0 0.6rem;
 }
+
+.emotion-modal-context {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #00e5ff;
+  margin: 0.3rem 0 0.8rem;
+  text-shadow: 0 0 8px #00e5ff66;
+}
+
+/* Emotion wheel SVG */
+#emotionWheelSVG {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 580px;
+  margin: 0 auto;
+}
+
+#emotionSlices path.ew-slice {
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+#emotionSlices path.ew-slice:hover {
+  filter: brightness(1.35) drop-shadow(0 0 6px rgba(255,255,255,0.5));
+}
+
+/* Selected emotion display */
+.emotion-selected-display {
+  min-height: 2.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0.6rem 0;
+  flex-wrap: wrap;
+}
+.ew-selected-emoji { font-size: 2rem; }
+.ew-selected-label {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 0 8px #00e5ff66;
+}
+.ew-log-btn {
+  background: linear-gradient(135deg, #00e5ff22, #00b4cc44);
+  border: 1px solid #00e5ff;
+  border-radius: 8px;
+  color: #00e5ff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.ew-log-btn:hover {
+  background: #00e5ff22;
+  box-shadow: 0 0 10px #00e5ff55;
+}
+.ew-cancel-btn {
+  background: transparent;
+  border: 1px solid #555;
+  border-radius: 8px;
+  color: #888;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+.ew-logged-confirm {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #00e5ff;
+  animation: ew-fade-in 0.3s ease;
+}
+@keyframes ew-fade-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Feelings Analytics Panel ── */
+.feelings-analytics {
+  border-top: 1px solid #333;
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+}
+.ew-analytics-empty {
+  text-align: center;
+  color: #888;
+  font-size: 0.95rem;
+  padding: 1rem 0;
+}
+.ew-analytics-grid {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.ew-pie-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ew-pie-wrap h4,
+.ew-stats-panel h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+  color: #00e5ff;
+  text-align: center;
+}
+.ew-pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+  max-width: 190px;
+}
+.ew-stats-panel {
+  flex: 1;
+  min-width: 180px;
+}
+.ew-stats-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.9;
+  color: #ddd;
+}
+.ew-stats-list strong { color: #fff; }
+.ew-emoji-cloud {
+  margin-top: 0.8rem;
+}
+.ew-emojis {
+  font-size: 1.5rem;
+  letter-spacing: 0.1rem;
+  line-height: 1.8;
+  word-break: break-all;
+}
+
+/* ── Remove legacy overlay styles ── */
+.emotion-wheel-img { display: none; }
+.emotion-wheel-overlay-svg { display: none; }
+#selectedEmotion { display: none; }
 
 /* ── Shared utility styles for logger modals ── */
 .modal-action-btn {
