@@ -5,6 +5,7 @@ import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
 import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId } from './genieChat.js';
+import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -295,45 +296,6 @@ function requestLocation() {
 
 // Initialize moon modal with dummy values
 window.addEventListener('DOMContentLoaded', () => {
-  // --- Emotion Wheel Overlay SVG Slices ---
-  const overlaySVG = document.getElementById('emotionWheelOverlaySVG');
-  const center = 300;
-  const radius = 290;
-  const emotions = ['Surprised', 'Bad', 'Fearful', 'Angry', 'Disgusted', 'Sad', 'Happy'];
-  const sliceCount = emotions.length;
-
-  for (let i = 0; i < sliceCount; i++) {
-    const angleStart = (2 * Math.PI * i) / sliceCount;
-    const angleEnd = (2 * Math.PI * (i + 1)) / sliceCount;
-    const x1 = center + radius * Math.cos(angleStart - Math.PI / 2);
-    const y1 = center + radius * Math.sin(angleStart - Math.PI / 2);
-    const x2 = center + radius * Math.cos(angleEnd - Math.PI / 2);
-    const y2 = center + radius * Math.sin(angleEnd - Math.PI / 2);
-
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    const d = [
-      `M ${center} ${center}`,
-      `L ${x1} ${y1}`,
-      `A ${radius} ${radius} 0 0 1 ${x2} ${y2}`,
-      'Z'
-    ].join(' ');
-
-    path.setAttribute('d', d);
-    path.setAttribute('fill', 'transparent');
-    path.setAttribute('stroke', 'transparent');
-    path.style.cursor = 'pointer';
-    path.style.pointerEvents = 'auto';
-    path.setAttribute('data-emotion', emotions[i]);
-
-    path.addEventListener('click', () => {
-      const selected = document.getElementById('selectedEmotion');
-      const input = document.getElementById('emotion-input');
-      selected.textContent = `Selected Emotion: ${emotions[i]}`;
-      input.value = emotions[i];
-    });
-
-    overlaySVG.appendChild(path);
-  }
   const { tithi, moonAge } = calculateTithi();
   const sunDay = new Date().getDay(); // 0 = Sunday … 6 = Saturday
   updateMoonSunModal(tithi, moonAge, sunDay, null, null);
@@ -502,21 +464,10 @@ function initPainLogModal() {
 
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('emotion-icon')?.addEventListener('click', () => {
-    showModal('emotion-modal');
+    openFeelingsModal('manual');
   });
   document.querySelector('#emotion-modal .modal-close')?.addEventListener('click', () => {
     hideModal('emotion-modal');
-  });
-  document.getElementById('emotion-form')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const emotion = document.getElementById('emotion-input').value;
-    const now = new Date().toISOString();
-    const data = getFitnessData();
-    if (!Array.isArray(data.emotions)) data.emotions = [];
-    data.emotions.push({ emotion, timestamp: now });
-    saveFitnessData(data);
-    hideModal('emotion-modal');
-    alert('Emotion logged.');
   });
 
   // Expose showModal globally for inline HTML onclick handlers
@@ -543,287 +494,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // --- Pain Log Modal (Sacral Chakra) ---
   initPainLogModal();
-  // --- Emotion Wheel SVG Three-Ring Rendering (Full Hierarchy) ---
-  // Only run if the SVG and group exist
-  const svg = document.getElementById('emotionWheelSVG');
-  const slicesGroup = document.getElementById('emotionSlices');
-  const selectedDiv = document.getElementById('selectedEmotion');
-  const emotionInput = document.getElementById('emotion-input');
-  if (svg && slicesGroup) {
-    svg.style.display = 'block';
-    slicesGroup.innerHTML = '';
-    // Full 3-level emotion hierarchy (Plutchik-inspired, with complete third-levels)
-    // Each third-level has a parent (second-level), and each second-level has a parent (base)
-    // We'll use a data structure with label, level, and parent as needed
-    const emotions = [
-      // Level 1: Base emotions (center ring)
-      { label: 'Surprised', level: 1 },
-      { label: 'Bad', level: 1 },
-      { label: 'Fearful', level: 1 },
-      { label: 'Angry', level: 1 },
-      { label: 'Disgusted', level: 1 },
-      { label: 'Sad', level: 1 },
-      { label: 'Happy', level: 1 },
-      // Level 2: Second ring (parent: base)
-      { label: 'Startled', parent: 'Surprised', level: 2 },
-      { label: 'Confused', parent: 'Surprised', level: 2 },
-      { label: 'Helpless', parent: 'Bad', level: 2 },
-      { label: 'Frightened', parent: 'Fearful', level: 2 },
-      { label: 'Frustrated', parent: 'Angry', level: 2 },
-      { label: 'Jealous', parent: 'Angry', level: 2 },
-      { label: 'Disapproving', parent: 'Disgusted', level: 2 },
-      { label: 'Disappointed', parent: 'Sad', level: 2 },
-      { label: 'Awful', parent: 'Bad', level: 2 },
-      { label: 'Hurt', parent: 'Sad', level: 2 },
-      { label: 'Depressed', parent: 'Sad', level: 2 },
-      { label: 'Empty', parent: 'Sad', level: 2 },
-      { label: 'Guilty', parent: 'Bad', level: 2 },
-      { label: 'Lonely', parent: 'Sad', level: 2 },
-      { label: 'Bored', parent: 'Bad', level: 2 },
-      { label: 'Tired', parent: 'Bad', level: 2 },
-      { label: 'Sleepy', parent: 'Bad', level: 2 },
-      { label: 'Unhappy', parent: 'Bad', level: 2 },
-      { label: 'Proud', parent: 'Happy', level: 2 },
-      { label: 'Optimistic', parent: 'Happy', level: 2 },
-      { label: 'Joyful', parent: 'Happy', level: 2 },
-      { label: 'Interested', parent: 'Happy', level: 2 },
-      // Level 3: Third ring (parent: second-level)
-      // Surprised
-      { label: 'Amazed', parent: 'Startled', level: 3 },
-      { label: 'Shocked', parent: 'Startled', level: 3 },
-      { label: 'Disillusioned', parent: 'Confused', level: 3 },
-      { label: 'Perplexed', parent: 'Confused', level: 3 },
-      // Bad
-      { label: 'Powerless', parent: 'Helpless', level: 3 },
-      { label: 'Vulnerable', parent: 'Helpless', level: 3 },
-      { label: 'Inferior', parent: 'Awful', level: 3 },
-      { label: 'Worthless', parent: 'Awful', level: 3 },
-      { label: 'Ashamed', parent: 'Guilty', level: 3 },
-      { label: 'Remorseful', parent: 'Guilty', level: 3 },
-      { label: 'Indifferent', parent: 'Bored', level: 3 },
-      { label: 'Apathetic', parent: 'Bored', level: 3 },
-      { label: 'Fatigued', parent: 'Tired', level: 3 },
-      { label: 'Unfocussed', parent: 'Tired', level: 3 },
-      { label: 'Unmotivated', parent: 'Sleepy', level: 3 },
-      { label: 'Lethargic', parent: 'Sleepy', level: 3 },
-      { label: 'Unfulfilled', parent: 'Unhappy', level: 3 },
-      { label: 'Dissatisfied', parent: 'Unhappy', level: 3 },
-      // Fearful
-      { label: 'Scared', parent: 'Frightened', level: 3 },
-      { label: 'Terrified', parent: 'Frightened', level: 3 },
-      // Fearful > Frightened (missing third-ring from image)
-      { label: 'Threatened', parent: 'Frightened', level: 3 },
-      // Angry
-      { label: 'Bitter', parent: 'Frustrated', level: 3 },
-      { label: 'Mad', parent: 'Frustrated', level: 3 },
-      { label: 'Envious', parent: 'Jealous', level: 3 },
-      { label: 'Resentful', parent: 'Jealous', level: 3 },
-      // Disgusted
-      { label: 'Disdainful', parent: 'Disapproving', level: 3 },
-      { label: 'Judgmental', parent: 'Disapproving', level: 3 },
-      // Sad
-      { label: 'Regretful', parent: 'Disappointed', level: 3 },
-      { label: 'Appalled', parent: 'Disappointed', level: 3 },
-      { label: 'Abandoned', parent: 'Lonely', level: 3 },
-      { label: 'Isolated', parent: 'Lonely', level: 3 },
-      { label: 'Despair', parent: 'Depressed', level: 3 },
-      { label: 'Hopeless', parent: 'Depressed', level: 3 },
-      { label: 'Empty inside', parent: 'Empty', level: 3 },
-      { label: 'Numb', parent: 'Empty', level: 3 },
-      // Sad > Empty (missing third-ring from image)
-      { label: 'Hollow', parent: 'Empty', level: 3 },
-      { label: 'Sensitive', parent: 'Hurt', level: 3 },
-      // Sad > Hurt (missing third-ring from image)
-      { label: 'Rejected', parent: 'Hurt', level: 3 },
-      // Bad > Guilty (missing third-ring from image)
-      { label: 'Remorseful', parent: 'Guilty', level: 3 },
-      // Bad > Tired (missing third-ring from image)
-      { label: 'Unfocussed', parent: 'Tired', level: 3 },
-      // Bad > Sleepy (missing third-ring from image)
-      { label: 'Lethargic', parent: 'Sleepy', level: 3 },
-      // Bad > Unhappy (missing third-ring from image)
-      { label: 'Dissatisfied', parent: 'Unhappy', level: 3 },
-      // Happy > Joyful (missing third-ring from image)
-      { label: 'Free', parent: 'Joyful', level: 3 },
-      { label: 'Cheeky', parent: 'Joyful', level: 3 },
-      // Happy
-      { label: 'Confident', parent: 'Proud', level: 3 },
-      { label: 'Successful', parent: 'Proud', level: 3 },
-      { label: 'Hopeful', parent: 'Optimistic', level: 3 },
-      { label: 'Inspired', parent: 'Optimistic', level: 3 },
-      { label: 'Excited', parent: 'Joyful', level: 3 },
-      { label: 'Delighted', parent: 'Joyful', level: 3 },
-      { label: 'Curious', parent: 'Interested', level: 3 },
-      { label: 'Inquisitive', parent: 'Interested', level: 3 },
-    ];
-    const baseEmotions = ['Surprised', 'Bad', 'Fearful', 'Angry', 'Disgusted', 'Sad', 'Happy'];
-    const N = baseEmotions.length;
-    // Ring radii (adjusted as requested)
-    const svgNS = "http://www.w3.org/2000/svg";
-    const size = 600;
-    const cx = size / 2;
-    const cy = size / 2;
-    const r1 = 90;
-    const r2 = 170;
-    const r3 = 260;
-    const r4 = 360;
-    // Helper: get children by parent
-    function getChildren(parent, level) {
-      return emotions.filter(e => e.parent === parent && e.level === level);
-    }
-    // Helper: describe arc
-    function describeArc(cx, cy, r1, r2, startAngle, endAngle) {
-      const startRad = (Math.PI / 180) * startAngle;
-      const endRad = (Math.PI / 180) * endAngle;
-      const x1 = cx + r2 * Math.cos(startRad);
-      const y1 = cy + r2 * Math.sin(startRad);
-      const x2 = cx + r2 * Math.cos(endRad);
-      const y2 = cy + r2 * Math.sin(endRad);
-      const x3 = cx + r1 * Math.cos(endRad);
-      const y3 = cy + r1 * Math.sin(endRad);
-      const x4 = cx + r1 * Math.cos(startRad);
-      const y4 = cy + r1 * Math.sin(startRad);
-      const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
-      return [
-        `M ${x1} ${y1}`,
-        `A ${r2} ${r2} 0 ${largeArc} 1 ${x2} ${y2}`,
-        `L ${x3} ${y3}`,
-        `A ${r1} ${r1} 0 ${largeArc} 0 ${x4} ${y4}`,
-        'Z'
-      ].join(' ');
-    }
-    // Helper: click handler
-    function selectEmotion(emotion) {
-      if (selectedDiv) selectedDiv.textContent = `Selected Emotion: ${emotion}`;
-      if (emotionInput) emotionInput.value = emotion;
-    }
-    // Colors for base sectors
-    const baseColors = [
-      '#f4d03f', // Surprised (yellow)
-      '#b9770e', // Bad (brown)
-      '#16a085', // Fearful (teal)
-      '#e74c3c', // Angry (red)
-      '#229954', // Disgusted (dark green)
-      '#34495e', // Sad (navy)
-      '#5dade2', // Happy (blue)
-    ];
-    // --- Draw Level 1: Center ring ---
-    for (let i = 0; i < N; ++i) {
-      const base = baseEmotions[i];
-      const start = -135 + i * (360 / N);
-      const end = start + (360 / N);
-      const path = document.createElementNS(svgNS, 'path');
-      path.setAttribute('d', describeArc(cx, cy, 0, r1, start, end));
-      path.setAttribute('fill', baseColors[i % baseColors.length]);
-      path.setAttribute('stroke', '#fff');
-      path.setAttribute('stroke-width', '1');
-      path.classList.add('emotion-slice');
-      path.setAttribute('data-emotion', base);
-      path.addEventListener('click', () => selectEmotion(base));
-      slicesGroup.appendChild(path);
-      // Label (centered in sector, align with arc)
-      const midAngle = (start + end) / 2;
-      const labelRadius = r1 * 0.65;
-      const labelX = cx + labelRadius * Math.cos(midAngle * Math.PI / 180);
-      const labelY = cy + labelRadius * Math.sin(midAngle * Math.PI / 180);
-      const text = document.createElementNS(svgNS, 'text');
-      text.setAttribute('x', labelX);
-      text.setAttribute('y', labelY);
-      text.setAttribute('text-anchor', 'middle');
-      text.setAttribute('dominant-baseline', 'middle');
-      text.setAttribute('transform', `rotate(${midAngle}, ${labelX}, ${labelY})`);
-      text.textContent = base;
-      text.classList.add('emotion-label');
-      slicesGroup.appendChild(text);
-    }
-    // --- Draw Level 2: Second ring ---
-    for (let i = 0; i < N; ++i) {
-      const base = baseEmotions[i];
-      const sectorStart = -135 + i * (360 / N);
-      const sectorEnd = sectorStart + (360 / N);
-      // Get all level 2 children for this base
-      const children = getChildren(base, 2);
-      const count = children.length;
-      for (let j = 0; j < count; ++j) {
-        const child = children[j];
-        const start = sectorStart + ((sectorEnd - sectorStart) * j) / count;
-        const end = sectorStart + ((sectorEnd - sectorStart) * (j+1)) / count;
-        const path = document.createElementNS(svgNS, 'path');
-        path.setAttribute('d', describeArc(cx, cy, r1, r2, start, end));
-        path.setAttribute('fill', baseColors[i % baseColors.length] + "CC");
-        path.setAttribute('stroke', '#fff');
-        path.setAttribute('stroke-width', '1');
-        path.classList.add('emotion-slice');
-        path.setAttribute('data-emotion', child.label);
-        path.addEventListener('click', () => selectEmotion(child.label));
-        slicesGroup.appendChild(path);
-        // Label (curved alignment)
-        const midAngle = (start + end) / 2;
-        const labelRadius = (r1 + r2) / 2;
-        const labelX = cx + labelRadius * Math.cos(midAngle * Math.PI / 180);
-        const labelY = cy + labelRadius * Math.sin(midAngle * Math.PI / 180);
-        const text = document.createElementNS(svgNS, 'text');
-        text.setAttribute('x', labelX);
-        text.setAttribute('y', labelY);
-        text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('dominant-baseline', 'middle');
-        text.setAttribute('transform', `rotate(${midAngle}, ${labelX}, ${labelY})`);
-        text.textContent = child.label;
-        text.classList.add('emotion-label');
-        slicesGroup.appendChild(text);
-      }
-    }
-    // --- Draw Level 3: Outermost ring (r2 to r3) ---
-    for (let i = 0; i < N; ++i) {
-      const base = baseEmotions[i];
-      const sectorStart = -135 + i * (360 / N);
-      const sectorEnd = sectorStart + (360 / N);
-      // Get all level 2 children for this base
-      const secondLevel = getChildren(base, 2);
-      let totalThirds = 0;
-      // Count total third-level emotions in this sector
-      for (const sec of secondLevel) {
-        totalThirds += getChildren(sec.label, 3).length;
-      }
-      // If no thirds, skip
-      if (totalThirds === 0) continue;
-      let thirdIdx = 0;
-      for (const sec of secondLevel) {
-        const thirds = getChildren(sec.label, 3);
-        for (let k = 0; k < thirds.length; ++k) {
-          const third = thirds[k];
-          // Each third-level occupies proportional angle within base sector
-          const start = sectorStart + ((sectorEnd - sectorStart) * thirdIdx) / totalThirds;
-          const end = sectorStart + ((sectorEnd - sectorStart) * (thirdIdx + 1)) / totalThirds;
-          const path = document.createElementNS(svgNS, 'path');
-          path.setAttribute('d', describeArc(cx, cy, r2, r3, start, end));
-          path.setAttribute('fill', baseColors[i % baseColors.length] + "88");
-          path.setAttribute('stroke', '#fff');
-          path.setAttribute('stroke-width', '1');
-          path.classList.add('emotion-slice');
-          path.setAttribute('data-emotion', third.label);
-          path.addEventListener('click', () => selectEmotion(third.label));
-          slicesGroup.appendChild(path);
-          // Label (curved, outermost, align with arc)
-          const midAngle = (start + end) / 2;
-          const labelRadius = (r2 + r3) / 2;
-          const labelX = cx + labelRadius * Math.cos(midAngle * Math.PI / 180);
-          const labelY = cy + labelRadius * Math.sin(midAngle * Math.PI / 180);
-          const text = document.createElementNS(svgNS, 'text');
-          text.setAttribute('x', labelX);
-          text.setAttribute('y', labelY);
-          text.setAttribute('text-anchor', 'middle');
-          text.setAttribute('dominant-baseline', 'middle');
-          // Rotate so text is tangent to the arc at the midpoint
-          text.setAttribute('transform', `rotate(${midAngle}, ${labelX}, ${labelY})`);
-          text.textContent = third.label;
-          text.classList.add('emotion-label');
-          slicesGroup.appendChild(text);
-          thirdIdx++;
-        }
-      }
-    }
-  }
+  // --- Feelings Wheel (3-ring interactive, one-click logging + analytics) ---
+  initFeelingsWheel();
 });
 // Unified fitness data structure & helpers
 
@@ -844,7 +516,8 @@ const defaultData = {
     entries: []
   },
   sessionLog: [],
-  painLogs: []
+  painLogs: [],
+  emotions: []
 };
 
 function getFitnessData() {
@@ -2628,7 +2301,8 @@ function runWorkoutStep() {
     data.sessionLog.push(sessionLogEntry);
     saveFitnessData(data);
     workoutModal.classList.add('modal-hidden');
-    alert('Workout complete!');
+    // Prompt for post-workout feeling
+    openFeelingsModal('post-workout');
     return;
   }
 
