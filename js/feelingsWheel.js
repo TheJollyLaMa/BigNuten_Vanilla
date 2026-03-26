@@ -170,10 +170,15 @@ const NEGATIVE_BASES = new Set(['Fear', 'Sadness', 'Disgust', 'Anger']);
 const NEUTRAL_BASES = new Set(['Surprise']);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+function clampChannel(value) {
+  return Math.min(255, Math.max(0, Math.round(value)));
+}
+
 function shadeColor(hex, factor) {
-  const r = Math.min(255, Math.max(0, Math.round(parseInt(hex.slice(1, 3), 16) * (1 + factor))));
-  const g = Math.min(255, Math.max(0, Math.round(parseInt(hex.slice(3, 5), 16) * (1 + factor))));
-  const b = Math.min(255, Math.max(0, Math.round(parseInt(hex.slice(5, 7), 16) * (1 + factor))));
+  const scale = 1 + factor;
+  const r = clampChannel(parseInt(hex.slice(1, 3), 16) * scale);
+  const g = clampChannel(parseInt(hex.slice(3, 5), 16) * scale);
+  const b = clampChannel(parseInt(hex.slice(5, 7), 16) * scale);
   return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
@@ -391,8 +396,14 @@ function computeAnalytics() {
   let streak = 0;
   let check = todayStr();
   for (const d of days) {
-    if (d === check) { streak++; const dt = new Date(check); dt.setDate(dt.getDate() - 1); check = dt.toISOString().slice(0, 10); }
-    else if (d < check) break;
+    if (d === check) {
+      streak++;
+      const dt = new Date(check);
+      dt.setDate(dt.getDate() - 1);
+      check = dt.toISOString().slice(0, 10);
+    } else if (d < check) {
+      break;
+    }
   }
 
   // Today count
