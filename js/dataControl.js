@@ -133,7 +133,47 @@ export function initDataControl({
   // ── Snapshot panel ────────────────────────────────────────────────────────
   _initSnapshotPanel();
 
+  // ── Mobile data sheet buttons ─────────────────────────────────────────────
+  document.getElementById('mobile-sheet-close-btn')?.addEventListener('click', _closeMobileDataSheet);
+
+  document.getElementById('mobile-sheet-export-btn')?.addEventListener('click', () => {
+    try {
+      exportDataAsJSON();
+      _showStatus('mobile-sheet-status', '✅ Download started.', 'success');
+    } catch (err) {
+      _showStatus('mobile-sheet-status', `❌ ${err.message}`, 'error');
+    }
+  });
+
+  const mobileSheetImportFile = document.getElementById('mobile-sheet-import-file');
+  document.getElementById('mobile-sheet-import-btn')?.addEventListener('click', () => {
+    mobileSheetImportFile?.click();
+  });
+
+  mobileSheetImportFile?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    _showStatus('mobile-sheet-status', '⏳ Importing…', 'info');
+    try {
+      const merged = await importDataFromJSONFile(file);
+      const count  = _countEntries(merged);
+      _showStatus('mobile-sheet-status', `✅ Imported — ${count} total entries.`, 'success');
+    } catch (err) {
+      _showStatus('mobile-sheet-status', `❌ ${err.message}`, 'error');
+    }
+    if (mobileSheetImportFile) mobileSheetImportFile.value = '';
+  });
+
   // ── First-visit: show educational overlay ─────────────────────────────────
+  // On mobile, never show the overlay — silently default to json-only
+  if (_isMobile()) {
+    if (!localStorage.getItem(STORAGE_MODE_KEY)) {
+      setStorageMode('json-only');
+    }
+    localStorage.setItem(EDUC_SEEN_KEY, '1');
+    return;
+  }
+
   const educSeen = localStorage.getItem(EDUC_SEEN_KEY);
   if (!educSeen) {
     // Check if already restored (returning user with session)
@@ -194,7 +234,7 @@ async function _handleIpfsIconClick() {
 
   // Not connected
   if (isMobile) {
-    _openSnapshotPanel(); // Show panel with CID import + mobile message
+    _openMobileDataSheet(); // Show clean mobile bottom-sheet with JSON backup options
     return;
   }
 
@@ -210,6 +250,9 @@ async function _handleIpfsIconClick() {
 // ── Educational overlay ───────────────────────────────────────────────────────
 
 export function _openOverlay() {
+  // On mobile, never show the IPFS educational overlay
+  if (_isMobile()) return;
+
   const overlay = document.getElementById('ipfs-edu-overlay');
   if (!overlay) return;
 
@@ -412,6 +455,24 @@ function _renderSnapshotHistory() {
       ${isToday ? '<span class="sp-today-badge">✅ today</span>' : ''}
     </div>`;
   }).join('');
+}
+
+// ── Mobile Data Sheet (bottom-sheet for mobile users) ────────────────────────
+
+function _openMobileDataSheet() {
+  const sheet = document.getElementById('mobile-data-sheet');
+  if (!sheet) return;
+  sheet.hidden = false;
+  document.body.classList.add('modal-active');
+}
+
+function _closeMobileDataSheet() {
+  const sheet = document.getElementById('mobile-data-sheet');
+  if (!sheet) return;
+  sheet.hidden = true;
+  if (!document.querySelector('.modal-overlay:not(.modal-hidden), #ipfs-edu-overlay:not(.edu-hidden)')) {
+    document.body.classList.remove('modal-active');
+  }
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
