@@ -1177,12 +1177,46 @@
   </div>
   <!-- ── End Snapshot Panel ────────────────────────────────────────────────── -->
 
+  <!-- ── Mobile Data Sheet (bottom-sheet for mobile users, tap IPFS icon) ─── -->
+  <div id="mobile-data-sheet" class="mobile-data-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="mobile-sheet-title">
+    <div class="mobile-data-sheet-inner">
+      <button class="mobile-sheet-close" id="mobile-sheet-close-btn" aria-label="Close">×</button>
+      <div class="mobile-sheet-title" id="mobile-sheet-title">📱 Your BigNuten Data</div>
+      <p class="mobile-sheet-desc">Your logs are saved in this browser.</p>
+
+      <div class="mobile-sheet-btn-group">
+        <button id="mobile-sheet-export-btn" class="mobile-sheet-btn mobile-sheet-btn-primary" type="button">
+          ⬇️ Download JSON Backup
+        </button>
+        <button id="mobile-sheet-import-btn" class="mobile-sheet-btn mobile-sheet-btn-secondary" type="button">
+          📂 Import JSON Backup
+        </button>
+        <input id="mobile-sheet-import-file" type="file" accept=".json,application/json" style="display:none;" />
+      </div>
+
+      <p id="mobile-sheet-status" class="dc-status" aria-live="polite" style="display:none;"></p>
+
+      <p class="mobile-sheet-hint">
+        Want cloud sync? Open on desktop to connect your Storacha IPFS account.
+      </p>
+    </div>
+  </div>
+  <!-- ── End Mobile Data Sheet ─────────────────────────────────────────────── -->
+
   <script>
   // ── Dashboard Panel Toggle Logic ───────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     const panels = document.querySelectorAll('.dashboard-panel');
     const toggleBtns = document.querySelectorAll('.panel-toggle-btn');
     let activePanel = null;
+
+    function updatePanelOpenClass() {
+      if (activePanel) {
+        document.body.classList.add('panel-open');
+      } else {
+        document.body.classList.remove('panel-open');
+      }
+    }
 
     toggleBtns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1205,6 +1239,7 @@
           btn.classList.add('active');
           activePanel = panelId;
         }
+        updatePanelOpenClass();
       });
     });
 
@@ -1217,6 +1252,7 @@
       if (panel) panel.classList.remove('panel-visible');
       toggleBtns.forEach(b => b.classList.remove('active'));
       activePanel = null;
+      updatePanelOpenClass();
     });
 
     // ── Subscription Plan Toggle ───────────────────────────────

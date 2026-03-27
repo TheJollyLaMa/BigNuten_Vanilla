@@ -3480,7 +3480,8 @@ svg text {
   }
 
   .panel-toggle-btn {
-    min-width: 0;
+    min-width: 44px;
+    min-height: 44px;
     flex: 1;
   }
 }
@@ -6926,5 +6927,134 @@ svg text {
 @media (max-width: 600px) {
   .pain-log-modal {
     padding: 1.2rem 1rem 1rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Mobile Data Sheet (bottom-sheet shown on IPFS icon tap, mobile)
+   ═══════════════════════════════════════════════════════════════ */
+
+.mobile-data-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20000;
+  background: rgba(0, 0, 33, 0.98);
+  border-top: 2px solid rgba(0, 229, 255, 0.45);
+  border-radius: 18px 18px 0 0;
+  padding: 1.2rem 1.2rem 2rem;
+  box-shadow: 0 -4px 32px rgba(0, 229, 255, 0.18);
+  animation: slideUpSheet 0.22s ease-out;
+}
+
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.mobile-data-sheet-inner {
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.mobile-sheet-close {
+  position: absolute;
+  top: -0.4rem;
+  right: -0.2rem;
+  background: none;
+  border: none;
+  color: #5080a0;
+  font-size: 1.6rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.mobile-sheet-close:hover { color: #c0e0f8; }
+
+.mobile-sheet-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #00e5ff;
+  margin-bottom: 0.3rem;
+  padding-right: 2rem;
+}
+
+.mobile-sheet-desc {
+  font-size: 0.88rem;
+  color: #8ab0c4;
+  margin: 0 0 1rem;
+}
+
+.mobile-sheet-btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.mobile-sheet-btn {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.18s;
+}
+.mobile-sheet-btn:active { opacity: 0.75; }
+
+.mobile-sheet-btn-primary {
+  background: linear-gradient(135deg, #00b4d8, #0077b6);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(0, 180, 220, 0.35);
+}
+
+.mobile-sheet-btn-secondary {
+  background: rgba(0, 229, 255, 0.1);
+  color: #00e5ff;
+  border: 1px solid rgba(0, 229, 255, 0.35);
+}
+
+.mobile-sheet-hint {
+  font-size: 0.78rem;
+  color: #4a6a80;
+  margin: 0.4rem 0 0;
+  line-height: 1.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Mobile panel-open fixes (≤ 700px)
+   Z-index stack (bottom → top):
+     footer (.round-button bar)   : 10000  — hidden when panel-open
+     .side-toolbar                : 10001  — at bottom: 0 when panel-open
+     .dashboard-panel.panel-visible: 10002 — at bottom: 72px (above toolbar)
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 700px) {
+  /* When a panel is open: hide the footer round-button bar so toolbar
+     and panel have full bottom space with no overlap */
+  body.panel-open footer {
+    display: none !important;
+  }
+
+  /* When panel is open: toolbar drops to bottom: 0 (no footer to clear) */
+  body.panel-open .side-toolbar {
+    bottom: 0;
+  }
+
+  /* Panel stays above the toolbar (64px) when footer is hidden */
+  body.panel-open #recent-supplements-list.panel-visible,
+  body.panel-open #recent-foods-list.panel-visible,
+  body.panel-open #recent-exercises-list.panel-visible,
+  body.panel-open #workout-set-list.panel-visible {
+    bottom: 72px;  /* 64px toolbar + 8px gap */
   }
 }
