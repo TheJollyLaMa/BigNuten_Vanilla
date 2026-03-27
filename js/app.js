@@ -112,6 +112,13 @@ function getEkadasiStatus(tithi) {
       color: '#ffd700'
     };
   }
+  if (tithi === 9 || tithi === 24) {
+    const paksha = tithi === 9 ? 'Shukla' : 'Krishna';
+    return {
+      message: `🌕 Ekadasi in 2 days — ${paksha} Ekadasi approaching. Begin preparations.`,
+      color: '#ffaa33'
+    };
+  }
   if (tithi === 12 || tithi === 27) {
     const paksha = tithi === 12 ? 'Shukla' : 'Krishna';
     return {
@@ -127,7 +134,10 @@ function getEkadasiStatus(tithi) {
 function sendEkadasiNotification(tithi) {
   if (!('Notification' in window)) return;
   let title, body;
-  if (tithi === 10 || tithi === 25) {
+  if (tithi === 9 || tithi === 24) {
+    title = '🌕 Ekadasi in 2 Days';
+    body = `${tithi === 9 ? 'Shukla' : 'Krishna'} Ekadasi is in 2 days. Begin your preparations.`;
+  } else if (tithi === 10 || tithi === 25) {
     title = '🌙 Ekadasi Tomorrow';
     body = `Tomorrow is ${tithi === 10 ? 'Shukla' : 'Krishna'} Ekadasi. Prepare for your fast!`;
   } else if (tithi === 11 || tithi === 26) {
@@ -189,6 +199,7 @@ function getEkadasiCycleInfo() {
     prev: lookup(prevIdx),
     current: currIdx !== null ? lookup(currIdx) : null,
     next: lookup(nextIdx),
+    afterNext: lookup(nextIdx + 1),
   };
 }
 
@@ -200,9 +211,11 @@ function updateMoonSunModal(tithiDay, moonAge, sunDay, lat, lng) {
   const tithiName = TITHI_NAMES[tithiDay - 1] || '';
   const paksha = tithiDay <= 15 ? 'Shukla' : 'Krishna';
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const PLANET_DAYS = ['Sun ☀️', 'Moon 🌙', 'Mars ♂️', 'Mercury ☿', 'Jupiter ♃', 'Venus ♀️', 'Saturn ♄'];
   const sunDayName = dayNames[sunDay] || sunDay;
+  const sunDayPlanet = PLANET_DAYS[sunDay] || '';
   if (moonInfo) {
-    moonInfo.textContent = `🌓 Moon Day: ${moonAge} — ${paksha} ${tithiName} | ☀️ Sun Day: ${sunDayName}`;
+    moonInfo.textContent = `🌓 Moon Day: ${moonAge} — ${paksha} ${tithiName} | ☀️ Sun Day: ${sunDayName} (${sunDayPlanet})`;
   }
   if (locationInfo) {
     locationInfo.textContent = lat && lng ? `📍 Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}` : '📍 Location not linked';
@@ -251,8 +264,9 @@ function updateMoonSunModal(tithiDay, moonAge, sunDay, lat, lng) {
     }
 
     // Previous / Next story links.
-    // The next link is omitted when cycle.next is already shown as featured
-    // (i.e. when today is not an Ekadasi day and the next Ekadasi is featured above).
+    // When today is a fasting day, next points to the post-Ekadasi entry.
+    // When not a fasting day, next is already featured above, so show afterNext in nav.
+    const navNextEntry = isFastingDay ? cycle.next : cycle.afterNext;
     const navEl = document.createElement('div');
     navEl.className = 'ekadasi-nav';
     if (cycle.prev) {
@@ -261,10 +275,9 @@ function updateMoonSunModal(tithiDay, moonAge, sunDay, lat, lng) {
       prevSpan.appendChild(makeLink(`${cycle.prev.name} Ekadasi`, cycle.prev.url));
       navEl.appendChild(prevSpan);
     }
-    // Only show the next link when it hasn't already been featured above.
-    if (cycle.next && isFastingDay) {
+    if (navNextEntry) {
       const nextSpan = document.createElement('span');
-      nextSpan.appendChild(makeLink(`${cycle.next.name} Ekadasi`, cycle.next.url));
+      nextSpan.appendChild(makeLink(`${navNextEntry.name} Ekadasi`, navNextEntry.url));
       nextSpan.appendChild(document.createTextNode(' ▶'));
       navEl.appendChild(nextSpan);
     }
@@ -300,6 +313,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const sunDay = new Date().getDay(); // 0 = Sunday … 6 = Saturday
   updateMoonSunModal(tithi, moonAge, sunDay, null, null);
   sendEkadasiNotification(tithi);
+  initSolarSystem(moonAge);
 });
 // --- Moon Icon Logic ---
 function updateMoonStatus(tithiDay) {
@@ -309,6 +323,8 @@ function updateMoonStatus(tithiDay) {
     icon.style.textShadow = '0 0 10px #00ccff'; // Blue for Ekadasi
   } else if (tithiDay === 10 || tithiDay === 25) {
     icon.style.textShadow = '0 0 10px #ffd700'; // Gold for day before Ekadasi
+  } else if (tithiDay === 9 || tithiDay === 24) {
+    icon.style.textShadow = '0 0 10px #ffaa33'; // Amber: 2 days out
   } else {
     icon.style.textShadow = '0 0 10px #00ff66'; // Green for other days
   }
@@ -326,6 +342,265 @@ if (navigator.geolocation) {
 }
 // Refresh the moon icon status every hour to stay current throughout the day
 setInterval(() => updateMoonStatus(calculateTithi().tithi), 3600000);
+
+// --- Solar System Visualizer ---
+// Orbital elements at J2000.0 epoch (JDE 2451545.0)
+// L0: mean longitude (°), Ld: mean longitude rate (°/day),
+// w: longitude of perihelion (°), e: eccentricity, au: semi-major axis (AU)
+const SS_PLANETS = [
+  { name: 'Mercury', sym: '☿', color: '#a0a0a0', au: 0.38710, e: 0.20563, L0: 252.25091, Ld: 4.09233449, w: 77.45772 },
+  { name: 'Venus',   sym: '♀', color: '#ffd080', au: 0.72332, e: 0.00677, L0: 181.97980, Ld: 1.60213034, w: 131.56370 },
+  { name: 'Earth',   sym: '🌍', color: '#4488ff', au: 1.00000, e: 0.01671, L0: 100.46446, Ld: 0.98560026, w: 102.93768 },
+  { name: 'Mars',    sym: '♂', color: '#ff5533', au: 1.52366, e: 0.09341, L0: 355.43327, Ld: 0.52402068, w: 336.04084 },
+  { name: 'Jupiter', sym: '♃', color: '#ff9944', au: 5.20158, e: 0.04850, L0:  34.39644, Ld: 0.08308676, w:  14.72848 },
+  { name: 'Saturn',  sym: '♄', color: '#ccaa44', au: 9.53707, e: 0.05551, L0:  49.94483, Ld: 0.03346816, w:  92.86136 },
+  { name: 'Uranus',  sym: '⛢', color: '#66cccc', au: 19.1913, e: 0.04630, L0: 313.23218, Ld: 0.01172834, w: 170.96424 },
+  { name: 'Neptune', sym: '♆', color: '#6666ff', au: 30.0690, e: 0.00899, L0: 304.88009, Ld: 0.00598103, w:  44.97135 },
+];
+
+// Convert a JS Date to Julian Day Number.
+function ssJulianDay(date) {
+  let y = date.getUTCFullYear(), m = date.getUTCMonth() + 1;
+  const d = date.getUTCDate() + (date.getUTCHours() * 3600 + date.getUTCMinutes() * 60 + date.getUTCSeconds()) / 86400;
+  if (m <= 2) { y--; m += 12; }
+  const A = Math.floor(y / 100);
+  const B = 2 - A + Math.floor(A / 4);
+  return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+}
+
+// Iteratively solve Kepler's equation M = E - e sin(E).  Returns E (radians).
+function ssKepler(M, e) {
+  let E = M;
+  for (let i = 0; i < 50; i++) {
+    const dE = (M - E + e * Math.sin(E)) / (1 - e * Math.cos(E));
+    E += dE;
+    if (Math.abs(dE) < 1e-9) break;
+  }
+  return E;
+}
+
+// Return heliocentric ecliptic XY position (in AU) for a planet at Julian Day JD.
+function ssPlanetXY(planet, JD) {
+  const D = JD - 2451545.0;
+  const deg = Math.PI / 180;
+  const L = ((planet.L0 + planet.Ld * D) % 360 + 360) % 360;
+  const Mrad = ((L - planet.w) % 360 + 360) % 360 * deg;
+  const E = ssKepler(Mrad, planet.e);
+  const nu = 2 * Math.atan2(Math.sqrt(1 + planet.e) * Math.sin(E / 2), Math.sqrt(1 - planet.e) * Math.cos(E / 2));
+  const r = planet.au * (1 - planet.e * Math.cos(E));
+  const lambda = nu + planet.w * deg;
+  return { x: r * Math.cos(lambda), y: r * Math.sin(lambda), au: r };
+}
+
+// Draw the solar system on a canvas element for the given date and moon age.
+// showOuter: when true includes Uranus and Neptune.
+// SS_SCALE_EXP: power-law exponent that balances inner/outer planet spacing on screen.
+// A value of 0.45 keeps Mercury–Mars nicely spread while still fitting outer planets.
+const SS_SCALE_EXP = 0.45;
+// Pixel radius for click/tap hit detection on planet dots.
+const SS_CLICK_RADIUS = 18;
+function ssDraw(canvas, date, moonAge, showOuter) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2;
+  const maxR = Math.min(cx, cy) - 14;
+
+  const planets = showOuter ? SS_PLANETS : SS_PLANETS.slice(0, 4);
+  const maxAU = showOuter ? 30.5 : 1.65;
+  // Power-law scale: keeps inner planets visible without compressing them too much.
+  const scaleAU = au => maxR * Math.pow(au / maxAU, SS_SCALE_EXP);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#05050f';
+  ctx.fillRect(0, 0, W, H);
+
+  // Pseudo-random stars (golden-angle positions — consistent across frames)
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  for (let i = 0; i < 70; i++) {
+    const px = ((Math.sin(i * 2.399963) * 0.5 + 0.5) * (W - 4)) + 2;
+    const py = ((Math.cos(i * 2.399963 + 1.1) * 0.5 + 0.5) * (H - 4)) + 2;
+    ctx.fillRect(px, py, 1, 1);
+  }
+
+  const JD = ssJulianDay(date);
+  const positions = [];
+
+  // Orbits
+  for (const p of planets) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, scaleAU(p.au), 0, 2 * Math.PI);
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+  }
+
+  // Sun
+  const sunGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 10);
+  sunGrad.addColorStop(0, '#ffffff');
+  sunGrad.addColorStop(0.4, '#ffe050');
+  sunGrad.addColorStop(1, 'rgba(255,160,0,0)');
+  ctx.beginPath();
+  ctx.arc(cx, cy, 8, 0, 2 * Math.PI);
+  ctx.fillStyle = sunGrad;
+  ctx.fill();
+
+  // Planets
+  const fontSize = Math.max(8, Math.min(11, W / 36));
+  ctx.font = `${fontSize}px sans-serif`;
+  for (const p of planets) {
+    const pos = ssPlanetXY(p, JD);
+    const r = scaleAU(pos.au);
+    const angle = Math.atan2(pos.y, pos.x);
+    const px = cx + r * Math.cos(angle);
+    const py = cy - r * Math.sin(angle); // flip Y for screen coords
+
+    const dotR = p.name === 'Jupiter' ? 5 : p.name === 'Saturn' ? 4.5 : p.name === 'Earth' ? 4 : 3;
+    ctx.beginPath();
+    ctx.arc(px, py, dotR, 0, 2 * Math.PI);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+
+    // Label (offset slightly so it doesn't overlap dot)
+    ctx.fillStyle = 'rgba(200,220,255,0.82)';
+    ctx.fillText(p.sym, px + dotR + 2, py + 3);
+
+    // Saturn rings hint
+    if (p.name === 'Saturn') {
+      ctx.beginPath();
+      ctx.ellipse(px, py, dotR + 5, dotR * 0.5, 0.4, 0, 2 * Math.PI);
+      ctx.strokeStyle = 'rgba(204,170,68,0.55)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+
+    // Moon orbiting Earth
+    if (p.name === 'Earth') {
+      const moonOrbitR = 11;
+      ctx.beginPath();
+      ctx.arc(px, py, moonOrbitR, 0, 2 * Math.PI);
+      ctx.strokeStyle = 'rgba(180,180,255,0.22)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      const moonAngle = (moonAge / 29.53058) * 2 * Math.PI;
+      const mx = px + moonOrbitR * Math.cos(moonAngle);
+      const my = py - moonOrbitR * Math.sin(moonAngle);
+      ctx.beginPath();
+      ctx.arc(mx, my, 1.8, 0, 2 * Math.PI);
+      ctx.fillStyle = '#cccccc';
+      ctx.fill();
+    }
+
+    positions.push({ ...p, px, py, pos });
+  }
+
+  return positions;
+}
+
+// Fun facts for the tooltip
+const SS_FACTS = {
+  Mercury: 'Smallest planet — extreme swings from −180 °C to 430 °C',
+  Venus:   'Hottest planet (462 °C avg) and rotates backward',
+  Earth:   'The only known life-bearing world 🌱',
+  Mars:    'Home to Olympus Mons, the tallest volcano in the solar system',
+  Jupiter: 'Largest planet — its Great Red Spot storm has raged for 350+ years',
+  Saturn:  'Least dense planet — it would float on water!',
+  Uranus:  'Rotates nearly on its side (98° axial tilt)',
+  Neptune: 'Fastest winds in the solar system — up to 2,100 km/h',
+};
+
+function initSolarSystem(moonAge) {
+  const canvas = document.getElementById('solar-system-canvas');
+  if (!canvas) return;
+
+  // ms of real time equal to 1 simulated day (8 real seconds per simulated day).
+  const SIM_MS_PER_SIM_DAY = 8000;
+
+  const details = document.getElementById('ss-details');
+  const toggleBtn = document.getElementById('ss-toggle-outer');
+  const infoEl = document.getElementById('ss-planet-info');
+  let animId = null;
+  let simDate = new Date();
+  let showOuter = false;
+  let positions = [];
+  let lastTs = 0;
+
+  const resize = () => {
+    const container = canvas.parentElement;
+    const size = Math.min(container ? container.clientWidth - 20 : 360, 400);
+    canvas.width = size;
+    canvas.height = size;
+  };
+
+  const draw = () => {
+    positions = ssDraw(canvas, simDate, moonAge, showOuter);
+  };
+
+  const animate = (ts) => {
+    if (!lastTs) lastTs = ts;
+    // Advance by (elapsed real ms / SIM_MS_PER_SIM_DAY) simulated days
+    simDate = new Date(simDate.getTime() + (ts - lastTs) * (86400000 / SIM_MS_PER_SIM_DAY));
+    lastTs = ts;
+    draw();
+    animId = requestAnimationFrame(animate);
+  };
+
+  const startAnim = () => {
+    if (animId !== null) return;
+    simDate = new Date();
+    lastTs = 0;
+    resize();
+    draw();
+    animId = requestAnimationFrame(animate);
+  };
+
+  const stopAnim = () => {
+    if (animId !== null) { cancelAnimationFrame(animId); animId = null; }
+  };
+
+  if (details) {
+    details.addEventListener('toggle', () => {
+      if (details.open) startAnim(); else stopAnim();
+    });
+  }
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      showOuter = !showOuter;
+      toggleBtn.textContent = showOuter ? '🔭 Show Inner System' : '🌌 Show Outer Planets';
+      draw();
+    });
+  }
+
+  // Planet click / tap info tooltip
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+    let closest = null, minDist = SS_CLICK_RADIUS;
+    for (const p of positions) {
+      const d = Math.hypot(p.px - mx, p.py - my);
+      if (d < minDist) { minDist = d; closest = p; }
+    }
+    if (infoEl) {
+      if (closest) {
+        infoEl.innerHTML =
+          `<strong>${closest.sym} ${closest.name}</strong> — ` +
+          `${closest.pos.au.toFixed(3)} AU from the Sun<br>` +
+          `<em>${SS_FACTS[closest.name] || ''}</em>`;
+        infoEl.style.display = 'block';
+      } else {
+        infoEl.style.display = 'none';
+      }
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (details && details.open) { resize(); draw(); }
+  });
+}
 // --- Emotion Modal Logic ---
 // --- Modal Show/Hide Helper Functions ---
 function showModal(id) {

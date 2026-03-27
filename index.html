@@ -228,6 +228,16 @@
       </div>
       <div id="ekadasi-links"></div>
       <button class="tracker-location-btn" onclick="requestLocation()">🔄 Link Location</button>
+      <details id="ss-details" class="ss-details">
+        <summary>🪐 Solar System Today</summary>
+        <div class="ss-container">
+          <canvas id="solar-system-canvas" width="360" height="360"></canvas>
+          <div class="ss-controls">
+            <button id="ss-toggle-outer" class="ss-btn">🌌 Show Outer Planets</button>
+          </div>
+          <div id="ss-planet-info" class="ss-planet-info" style="display:none;"></div>
+        </div>
+      </details>
     </div>
   </div>
 
