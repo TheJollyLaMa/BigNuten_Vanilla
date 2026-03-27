@@ -3416,6 +3416,7 @@ svg text {
 
   /* ── Compact footer in mobile ───────────────────────────────── */
   footer {
+    display: flex !important;  /* always visible on mobile — no wallet needed */
     height: 64px;
     padding: 0.25rem 1rem;
     box-sizing: border-box;
