@@ -3395,6 +3395,17 @@ svg text {
     width: 46px;
     height: 46px;
   }
+  /* ── IPFS logo: anchor to upper left corner on mobile ─────── */
+  #ipfs-status {
+    top: 8px;
+    left: 6px;
+    width: 54px;
+    height: 54px;
+  }
+  #ipfsIcon {
+    width: 40px;
+    height: 40px;
+  }
   #current-weight-display {
     font-size: 1.5rem;
     top: 55px;   /* just below the shrunken header */
@@ -3405,8 +3416,8 @@ svg text {
 
   /* ── Compact footer in mobile ───────────────────────────────── */
   footer {
-    min-height: 72px;
-    padding: 0.5rem 1rem;
+    height: 64px;
+    padding: 0.25rem 1rem;
     box-sizing: border-box;
   }
   .round-button {
@@ -3415,7 +3426,7 @@ svg text {
   }
 
   /* ── Mobile panels: #id.class (specificity 0,1,1,0) beats base ─
-     Default: panel sits above side-toolbar (64px) + 8px gap = 72px */
+     Default: panel sits above toolbar (56px) + footer (64px) + 8px gap = 128px */
   #recent-supplements-list.panel-visible,
   #recent-foods-list.panel-visible,
   #recent-exercises-list.panel-visible,
@@ -3423,7 +3434,7 @@ svg text {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 72px;   /* above side-toolbar (64px) with 8px gap */
+    bottom: 128px;  /* above both rows (64px footer + 56px toolbar) + 8px gap */
     top: auto;
     width: 100%;
     max-width: 100%;
@@ -3433,20 +3444,20 @@ svg text {
     z-index: 10002;  /* above footer (10000) and toolbar (10001) */
   }
 
-  /* When footer is visible: push panel above footer (72px) + toolbar (64px) */
+  /* When footer is visible: same — both rows already always stacked */
   body.footer-visible #recent-supplements-list.panel-visible,
   body.footer-visible #recent-foods-list.panel-visible,
   body.footer-visible #recent-exercises-list.panel-visible,
   body.footer-visible #workout-set-list.panel-visible {
-    bottom: 144px;  /* 72px footer + 64px toolbar + 8px gap */
+    bottom: 128px;  /* 64px footer + 56px toolbar + 8px gap */
   }
 
   /* ── Side toolbars: unified horizontal bar ──────────────────── */
-  /* Default: sit at very bottom (footer hidden) */
+  /* Toolbar always sits above the footer row (64px) */
   .side-toolbar {
     position: fixed;
     top: auto;
-    bottom: 0;
+    bottom: 64px;   /* always above footer (64px) */
     transform: none;
     flex-direction: row;
     border-radius: 0;
@@ -3455,14 +3466,14 @@ svg text {
     width: 50%;
     box-sizing: border-box;
     justify-content: space-around;
-    height: 64px;
+    height: 56px;
     z-index: 10001;  /* above footer (10000), below panel (10002) */
     background: rgba(0, 0, 33, 0.97);
   }
 
-  /* When footer is visible: lift toolbar above the footer */
+  /* When footer is visible: toolbar stays at same position (both rows always stacked) */
   body.footer-visible .side-toolbar {
-    bottom: 72px;
+    bottom: 64px;
   }
 
   .left-toolbar {
@@ -7034,27 +7045,20 @@ svg text {
 /* ═══════════════════════════════════════════════════════════════
    Mobile panel-open fixes (≤ 700px)
    Z-index stack (bottom → top):
-     footer (.round-button bar)   : 10000  — hidden when panel-open
-     .side-toolbar                : 10001  — at bottom: 0 when panel-open
-     .dashboard-panel.panel-visible: 10002 — at bottom: 72px (above toolbar)
+     footer (.round-button bar)   : 10000  — always visible at bottom: 0
+     .side-toolbar                : 10001  — always at bottom: 64px (above footer)
+     .dashboard-panel.panel-visible: 10002 — at bottom: 128px (above both rows)
    ═══════════════════════════════════════════════════════════════ */
 @media (max-width: 700px) {
-  /* When a panel is open: hide the footer round-button bar so toolbar
-     and panel have full bottom space with no overlap */
-  body.panel-open footer {
-    display: none !important;
-  }
+  /* When a panel is open: keep footer visible — both rows stay accessible */
 
-  /* When panel is open: toolbar drops to bottom: 0 (no footer to clear) */
-  body.panel-open .side-toolbar {
-    bottom: 0;
-  }
+  /* When panel is open: toolbar stays at bottom: 64px (above footer) */
 
-  /* Panel stays above the toolbar (64px) when footer is hidden */
+  /* Panel stays above both rows (footer 64px + toolbar 56px + 8px gap = 128px) */
   body.panel-open #recent-supplements-list.panel-visible,
   body.panel-open #recent-foods-list.panel-visible,
   body.panel-open #recent-exercises-list.panel-visible,
   body.panel-open #workout-set-list.panel-visible {
-    bottom: 72px;  /* 64px toolbar + 8px gap */
+    bottom: 128px;  /* 64px footer + 56px toolbar + 8px gap */
   }
 }
