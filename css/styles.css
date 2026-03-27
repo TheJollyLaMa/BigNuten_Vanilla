@@ -3185,6 +3185,85 @@ svg text {
   box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
 }
 
+/* Solar System Visualizer */
+.ss-details {
+  margin-top: 1rem;
+  border: 1px solid rgba(0, 180, 255, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ss-details summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.98rem;
+  font-weight: bold;
+  color: #88ddff;
+  padding: 0.55rem 0.9rem;
+  background: rgba(0, 30, 50, 0.5);
+  user-select: none;
+}
+
+.ss-details summary::-webkit-details-marker { display: none; }
+
+.ss-details summary::before {
+  content: '▶ ';
+  font-size: 0.75em;
+  opacity: 0.7;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.ss-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.ss-container {
+  text-align: center;
+  padding: 0.5rem 0.5rem 0.7rem;
+  background: rgba(0, 5, 15, 0.55);
+}
+
+#solar-system-canvas {
+  border-radius: 50%;
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  cursor: pointer;
+  box-shadow: 0 0 18px rgba(0, 100, 200, 0.35);
+}
+
+.ss-controls {
+  margin-top: 0.55rem;
+}
+
+.ss-btn {
+  background: rgba(0, 180, 255, 0.12);
+  border: 1px solid rgba(0, 180, 255, 0.35);
+  border-radius: 8px;
+  color: #00e5ff;
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 0.25rem 0.8rem;
+  transition: background 0.2s;
+}
+
+.ss-btn:hover {
+  background: rgba(0, 180, 255, 0.28);
+}
+
+.ss-planet-info {
+  margin-top: 0.55rem;
+  padding: 0.4rem 0.8rem;
+  background: rgba(0, 30, 50, 0.75);
+  border: 1px solid rgba(0, 180, 255, 0.28);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #aaddff;
+  text-align: left;
+  line-height: 1.45;
+}
+
 
 /* ═══════════════════════════════════════════════════════════════
    Dashboard Panel Toolbars & Toggle System
