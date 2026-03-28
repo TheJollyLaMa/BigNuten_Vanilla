@@ -202,8 +202,82 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── 1b. Check bounty-bot-config.json — exit early if bot is paused ─────
+      - name: Check bot pause state
+        id: bot_config
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let config = { enabled: true, pauseMessage: '' };
+            try {
+              config = JSON.parse(fs.readFileSync('bounty-bot-config.json', 'utf8'));
+            } catch (_) {}
+
+            if (config.enabled === false) {
+              const pr = context.payload.pull_request;
+              const prBody = pr ? (pr.body || '') : '';
+              const closePattern = /(?:closes?|fixes?|resolves?)\s+(?:[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+)?#(\d+)/gi;
+              let m;
+              while ((m = closePattern.exec(prBody)) !== null) {
+                const issueNumber = parseInt(m[1], 10);
+                try {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: config.pauseMessage || '⏸ The bounty bot is temporarily paused. Your contribution has been noted and the payout will be queued once the bot is re-enabled.',
+                  });
+                } catch (e) {
+                  console.warn(`Could not post pause comment on issue #${issueNumber}: ${e.message}`);
+                }
+              }
+              core.setOutput('paused', 'true');
+            } else {
+              core.setOutput('paused', 'false');
+            }
+
+      # ── 1c. Send low-treasury email alert when bot is paused ───────────────
+      - name: Send treasury low alert email
+        if: steps.bot_config.outputs.paused == 'true'
+        uses: dawidd6/action-send-mail@v3
+        continue-on-error: true
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "🚨 BigNuten Bounty Bot Paused — Treasury Needs Attention"
+          to: jrlamanna@gmail.com
+          from: BigNuten Bot <${{ secrets.MAIL_USERNAME }}>
+          body: |
+            The BigNuten bounty bot has been paused because the treasury is running low.
+
+            A PR was just merged but the payout was NOT queued.
+
+            Please visit the BigNuten app and top up the treasury:
+              https://thejollylama.github.io/BigNuten_Vanilla/
+
+            Steps:
+              1. Open the Admin Panel → $BNUT Admin → Quick Mint
+              2. Or: Admin Panel → Treasury Admin → Transfer to Treasury
+              3. Once funded, re-enable the bot by toggling it on in the Payroll panel
+                 (or set "enabled": true in bounty-bot-config.json).
+
+            — BigNuten Bot 🤖
+
+      # ── Exit early if bot is paused ────────────────────────────────────────
+      - name: Skip if bot is paused
+        if: steps.bot_config.outputs.paused == 'true'
+        run: |
+          echo "⏸ Bounty bot is paused. Skipping auto-queue."
+          exit 0
+
       # ── 2. Auto-queue payouts and update contributor accounts ──────────────
       - name: Auto-queue payouts and update contributor accounts
+        if: steps.bot_config.outputs.paused != 'true'
         id: auto_queue
         uses: actions/github-script@v7
         with:
@@ -692,8 +766,60 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── 1b. Check bounty-bot-config.json — exit early if bot is paused ─────
+      - name: Check bot pause state
+        id: bot_config
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let config = { enabled: true };
+            try {
+              config = JSON.parse(fs.readFileSync('bounty-bot-config.json', 'utf8'));
+            } catch (_) {}
+            core.setOutput('paused', config.enabled === false ? 'true' : 'false');
+
+      # ── 1c. Send low-treasury email alert when bot is paused ───────────────
+      - name: Send treasury low alert email
+        if: steps.bot_config.outputs.paused == 'true'
+        uses: dawidd6/action-send-mail@v3
+        continue-on-error: true
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "🚨 BigNuten Bounty Bot Paused — Treasury Needs Attention"
+          to: jrlamanna@gmail.com
+          from: BigNuten Bot <${{ secrets.MAIL_USERNAME }}>
+          body: |
+            The BigNuten bounty bot has been paused because the treasury is running low.
+
+            A push to main was detected but the payout was NOT queued.
+
+            Please visit the BigNuten app and top up the treasury:
+              https://thejollylama.github.io/BigNuten_Vanilla/
+
+            Steps:
+              1. Open the Admin Panel → $BNUT Admin → Quick Mint
+              2. Or: Admin Panel → Treasury Admin → Transfer to Treasury
+              3. Once funded, re-enable the bot by toggling it on in the Payroll panel
+                 (or set "enabled": true in bounty-bot-config.json).
+
+            — BigNuten Bot 🤖
+
+      # ── Exit early if bot is paused ────────────────────────────────────────
+      - name: Skip if bot is paused
+        if: steps.bot_config.outputs.paused == 'true'
+        run: |
+          echo "⏸ Bounty bot is paused. Skipping auto-queue."
+          exit 0
+
       # ── 2. Auto-queue payouts and update contributor accounts ──────────────
       - name: Auto-queue payouts and update contributor accounts
+        if: steps.bot_config.outputs.paused != 'true'
         id: auto_queue
         uses: actions/github-script@v7
         with:
