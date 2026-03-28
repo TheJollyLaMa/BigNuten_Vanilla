@@ -22,6 +22,10 @@ const LS_OPEN      = 'genieChatOpen';    // JSON object: { panelId: true/false }
 const LS_MODEL_ID  = 'genieModelId';
 const STORAGE_KEY  = 'fitnessTrackerData';
 
+// Regex that matches meta-questions about what data Genie has access to.
+// Using non-greedy .*? to avoid catastrophic backtracking.
+const META_QUESTION_RE = /what\s+data|where.*?find|connected\s+to|where.*?coming\s+from/i;
+
 // WebLLM CDN – pinned to a released version that fully supports Phi-3.5-mini
 // and its 128K context window (requires >=0.2.73).
 const WEBLLM_CDN = 'https://esm.run/@mlc-ai/web-llm@0.2.73';
@@ -451,10 +455,11 @@ function _estimateTokens(text) {
 
 /**
  * Context-window budget constants.
- * We reserve space for system preamble/rules (~400 tokens) and the reply
- * (~512 tokens), leaving the rest for the data block.
+ * We reserve space for system preamble/rules (~700 tokens — includes chat-template
+ * overhead of ~200 tokens that WebLLM adds internally) and the reply (~512 tokens),
+ * leaving the rest for the data block.
  */
-const TOKEN_RESERVE_OVERHEAD = 400;
+const TOKEN_RESERVE_OVERHEAD = 700;
 const TOKEN_RESERVE_REPLY    = 512;
 // Fraction of the data budget allocated to the food-log section (the rest goes to weight logs).
 const FOOD_SECTION_BUDGET_RATIO = 0.6;
@@ -470,40 +475,61 @@ const DEFAULT_QUERY_DAYS = 7;
 /**
  * Parse a user message for timeframe / data-type hints.
  *
- * Returns { days, label, longitudinal } where:
+ * Returns { days, label, longitudinal, targetDate } where:
  *   days         – how many calendar days back to include (0 = all time)
  *   label        – human-readable window name used in section headers
  *   longitudinal – true when the user wants long-range statistics (triggers summary mode)
+ *   targetDate   – exact YYYY-MM-DD date string when filtering to a single calendar day
+ *                  (currently set for "yesterday" queries); null otherwise
  */
 function _parseQueryContext(userMessage) {
   const msg = userMessage.toLowerCase();
 
   if (/\btoday\b/.test(msg))
-    return { days: 1,   label: 'today',         longitudinal: false };
-  if (/\byesterday\b/.test(msg))
-    return { days: 2,   label: 'yesterday',      longitudinal: false };
+    return { days: 1,   label: 'today',         longitudinal: false, targetDate: null };
+  if (/\byesterday\b/.test(msg)) {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const yyyy = d.getFullYear();
+    const mm   = String(d.getMonth() + 1).padStart(2, '0');
+    const dd   = String(d.getDate()).padStart(2, '0');
+    return { days: 2, label: 'yesterday', longitudinal: false, targetDate: `${yyyy}-${mm}-${dd}` };
+  }
   if (/\bthis\s*week\b|\blast\s*7\s*days?\b/.test(msg))
-    return { days: 7,   label: 'this week',      longitudinal: false };
+    return { days: 7,   label: 'this week',      longitudinal: false, targetDate: null };
   if (/\blast\s*week\b/.test(msg))
-    return { days: 14,  label: 'last week',      longitudinal: false };
+    return { days: 14,  label: 'last week',      longitudinal: false, targetDate: null };
   if (/\bthis\s*month\b|\blast\s*30\s*days?\b/.test(msg))
-    return { days: 30,  label: 'this month',     longitudinal: false };
+    return { days: 30,  label: 'this month',     longitudinal: false, targetDate: null };
   if (/\blast\s*month\b|\blast\s*[23]\s*months?\b/.test(msg))
-    return { days: 60,  label: 'last month',     longitudinal: false };
+    return { days: 60,  label: 'last month',     longitudinal: false, targetDate: null };
   if (/\bthis\s*year\b|\blast\s*year\b|\ball[- ]?time\b|\bever\b|\bprogress\b|\bhistory\b/.test(msg))
-    return { days: 0,   label: 'all time',       longitudinal: true  };
+    return { days: 0,   label: 'all time',       longitudinal: true,  targetDate: null };
 
   // Ambiguous — default to last DEFAULT_QUERY_DAYS days.
-  return { days: DEFAULT_QUERY_DAYS, label: `last ${DEFAULT_QUERY_DAYS} days`, longitudinal: false };
+  return { days: DEFAULT_QUERY_DAYS, label: `last ${DEFAULT_QUERY_DAYS} days`, longitudinal: false, targetDate: null };
 }
 
 /**
  * Filter an array of log entries to those within the last `days` calendar days.
  * If `days === 0`, returns the full array unchanged.
+ * If `targetDate` (YYYY-MM-DD) is provided, returns only entries whose date matches
+ * that exact calendar day (used for "yesterday" queries).
  * Falls back to comparing any of: timestamp, date, createdAt, loggedAt.
  */
-function _filterByTimeframe(arr, days) {
+function _filterByTimeframe(arr, days, targetDate = null) {
   if (!arr || arr.length === 0) return [];
+
+  if (targetDate) {
+    // Exact calendar-day match — avoids the rolling-window ambiguity for "yesterday".
+    return arr.filter(e => {
+      const raw = e.timestamp || e.date || e.createdAt || e.loggedAt || 0;
+      const d   = new Date(raw);
+      const entryDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return entryDate === targetDate;
+    });
+  }
+
   if (days === 0) return arr;
   const cutoff = Date.now() - days * 86_400_000;
   return arr.filter(e => {
@@ -547,7 +573,7 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
   const sections = [];
   let trimmed = false;
 
-  const { days, label: windowLabel, longitudinal } = _parseQueryContext(userMessage);
+  const { days, label: windowLabel, longitudinal, targetDate } = _parseQueryContext(userMessage);
 
   /** Fit a JSON array into `maxTokens`, removing oldest entries first. */
   function fitArray(arr, maxTokens, label) {
@@ -581,7 +607,7 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
       const summaryLine  = `Exercise entries total: ${allExercises.length}`;
       sections.push(`## Exercise Summary (${windowLabel})\n${summaryLine}`);
     } else {
-      const exercises = _filterByTimeframe(data.exercises?.entries || [], days);
+      const exercises = _filterByTimeframe(data.exercises?.entries || [], days, targetDate);
       const exSection = fitArray(exercises, perSectionBudget, `## Exercise Log (${windowLabel})`);
       if (exSection) sections.push(exSection);
     }
@@ -598,7 +624,7 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
         || `Supplement entries: ${allSupps.length}`;
       sections.push(`## Supplement Summary (${windowLabel})\n${summaryLine}`);
     } else {
-      const supps = _filterByTimeframe(data.supplements || [], days);
+      const supps = _filterByTimeframe(data.supplements || [], days, targetDate);
       const sec = fitArray(supps, budgetTokens, `## Supplement Log (${windowLabel})`);
       if (sec) sections.push(sec);
     }
@@ -617,11 +643,11 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
         `Total food entries: ${allFoods.length}\n${wtSummary}`
       );
     } else {
-      const foods   = _filterByTimeframe(data.foods || [], days);
+      const foods   = _filterByTimeframe(data.foods || [], days, targetDate);
       const foodSec = fitArray(foods, perSectionBudget, `## Food / Diet Log (${windowLabel})`);
       if (foodSec) sections.push(foodSec);
 
-      const weights        = _filterByTimeframe(data.weightLogs || [], days);
+      const weights        = _filterByTimeframe(data.weightLogs || [], days, targetDate);
       const foodTokensUsed = foodSec ? _estimateTokens(foodSec) : 0;
       const wtBudget       = Math.max(MIN_WEIGHT_LOG_TOKENS, budgetTokens - foodTokensUsed);
       const wtSec          = fitArray(weights, wtBudget, `## Weight Logs (${windowLabel})`);
@@ -629,7 +655,7 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
     }
   }
 
-  return { sections, trimmed, longitudinal, windowLabel };
+  return { sections, trimmed, longitudinal, windowLabel, targetDate };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -637,6 +663,14 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function _chat(userMessage, panelId, statusEl) {
+  // Short-circuit meta-questions about the assistant's data source — these need
+  // no data block and would otherwise hit the same token budget as any other query.
+  if (META_QUESTION_RE.test(userMessage)) {
+    return "🧞 I read your locally-stored BigNuten fitness logs from your browser. " +
+           "Your data never leaves your device. " +
+           "I can see: food logs, weight logs, supplements, exercises, and workout sessions.";
+  }
+
   const modelId       = getGenieModelId();
   const contextTokens = GENIE_MODELS[modelId]?.contextTokens ?? 4_096;
   const dataBudget    = contextTokens - TOKEN_RESERVE_OVERHEAD - TOKEN_RESERVE_REPLY
@@ -647,7 +681,7 @@ async function _chat(userMessage, panelId, statusEl) {
     return "⚠️ Your message is too long for the selected model's context window. Please try a shorter question.";
   }
 
-  const { sections, trimmed, longitudinal, windowLabel } = _buildDataSections(panelId, dataBudget, userMessage);
+  const { sections, trimmed, longitudinal, windowLabel, targetDate } = _buildDataSections(panelId, dataBudget, userMessage);
 
   // Longitudinal queries that contain no raw entries still produce a stats summary —
   // but if even that summary is empty, show a friendly "coming soon" message.
@@ -662,9 +696,11 @@ async function _chat(userMessage, panelId, statusEl) {
     : '(no data logged yet)';
 
   // Final safety check after building the full prompt.
-  const systemPrompt = _buildSystemPromptText(contextBlock, trimmed);
+  // The extra 300-token margin absorbs the under-counting by the 1-token-per-4-chars
+  // heuristic for JSON with heavy punctuation, whitespace, and unicode.
+  const systemPrompt = _buildSystemPromptText(contextBlock, trimmed, targetDate);
   const fullTokenEst = _estimateTokens(systemPrompt) + _estimateTokens(userMessage);
-  if (fullTokenEst > contextTokens - TOKEN_RESERVE_REPLY) {
+  if (fullTokenEst > contextTokens - TOKEN_RESERVE_REPLY - 300) {
     return "⚠️ Your logs are too large to fit in the context window even after trimming. " +
            "Try asking about a shorter time range — e.g. \"this week\" or \"today\".";
   }
@@ -692,17 +728,21 @@ async function _chat(userMessage, panelId, statusEl) {
   return reply.trim() || "(no response)";
 }
 
-function _buildSystemPromptText(contextBlock, trimmed) {
+function _buildSystemPromptText(contextBlock, trimmed, targetDate = null) {
   const now = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
   const trimNote = trimmed
     ? '\nNote: Some older log entries were omitted to fit the context window.'
+    : '';
+  const dateNote = targetDate
+    ? `\nFocus date: ${targetDate} — the user is asking about THIS calendar day only. ` +
+      `Report only entries whose date is ${targetDate}.`
     : '';
 
   return `You are Genie, a data-query assistant for the BigNuten fitness tracker. \
 Your ONLY job is to answer questions about the user's actual logged data shown below. \
 All data is stored locally — nothing is sent to any server.
 
-Current date/time: ${now}${trimNote}
+Current date/time: ${now}${dateNote}${trimNote}
 
 --- USER DATA ---
 ${contextBlock}
