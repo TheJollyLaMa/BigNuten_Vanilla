@@ -236,13 +236,49 @@ jobs:
               closedIssues.push(parseInt(m[1], 10));
             }
 
+            // Also scan PR title for bare #N references (e.g. "Fix #211: add feature").
+            // Fallback: catches cases where the issue number appears in the title but not with a
+            // closing keyword in the body.
+            const prTitle = pr.title || '';
+            const titleRefPattern = /#(\d+)/g;
+            while ((m = titleRefPattern.exec(prTitle)) !== null) {
+              const n = parseInt(m[1], 10);
+              if (!closedIssues.includes(n)) closedIssues.push(n);
+            }
+
+            // Also use GitHub's official linked-issues list via GraphQL (closingIssuesReferences).
+            // This catches issues linked via the GitHub sidebar ("Development" section) or any
+            // mechanism that registers a closing link without an explicit keyword in the body.
+            try {
+              const linked = await github.graphql(
+                `query($owner: String!, $repo: String!, $pr: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $pr) {
+                      closingIssuesReferences(first: 25) {
+                        nodes { number }
+                      }
+                    }
+                  }
+                }`,
+                { owner: context.repo.owner, repo: context.repo.repo, pr: prNumber }
+              );
+              for (const node of linked.repository.pullRequest.closingIssuesReferences.nodes) {
+                if (!closedIssues.includes(node.number)) {
+                  closedIssues.push(node.number);
+                  console.log(`Issue #${node.number} found via GraphQL closingIssuesReferences.`);
+                }
+              }
+            } catch (e) {
+              console.warn(`GraphQL linked-issues query failed (non-fatal): ${e.message}`);
+            }
+
             if (closedIssues.length === 0) {
-              console.log('No closed issue references found in PR body. Skipping auto-queue.');
+              console.log('No closed issue references found in PR body, title, or linked issues. Skipping auto-queue.');
               core.setOutput('files_changed', 'false');
               return;
             }
 
-            console.log(`PR #${prNumber} closes issues: ${closedIssues.join(', ')}`);
+            console.log(`PR #${prNumber} references issues (body/title/linked): ${closedIssues.join(', ')}`);
 
             // Load payroll-queue.json
             let queue = { pending: [], settled: [] };
@@ -709,13 +745,47 @@ jobs:
               closedIssues.push(parseInt(m[1], 10));
             }
 
+            // Also scan PR title for bare #N references (e.g. "Fix #211: add feature").
+            const prTitle = pr.title || '';
+            const titleRefPattern = /#(\d+)/g;
+            while ((m = titleRefPattern.exec(prTitle)) !== null) {
+              const n = parseInt(m[1], 10);
+              if (!closedIssues.includes(n)) closedIssues.push(n);
+            }
+
+            // Also use GitHub's official linked-issues list via GraphQL (closingIssuesReferences).
+            // This catches issues linked via the GitHub sidebar or any mechanism that registers a
+            // closing link without an explicit keyword in the body.
+            try {
+              const linked = await github.graphql(
+                `query($owner: String!, $repo: String!, $pr: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $pr) {
+                      closingIssuesReferences(first: 25) {
+                        nodes { number }
+                      }
+                    }
+                  }
+                }`,
+                { owner: context.repo.owner, repo: context.repo.repo, pr: prNumber }
+              );
+              for (const node of linked.repository.pullRequest.closingIssuesReferences.nodes) {
+                if (!closedIssues.includes(node.number)) {
+                  closedIssues.push(node.number);
+                  console.log(`Issue #${node.number} found via GraphQL closingIssuesReferences.`);
+                }
+              }
+            } catch (e) {
+              console.warn(`GraphQL linked-issues query failed (non-fatal): ${e.message}`);
+            }
+
             if (closedIssues.length === 0) {
-              console.log('No closed issue references found in PR body. Skipping auto-queue.');
+              console.log('No closed issue references found in PR body, title, or linked issues. Skipping auto-queue.');
               core.setOutput('files_changed', 'false');
               return;
             }
 
-            console.log(`PR #${prNumber} closes issues: ${closedIssues.join(', ')}`);
+            console.log(`PR #${prNumber} references issues (body/title/linked): ${closedIssues.join(', ')}`);
 
             // Load payroll-queue.json
             let queue = { pending: [], settled: [] };

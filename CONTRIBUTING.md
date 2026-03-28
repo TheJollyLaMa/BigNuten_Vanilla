@@ -106,6 +106,12 @@ Once you are whitelisted:
 6. **Get your PR merged** — the Bounty Bot automatically appends your payout to the payroll queue and posts a confirmation comment on the issue.
 7. **Payout settled** — the maintainer settles all pending payouts via the Admin Panel. $BNUT is sent directly to your whitelisted wallet on Optimism.
 
+> ⚠️ **Always use `Closes #N` in the PR body.** This is the most reliable way to trigger the
+> Bounty Bot. The bot also tries to detect issue references in the PR title and via GitHub's
+> linked-issues API, but those are secondary fallbacks. If a payout is missed, the maintainer
+> can run `bounty-payout.yml` manually to add the entry — contact `@TheJollyLaMa` if your
+> payout does not appear after your PR is merged.
+
 ---
 
 ## Payout Timeline

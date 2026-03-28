@@ -218,8 +218,11 @@ Idea originators who receive credits will have an `ideasCredited` array added to
 2. Post a bounty announcement comment tagging the assignee
 
 **On PR merged:**
-1. Parse the `Closes #N` reference in the PR body to find the issue
-2. Look up the bounty label amount on that issue
+1. Find referenced issues via three methods (in priority order):
+   - Parse `Closes #N` / `Fixes #N` / `Resolves #N` keywords in the PR body
+   - Scan the PR title for bare `#N` references (e.g. `Fix #211: description`)
+   - Query GitHub's GraphQL `closingIssuesReferences` (catches sidebar-linked issues)
+2. Look up the bounty label amount on each discovered issue
 3. Check for an `idea-credit: @<username>` label on the issue
    - If found: split the bounty (20% to originator, 80% to implementer)
 4. Look up each contributor's wallet in `contributor-accounts.json`
@@ -227,6 +230,11 @@ Idea originators who receive credits will have an `ideasCredited` array added to
 6. Increment `bnutPending` in `contributor-accounts.json`; add `ideasCredited` entry for the originator
 7. Commit both files
 8. Post a confirmation comment on the issue (includes split summary when applicable)
+
+> ⚠️ **Best practice:** Always include `Closes #N` (or `Fixes #N` / `Resolves #N`) in the PR body.
+> This is the most reliable trigger. Title references and GitHub-linked issues are secondary
+> fallbacks. If all detection methods fail (e.g. the PR has no link to the issue at all), use
+> `bounty-payout.yml` for manual remediation.
 
 ---
 
@@ -241,7 +249,9 @@ Idea originators who receive credits will have an `ideasCredited` array added to
 4. Commit the file
 5. Post a comment on the issue
 
-> Use this when the Bounty Bot did not auto-queue (e.g. assignee was not yet whitelisted at the time of merge).
+> Use this when the Bounty Bot did not auto-queue (e.g. PR was merged without any issue
+> reference, or the assignee was not yet whitelisted at the time of merge). Entries added this
+> way use `"queuedBy": "manual-remediation"` to distinguish them from auto-queued entries.
 
 ---
 
