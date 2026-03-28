@@ -674,6 +674,22 @@
       "amount": "1",
       "queuedAt": "2026-03-28T20:27:42.685Z",
       "queuedBy": "github-actions[bot]"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#210",
+      "contributor": "0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e",
+      "contributorGithub": "copilot",
+      "amount": "2",
+      "queuedAt": "2026-03-28T21:44:02.307Z",
+      "queuedBy": "github-actions[bot]"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#210",
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2",
+      "queuedAt": "2026-03-28T21:44:02.307Z",
+      "queuedBy": "github-actions[bot]"
     }
   ],
   "settled": [
