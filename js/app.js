@@ -6027,6 +6027,8 @@ document.addEventListener('DOMContentLoaded', () => {
       'https://raw.githubusercontent.com/TheJollyLaMa/BigNuten_Vanilla/main/bounty-bot-config.json';
     const BOT_CONFIG_API_URL =
       'https://api.github.com/repos/TheJollyLaMa/BigNuten_Vanilla/contents/bounty-bot-config.json';
+    const BOT_DEFAULT_PAUSE_MSG =
+      '💰 Auto dev pay is temporarily paused while we top up treasury funds. Your bounty has been noted and will be queued once funds are restored. Thank you! 🙏';
 
     // ── GitHub + on-chain pending bounty fetch ────────────────────────────
     const REPO_SLUG = 'TheJollyLaMa/BigNuten_Vanilla';
@@ -6781,13 +6783,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok) config = await res.json();
       } catch (_) {}
 
-      _applyBotToggleUI(config.enabled !== false);
+      _applyBotToggleUI(config.enabled !== false, config.pauseMessage || BOT_DEFAULT_PAUSE_MSG);
     }
 
-    function _applyBotToggleUI(enabled) {
+    function _applyBotToggleUI(enabled, pauseMessage) {
       const toggleBtn    = document.getElementById('payroll-bot-toggle-btn');
       const statusEl     = document.getElementById('payroll-bot-toggle-status');
       const pauseMsgEl   = document.getElementById('payroll-bot-pause-msg');
+      const msg = pauseMessage || BOT_DEFAULT_PAUSE_MSG;
 
       if (!toggleBtn) return;
 
@@ -6801,7 +6804,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         if (statusEl) { statusEl.textContent = '⏸ Bot paused — new PRs will receive the message below:'; statusEl.style.color = '#ffcc00'; }
         if (pauseMsgEl) {
-          pauseMsgEl.textContent = '💰 Auto dev pay is temporarily paused while we top up treasury funds. Your bounty has been noted and will be queued once funds are restored. Thank you! 🙏';
+          pauseMsgEl.textContent = msg;
           pauseMsgEl.style.display = 'block';
         }
       }
@@ -6831,7 +6834,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         // Fetch current file SHA (required for update)
         const metaRes = await fetch(BOT_CONFIG_API_URL, {
-          headers: { Authorization: `token ${pat}`, Accept: 'application/vnd.github+json' },
+          headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github+json' },
         });
         if (!metaRes.ok) {
           if (metaRes.status === 401) {
@@ -6843,16 +6846,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const meta = await metaRes.json();
         const sha = meta.sha;
 
-        const newConfig = { enabled: newEnabled, pauseMessage: meta.content
-          ? JSON.parse(atob(meta.content.replace(/\n/g, ''))).pauseMessage || '💰 Auto dev pay is temporarily paused while we top up treasury funds. Your bounty has been noted and will be queued once funds are restored. Thank you! 🙏'
-          : '💰 Auto dev pay is temporarily paused while we top up treasury funds. Your bounty has been noted and will be queued once funds are restored. Thank you! 🙏'
-        };
+        let existingPauseMsg = BOT_DEFAULT_PAUSE_MSG;
+        if (meta.content) {
+          try {
+            const existing = JSON.parse(atob(meta.content.replace(/\n/g, '')));
+            existingPauseMsg = existing.pauseMessage || BOT_DEFAULT_PAUSE_MSG;
+          } catch (_) {}
+        }
+        const newConfig = { enabled: newEnabled, pauseMessage: existingPauseMsg };
         const newContent = btoa(JSON.stringify(newConfig, null, 2) + '\n');
 
         const updateRes = await fetch(BOT_CONFIG_API_URL, {
           method: 'PUT',
           headers: {
-            Authorization: `token ${pat}`,
+            Authorization: `Bearer ${pat}`,
             Accept: 'application/vnd.github+json',
             'Content-Type': 'application/json',
           },
@@ -6864,7 +6871,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!updateRes.ok) throw new Error(`GitHub API update error: ${updateRes.status} ${updateRes.statusText}`);
 
-        _applyBotToggleUI(newEnabled);
+        _applyBotToggleUI(newEnabled, existingPauseMsg);
       } catch (err) {
         if (statusEl) { statusEl.textContent = `❌ ${err.message}`; statusEl.style.color = '#ff4444'; }
       } finally {

@@ -250,7 +250,7 @@ jobs:
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
           subject: "🚨 BigNuten Bounty Bot Paused — Treasury Needs Attention"
-          to: jrlamanna@gmail.com
+          to: ${{ secrets.ALERT_EMAIL || 'jrlamanna@gmail.com' }}
           from: BigNuten Bot <${{ secrets.MAIL_USERNAME }}>
           body: |
             The BigNuten bounty bot has been paused because the treasury is running low.
@@ -792,7 +792,7 @@ jobs:
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
           subject: "🚨 BigNuten Bounty Bot Paused — Treasury Needs Attention"
-          to: jrlamanna@gmail.com
+          to: ${{ secrets.ALERT_EMAIL || 'jrlamanna@gmail.com' }}
           from: BigNuten Bot <${{ secrets.MAIL_USERNAME }}>
           body: |
             The BigNuten bounty bot has been paused because the treasury is running low.
