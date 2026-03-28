@@ -5853,6 +5853,60 @@ svg text {
   text-decoration: underline;
 }
 
+/* ─── v3 DeFi Panel ──────────────────────────────────────────────────────── */
+
+/* Accent colours per protocol */
+.defi-aave-color      { color: #9b59b6 !important; }
+.defi-alchemix-color  { color: #e67e22 !important; }
+
+/* Action buttons coloured per protocol */
+.defi-aave-btn {
+  background: linear-gradient(135deg, #6c3483 0%, #9b59b6 100%);
+  border-color: rgba(155, 89, 182, 0.5);
+}
+.defi-aave-btn:hover {
+  background: linear-gradient(135deg, #7d3c98 0%, #a569bd 100%);
+  box-shadow: 0 0 12px rgba(155, 89, 182, 0.4);
+}
+
+.defi-alchemix-btn {
+  background: linear-gradient(135deg, #873600 0%, #e67e22 100%);
+  border-color: rgba(230, 126, 34, 0.5);
+}
+.defi-alchemix-btn:hover {
+  background: linear-gradient(135deg, #a04000 0%, #f39c12 100%);
+  box-shadow: 0 0 12px rgba(230, 126, 34, 0.4);
+}
+
+/* LTV progress bar */
+.defi-ltv-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.defi-ltv-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.defi-ltv-aave     { background: linear-gradient(90deg, #6c3483, #9b59b6); }
+.defi-ltv-alchemix { background: linear-gradient(90deg, #873600, #e67e22); }
+
+/* Protocol badges in movement history */
+.defi-protocol-badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.defi-protocol-aave     { background: rgba(155, 89, 182, 0.2); color: #c39bd3; border: 1px solid rgba(155, 89, 182, 0.4); }
+.defi-protocol-alchemix { background: rgba(230, 126, 34, 0.2);  color: #f0b27a; border: 1px solid rgba(230, 126, 34, 0.4); }
+
 /* ─── Contributors Table (Admin Panel) ──────────────────────────────────── */
 
 .contrib-table {
