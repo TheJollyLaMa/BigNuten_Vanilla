@@ -27,11 +27,14 @@ const STORAGE_KEY  = 'fitnessTrackerData';
 const WEBLLM_CDN = 'https://esm.run/@mlc-ai/web-llm@0.2.73';
 
 // Available models: id → { label, sizeDesc, contextTokens }
+// NOTE: All currently published WebLLM WASM backends are limited to 4 096 tokens
+// regardless of the model's advertised context length.  We hard-cap at 4 096 here
+// so prompts never overflow the runtime.
 const GENIE_MODELS = {
   'Phi-3.5-mini-instruct-q4f16_1-MLC': {
-    label:         'Phi-3.5-mini (2.2 GB, 128K context)',
+    label:         'Phi-3.5-mini (2.2 GB, 4K context)',
     sizeDesc:      '~2.2 GB',
-    contextTokens: 131_072,
+    contextTokens: 4_096,
   },
 };
 
@@ -457,16 +460,94 @@ const TOKEN_RESERVE_REPLY    = 512;
 const FOOD_SECTION_BUDGET_RATIO = 0.6;
 // Minimum token budget to allocate for the weight-log section.
 const MIN_WEIGHT_LOG_TOKENS = 200;
+// Default look-back window (in days) when the query timeframe is ambiguous.
+const DEFAULT_QUERY_DAYS = 7;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Query-context parser
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Parse a user message for timeframe / data-type hints.
+ *
+ * Returns { days, label, longitudinal } where:
+ *   days         – how many calendar days back to include (0 = all time)
+ *   label        – human-readable window name used in section headers
+ *   longitudinal – true when the user wants long-range statistics (triggers summary mode)
+ */
+function _parseQueryContext(userMessage) {
+  const msg = userMessage.toLowerCase();
+
+  if (/\btoday\b/.test(msg))
+    return { days: 1,   label: 'today',         longitudinal: false };
+  if (/\byesterday\b/.test(msg))
+    return { days: 2,   label: 'yesterday',      longitudinal: false };
+  if (/\bthis\s*week\b|\blast\s*7\s*days?\b/.test(msg))
+    return { days: 7,   label: 'this week',      longitudinal: false };
+  if (/\blast\s*week\b/.test(msg))
+    return { days: 14,  label: 'last week',      longitudinal: false };
+  if (/\bthis\s*month\b|\blast\s*30\s*days?\b/.test(msg))
+    return { days: 30,  label: 'this month',     longitudinal: false };
+  if (/\blast\s*month\b|\blast\s*[23]\s*months?\b/.test(msg))
+    return { days: 60,  label: 'last month',     longitudinal: false };
+  if (/\bthis\s*year\b|\blast\s*year\b|\ball[- ]?time\b|\bever\b|\bprogress\b|\bhistory\b/.test(msg))
+    return { days: 0,   label: 'all time',       longitudinal: true  };
+
+  // Ambiguous — default to last DEFAULT_QUERY_DAYS days.
+  return { days: DEFAULT_QUERY_DAYS, label: `last ${DEFAULT_QUERY_DAYS} days`, longitudinal: false };
+}
+
+/**
+ * Filter an array of log entries to those within the last `days` calendar days.
+ * If `days === 0`, returns the full array unchanged.
+ * Falls back to comparing any of: timestamp, date, createdAt, loggedAt.
+ */
+function _filterByTimeframe(arr, days) {
+  if (!arr || arr.length === 0) return [];
+  if (days === 0) return arr;
+  const cutoff = Date.now() - days * 86_400_000;
+  return arr.filter(e => {
+    const raw = e.timestamp || e.date || e.createdAt || e.loggedAt || 0;
+    return new Date(raw).getTime() >= cutoff;
+  });
+}
+
+/**
+ * Compute a compact statistics summary (count / min / max / avg) for a numeric
+ * field across a log array.
+ *
+ * @param {Array<Object>} arr          – array of log entry objects
+ * @param {string}        numericField – property name that holds the numeric value
+ * @param {string}        label        – prefix shown in the returned string
+ * @returns {string|null} A single-line summary string, or null if arr is empty.
+ */
+function _buildNumericSummary(arr, numericField, label) {
+  if (!arr || arr.length === 0) return null;
+  const values = arr
+    .map(e => parseFloat(e[numericField]))
+    .filter(v => !isNaN(v));
+  if (values.length === 0) return `${label}: ${arr.length} entries (no numeric values found)`;
+  const min = Math.min(...values).toFixed(1);
+  const max = Math.max(...values).toFixed(1);
+  const avg = (values.reduce((s, v) => s + v, 0) / values.length).toFixed(1);
+  return `${label}: ${arr.length} entries — min ${min}, max ${max}, avg ${avg}`;
+}
 
 /**
  * Build data sections for the given panel, automatically trimming entries to
- * fit within `budgetTokens`. Returns { sections, trimmed } where `trimmed` is
- * true when data had to be cut.
+ * fit within `budgetTokens`.
+ *
+ * @param {string} panelId
+ * @param {number} budgetTokens   – token budget available for data content
+ * @param {string} [userMessage]  – raw user query (used to detect timeframe)
+ * @returns {{ sections: string[], trimmed: boolean, longitudinal: boolean, windowLabel: string }}
  */
-function _buildDataSections(panelId, budgetTokens) {
+function _buildDataSections(panelId, budgetTokens, userMessage = '') {
   const data = _loadFitnessData();
   const sections = [];
   let trimmed = false;
+
+  const { days, label: windowLabel, longitudinal } = _parseQueryContext(userMessage);
 
   /** Fit a JSON array into `maxTokens`, removing oldest entries first. */
   function fitArray(arr, maxTokens, label) {
@@ -485,15 +566,25 @@ function _buildDataSections(panelId, budgetTokens) {
       trimmed = true;
       return null;
     }
-    const note = trimmed ? ` (trimmed to ${slice.length} most-recent entries to fit context window)` : ` (${slice.length} entries)`;
+    const note = trimmed
+      ? ` (trimmed to ${slice.length} most-recent entries to fit context window)`
+      : ` (${slice.length} entries)`;
     return `${label}${note}\n${json}`;
   }
 
   if (['recent-exercises-list', 'workout-set-list'].includes(panelId)) {
     const perSectionBudget = Math.floor(budgetTokens / 2);
-    const exercises = _getRecentExercises(data, 90);
-    const exSection = fitArray(exercises, perSectionBudget, '## Exercise Log (last 90 days)');
-    if (exSection) sections.push(exSection);
+
+    if (longitudinal) {
+      // Long-range query: include a compact statistics summary instead of raw entries.
+      const allExercises = data.exercises?.entries || [];
+      const summaryLine  = `Exercise entries total: ${allExercises.length}`;
+      sections.push(`## Exercise Summary (${windowLabel})\n${summaryLine}`);
+    } else {
+      const exercises = _filterByTimeframe(data.exercises?.entries || [], days);
+      const exSection = fitArray(exercises, perSectionBudget, `## Exercise Log (${windowLabel})`);
+      if (exSection) sections.push(exSection);
+    }
 
     const sessionLog = (data.sessionLog || []).slice(-20);
     const sesSection = fitArray(sessionLog, perSectionBudget, '## Workout Sessions (last 20)');
@@ -501,25 +592,44 @@ function _buildDataSections(panelId, budgetTokens) {
   }
 
   if (panelId === 'recent-supplements-list') {
-    const supps = (data.supplements || []).slice(-50);
-    const sec = fitArray(supps, budgetTokens, '## Supplement Log (last 50 entries)');
-    if (sec) sections.push(sec);
+    if (longitudinal) {
+      const allSupps   = data.supplements || [];
+      const summaryLine = _buildNumericSummary(allSupps, 'amount', `Supplements (${windowLabel})`)
+        || `Supplement entries: ${allSupps.length}`;
+      sections.push(`## Supplement Summary (${windowLabel})\n${summaryLine}`);
+    } else {
+      const supps = _filterByTimeframe(data.supplements || [], days);
+      const sec = fitArray(supps, budgetTokens, `## Supplement Log (${windowLabel})`);
+      if (sec) sections.push(sec);
+    }
   }
 
   if (panelId === 'recent-foods-list') {
     const perSectionBudget = Math.floor(budgetTokens * FOOD_SECTION_BUDGET_RATIO);
-    const foods = (data.foods || []).slice(-50);
-    const foodSec = fitArray(foods, perSectionBudget, '## Food / Diet Log (last 50 entries)');
-    if (foodSec) sections.push(foodSec);
 
-    const weights = (data.weightLogs || []).slice(-30);
-    const foodTokensUsed = foodSec ? _estimateTokens(foodSec) : 0;
-    const wtBudget = Math.max(MIN_WEIGHT_LOG_TOKENS, budgetTokens - foodTokensUsed);
-    const wtSec = fitArray(weights, wtBudget, '## Weight Logs (last 30)');
-    if (wtSec) sections.push(wtSec);
+    if (longitudinal) {
+      const allFoods   = data.foods || [];
+      const allWeights = data.weightLogs || [];
+      const wtSummary  = _buildNumericSummary(allWeights, 'weight', 'Weight log')
+        || `Weight entries: ${allWeights.length}`;
+      sections.push(
+        `## Nutrition & Weight Summary (${windowLabel})\n` +
+        `Total food entries: ${allFoods.length}\n${wtSummary}`
+      );
+    } else {
+      const foods   = _filterByTimeframe(data.foods || [], days);
+      const foodSec = fitArray(foods, perSectionBudget, `## Food / Diet Log (${windowLabel})`);
+      if (foodSec) sections.push(foodSec);
+
+      const weights        = _filterByTimeframe(data.weightLogs || [], days);
+      const foodTokensUsed = foodSec ? _estimateTokens(foodSec) : 0;
+      const wtBudget       = Math.max(MIN_WEIGHT_LOG_TOKENS, budgetTokens - foodTokensUsed);
+      const wtSec          = fitArray(weights, wtBudget, `## Weight Logs (${windowLabel})`);
+      if (wtSec) sections.push(wtSec);
+    }
   }
 
-  return { sections, trimmed };
+  return { sections, trimmed, longitudinal, windowLabel };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -534,10 +644,18 @@ async function _chat(userMessage, panelId, statusEl) {
 
   if (dataBudget < 50) {
     // Even with an empty data block, the prompt is too large.
-    return "⚠️ Your message is too long for the selected model's context window. Please try a shorter question, or switch to Phi-3.5-mini (128K context) in Settings.";
+    return "⚠️ Your message is too long for the selected model's context window. Please try a shorter question.";
   }
 
-  const { sections, trimmed } = _buildDataSections(panelId, dataBudget);
+  const { sections, trimmed, longitudinal, windowLabel } = _buildDataSections(panelId, dataBudget, userMessage);
+
+  // Longitudinal queries that contain no raw entries still produce a stats summary —
+  // but if even that summary is empty, show a friendly "coming soon" message.
+  if (longitudinal && sections.length === 0) {
+    return "🧞 Multi-year analysis requires a larger context window than current models support. " +
+           "This feature is planned for future increased-context or subscription models. " +
+           "Try asking about a specific week or month instead — e.g. \"What did I eat this week?\"";
+  }
 
   const contextBlock = sections.length
     ? sections.join('\n\n')
@@ -548,7 +666,7 @@ async function _chat(userMessage, panelId, statusEl) {
   const fullTokenEst = _estimateTokens(systemPrompt) + _estimateTokens(userMessage);
   if (fullTokenEst > contextTokens - TOKEN_RESERVE_REPLY) {
     return "⚠️ Your logs are too large to fit in the context window even after trimming. " +
-           "Try asking about a shorter time range, or switch to Phi-3.5-mini (128K context) in Genie Settings for larger logs.";
+           "Try asking about a shorter time range — e.g. \"this week\" or \"today\".";
   }
 
   const messages = [
