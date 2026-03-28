@@ -1782,8 +1782,29 @@
         No private key required — MetaMask signs each settlement.
       </p>
 
-      <!-- Treasury balance -->
-      <p id="payroll-treasury-balance" class="gov-wallet-balance" style="display:none;"></p>
+      <!-- Treasury balance health indicator -->
+      <div id="payroll-treasury-health" style="display:none;">
+        <p id="payroll-treasury-balance" class="gov-wallet-balance"></p>
+        <p id="payroll-treasury-status" class="payroll-treasury-status"></p>
+        <div id="payroll-treasury-actions" style="display:none;" class="payroll-treasury-actions">
+          <span style="font-size:0.8rem;color:#aacfdd;">Quick actions: </span>
+          <a href="#" id="payroll-treasury-mint-link" class="payroll-treasury-action-link">🪙 Mint $BNUT</a>
+          <span style="color:#555;margin:0 0.3rem;">·</span>
+          <a href="#" id="payroll-treasury-transfer-link" class="payroll-treasury-action-link">💸 Transfer to Treasury</a>
+        </div>
+      </div>
+
+      <!-- Bounty Bot pause toggle (admin only) -->
+      <div id="payroll-bot-toggle-section" style="display:none;" class="payroll-bot-toggle-card">
+        <div class="payroll-bot-toggle-row">
+          <span class="payroll-bot-toggle-label">🤖 Bounty Bot</span>
+          <button id="payroll-bot-toggle-btn" class="payroll-bot-toggle-btn" aria-label="Toggle bounty bot" title="Toggle bounty bot on/off">
+            <span class="payroll-bot-toggle-knob"></span>
+          </button>
+        </div>
+        <p id="payroll-bot-toggle-status" class="payroll-bot-toggle-status"></p>
+        <div id="payroll-bot-pause-msg" class="payroll-bot-pause-msg" style="display:none;"></div>
+      </div>
 
       <!-- Info box -->
       <details class="gov-info-box">

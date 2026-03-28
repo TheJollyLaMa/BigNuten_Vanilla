@@ -4187,6 +4187,123 @@ svg text {
   box-shadow: none;
 }
 
+/* Treasury health indicator */
+#payroll-treasury-health {
+  margin-bottom: 0.75rem;
+}
+
+.payroll-treasury-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0.2rem 0 0;
+  transition: color 0.3s;
+}
+
+.payroll-treasury-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.payroll-treasury-action-link {
+  font-size: 0.78rem;
+  color: #00e5ff;
+  text-decoration: none;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.payroll-treasury-action-link:hover {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: rgba(0, 229, 255, 0.6);
+}
+
+/* Bounty Bot pause toggle */
+.payroll-bot-toggle-card {
+  background: rgba(0, 0, 60, 0.45);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.payroll-bot-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.payroll-bot-toggle-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #c0e8ff;
+}
+
+.payroll-bot-toggle-btn {
+  position: relative;
+  width: 52px;
+  height: 26px;
+  border-radius: 13px;
+  border: 1.5px solid rgba(0, 229, 255, 0.4);
+  background: rgba(60, 60, 100, 0.6);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.25s, border-color 0.25s;
+  flex-shrink: 0;
+}
+
+.payroll-bot-toggle-btn--on {
+  background: rgba(0, 200, 80, 0.5);
+  border-color: rgba(0, 200, 80, 0.7);
+}
+
+.payroll-bot-toggle-btn--off {
+  background: rgba(80, 40, 40, 0.6);
+  border-color: rgba(255, 80, 80, 0.4);
+}
+
+.payroll-bot-toggle-knob {
+  position: absolute;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #c0e8ff;
+  transition: left 0.25s;
+  pointer-events: none;
+}
+
+.payroll-bot-toggle-btn--on .payroll-bot-toggle-knob {
+  left: 28px;
+  background: #00ff88;
+}
+
+.payroll-bot-toggle-btn--off .payroll-bot-toggle-knob {
+  left: 3px;
+  background: #ff8888;
+}
+
+.payroll-bot-toggle-status {
+  font-size: 0.8rem;
+  margin: 0.35rem 0 0;
+}
+
+.payroll-bot-pause-msg {
+  font-size: 0.78rem;
+  color: #ffcc00;
+  background: rgba(255, 200, 0, 0.08);
+  border: 1px solid rgba(255, 200, 0, 0.25);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+  line-height: 1.5;
+}
+
 /* Proposals container */
 .gov-proposals-container {
   margin-top: 1rem;

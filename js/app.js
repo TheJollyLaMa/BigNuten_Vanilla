@@ -6018,8 +6018,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!payrollModal) return;
 
     // ── Payroll queue state (set on each refresh) ────────────────────────
-    let _pendingQueue  = [];
-    let _paidOnChain   = new Set();
+    let _pendingQueue    = [];
+    let _paidOnChain     = new Set();
+    let _totalBNUTOwed   = 0;
+
+    // ── Bounty bot config (read from raw GitHub URL) ──────────────────────
+    const BOT_CONFIG_RAW_URL =
+      'https://raw.githubusercontent.com/TheJollyLaMa/BigNuten_Vanilla/main/bounty-bot-config.json';
+    const BOT_CONFIG_API_URL =
+      'https://api.github.com/repos/TheJollyLaMa/BigNuten_Vanilla/contents/bounty-bot-config.json';
+    const BOT_DEFAULT_PAUSE_MSG =
+      '💰 Auto dev pay is temporarily paused while we top up treasury funds. Your bounty has been noted and will be queued once funds are restored. Thank you! 🙏';
 
     // ── GitHub + on-chain pending bounty fetch ────────────────────────────
     const REPO_SLUG = 'TheJollyLaMa/BigNuten_Vanilla';
@@ -6210,6 +6219,9 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       const alreadyPaidCount = pending.filter(p => paidOnChain.has(entryKey(p))).length;
 
+      // Always reset so treasury health reflects current eligible payouts
+      _totalBNUTOwed = 0;
+
       if (eligible.length === 0) {
         let html = '<div class="payroll-batch-preview-card">';
         if (skipped.length > 0) {
@@ -6241,6 +6253,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const totalBNUT = eligible.reduce((s, p) => s + parseFloat(p.amount || '1'), 0);
+      _totalBNUTOwed = totalBNUT;
 
       let html = `
         <div class="payroll-batch-preview-card">
@@ -6630,7 +6643,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Load payroll data and populate modal ──────────────────────────────
 
     async function refreshPayrollModal() {
+      const healthEl    = document.getElementById('payroll-treasury-health');
       const balanceEl   = document.getElementById('payroll-treasury-balance');
+      const statusEl    = document.getElementById('payroll-treasury-status');
+      const actionsEl   = document.getElementById('payroll-treasury-actions');
       const pendingListEl = document.getElementById('payroll-pending-list');
       const settledListEl = document.getElementById('payroll-settled-list');
 
@@ -6688,15 +6704,209 @@ document.addEventListener('DOMContentLoaded', () => {
           renderSettledList(events);
         }
 
-        // Treasury balance (read-only, no wallet needed)
+        // Treasury balance with color-coded health indicator
         const bal = await getTreasuryBalance();
         if (balanceEl) {
           balanceEl.textContent = `🏦 Treasury: ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT`;
-          balanceEl.style.display = 'block';
         }
+        if (healthEl) healthEl.style.display = 'block';
+
+        // Apply health thresholds
+        const owed = _totalBNUTOwed;
+        const settleBtn = document.getElementById('payroll-settle-btn');
+        if (statusEl) {
+          if (owed <= 0) {
+            statusEl.textContent = `✅ Treasury healthy — ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT available`;
+            statusEl.style.color = '#00ff88';
+            if (actionsEl) actionsEl.style.display = 'none';
+            if (settleBtn) settleBtn.disabled = false;
+          } else if (bal >= owed * 2) {
+            statusEl.textContent = `✅ Treasury healthy — ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT available`;
+            statusEl.style.color = '#00ff88';
+            if (actionsEl) actionsEl.style.display = 'none';
+            if (settleBtn) settleBtn.disabled = false;
+          } else if (bal >= owed * 1.25) {
+            statusEl.textContent = `⚠️ Treasury is running low — consider minting or transferring $BNUT`;
+            statusEl.style.color = '#ffcc00';
+            if (actionsEl) actionsEl.style.display = 'flex';
+            if (settleBtn) settleBtn.disabled = false;
+          } else if (bal >= owed) {
+            statusEl.textContent = `🔴 Treasury critically low — mint or transfer before next payroll`;
+            statusEl.style.color = '#ff8c00';
+            if (actionsEl) actionsEl.style.display = 'flex';
+            if (settleBtn) settleBtn.disabled = false;
+          } else {
+            statusEl.textContent = `🚨 Insufficient funds! Treasury cannot cover pending payroll. Mint or transfer $BNUT now.`;
+            statusEl.style.color = '#ff4444';
+            if (actionsEl) actionsEl.style.display = 'flex';
+            if (settleBtn) {
+              settleBtn.disabled = true;
+              settleBtn.title = `Treasury has ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT but ${owed.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT is owed. Top up treasury first.`;
+            }
+          }
+        }
+
+        // Admin-only: load and display bot toggle
+        await refreshBotToggle();
+
       } catch (err) {
         if (pendingListEl) pendingListEl.innerHTML = `<p style="color:#ff6b6b;">❌ ${err.message}</p>`;
       }
+    }
+
+    // ── Bot toggle: read config + check admin status ──────────────────────
+
+    async function refreshBotToggle() {
+      const toggleSection = document.getElementById('payroll-bot-toggle-section');
+      if (!toggleSection) return;
+
+      // Only show for treasury owner
+      let isOwner = false;
+      if (typeof window.ethereum !== 'undefined') {
+        try {
+          const accs = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accs && accs.length > 0) {
+            isOwner = await isTreasuryOwner(accs[0]);
+          }
+        } catch (_) {}
+      }
+      if (!isOwner) {
+        toggleSection.style.display = 'none';
+        return;
+      }
+
+      toggleSection.style.display = 'block';
+
+      let config = { enabled: true, pauseMessage: '' };
+      try {
+        const res = await fetch(BOT_CONFIG_RAW_URL + '?t=' + Date.now());
+        if (res.ok) config = await res.json();
+      } catch (_) {}
+
+      _applyBotToggleUI(config.enabled !== false, config.pauseMessage || BOT_DEFAULT_PAUSE_MSG);
+    }
+
+    function _applyBotToggleUI(enabled, pauseMessage) {
+      const toggleBtn    = document.getElementById('payroll-bot-toggle-btn');
+      const statusEl     = document.getElementById('payroll-bot-toggle-status');
+      const pauseMsgEl   = document.getElementById('payroll-bot-pause-msg');
+      const msg = pauseMessage || BOT_DEFAULT_PAUSE_MSG;
+
+      if (!toggleBtn) return;
+
+      toggleBtn.dataset.enabled = enabled ? 'true' : 'false';
+      toggleBtn.classList.toggle('payroll-bot-toggle-btn--on', enabled);
+      toggleBtn.classList.toggle('payroll-bot-toggle-btn--off', !enabled);
+
+      if (enabled) {
+        if (statusEl) { statusEl.textContent = 'Bot is active — new bounties will be queued'; statusEl.style.color = '#00ff88'; }
+        if (pauseMsgEl) pauseMsgEl.style.display = 'none';
+      } else {
+        if (statusEl) { statusEl.textContent = '⏸ Bot paused — new PRs will receive the message below:'; statusEl.style.color = '#ffcc00'; }
+        if (pauseMsgEl) {
+          pauseMsgEl.textContent = msg;
+          pauseMsgEl.style.display = 'block';
+        }
+      }
+    }
+
+    // ── Bot toggle click ──────────────────────────────────────────────────
+
+    document.getElementById('payroll-bot-toggle-btn')?.addEventListener('click', async function () {
+      const currentEnabled = this.dataset.enabled === 'true';
+      const newEnabled = !currentEnabled;
+
+      // Get GitHub PAT from localStorage (prompt if not set)
+      let pat = localStorage.getItem('ghPatBountyBot') || '';
+      if (!pat) {
+        pat = window.prompt(
+          'Enter a GitHub Personal Access Token with "Contents: Read and Write" scope to update bounty-bot-config.json.\n\nThis token is stored only in your browser (localStorage).'
+        );
+        if (!pat) return;
+        localStorage.setItem('ghPatBountyBot', pat.trim());
+        pat = pat.trim();
+      }
+
+      this.disabled = true;
+      const statusEl = document.getElementById('payroll-bot-toggle-status');
+      if (statusEl) { statusEl.textContent = '⏳ Updating config…'; statusEl.style.color = '#aacfdd'; }
+
+      try {
+        // Fetch current file SHA (required for update)
+        const metaRes = await fetch(BOT_CONFIG_API_URL, {
+          headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github+json' },
+        });
+        if (!metaRes.ok) {
+          if (metaRes.status === 401) {
+            localStorage.removeItem('ghPatBountyBot');
+            throw new Error('Invalid GitHub token (401). Token cleared — try again.');
+          }
+          throw new Error(`GitHub API error: ${metaRes.status} ${metaRes.statusText}`);
+        }
+        const meta = await metaRes.json();
+        const sha = meta.sha;
+
+        let existingPauseMsg = BOT_DEFAULT_PAUSE_MSG;
+        if (meta.content) {
+          try {
+            const existing = JSON.parse(atob(meta.content.replace(/\n/g, '')));
+            existingPauseMsg = existing.pauseMessage || BOT_DEFAULT_PAUSE_MSG;
+          } catch (_) {}
+        }
+        const newConfig = { enabled: newEnabled, pauseMessage: existingPauseMsg };
+        const newContent = btoa(JSON.stringify(newConfig, null, 2) + '\n');
+
+        const updateRes = await fetch(BOT_CONFIG_API_URL, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${pat}`,
+            Accept: 'application/vnd.github+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: newEnabled ? 'chore: re-enable bounty bot' : 'chore: pause bounty bot (treasury low)',
+            content: newContent,
+            sha,
+          }),
+        });
+        if (!updateRes.ok) throw new Error(`GitHub API update error: ${updateRes.status} ${updateRes.statusText}`);
+
+        _applyBotToggleUI(newEnabled, existingPauseMsg);
+      } catch (err) {
+        if (statusEl) { statusEl.textContent = `❌ ${err.message}`; statusEl.style.color = '#ff4444'; }
+      } finally {
+        this.disabled = false;
+      }
+    });
+
+    // ── Treasury quick-action scroll links ────────────────────────────────
+
+    const mintLink = document.getElementById('payroll-treasury-mint-link');
+    if (mintLink) {
+      mintLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('payroll-modal')?.classList.add('modal-hidden');
+        // Open treasury admin modal and focus mint section
+        const bnutAdminBtn = document.getElementById('admin-bnut-btn');
+        if (bnutAdminBtn) bnutAdminBtn.click();
+        setTimeout(() => {
+          document.getElementById('bnut-mint-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+      });
+    }
+
+    const transferLink = document.getElementById('payroll-treasury-transfer-link');
+    if (transferLink) {
+      transferLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('payroll-modal')?.classList.add('modal-hidden');
+        // Open treasury admin modal and focus transfer section
+        const treasuryAdminBtn = document.getElementById('admin-treasury-btn');
+        if (treasuryAdminBtn) treasuryAdminBtn.click();
+        setTimeout(() => {
+          document.getElementById('treasury-transfer-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+      });
     }
 
     // ── Settle All Pending button — uses treasury.settlePayroll() ─────────
