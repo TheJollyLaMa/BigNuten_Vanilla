@@ -56,6 +56,7 @@ const ALCHEMIST_V2_ABI = [
 
 const TREASURY_MIN_ABI = [
   'function getBalance() view returns (uint256 balance)',
+  'function owner() view returns (address)',
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -116,6 +117,26 @@ async function requireMetaMask() {
   const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
   if (!accounts || accounts.length === 0) throw new Error('No wallet connected.');
   return accounts[0];
+}
+
+// ─── Admin Guard ──────────────────────────────────────────────────────────────
+
+async function requireAdmin(wallet, provider) {
+  const treasury = getTreasuryAddress();
+  if (!treasury || treasury === '0x0000000000000000000000000000000000000000') {
+    throw new Error('Treasury contract address not configured.');
+  }
+  const contract = new ethers.Contract(treasury, TREASURY_MIN_ABI, provider);
+  let owner;
+  try {
+    owner = await contract.owner();
+  } catch (err) {
+    console.warn('[DeFi] requireAdmin owner() call failed:', err);
+    throw new Error('Could not verify admin status — treasury contract unreachable.');
+  }
+  if (owner.toLowerCase() !== wallet.toLowerCase()) {
+    throw new Error('🚫 Access denied. Only the treasury owner can perform this action.');
+  }
 }
 
 // ─── Movement History ─────────────────────────────────────────────────────────
@@ -319,6 +340,7 @@ async function aaveSupplyUsdc() {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
     await requireOptimism(provider);
+    await requireAdmin(wallet, provider);
 
     const amountInput = document.getElementById('defi-aave-supply-amount');
     const rawAmt = amountInput ? amountInput.value.trim() : '';
@@ -364,6 +386,7 @@ async function aaveBorrowUsdc() {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
     await requireOptimism(provider);
+    await requireAdmin(wallet, provider);
 
     const amountInput = document.getElementById('defi-aave-borrow-amount');
     const rawAmt = amountInput ? amountInput.value.trim() : '';
@@ -400,6 +423,7 @@ async function alchemixDepositUsdc() {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
     await requireOptimism(provider);
+    await requireAdmin(wallet, provider);
 
     const amountInput = document.getElementById('defi-alchemix-deposit-amount');
     const rawAmt = amountInput ? amountInput.value.trim() : '';
@@ -448,6 +472,7 @@ async function alchemixMintAlUsd() {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
     await requireOptimism(provider);
+    await requireAdmin(wallet, provider);
 
     const amountInput = document.getElementById('defi-alchemix-borrow-amount');
     const rawAmt = amountInput ? amountInput.value.trim() : '';
@@ -467,6 +492,109 @@ async function alchemixMintAlUsd() {
     addHistory({ protocol: 'Alchemix', action: 'Borrow/Mint', amount: rawAmt + ' alUSD', txHash: tx.hash });
     renderHistory();
     statusEl(statusId, `✅ Minted ${rawAmt} alUSD from Alchemix. Tx: ${tx.hash.slice(0, 10)}…`);
+    await loadAlchemixBalances();
+  } catch (e) {
+    statusEl(statusId, '❌ ' + (e.reason || e.message || 'Unknown error'), true);
+  }
+}
+
+// ─── Action: Aave Sweep Idle USDC ─────────────────────────────────────────────
+
+async function aaveSweepUsdc() {
+  const statusId = 'defi-aave-sweep-status';
+  try {
+    statusEl(statusId, '⏳ Connecting wallet…');
+    const wallet   = await requireMetaMask();
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    await requireOptimism(provider);
+    await requireAdmin(wallet, provider);
+
+    const signer       = await provider.getSigner();
+    const usdcAddr     = getUsdcAddress();
+    const usdcContract = new ethers.Contract(usdcAddr, ERC20_MIN_ABI, signer);
+
+    statusEl(statusId, '⏳ Reading idle USDC balance…');
+    const balance = await usdcContract.balanceOf(wallet);
+    if (balance === 0n) {
+      throw new Error('No idle USDC available to sweep.');
+    }
+
+    const humanAmt = (Number(balance) / 1e6).toFixed(6);
+    const confirmed = confirm(`Sweep all idle USDC to Aave?\n\nAmount: ${humanAmt} USDC\n\nThis will supply your full wallet USDC balance to Aave V3.`);
+    if (!confirmed) {
+      statusEl(statusId, '');
+      return;
+    }
+
+    statusEl(statusId, '⏳ Approving USDC for Aave…');
+    const allowance = await usdcContract.allowance(wallet, AAVE_V3_POOL_ADDRESS);
+    if (allowance < balance) {
+      const approveTx = await usdcContract.approve(AAVE_V3_POOL_ADDRESS, balance);
+      statusEl(statusId, '⏳ Waiting for approval tx…');
+      await approveTx.wait();
+    }
+
+    const pool = new ethers.Contract(AAVE_V3_POOL_ADDRESS, AAVE_POOL_ABI, signer);
+    statusEl(statusId, '⏳ Sweeping USDC into Aave…');
+    const tx = await pool.supply(usdcAddr, balance, wallet, 0);
+    statusEl(statusId, '⏳ Waiting for confirmation…');
+    await tx.wait();
+
+    addHistory({ protocol: 'Aave', action: 'Sweep', amount: humanAmt + ' USDC', txHash: tx.hash });
+    renderHistory();
+    statusEl(statusId, `✅ Swept ${humanAmt} USDC to Aave. Tx: ${tx.hash.slice(0, 10)}…`);
+    await loadAaveBalances();
+  } catch (e) {
+    statusEl(statusId, '❌ ' + (e.reason || e.message || 'Unknown error'), true);
+  }
+}
+
+// ─── Action: Alchemix Sweep Idle USDC ─────────────────────────────────────────
+
+async function alchemixSweepUsdc() {
+  const statusId = 'defi-alchemix-sweep-status';
+  try {
+    statusEl(statusId, '⏳ Connecting wallet…');
+    const wallet   = await requireMetaMask();
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    await requireOptimism(provider);
+    await requireAdmin(wallet, provider);
+
+    const signer       = await provider.getSigner();
+    const usdcAddr     = getUsdcAddress();
+    const usdcContract = new ethers.Contract(usdcAddr, ERC20_MIN_ABI, signer);
+
+    statusEl(statusId, '⏳ Reading idle USDC balance…');
+    const balance = await usdcContract.balanceOf(wallet);
+    if (balance === 0n) {
+      throw new Error('No idle USDC available to sweep.');
+    }
+
+    const humanAmt = (Number(balance) / 1e6).toFixed(6);
+    const confirmed = confirm(`Sweep all idle USDC to Alchemix?\n\nAmount: ${humanAmt} USDC\n\nThis will deposit your full wallet USDC balance into Alchemix V2 (yvUSDC vault) via depositUnderlying().`);
+    if (!confirmed) {
+      statusEl(statusId, '');
+      return;
+    }
+
+    statusEl(statusId, '⏳ Approving USDC for Alchemix…');
+    const allowance = await usdcContract.allowance(wallet, ALCHEMIST_V2_ADDRESS);
+    if (allowance < balance) {
+      const approveTx = await usdcContract.approve(ALCHEMIST_V2_ADDRESS, balance);
+      statusEl(statusId, '⏳ Waiting for approval tx…');
+      await approveTx.wait();
+    }
+
+    const alchemist = new ethers.Contract(ALCHEMIST_V2_ADDRESS, ALCHEMIST_V2_ABI, signer);
+    statusEl(statusId, '⏳ Depositing USDC into Alchemix…');
+    const minOut = balance * ALCHEMIX_MIN_OUT_PERCENT / 100n;
+    const tx = await alchemist.depositUnderlying(ALCHEMIX_YIELD_TOKEN, balance, wallet, minOut);
+    statusEl(statusId, '⏳ Waiting for confirmation…');
+    await tx.wait();
+
+    addHistory({ protocol: 'Alchemix', action: 'Sweep', amount: humanAmt + ' USDC', txHash: tx.hash });
+    renderHistory();
+    statusEl(statusId, `✅ Swept ${humanAmt} USDC into Alchemix. Tx: ${tx.hash.slice(0, 10)}…`);
     await loadAlchemixBalances();
   } catch (e) {
     statusEl(statusId, '❌ ' + (e.reason || e.message || 'Unknown error'), true);
@@ -505,12 +633,18 @@ export function initDeFiPanel() {
   const aaveBorrowBtn = document.getElementById('defi-aave-borrow-btn');
   if (aaveBorrowBtn) aaveBorrowBtn.addEventListener('click', aaveBorrowUsdc);
 
+  const aaveSweepBtn = document.getElementById('defi-aave-sweep-btn');
+  if (aaveSweepBtn) aaveSweepBtn.addEventListener('click', aaveSweepUsdc);
+
   // Alchemix actions
   const alchDepositBtn = document.getElementById('defi-alchemix-deposit-btn');
   if (alchDepositBtn) alchDepositBtn.addEventListener('click', alchemixDepositUsdc);
 
   const alchBorrowBtn = document.getElementById('defi-alchemix-borrow-btn');
   if (alchBorrowBtn) alchBorrowBtn.addEventListener('click', alchemixMintAlUsd);
+
+  const alchSweepBtn = document.getElementById('defi-alchemix-sweep-btn');
+  if (alchSweepBtn) alchSweepBtn.addEventListener('click', alchemixSweepUsdc);
 
   // Clear history
   const clearBtn = document.getElementById('defi-clear-history-btn');
