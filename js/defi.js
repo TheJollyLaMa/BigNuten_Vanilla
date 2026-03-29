@@ -317,9 +317,14 @@ async function loadAlchemixBalances() {
     const ltvPct = collateralNum > 0 ? ((Math.abs(debtNum) / collateralNum) * 100).toFixed(2) + '%' : '0.00%';
     const debtCeiling = collateralNum > 0 ? (collateralNum * 0.5).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—';
 
+    const availableAlUsd = collateralNum > 0
+      ? Math.max(0, collateralNum * 0.5 - Math.abs(debtNum)).toLocaleString(undefined, { maximumFractionDigits: 4 })
+      : '0';
+
     setEl('defi-alchemix-collateral', collateralNum.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' USDC');
     setEl('defi-alchemix-debt', Math.abs(debtNum).toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' alUSD');
     setEl('defi-alchemix-ceiling', debtCeiling ? debtCeiling + ' alUSD (50%)' : '—');
+    setEl('defi-alchemix-available', availableAlUsd + ' alUSD');
     setEl('defi-alchemix-ltv', ltvPct);
 
     const ltvBar = document.getElementById('defi-alchemix-ltv-bar-fill');
@@ -498,6 +503,150 @@ async function alchemixMintAlUsd() {
   }
 }
 
+// ─── Action: Aave Max Borrow to Dev Fund ──────────────────────────────────────
+
+async function aaveMaxBorrowToDevFund() {
+  const statusId = 'defi-aave-max-borrow-status';
+  try {
+    statusEl(statusId, '⏳ Connecting wallet…');
+    const wallet   = await requireMetaMask();
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    await requireOptimism(provider);
+    await requireAdmin(wallet, provider);
+
+    const rpcProvider = new ethers.JsonRpcProvider(getRpc());
+    const pool        = new ethers.Contract(AAVE_V3_POOL_ADDRESS, AAVE_POOL_ABI, rpcProvider);
+
+    statusEl(statusId, '⏳ Reading Aave position…');
+    const [, totalDebtBase, availableBorrowsBase] = await pool.getUserAccountData(wallet);
+
+    if (availableBorrowsBase === 0n) {
+      throw new Error('No USDC available to borrow from Aave (check collateral and LTV).');
+    }
+
+    // availableBorrowsBase is USD * 1e8; USDC has 6 decimals → divide by 100
+    const availableUsdcWei = availableBorrowsBase / 100n;
+    const availableHuman   = (Number(availableUsdcWei) / 1e6).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const debtHuman        = fmtAaveBase(totalDebtBase);
+    const treasury         = getTreasuryAddress();
+
+    const confirmed = confirm(
+      `Max Borrow → Treasury Dev Fund (Aave V3)\n\n` +
+      `Available to borrow: ${availableHuman} USDC\n` +
+      `Current debt: ${debtHuman} USD\n` +
+      `Recipient: ${treasury}\n\n` +
+      `This will borrow the maximum safe amount from Aave V3 and send it directly to the treasury.`
+    );
+    if (!confirmed) { statusEl(statusId, ''); return; }
+
+    const signer   = await provider.getSigner();
+    const poolSigned = new ethers.Contract(AAVE_V3_POOL_ADDRESS, AAVE_POOL_ABI, signer);
+    const usdcAddr = getUsdcAddress();
+
+    statusEl(statusId, '⏳ Submitting borrow tx…');
+    // interestRateMode 2 = variable rate; Aave V3 sends borrowed tokens to msg.sender (wallet)
+    // Debt is assigned to onBehalfOf (wallet). Funds are then forwarded to treasury.
+    const tx = await poolSigned.borrow(usdcAddr, availableUsdcWei, 2, 0, wallet);
+    statusEl(statusId, '⏳ Waiting for confirmation…');
+    await tx.wait();
+
+    // Transfer borrowed USDC to treasury (two-step: borrow → wallet, transfer → treasury)
+    // If the transfer below fails, the borrowed USDC remains in the wallet.
+    const usdcSigned = new ethers.Contract(usdcAddr, ERC20_MIN_ABI, signer);
+    statusEl(statusId, '⏳ Transferring USDC to treasury…');
+    const transferTx = await usdcSigned.transfer(treasury, availableUsdcWei);
+    await transferTx.wait();
+
+    addHistory({ protocol: 'Aave', action: 'Max Borrow → Dev Fund', amount: availableHuman + ' USDC', txHash: tx.hash });
+    renderHistory();
+    const txLink = `https://optimistic.etherscan.io/tx/${tx.hash}`;
+    statusEl(statusId, `✅ Borrowed ${availableHuman} USDC and sent to treasury. Tx: ${tx.hash.slice(0, 10)}… — ${txLink}`);
+    await loadAaveBalances();
+  } catch (e) {
+    statusEl(statusId, '❌ ' + (e.reason || e.message || 'Unknown error'), true);
+  }
+}
+
+// ─── Action: Alchemix Max Borrow to Dev Fund ──────────────────────────────────
+
+async function alchemixMaxBorrowToDevFund() {
+  const statusId = 'defi-alchemix-max-borrow-status';
+  try {
+    statusEl(statusId, '⏳ Connecting wallet…');
+    const wallet   = await requireMetaMask();
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    await requireOptimism(provider);
+    await requireAdmin(wallet, provider);
+
+    const rpcProvider = new ethers.JsonRpcProvider(getRpc());
+    const alchemist   = new ethers.Contract(ALCHEMIST_V2_ADDRESS, ALCHEMIST_V2_ABI, rpcProvider);
+
+    statusEl(statusId, '⏳ Reading Alchemix position…');
+    const [debt, depositedTokens] = await alchemist.accounts(wallet);
+
+    let totalCollateral = 0n;
+    for (const yt of depositedTokens) {
+      try {
+        const pos        = await alchemist.positions(wallet, yt);
+        const underlying = await alchemist.convertSharesToUnderlyingTokens(yt, pos.shares);
+        totalCollateral += underlying;
+      } catch (posErr) {
+        console.warn('[DeFi] Could not read Alchemix position for yield token', yt, posErr);
+      }
+    }
+
+    if (totalCollateral === 0n) {
+      throw new Error('No collateral deposited in Alchemix.');
+    }
+
+    // Collateral is USDC (6 dec); debt is alUSD (18 dec, stored as negative int256)
+    // Scale collateral to 18 decimals to work in the same space as debt
+    const collateral18 = totalCollateral * 10n ** 12n;
+    const debtAbs18    = debt < 0n ? -debt : debt;
+
+    // Safe borrow ceiling at 50% LTV in 18-decimal space
+    const ceiling18   = collateral18 / 2n;
+    const available18 = ceiling18 > debtAbs18 ? ceiling18 - debtAbs18 : 0n;
+
+    if (available18 === 0n) {
+      throw new Error('Already at or above the 50% safe LTV ceiling. Repay some debt first.');
+    }
+
+    const collateralHuman = (Number(totalCollateral) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const debtHuman       = (Number(debtAbs18) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 4 });
+    const availableHuman  = (Number(available18) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 4 });
+    const ltvAfter        = '50.00'; // max borrow always brings LTV to exactly the 50% ceiling
+    const treasury        = getTreasuryAddress();
+
+    const confirmed = confirm(
+      `Max Borrow → Treasury Dev Fund (Alchemix V2)\n\n` +
+      `Collateral: ${collateralHuman} USDC\n` +
+      `Current debt: ${debtHuman} alUSD\n` +
+      `Available to mint: ${availableHuman} alUSD\n` +
+      `LTV after: ${ltvAfter}% (50% ceiling)\n` +
+      `Recipient: ${treasury}\n\n` +
+      `This will mint the maximum safe alUSD and send it directly to the treasury dev fund.`
+    );
+    if (!confirmed) { statusEl(statusId, ''); return; }
+
+    const signer          = await provider.getSigner();
+    const alchemistSigned = new ethers.Contract(ALCHEMIST_V2_ADDRESS, ALCHEMIST_V2_ABI, signer);
+
+    statusEl(statusId, '⏳ Minting alUSD to treasury…');
+    const tx = await alchemistSigned.mint(available18, treasury);
+    statusEl(statusId, '⏳ Waiting for confirmation…');
+    await tx.wait();
+
+    addHistory({ protocol: 'Alchemix', action: 'Max Borrow → Dev Fund', amount: availableHuman + ' alUSD', txHash: tx.hash });
+    renderHistory();
+    const txLink = `https://optimistic.etherscan.io/tx/${tx.hash}`;
+    statusEl(statusId, `✅ Minted ${availableHuman} alUSD to treasury. Tx: ${tx.hash.slice(0, 10)}… — ${txLink}`);
+    await loadAlchemixBalances();
+  } catch (e) {
+    statusEl(statusId, '❌ ' + (e.reason || e.message || 'Unknown error'), true);
+  }
+}
+
 // ─── Action: Aave Sweep Idle USDC ─────────────────────────────────────────────
 
 async function aaveSweepUsdc() {
@@ -633,6 +782,9 @@ export function initDeFiPanel() {
   const aaveBorrowBtn = document.getElementById('defi-aave-borrow-btn');
   if (aaveBorrowBtn) aaveBorrowBtn.addEventListener('click', aaveBorrowUsdc);
 
+  const aaveMaxBorrowBtn = document.getElementById('defi-aave-max-borrow-btn');
+  if (aaveMaxBorrowBtn) aaveMaxBorrowBtn.addEventListener('click', aaveMaxBorrowToDevFund);
+
   const aaveSweepBtn = document.getElementById('defi-aave-sweep-btn');
   if (aaveSweepBtn) aaveSweepBtn.addEventListener('click', aaveSweepUsdc);
 
@@ -642,6 +794,9 @@ export function initDeFiPanel() {
 
   const alchBorrowBtn = document.getElementById('defi-alchemix-borrow-btn');
   if (alchBorrowBtn) alchBorrowBtn.addEventListener('click', alchemixMintAlUsd);
+
+  const alchMaxBorrowBtn = document.getElementById('defi-alchemix-max-borrow-btn');
+  if (alchMaxBorrowBtn) alchMaxBorrowBtn.addEventListener('click', alchemixMaxBorrowToDevFund);
 
   const alchSweepBtn = document.getElementById('defi-alchemix-sweep-btn');
   if (alchSweepBtn) alchSweepBtn.addEventListener('click', alchemixSweepUsdc);
