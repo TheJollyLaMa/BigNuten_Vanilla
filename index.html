@@ -1755,9 +1755,15 @@
         <details class="gov-admin-section" style="margin-top:0.5rem;">
           <summary>📋 Movement History</summary>
           <div class="gov-admin-section-body">
-            <p class="gov-admin-hint">Local record of DeFi operations. Click any tx hash to view on Etherscan.</p>
+            <p class="gov-admin-hint">Local record of DeFi operations. Click any tx hash to view on Etherscan. ⛓ = event scraped from chain.</p>
             <div id="defi-history-list" style="overflow-x:auto;font-size:0.82rem;margin-bottom:0.5rem;"></div>
-            <button id="defi-clear-history-btn" class="gov-admin-action-btn gov-admin-danger-btn" style="font-size:0.78rem;">🗑 Clear History</button>
+            <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+              <button id="defi-scrape-btn" class="gov-admin-action-btn" style="font-size:0.78rem;">🔍 Scrape Chain Events</button>
+              <button id="defi-export-csv-btn" class="gov-admin-action-btn" style="font-size:0.78rem;">📊 Export CSV</button>
+              <button id="defi-copy-history-btn" class="gov-admin-action-btn" style="font-size:0.78rem;">📋 Copy to Clipboard</button>
+              <button id="defi-clear-history-btn" class="gov-admin-action-btn gov-admin-danger-btn" style="font-size:0.78rem;">🗑 Clear History</button>
+            </div>
+            <p id="defi-scrape-status" class="gov-form-status" style="margin-top:0.4rem;"></p>
           </div>
         </details>
 

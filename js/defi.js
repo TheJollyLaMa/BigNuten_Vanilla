@@ -15,8 +15,11 @@
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DEFI_HISTORY_KEY = 'defi_movement_history';
-const DEFI_HISTORY_MAX = 200;
+const DEFI_HISTORY_KEY        = 'defi_movement_history';
+const DEFI_HISTORY_MAX        = 200;
+const DEFI_SCRAPE_BLOCKS      = 10000;  // ~5.5 h on Optimism (2 s block time)
+const DEFI_SCRAPE_COOLDOWN_MS = 10 * 60 * 1000; // 10 min between background scrapes
+const DEFI_SCRAPE_TS_KEY      = 'defi_last_scrape_ts';
 
 // Aave V3 on Optimism Mainnet
 const AAVE_V3_POOL_ADDRESS    = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
@@ -57,6 +60,22 @@ const ALCHEMIST_V2_ABI = [
 const TREASURY_MIN_ABI = [
   'function getBalance() view returns (uint256 balance)',
   'function owner() view returns (address)',
+];
+
+// Event ABIs for chain scraping ───────────────────────────────────────────────
+
+const AAVE_EVENTS_ABI = [
+  'event Supply(address indexed reserve, address user, address indexed onBehalfOf, uint256 amount, uint16 indexed referralCode)',
+  'event Borrow(address indexed reserve, address user, address indexed onBehalfOf, uint256 amount, uint256 interestRateMode, uint256 borrowRate, uint16 indexed referralCode)',
+  'event Repay(address indexed reserve, address indexed user, address indexed repayer, uint256 amount, bool useATokens)',
+  'event Withdraw(address indexed reserve, address indexed user, address indexed to, uint256 amount)',
+];
+
+const ALCHEMIST_EVENTS_ABI = [
+  'event Deposit(address indexed sender, address indexed yieldToken, uint256 amount, address indexed recipient)',
+  'event Withdraw(address indexed sender, address indexed yieldToken, uint256 amount, address indexed recipient)',
+  'event Mint(address indexed sender, uint256 amount, address indexed recipient)',
+  'event Burn(address indexed sender, uint256 amount, address indexed recipient)',
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -167,10 +186,13 @@ function renderHistory() {
     const hash = e.txHash
       ? `<a href="https://optimistic.etherscan.io/tx/${e.txHash}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;font-family:monospace;font-size:0.75rem;">${e.txHash.slice(0, 10)}…</a>`
       : '—';
+    const sourceTag = e.fromChain
+      ? '<span style="font-size:0.68rem;color:#7a9aa8;margin-left:0.3rem;" title="Scraped from chain">⛓</span>'
+      : '';
     return `<tr>
       <td>${date}</td>
       <td><span class="defi-protocol-badge defi-protocol-${(e.protocol || '').toLowerCase()}">${e.protocol || '—'}</span></td>
-      <td>${e.action || '—'}</td>
+      <td>${e.action || '—'}${sourceTag}</td>
       <td>${e.amount || '—'}</td>
       <td>${hash}</td>
     </tr>`;
@@ -184,6 +206,265 @@ function renderHistory() {
       </thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+
+// ─── Chain Event Scraping ─────────────────────────────────────────────────────
+
+async function scrapeChainEvents(silent = false) {
+  // Cooldown: skip background scrapes that are too recent
+  if (silent) {
+    const lastTs = Number(localStorage.getItem(DEFI_SCRAPE_TS_KEY) || 0);
+    if (Date.now() - lastTs < DEFI_SCRAPE_COOLDOWN_MS) {
+      console.log('[DeFi] Background scrape skipped (cooldown).');
+      return;
+    }
+  }
+
+  const scrapeBtn    = document.getElementById('defi-scrape-btn');
+  const scrapeStatus = document.getElementById('defi-scrape-status');
+
+  if (scrapeBtn) { scrapeBtn.disabled = true; scrapeBtn.textContent = '⏳ Scraping…'; }
+  if (scrapeStatus) { scrapeStatus.textContent = ''; scrapeStatus.style.color = '#00e5ff'; }
+
+  // Block-timestamp cache to minimise RPC calls; returns null on failure
+  const blockTsCache = {};
+  async function getBlockTs(provider, blockNumber) {
+    if (blockTsCache[blockNumber] !== undefined) return blockTsCache[blockNumber];
+    try {
+      const blk = await provider.getBlock(blockNumber);
+      blockTsCache[blockNumber] = blk ? Number(blk.timestamp) * 1000 : null;
+    } catch { blockTsCache[blockNumber] = null; }
+    return blockTsCache[blockNumber];
+  }
+
+  try {
+    const rpc      = getRpc();
+    const provider = new ethers.JsonRpcProvider(rpc);
+    const usdcAddr = getUsdcAddress().toLowerCase();
+    const treasury = getTreasuryAddress().toLowerCase();
+
+    let wallet = null;
+    try {
+      if (window.ethereum) {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        wallet = accounts[0] ? accounts[0].toLowerCase() : null;
+      }
+    } catch {}
+
+    // Build deduplicated list of addresses to search
+    const watchAddrs = [...new Set([treasury, wallet].filter(Boolean))];
+
+    const currentBlock = await provider.getBlockNumber();
+    const fromBlock    = Math.max(0, currentBlock - DEFI_SCRAPE_BLOCKS);
+
+    const aavePool  = new ethers.Contract(AAVE_V3_POOL_ADDRESS, [...AAVE_POOL_ABI, ...AAVE_EVENTS_ABI], provider);
+    const alchemist = new ethers.Contract(ALCHEMIST_V2_ADDRESS, [...ALCHEMIST_V2_ABI, ...ALCHEMIST_EVENTS_ABI], provider);
+
+    const scraped = [];
+
+    // Helper: push entry only when we have a valid block timestamp
+    async function pushEvent(entry, blockNumber) {
+      const ts = await getBlockTs(provider, blockNumber);
+      if (ts === null) return; // skip event rather than record misleading timestamp
+      scraped.push({ ...entry, timestamp: new Date(ts).toISOString(), fromChain: true });
+    }
+
+    for (const addr of watchAddrs) {
+      // ── Aave Supply (onBehalfOf = addr) ────────────────────────────────────
+      try {
+        const evts = await aavePool.queryFilter(aavePool.filters.Supply(null, null, addr), fromBlock, currentBlock);
+        for (const e of evts) {
+          if (e.args.reserve.toLowerCase() !== usdcAddr) continue;
+          await pushEvent({
+            protocol: 'Aave', action: 'Supply',
+            amount: (Number(e.args.amount) / 1e6).toFixed(2) + ' USDC',
+            txHash: e.transactionHash,
+          }, e.blockNumber);
+        }
+      } catch (err) { console.warn('[DeFi] Aave Supply scrape:', err.message); }
+
+      // ── Aave Borrow (onBehalfOf = addr) ────────────────────────────────────
+      try {
+        const evts = await aavePool.queryFilter(aavePool.filters.Borrow(null, null, addr), fromBlock, currentBlock);
+        for (const e of evts) {
+          if (e.args.reserve.toLowerCase() !== usdcAddr) continue;
+          await pushEvent({
+            protocol: 'Aave', action: 'Borrow',
+            amount: (Number(e.args.amount) / 1e6).toFixed(2) + ' USDC',
+            txHash: e.transactionHash,
+          }, e.blockNumber);
+        }
+      } catch (err) { console.warn('[DeFi] Aave Borrow scrape:', err.message); }
+
+      // ── Aave Repay (user = addr) ────────────────────────────────────────────
+      try {
+        const evts = await aavePool.queryFilter(aavePool.filters.Repay(null, addr), fromBlock, currentBlock);
+        for (const e of evts) {
+          if (e.args.reserve.toLowerCase() !== usdcAddr) continue;
+          await pushEvent({
+            protocol: 'Aave', action: 'Repay',
+            amount: (Number(e.args.amount) / 1e6).toFixed(2) + ' USDC',
+            txHash: e.transactionHash,
+          }, e.blockNumber);
+        }
+      } catch (err) { console.warn('[DeFi] Aave Repay scrape:', err.message); }
+
+      // ── Aave Withdraw (user = addr) ─────────────────────────────────────────
+      try {
+        const evts = await aavePool.queryFilter(aavePool.filters.Withdraw(null, addr), fromBlock, currentBlock);
+        for (const e of evts) {
+          if (e.args.reserve.toLowerCase() !== usdcAddr) continue;
+          await pushEvent({
+            protocol: 'Aave', action: 'Withdraw',
+            amount: (Number(e.args.amount) / 1e6).toFixed(2) + ' USDC',
+            txHash: e.transactionHash,
+          }, e.blockNumber);
+        }
+      } catch (err) { console.warn('[DeFi] Aave Withdraw scrape:', err.message); }
+
+      // ── Alchemix Deposit (sender = addr) ───────────────────────────────────
+      try {
+        const evts = await alchemist.queryFilter(alchemist.filters.Deposit(addr), fromBlock, currentBlock);
+        for (const e of evts) {
+          await pushEvent({
+            protocol: 'Alchemix', action: 'Deposit',
+            amount: (Number(e.args.amount) / 1e6).toFixed(2) + ' yvUSDC',
+            txHash: e.transactionHash,
+          }, e.blockNumber);
+        }
+      } catch (err) { console.warn('[DeFi] Alchemix Deposit scrape:', err.message); }
+
+      // ── Alchemix Mint (sender = addr) ───────────────────────────────────────
+      try {
+        const evts = await alchemist.queryFilter(alchemist.filters.Mint(addr), fromBlock, currentBlock);
+        for (const e of evts) {
+          await pushEvent({
+            protocol: 'Alchemix', action: 'Borrow/Mint',
+            amount: Number(ethers.formatEther(e.args.amount)).toFixed(4) + ' alUSD',
+            txHash: e.transactionHash,
+          }, e.blockNumber);
+        }
+      } catch (err) { console.warn('[DeFi] Alchemix Mint scrape:', err.message); }
+
+      // ── Alchemix Repay/Burn (sender = addr) ─────────────────────────────────
+      try {
+        const evts = await alchemist.queryFilter(alchemist.filters.Burn(addr), fromBlock, currentBlock);
+        for (const e of evts) {
+          await pushEvent({
+            protocol: 'Alchemix', action: 'Repay',
+            amount: Number(ethers.formatEther(e.args.amount)).toFixed(4) + ' alUSD',
+            txHash: e.transactionHash,
+          }, e.blockNumber);
+        }
+      } catch (err) { console.warn('[DeFi] Alchemix Repay scrape:', err.message); }
+
+      // ── Alchemix Withdraw (sender = addr) ──────────────────────────────────
+      try {
+        const evts = await alchemist.queryFilter(alchemist.filters.Withdraw(addr), fromBlock, currentBlock);
+        for (const e of evts) {
+          await pushEvent({
+            protocol: 'Alchemix', action: 'Withdraw',
+            amount: (Number(e.args.amount) / 1e6).toFixed(2) + ' yvUSDC',
+            txHash: e.transactionHash,
+          }, e.blockNumber);
+        }
+      } catch (err) { console.warn('[DeFi] Alchemix Withdraw scrape:', err.message); }
+    }
+
+    // Merge: deduplicate by txHash against existing localStorage history
+    const existing       = getHistory();
+    const existingHashes = new Set(existing.map(e => e.txHash).filter(Boolean));
+    const toAdd          = scraped.filter(e => e.txHash && !existingHashes.has(e.txHash));
+
+    // Record successful scrape time before touching history
+    localStorage.setItem(DEFI_SCRAPE_TS_KEY, String(Date.now()));
+
+    if (toAdd.length > 0) {
+      const merged = [...toAdd, ...existing];
+      merged.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      if (merged.length > DEFI_HISTORY_MAX) merged.length = DEFI_HISTORY_MAX;
+      localStorage.setItem(DEFI_HISTORY_KEY, JSON.stringify(merged));
+      renderHistory();
+      console.log(`[DeFi] Scraped ${toAdd.length} new chain event(s).`);
+      if (!silent && scrapeStatus) {
+        scrapeStatus.textContent = `✅ Added ${toAdd.length} new event(s) from chain.`;
+      }
+    } else {
+      console.log('[DeFi] Chain scrape: no new events found.');
+      if (!silent && scrapeStatus) {
+        scrapeStatus.textContent = '✅ No new events found on chain.';
+      }
+    }
+  } catch (err) {
+    console.warn('[DeFi] Chain scrape error:', err);
+    if (!silent && scrapeStatus) {
+      scrapeStatus.textContent = '⚠️ Scrape failed: ' + (err.message || err);
+      scrapeStatus.style.color = '#ff6b6b';
+    }
+  } finally {
+    if (scrapeBtn) { scrapeBtn.disabled = false; scrapeBtn.textContent = '🔍 Scrape Chain Events'; }
+  }
+}
+
+// ─── CSV Export ───────────────────────────────────────────────────────────────
+
+function exportHistoryCSV() {
+  const history = getHistory();
+  if (history.length === 0) { alert('No movement history to export.'); return; }
+
+  const header = ['Timestamp', 'Protocol', 'Action', 'Amount', 'Tx Hash', 'Etherscan URL'];
+  const rows = history.map(e => [
+    e.timestamp || '',
+    e.protocol  || '',
+    e.action    || '',
+    e.amount    || '',
+    e.txHash    || '',
+    e.txHash ? `https://optimistic.etherscan.io/tx/${e.txHash}` : '',
+  ]);
+
+  const csv = [header, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `defi-history-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ─── Copy to Clipboard ────────────────────────────────────────────────────────
+
+async function copyHistoryToClipboard() {
+  const history = getHistory();
+  if (history.length === 0) { alert('No movement history to copy.'); return; }
+
+  const header = 'Timestamp\tProtocol\tAction\tAmount\tTx Hash';
+  const rows   = history.map(e => [
+    e.timestamp ? new Date(e.timestamp).toLocaleString() : '',
+    e.protocol  || '',
+    e.action    || '',
+    e.amount    || '',
+    e.txHash    || '',
+  ].join('\t'));
+
+  const text = [header, ...rows].join('\n');
+
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = document.getElementById('defi-copy-history-btn');
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✅ Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }
+  } catch (err) {
+    alert('Failed to copy to clipboard: ' + (err.message || err));
+  }
 }
 
 // ─── Balance Readers ──────────────────────────────────────────────────────────
@@ -763,6 +1044,8 @@ async function loadDeFiBalances() {
       loadAlchemixBalances(),
     ]);
     renderHistory();
+    // Silently scrape recent chain events in the background (non-blocking)
+    scrapeChainEvents(true).catch(e => console.warn('[DeFi] Background scrape error:', e));
   } finally {
     if (refreshBtn) refreshBtn.disabled = false;
   }
@@ -809,6 +1092,18 @@ export function initDeFiPanel() {
       renderHistory();
     }
   });
+
+  // Scrape chain events
+  const scrapeBtn = document.getElementById('defi-scrape-btn');
+  if (scrapeBtn) scrapeBtn.addEventListener('click', () => scrapeChainEvents(false));
+
+  // CSV export
+  const csvBtn = document.getElementById('defi-export-csv-btn');
+  if (csvBtn) csvBtn.addEventListener('click', exportHistoryCSV);
+
+  // Copy to clipboard
+  const copyBtn = document.getElementById('defi-copy-history-btn');
+  if (copyBtn) copyBtn.addEventListener('click', copyHistoryToClipboard);
 
   // Expose for modal onOpen callback
   window.loadDeFiBalances = loadDeFiBalances;
