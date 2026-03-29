@@ -255,6 +255,24 @@ Idea originators who receive credits will have an `ideasCredited` array added to
 
 ---
 
+### [`testing-bounty.yml`](../.github/workflows/testing-bounty.yml)
+
+**Trigger:** Issue assigned (`issues: [assigned]`) + issue comment created (`issue_comment: [created]`)  
+**Label:** `test-bounty: <amount> BNUT` (cyan/teal — distinct from standard bounty labels)  
+**Flow:**
+
+1. **Issue assigned** — announces the test bounty to the assigned tester (same personalized/onboarding comment style as `bounty-bot.yml`)
+2. **Tester comments `/test-complete`** — verifies commenter is actually assigned, then posts a review-request comment tagging `@TheJollyLaMa`
+3. **Admin comments `/test-approved`** — only `@TheJollyLaMa` may use this command; queues a payout entry with `role: tester` in `payroll-queue.json`, increments `bnutPending` in `contributor-accounts.json`, and posts a confirmation comment
+
+> **Privacy:** No wallet addresses are ever posted in comments. Wallets are looked up privately from `contributor-accounts.json`.
+
+> **Deduplication:** Duplicate `tester` entries for the same issue + contributor are skipped.
+
+> **Admin solo flow:** Initially `@TheJollyLaMa` is both the tester and the approving admin, so they assign themselves, complete the test work, comment `/test-complete`, then comment `/test-approved`.
+
+---
+
 ### [`settle-payroll.yml`](../.github/workflows/settle-payroll.yml)
 
 **Trigger:** `workflow_dispatch` (manual)  

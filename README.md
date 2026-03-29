@@ -61,6 +61,7 @@ v2.0.0 is a major upgrade that turns BigNuten from a personal tracker into a **c
 ### 🤖 Bounty Bot & Payroll
 - ✅ Automated bounty label workflow (`bounty-label.yml`)
 - ✅ Bounty bot — auto-queues payout on PR merge (`bounty-bot.yml`)
+- ✅ Testing bounty bot — comment-driven QA payout workflow (`testing-bounty.yml`)
 - ✅ Payroll queue (`payroll-queue.json`) with `pending` / `settled` ledger
 - ✅ Admin-settled payroll via MetaMask → BigNutenTreasury (`settle-payroll.yml`)
 - ✅ Payroll queue validation on every push (`validate-payroll-queue.yml`)
@@ -250,6 +251,7 @@ See [`docs/TOKENOMICS.md`](docs/TOKENOMICS.md) for full bounty and payout econom
 | Bounty Label | [`.github/workflows/bounty-label.yml`](.github/workflows/bounty-label.yml) | Manual (`workflow_dispatch`) | Create bounty label + apply to issue + post announcement |
 | Idea Adopted Label | [`.github/workflows/idea-label.yml`](.github/workflows/idea-label.yml) | Manual (`workflow_dispatch`) | Mark idea as adopted, credit originator with `idea-credit` label; enables 80/20 payout split on merge |
 | Bounty Bot | [`.github/workflows/bounty-bot.yml`](.github/workflows/bounty-bot.yml) | Issue assigned + PR merged | Auto-announce reward; auto-queue payout on merge (with 80/20 split when `idea-credit` label present) |
+| Testing Bounty Bot | [`.github/workflows/testing-bounty.yml`](.github/workflows/testing-bounty.yml) | Issue assigned + issue comments | Comment-driven QA bounty: `/test-complete` → tester claims; `/test-approved` (admin only) → queues payout with `role: tester` |
 | Bounty Payout | [`.github/workflows/bounty-payout.yml`](.github/workflows/bounty-payout.yml) | Manual (`workflow_dispatch`) | Fallback: manually queue a payout entry |
 | Settle Payroll | [`.github/workflows/settle-payroll.yml`](.github/workflows/settle-payroll.yml) | Manual (`workflow_dispatch`) | Move entries from `pending[]` → `settled[]` after on-chain tx |
 | Validate Queue | [`.github/workflows/validate-payroll-queue.yml`](.github/workflows/validate-payroll-queue.yml) | Push / PR to queue files | Block merges with invalid or duplicate queue entries |

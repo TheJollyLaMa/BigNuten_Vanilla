@@ -1,0 +1,621 @@
+# .github/workflows/testing-bounty.yml
+# BigNuten Testing Bounty Bot
+#
+# Automates $BNUT testing bounties for verifying features, fixes, or releases.
+# Mirrors the existing bounty-bot workflow, but uses a comment-driven approval
+# flow (no PR merge required) and awards the `tester` role in payroll-queue.json.
+#
+# ── Lifecycle ────────────────────────────────────────────────────────────────
+#
+#   1. LABEL APPLIED + ISSUE ASSIGNED
+#      Admin applies label "test-bounty: N BNUT" (via test-bounty-label.yml or
+#      manually) and assigns the issue to a tester.
+#      → This workflow announces the bounty to the assignee.
+#
+#   2. TESTER CLAIMS COMPLETION
+#      The assigned tester comments `/test-complete` on the issue once all
+#      acceptance criteria / checklists are done.
+#      → Workflow verifies they are assigned and posts a review-request to admin.
+#
+#   3. ADMIN APPROVES PAYOUT
+#      @TheJollyLaMa reviews the testing work and comments `/test-approved`.
+#      → Workflow queues a payout entry (role: tester) in payroll-queue.json,
+#        updates contributor-accounts.json, and posts a confirmation comment.
+#
+# ── Privacy notes ────────────────────────────────────────────────────────────
+#   No wallet addresses are ever published in comments.
+#   Wallet addresses are looked up from the private contributor-accounts.json
+#   ledger (registered by @TheJollyLaMa via confidential onboarding).
+#
+# ── Payout ───────────────────────────────────────────────────────────────────
+#   After queueing, the owner visits the BigNuten app → Payroll panel and
+#   clicks "Settle All Pending" to batch-pay via MetaMask (no private key in CI).
+#
+# Related issues: See the issue that triggered this workflow creation.
+# Reference: bounty-bot.yml, bounty-payout.yml
+#
+# Required GitHub Secrets:
+#   GITHUB_TOKEN — automatically provided by GitHub Actions
+
+name: Testing Bounty Bot
+
+on:
+  issues:
+    types: [assigned]
+  issue_comment:
+    types: [created]
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 1: Notify assignee when an issue with a test-bounty label is assigned
+  # ────────────────────────────────────────────────────────────────────────────
+  announce-test-bounty:
+    name: Announce test bounty to assignee
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' && github.event.action == 'assigned'
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Parse test-bounty label and post comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const issue = context.payload.issue;
+            const assignee = context.payload.assignee;
+            const labels = issue.labels.map(l => l.name);
+
+            // Normalize known bot/agent login aliases to their canonical contributor account names.
+            const CONTRIBUTOR_ALIAS_MAP = {
+              'copilot-swe-agent': 'copilot',
+            };
+
+            // Find a label matching the pattern "test-bounty: <amount> BNUT"
+            const testBountyLabel = labels.find(l => /^test-bounty:\s*\d+\s*BNUT$/i.test(l));
+
+            if (!testBountyLabel) {
+              console.log('No test-bounty label found on this issue. Skipping.');
+              return;
+            }
+
+            // Extract the numeric amount from the label.
+            const match = testBountyLabel.match(/(\d+)\s*BNUT/i);
+            const amount = match ? match[1] : 'unknown';
+
+            // Load contributor accounts to check if this is a returning contributor.
+            let accounts = { contributors: [] };
+            try {
+              accounts = JSON.parse(fs.readFileSync('contributor-accounts.json', 'utf8'));
+            } catch (e) {
+              console.warn('Could not read contributor-accounts.json:', e.message);
+            }
+            const assigneeLogin = CONTRIBUTOR_ALIAS_MAP[assignee.login.toLowerCase()] || assignee.login;
+            const contribRecord = (accounts.contributors || []).find(
+              c => c.github.toLowerCase() === assigneeLogin.toLowerCase()
+            );
+            const isReturning = !!contribRecord;
+
+            // Scene art pool — one is chosen based on issue number for variety.
+            const scenes = [
+              [
+                '```',
+                '....♆..⚯.....♆.♅...☉...🌓.....☉....♅..⚯..♆...',
+                '☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️',
+                '🌲🌲🌲🌳🌳🌳🌳🌳🌳🌳🌲🌴🌴🏝️',
+                '~~🦀~~~~~~~~🐢~~~~~~~~~~🌊',
+                '~~~~~~~~~~~~🐢~~~~ 🐟 ~~~🌊',
+                '~~~~~~~🐢~~~~~~~~🐢~~~~~🌊✨✨✨',
+                '~~🐢 ~~~~~~~ 🐬 ~~~~~~~🐢 🌊((( ☿🔥🏕️',
+                '```',
+              ].join('\n'),
+              [
+                '```',
+                '  🌙 ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦  🌙',
+                '☁️          ☁️       ☁️         ☁️',
+                '🌲🌲🌳🌳🏔️🏔️⛰️⛰️🗻🗻⛰️⛰️🌳🌳🌲🌲',
+                '🌿🌿🌿🌱🌱🍄🌱🌱🌿🌿🌿🌿🌱🌱🍄🌿',
+                '~~🐸~~~🦋~~~~🐝~~~🌸~~~~🦎~~🌼~~',
+                '```',
+              ].join('\n'),
+              [
+                '```',
+                '🌞  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  🌞',
+                '☁️☁️     ☁️         ☁️☁️      ☁️',
+                '🌴🏝️🌴🌴🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊',
+                '~~~🐬~~~~🐠~~~🐠~~~🐡~~~🦈~~~~🌊',
+                '~~~~🐙~~~🦀~~~🐢~~~~🐟~~~🌊✨',
+                '🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸',
+                '```',
+              ].join('\n'),
+            ];
+            const scene = scenes[issue.number % scenes.length];
+
+            let body;
+            if (isReturning) {
+              const issuesCompleted = Array.isArray(contribRecord.issuesClosed)
+                ? contribRecord.issuesClosed.length
+                : 0;
+              const totalEarned = (contribRecord.bnutEarned || 0) + (contribRecord.bnutPending || 0);
+              const hasWallet = !!(contribRecord.walletAddress);
+
+              body = [
+                `🔬 Welcome back, @${assignee.login}! You've completed **${issuesCompleted} issue${issuesCompleted !== 1 ? 's' : ''}** and earned **${totalEarned} BNUT** so far! \\♆//`,
+                '',
+                `| | |`,
+                `|---|---|`,
+                `| 💰 This test bounty | **${amount} BNUT** |`,
+                `| 📌 Issue | #${issue.number} |`,
+                '',
+                '**How to claim your test bounty:**',
+                '1. Complete all testing tasks and acceptance criteria in this issue.',
+                `2. Comment \`/test-complete\` on this issue when done.`,
+                '3. @TheJollyLaMa will review and comment `/test-approved` to queue your payout.',
+                '',
+                ...(hasWallet ? [] : [
+                  '> ⚠️ **No wallet on file yet.** Contact `@TheJollyLaMa` to register your Optimism Mainnet address before payout can be processed.',
+                  '',
+                ]),
+                scene,
+              ].join('\n');
+            } else {
+              body = [
+                `🔬 Hey @${assignee.login}! This issue has a **$BNUT test bounty** attached. 🎉`,
+                '',
+                `| | |`,
+                `|---|---|`,
+                `| 💰 Bounty | **${amount} BNUT** |`,
+                `| 🏷️ Label | \`${testBountyLabel}\` |`,
+                `| 📌 Issue | #${issue.number} |`,
+                '',
+                '**How to claim your test bounty:**',
+                '1. Complete all testing tasks and acceptance criteria in this issue.',
+                `2. Comment \`/test-complete\` on this issue when done.`,
+                '3. @TheJollyLaMa will review and comment `/test-approved` to queue your payout.',
+                '',
+                '> ⚠️ **Whitelist registration required:** Payouts are only sent to wallets registered in the',
+                '> contributor whitelist by `@TheJollyLaMa`. If you are not yet whitelisted, contact',
+                '> `@TheJollyLaMa` directly (via video call or DM) to complete onboarding before your payout',
+                '> can be processed. **Do not share your wallet address publicly in this issue.**',
+                '',
+                '> ℹ️ Payouts are sent in $BNUT on **Optimism Mainnet** via the BigNutenTreasury smart contract.',
+                `> See [CONTRIBUTING.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CONTRIBUTING.md) for onboarding and whitelist registration details.`,
+              ].join('\n');
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body,
+            });
+
+            console.log(`Test bounty announcement posted for issue #${issue.number} — ${amount} BNUT (${isReturning ? 'returning' : 'new'} contributor)`);
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 2: Handle /test-complete comment from the assigned tester
+  # ────────────────────────────────────────────────────────────────────────────
+  handle-test-complete:
+    name: Handle /test-complete command
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'issue_comment' &&
+      github.event.action == 'created' &&
+      startsWith(github.event.comment.body, '/test-complete')
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Process /test-complete command
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const issueNumber = context.payload.issue.number;
+            const commenter   = context.payload.comment.user.login;
+
+            // Normalize known bot/agent login aliases.
+            const CONTRIBUTOR_ALIAS_MAP = {
+              'copilot-swe-agent': 'copilot',
+            };
+            const normalizedCommenter = CONTRIBUTOR_ALIAS_MAP[commenter.toLowerCase()] || commenter;
+
+            // Fetch the current issue to get labels and assignees.
+            const issue = (await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: issueNumber,
+            })).data;
+
+            const labels = issue.labels.map(l => l.name);
+
+            // Only respond to issues that have a test-bounty label.
+            const testBountyLabel = labels.find(l => /^test-bounty:\s*\d+\s*BNUT$/i.test(l));
+            if (!testBountyLabel) {
+              console.log(`Issue #${issueNumber} has no test-bounty label — ignoring /test-complete.`);
+              return;
+            }
+
+            // Verify the commenter is actually assigned to this issue.
+            const assigneeLogins = (issue.assignees || []).map(a =>
+              (CONTRIBUTOR_ALIAS_MAP[a.login.toLowerCase()] || a.login).toLowerCase()
+            );
+            if (!assigneeLogins.includes(normalizedCommenter.toLowerCase())) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: issueNumber,
+                body: `⚠️ @${commenter} — only assigned testers can use \`/test-complete\`. You are not currently assigned to this issue.`,
+              });
+              console.log(`Rejected /test-complete from unassigned user @${commenter} on issue #${issueNumber}.`);
+              return;
+            }
+
+            const match = testBountyLabel.match(/(\d+)\s*BNUT/i);
+            const amount = match ? match[1] : 'unknown';
+
+            // Load contributor accounts to personalise the comment.
+            let accounts = { contributors: [] };
+            try {
+              accounts = JSON.parse(fs.readFileSync('contributor-accounts.json', 'utf8'));
+            } catch (e) {
+              console.warn('Could not read contributor-accounts.json:', e.message);
+            }
+            const contribRecord = (accounts.contributors || []).find(
+              c => c.github.toLowerCase() === normalizedCommenter.toLowerCase()
+            );
+
+            const scene = [
+              '```',
+              '🔬 ·  ·  ·  ·  TEST COMPLETE ·  ·  ·  · 🧪',
+              '☁️☁️     ☁️         ☁️☁️      ☁️',
+              '🌴🏝️🌴🌴🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊',
+              '~~~🐬~~~~🐠~~~🐠~~~🐡~~~🦈~~~~🌊',
+              '~~~~🔭~~~🧬~~~🔬~~~~💊~~~🌊✨',
+              '🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸',
+              '```',
+            ].join('\n');
+
+            const issuesCompleted = contribRecord && Array.isArray(contribRecord.issuesClosed)
+              ? contribRecord.issuesClosed.length
+              : 0;
+
+            const body = [
+              `✅ **Testing Complete** — @${commenter} has marked this test bounty as done!`,
+              '',
+              `| | |`,
+              `|---|---|`,
+              `| 🔬 Tester | @${commenter} |`,
+              `| 💰 Bounty | **${amount} BNUT** |`,
+              `| 📌 Issue | #${issueNumber} |`,
+              contribRecord ? `| 🏅 Issues Completed | ${issuesCompleted} total |` : null,
+              '',
+              `> 👀 @TheJollyLaMa — please review the testing work above and comment \`/test-approved\` to queue the payout, or request changes if needed.`,
+              '',
+              scene,
+            ].filter(l => l !== null).join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: issueNumber,
+              body,
+            });
+
+            console.log(`/test-complete processed for @${commenter} on issue #${issueNumber} — ${amount} BNUT awaiting admin approval.`);
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 3: Handle /test-approved comment from admin — queue payout as tester
+  # ────────────────────────────────────────────────────────────────────────────
+  handle-test-approved:
+    name: Handle /test-approved command (admin only)
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'issue_comment' &&
+      github.event.action == 'created' &&
+      startsWith(github.event.comment.body, '/test-approved')
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Process /test-approved command and queue payout
+        id: approve
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const issueNumber = context.payload.issue.number;
+            const approver    = context.payload.comment.user.login;
+
+            // Only the designated admin may approve test payouts.
+            const ADMIN_LOGIN = 'TheJollyLaMa';
+            if (approver.toLowerCase() !== ADMIN_LOGIN.toLowerCase()) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: issueNumber,
+                body: `⛔ @${approver} — only \`@${ADMIN_LOGIN}\` can use \`/test-approved\`.`,
+              });
+              console.log(`Rejected /test-approved from non-admin @${approver} on issue #${issueNumber}.`);
+              core.setOutput('files_changed', 'false');
+              return;
+            }
+
+            // Normalize known bot/agent login aliases.
+            const CONTRIBUTOR_ALIAS_MAP = {
+              'copilot-swe-agent': 'copilot',
+            };
+            function normalizeLogin(login) {
+              return CONTRIBUTOR_ALIAS_MAP[login.toLowerCase()] || login;
+            }
+
+            // Fetch the current issue to get labels and assignees.
+            const issue = (await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: issueNumber,
+            })).data;
+
+            const labels = issue.labels.map(l => l.name);
+
+            // Require a test-bounty label.
+            const testBountyLabel = labels.find(l => /^test-bounty:\s*\d+\s*BNUT$/i.test(l));
+            if (!testBountyLabel) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: issueNumber,
+                body: `⚠️ @${approver} — issue #${issueNumber} does not have a \`test-bounty:\` label. No payout queued.`,
+              });
+              console.log(`No test-bounty label on issue #${issueNumber}. /test-approved ignored.`);
+              core.setOutput('files_changed', 'false');
+              return;
+            }
+
+            const match = testBountyLabel.match(/(\d+)\s*BNUT/i);
+            const amount = match ? match[1] : null;
+            if (!amount) {
+              core.setFailed('Could not parse bounty amount from label: ' + testBountyLabel);
+              return;
+            }
+
+            const repoFull = `${context.repo.owner}/${context.repo.repo}`;
+            const issueRef = `${repoFull}#${issueNumber}`;
+
+            // Collect all assigned testers (PR author not required here — testers are assignees).
+            const issueAssignees = (issue.assignees || []).map(a => normalizeLogin(a.login));
+            if (issueAssignees.length === 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: issueNumber,
+                body: `⚠️ @${approver} — issue #${issueNumber} has no assignees. Assign a tester first.`,
+              });
+              console.log(`No assignees on issue #${issueNumber}. Skipping payout queue.`);
+              core.setOutput('files_changed', 'false');
+              return;
+            }
+
+            // Load payroll-queue.json.
+            let queue = { pending: [], settled: [] };
+            const queuePath = 'payroll-queue.json';
+            if (fs.existsSync(queuePath)) {
+              try {
+                queue = JSON.parse(fs.readFileSync(queuePath, 'utf8'));
+              } catch (e) {
+                core.setFailed(`Failed to parse ${queuePath}: ${e.message}`);
+                return;
+              }
+            }
+            if (!Array.isArray(queue.pending)) queue.pending = [];
+            if (!Array.isArray(queue.settled)) queue.settled = [];
+
+            // Load contributor-accounts.json.
+            let accounts = { contributors: [] };
+            const accountsPath = 'contributor-accounts.json';
+            if (fs.existsSync(accountsPath)) {
+              try {
+                accounts = JSON.parse(fs.readFileSync(accountsPath, 'utf8'));
+              } catch (e) {
+                core.setFailed(`Failed to parse ${accountsPath}: ${e.message}`);
+                return;
+              }
+            }
+            if (!Array.isArray(accounts.contributors)) accounts.contributors = [];
+
+            let filesChanged = false;
+            const queued   = [];
+            const skipped  = [];
+            const missing  = [];
+
+            for (const testerGithub of issueAssignees) {
+              const contribRecord = accounts.contributors.find(
+                c => c.github.toLowerCase() === testerGithub.toLowerCase()
+              );
+              const canonicalGithub = contribRecord ? contribRecord.github : testerGithub;
+
+              // Deduplication: skip if this tester is already queued for this issue with role 'tester'.
+              const alreadyQueued =
+                queue.pending.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub && e.role === 'tester') ||
+                queue.settled.some(e => e.issueRef === issueRef && e.contributorGithub === canonicalGithub && e.role === 'tester');
+              if (alreadyQueued) {
+                console.log(`Issue ${issueRef} for @${canonicalGithub} (tester) is already in the payroll queue. Skipping.`);
+                skipped.push(canonicalGithub);
+                continue;
+              }
+
+              const walletAddress = contribRecord ? (contribRecord.walletAddress || '') : '';
+              if (!walletAddress) missing.push(canonicalGithub);
+
+              // Append entry to payroll queue with role: tester.
+              const entry = {
+                issueRef,
+                contributor:      walletAddress,
+                contributorGithub: canonicalGithub,
+                amount,
+                role:             'tester',
+                queuedAt:         new Date().toISOString(),
+                queuedBy:         'github-actions[bot]',
+              };
+
+              queue.pending.push(entry);
+              filesChanged = true;
+
+              // Update bnutPending and issuesClosed in contributor-accounts.json.
+              if (contribRecord) {
+                contribRecord.bnutPending = parseFloat(((contribRecord.bnutPending || 0) + parseFloat(amount)).toFixed(4));
+                if (!Array.isArray(contribRecord.issuesClosed)) contribRecord.issuesClosed = [];
+                if (!contribRecord.issuesClosed.includes(issueRef)) {
+                  contribRecord.issuesClosed.push(issueRef);
+                }
+              }
+
+              queued.push({ github: canonicalGithub, wallet: walletAddress });
+              console.log(`Auto-queued ${amount} BNUT for @${canonicalGithub} (${walletAddress || 'NO WALLET'}) as tester — ${issueRef}`);
+            }
+
+            if (filesChanged) {
+              fs.writeFileSync(queuePath,    JSON.stringify(queue,    null, 2) + '\n');
+              fs.writeFileSync(accountsPath, JSON.stringify(accounts, null, 2) + '\n');
+            }
+            core.setOutput('files_changed', filesChanged ? 'true' : 'false');
+
+            // Scene art pool — chosen by issue number.
+            const scenes = [
+              [
+                '```',
+                '....♆..⚯.....♆.♅...☉...🌓.....☉....♅..⚯..♆...',
+                '☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️☁️',
+                '🌲🌲🌲🌳🌳🌳🌳🌳🌳🌳🌲🌴🌴🏝️',
+                '~~🦀~~~~~~~~🐢~~~~~~~~~~🌊',
+                '~~~~~~~~~~~~🐢~~~~ 🐟 ~~~🌊',
+                '~~~~~~~🐢~~~~~~~~🐢~~~~~🌊✨✨✨',
+                '~~🐢 ~~~~~~~ 🐬 ~~~~~~~🐢 🌊((( ☿🔥🏕️',
+                '```',
+              ].join('\n'),
+              [
+                '```',
+                '  🌙 ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦  🌙',
+                '☁️          ☁️       ☁️         ☁️',
+                '🌲🌲🌳🌳🏔️🏔️⛰️⛰️🗻🗻⛰️⛰️🌳🌳🌲🌲',
+                '🌿🌿🌿🌱🌱🍄🌱🌱🌿🌿🌿🌿🌱🌱🍄🌿',
+                '~~🐸~~~🦋~~~~🐝~~~🌸~~~~🦎~~🌼~~',
+                '```',
+              ].join('\n'),
+              [
+                '```',
+                '🌞  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  🌞',
+                '☁️☁️     ☁️         ☁️☁️      ☁️',
+                '🌴🏝️🌴🌴🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊',
+                '~~~🐬~~~~🐠~~~🐠~~~🐡~~~🦈~~~~🌊',
+                '~~~~🐙~~~🦀~~~🐢~~~~🐟~~~🌊✨',
+                '🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸🪸',
+                '```',
+              ].join('\n'),
+            ];
+            const scene = scenes[issueNumber % scenes.length];
+
+            // Build the confirmation comment.
+            const lines = [];
+
+            if (queued.length === 0 && skipped.length > 0) {
+              lines.push(`⚠️ Test payout for \`${issueRef}\` is already in the payroll queue for all testers — no duplicate entries added.`);
+            } else if (queued.length === 0) {
+              lines.push(`⚠️ No payout was queued for \`${issueRef}\`. Check that the issue has assignees and a valid \`test-bounty:\` label.`);
+            } else {
+              // Determine returning vs. new testers.
+              const returningQueued = queued.filter(({ github: gh }) =>
+                accounts.contributors.some(c => c.github.toLowerCase() === gh.toLowerCase())
+              );
+              const newQueued = queued.filter(({ github: gh }) =>
+                !accounts.contributors.some(c => c.github.toLowerCase() === gh.toLowerCase())
+              );
+
+              // Personalised block for returning/whitelisted testers.
+              for (const { github: gh } of returningQueued) {
+                const rec = accounts.contributors.find(
+                  c => c.github.toLowerCase() === gh.toLowerCase()
+                );
+                const issuesCompleted = Array.isArray(rec.issuesClosed) ? rec.issuesClosed.length : 0;
+                const totalEarned = (rec.bnutEarned || 0) + (rec.bnutPending || 0);
+                const hasWallet = !!(rec.walletAddress);
+                lines.push(`🧪 Great work, @${gh}! That's **${issuesCompleted} issue${issuesCompleted !== 1 ? 's' : ''} completed** and **${totalEarned} BNUT** earned so far! \\♆//`);
+                lines.push('');
+                lines.push(`**${amount} BNUT** for \`${issueRef}\` has been added to the payroll queue as \`tester\`. Payout coming soon! 🌊✨`);
+                if (!hasWallet) {
+                  lines.push('');
+                  lines.push(`> ⚠️ No wallet address on file for @${gh}. Contact \`@TheJollyLaMa\` to register before payout can be processed.`);
+                }
+                lines.push('');
+                lines.push(scene);
+                lines.push('');
+              }
+
+              // Standard block for new/unregistered testers.
+              if (newQueued.length > 0) {
+                lines.push(`🤖 **Test Payroll Queue Update** for \`${issueRef}\``);
+                lines.push('');
+                lines.push(`| Tester | Wallet | Amount | Role | Status |`);
+                lines.push(`|---|---|---|---|---|`);
+                for (const { github: gh, wallet } of newQueued) {
+                  const walletDisplay = wallet ? `\`${wallet}\`` : '⚠️ *no wallet on file*';
+                  lines.push(`| @${gh} | ${walletDisplay} | **${amount} BNUT** | 🧪 tester | ⏳ Queued |`);
+                }
+                lines.push('');
+              }
+
+              lines.push(`> 💡 @TheJollyLaMa — visit the [BigNuten app](https://thejollylama.github.io/BigNuten_Vanilla/) and click **💸 Payroll** to settle all pending payouts with MetaMask. No private key required!`);
+
+              if (skipped.length > 0) {
+                lines.push('');
+                lines.push(`ℹ️ Already queued (skipped): ${skipped.map(g => `@${g}`).join(', ')}`);
+              }
+
+              if (missing.length > 0) {
+                lines.push('');
+                lines.push(`⚠️ The following testers are not yet registered or have no wallet address in \`contributor-accounts.json\`: ${missing.map(g => `@${g}`).join(', ')}`);
+                lines.push(`@TheJollyLaMa — please complete onboarding for these contributors and update their wallet addresses before the next payroll run.`);
+              }
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: issueNumber,
+              body: lines.join('\n'),
+            });
+
+            console.log(`/test-approved processed by @${approver} on issue #${issueNumber} — ${amount} BNUT queued for ${queued.map(q => '@'+q.github).join(', ')}`);
+
+      # ── Commit updated JSON files ──────────────────────────────────────────
+      - name: Commit updated JSON files
+        if: steps.approve.outputs.files_changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add payroll-queue.json contributor-accounts.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: queue BNUT test payout for issue #${{ github.event.issue.number }}"
+          # Retry push with rebase to handle concurrent workflow runs.
+          for i in 1 2 3; do
+            git push && break
+            echo "Push attempt $i failed — rebasing and retrying…"
+            git pull --rebase
+          done
