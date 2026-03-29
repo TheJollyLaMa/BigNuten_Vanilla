@@ -60,6 +60,7 @@
         <button class="aes-menu-item admin-menu-item" id="admin-escrow-btn"       role="menuitem">📋 Subscription Plans</button>
         <button class="aes-menu-item admin-menu-item" id="admin-contributors-btn" role="menuitem">👥 Contributors</button>
         <button class="aes-menu-item admin-menu-item" id="admin-payroll-btn"      role="menuitem">💸 Payroll</button>
+        <button class="aes-menu-item admin-menu-item" id="admin-defi-btn"         role="menuitem">🌾 v3 DeFi</button>
       </div>
 
       <!-- Staff of Aesculapius Dropdown (right ⚕︎) — user-facing features -->
@@ -702,10 +703,12 @@
   <script type="module" src="js/app.js"></script>
   <script type="module">
     import { initAdminContributors, initAddContributorModal, initBountyRegister } from './js/admin.js';
+    import { initDeFiPanel } from './js/defi.js';
     document.addEventListener('DOMContentLoaded', () => {
       initAdminContributors();
       initAddContributorModal();
       initBountyRegister();
+      initDeFiPanel();
 
       // Wire bounty-register button in the right dropdown
       const brBtn       = document.getElementById('aes-bounty-register-btn');
@@ -1570,6 +1573,169 @@
       </div>
     </div>
   </div>
+
+  <!-- ── v3 DeFi Treasury Panel Modal ──────────────────────────────────────── -->
+  <div id="defi-admin-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="defi-admin-modal-title">
+    <div class="modal gov-modal">
+      <button class="modal-close" id="defi-admin-modal-close" aria-label="Close v3 DeFi Panel">×</button>
+
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="defi-admin-modal-title">🌾 v3 DeFi</h2>
+      </div>
+      <p class="aes-stub-desc">
+        Yield management &amp; manual dev fund borrowing on
+        <a href="https://optimistic.etherscan.io/" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">Optimism Mainnet</a>.
+        All operations are manual and trigger MetaMask.
+      </p>
+
+      <div class="gov-admin-panel">
+
+        <!-- Overview Metrics -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem 1rem; margin-bottom:1rem;">
+          <div class="treasury-metric">
+            <span class="treasury-metric-label">Treasury $BNUT</span>
+            <span id="defi-treasury-bnut" class="treasury-metric-value">—</span>
+          </div>
+          <div class="treasury-metric">
+            <span class="treasury-metric-label">Escrow USDC</span>
+            <span id="defi-escrow-usdc" class="treasury-metric-value">—</span>
+          </div>
+          <div class="treasury-metric">
+            <span class="treasury-metric-label">Wallet USDC</span>
+            <span id="defi-wallet-usdc" class="treasury-metric-value">—</span>
+          </div>
+          <div class="treasury-metric">
+            <span class="treasury-metric-label">Wallet ETH</span>
+            <span id="defi-wallet-eth" class="treasury-metric-value">—</span>
+          </div>
+        </div>
+        <div style="font-size:0.75rem;color:#7a9aa8;margin-bottom:0.75rem;">
+          Connected: <code id="defi-wallet-addr" style="color:#00e5ff;">—</code>
+        </div>
+        <button id="defi-refresh-btn" class="gov-admin-action-btn" style="margin-bottom:1rem;">🔄 Refresh Balances</button>
+
+        <!-- Aave V3 Section -->
+        <details class="gov-admin-section" style="margin-top:0.5rem;">
+          <summary>🏊 Aave V3 — Supply &amp; Borrow USDC</summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">
+              <a href="https://app.aave.com/" target="_blank" rel="noopener noreferrer" style="color:#9b59b6;">Aave V3</a>
+              on Optimism · Pool: <code style="font-size:0.72rem;color:#00e5ff;">0x794a…814aD</code>
+            </p>
+            <div style="font-size:0.75rem;color:#7a9aa8;margin-bottom:0.5rem;">
+              Querying: <code id="defi-aave-addr" style="color:#00e5ff;word-break:break-all;">—</code>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem 1rem; margin-bottom:0.75rem;">
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">Collateral Supplied</span>
+                <span id="defi-aave-collateral" class="treasury-metric-value defi-aave-color">—</span>
+              </div>
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">Debt Borrowed</span>
+                <span id="defi-aave-debt" class="treasury-metric-value defi-aave-color">—</span>
+              </div>
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">Available to Borrow</span>
+                <span id="defi-aave-available" class="treasury-metric-value defi-aave-color">—</span>
+              </div>
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">Health Factor</span>
+                <span id="defi-aave-hf" class="treasury-metric-value defi-aave-color">—</span>
+              </div>
+            </div>
+            <div style="margin-bottom:0.75rem;">
+              <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#7a9aa8;margin-bottom:0.2rem;">
+                <span>LTV</span><span id="defi-aave-ltv">—</span>
+              </div>
+              <div class="defi-ltv-bar">
+                <div id="defi-aave-ltv-bar-fill" class="defi-ltv-bar-fill defi-ltv-aave" style="width:0%"></div>
+              </div>
+            </div>
+            <!-- Supply form -->
+            <div style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.5rem;">
+              <label class="gov-label" style="flex:1;margin-bottom:0;">Amount (USDC)
+                <input id="defi-aave-supply-amount" class="gov-input" type="number" min="1" step="any" placeholder="e.g. 500" />
+              </label>
+              <button id="defi-aave-supply-btn" class="gov-admin-action-btn defi-aave-btn">⬆️ Supply USDC</button>
+            </div>
+            <p id="defi-aave-supply-status" class="gov-form-status"></p>
+            <!-- Borrow form -->
+            <div style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.5rem;">
+              <label class="gov-label" style="flex:1;margin-bottom:0;">Borrow Amount (USDC)
+                <input id="defi-aave-borrow-amount" class="gov-input" type="number" min="1" step="any" placeholder="e.g. 200" />
+              </label>
+              <button id="defi-aave-borrow-btn" class="gov-admin-action-btn defi-aave-btn">⬇️ Borrow USDC</button>
+            </div>
+            <p id="defi-aave-borrow-status" class="gov-form-status"></p>
+          </div>
+        </details>
+
+        <!-- Alchemix V2 Section -->
+        <details class="gov-admin-section" style="margin-top:0.5rem;">
+          <summary>⚗️ Alchemix V2 — Self-Repaying Loans (alUSD)</summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">
+              <a href="https://alchemix.fi/" target="_blank" rel="noopener noreferrer" style="color:#e67e22;">Alchemix V2</a>
+              (alUSD) on Optimism · AlchemistV2: <code style="font-size:0.72rem;color:#00e5ff;">0x1029…484af</code>
+            </p>
+            <div style="font-size:0.75rem;color:#7a9aa8;margin-bottom:0.5rem;">
+              Querying: <code id="defi-alchemix-addr" style="color:#00e5ff;word-break:break-all;">—</code>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem 1rem; margin-bottom:0.75rem;">
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">Collateral Deposited</span>
+                <span id="defi-alchemix-collateral" class="treasury-metric-value defi-alchemix-color">—</span>
+              </div>
+              <div class="treasury-metric">
+                <span class="treasury-metric-label">alUSD Debt</span>
+                <span id="defi-alchemix-debt" class="treasury-metric-value defi-alchemix-color">—</span>
+              </div>
+              <div class="treasury-metric" style="grid-column:1/-1;">
+                <span class="treasury-metric-label">Borrow Ceiling (50% of collateral)</span>
+                <span id="defi-alchemix-ceiling" class="treasury-metric-value defi-alchemix-color">—</span>
+              </div>
+            </div>
+            <div style="margin-bottom:0.75rem;">
+              <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#7a9aa8;margin-bottom:0.2rem;">
+                <span>LTV (debt / collateral)</span><span id="defi-alchemix-ltv">—</span>
+              </div>
+              <div class="defi-ltv-bar">
+                <div id="defi-alchemix-ltv-bar-fill" class="defi-ltv-bar-fill defi-ltv-alchemix" style="width:0%"></div>
+              </div>
+            </div>
+            <!-- Deposit form -->
+            <div style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.5rem;">
+              <label class="gov-label" style="flex:1;margin-bottom:0;">Deposit Amount (USDC)
+                <input id="defi-alchemix-deposit-amount" class="gov-input" type="number" min="1" step="any" placeholder="e.g. 500" />
+              </label>
+              <button id="defi-alchemix-deposit-btn" class="gov-admin-action-btn defi-alchemix-btn">⬆️ Deposit USDC</button>
+            </div>
+            <p id="defi-alchemix-deposit-status" class="gov-form-status"></p>
+            <!-- Borrow/Mint form -->
+            <div style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.5rem;">
+              <label class="gov-label" style="flex:1;margin-bottom:0;">Mint Amount (alUSD)
+                <input id="defi-alchemix-borrow-amount" class="gov-input" type="number" min="1" step="any" placeholder="e.g. 100" />
+              </label>
+              <button id="defi-alchemix-borrow-btn" class="gov-admin-action-btn defi-alchemix-btn">⬇️ Mint alUSD</button>
+            </div>
+            <p id="defi-alchemix-borrow-status" class="gov-form-status"></p>
+          </div>
+        </details>
+
+        <!-- Movement History -->
+        <details class="gov-admin-section" style="margin-top:0.5rem;">
+          <summary>📋 Movement History</summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">Local record of DeFi operations. Click any tx hash to view on Etherscan.</p>
+            <div id="defi-history-list" style="overflow-x:auto;font-size:0.82rem;margin-bottom:0.5rem;"></div>
+            <button id="defi-clear-history-btn" class="gov-admin-action-btn gov-admin-danger-btn" style="font-size:0.78rem;">🗑 Clear History</button>
+          </div>
+        </details>
+
+      </div><!-- .gov-admin-panel -->
+    </div><!-- .modal -->
+  </div><!-- #defi-admin-modal -->
 
   <!-- ── Subscription Plans (DecentEscrow) Admin Modal ─────────────────────── -->
   <div id="escrow-admin-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="escrow-admin-modal-title">

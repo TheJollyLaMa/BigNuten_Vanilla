@@ -4840,6 +4840,11 @@ document.addEventListener('DOMContentLoaded', () => {
     wireModal('admin-contributors-btn', 'contributors-admin-modal', 'contributors-admin-modal-close', () => {
       if (typeof window.__loadContributorsTable === 'function') window.__loadContributorsTable();
     });
+
+    // 🌾 v3 DeFi — auto-load balances on open
+    wireModal('admin-defi-btn', 'defi-admin-modal', 'defi-admin-modal-close', () => {
+      if (typeof window.loadDeFiBalances === 'function') window.loadDeFiBalances();
+    });
   })();
 
   // ── Settings modal (⚙️ gear in aesculapius dropdown) ─────────────────────

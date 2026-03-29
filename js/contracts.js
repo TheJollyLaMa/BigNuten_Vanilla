@@ -71,6 +71,16 @@ const DNFT_ESCROW_ADDRESS = '0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e';
  */
 const USDC_ADDRESS = '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85';
 
+/**
+ * Aave V3 Pool on Optimism Mainnet — used for supply/borrow in v3 DeFi panel.
+ */
+const AAVE_V3_POOL_ADDRESS = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
+
+/**
+ * Alchemix V2 AlchemistV2 (alUSD) on Optimism Mainnet — used for self-repaying loans.
+ */
+const ALCHEMIST_V2_ADDRESS = '0x10294d57A419C8eb78C648372c5bAA27fD1484af';
+
 // ─── Token Metadata ───────────────────────────────────────────────────────────
 
 /**
@@ -101,6 +111,8 @@ const CONTRACTS = {
   governance:     GOVERNANCE_CONTRACT_ADDRESS,
   dnftEscrow:     DNFT_ESCROW_ADDRESS,
   usdc:           USDC_ADDRESS,
+  aaveV3Pool:     AAVE_V3_POOL_ADDRESS,
+  alchemistV2:    ALCHEMIST_V2_ADDRESS,
   bnutToken:      BNUT_TOKEN,
   ethPlanId:      BIGNUTEN_ETH_PLAN_ID,
   bnutPlanId:     BIGNUTEN_BNUT_PLAN_ID,
@@ -116,6 +128,8 @@ window.SUBSCRIPTION_CONTRACT_ADDRESS = DNFT_ESCROW_ADDRESS;   // DecentEscrow
 window.GOVERNANCE_CONTRACT_ADDRESS   = GOVERNANCE_CONTRACT_ADDRESS;
 window.BIGNUTEN_ETH_PLAN_ID          = BIGNUTEN_ETH_PLAN_ID;
 window.BIGNUTEN_BNUT_PLAN_ID         = BIGNUTEN_BNUT_PLAN_ID;
+window.AAVE_V3_POOL_ADDRESS          = AAVE_V3_POOL_ADDRESS;
+window.ALCHEMIST_V2_ADDRESS          = ALCHEMIST_V2_ADDRESS;
 
 // Full CONTRACTS object for use in app.js and future modules.
 window.CONTRACTS = CONTRACTS;
