@@ -17,7 +17,7 @@
 
 const DEFI_HISTORY_KEY        = 'defi_movement_history';
 const DEFI_HISTORY_MAX        = 200;
-const DEFI_SCRAPE_BLOCKS      = 10000;  // ~5.5 h on Optimism (2 s block time)
+const DEFI_SCRAPE_BLOCKS      = 2000;  // ~5.5 h on Optimism (2 s block time)
 const DEFI_SCRAPE_COOLDOWN_MS = 10 * 60 * 1000; // 10 min between background scrapes
 const DEFI_SCRAPE_TS_KEY      = 'defi_last_scrape_ts';
 
