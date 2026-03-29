@@ -1668,6 +1668,12 @@
               <button id="defi-aave-borrow-btn" class="gov-admin-action-btn defi-aave-btn">⬇️ Borrow USDC</button>
             </div>
             <p id="defi-aave-borrow-status" class="gov-form-status"></p>
+            <!-- Max Borrow to Dev Fund -->
+            <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
+              <p class="gov-admin-hint" style="flex:1;margin-bottom:0;">Borrows the full available amount from Aave V3 and transfers it to the treasury dev fund. Admin only.</p>
+              <button id="defi-aave-max-borrow-btn" class="gov-admin-action-btn defi-aave-btn">💰 Max Borrow → Dev Fund</button>
+            </div>
+            <p id="defi-aave-max-borrow-status" class="gov-form-status"></p>
             <!-- Sweep form -->
             <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
               <p class="gov-admin-hint" style="flex:1;margin-bottom:0;">Sweeps full idle wallet USDC balance into Aave. Admin only.</p>
@@ -1701,6 +1707,10 @@
                 <span class="treasury-metric-label">Borrow Ceiling (50% of collateral)</span>
                 <span id="defi-alchemix-ceiling" class="treasury-metric-value defi-alchemix-color">—</span>
               </div>
+              <div class="treasury-metric" style="grid-column:1/-1;">
+                <span class="treasury-metric-label">Available to Borrow (at 50% LTV)</span>
+                <span id="defi-alchemix-available" class="treasury-metric-value defi-alchemix-color">—</span>
+              </div>
             </div>
             <div style="margin-bottom:0.75rem;">
               <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#7a9aa8;margin-bottom:0.2rem;">
@@ -1726,6 +1736,12 @@
               <button id="defi-alchemix-borrow-btn" class="gov-admin-action-btn defi-alchemix-btn">⬇️ Mint alUSD</button>
             </div>
             <p id="defi-alchemix-borrow-status" class="gov-form-status"></p>
+            <!-- Max Borrow to Dev Fund -->
+            <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
+              <p class="gov-admin-hint" style="flex:1;margin-bottom:0;">Mints maximum safe alUSD (up to 50% LTV) and sends directly to the treasury dev fund. Admin only.</p>
+              <button id="defi-alchemix-max-borrow-btn" class="gov-admin-action-btn defi-alchemix-btn">💰 Max Borrow → Dev Fund</button>
+            </div>
+            <p id="defi-alchemix-max-borrow-status" class="gov-form-status"></p>
             <!-- Sweep form -->
             <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
               <p class="gov-admin-hint" style="flex:1;margin-bottom:0;">Sweeps full idle wallet USDC balance into Alchemix. Admin only.</p>
