@@ -54,6 +54,10 @@ const ALCHEMIST_V2_ABI = [
   'function mint(uint256 amount, address recipient)',
 ];
 
+const TREASURY_MIN_ABI = [
+  'function getBalance() view returns (uint256 balance)',
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getRpc() {
@@ -170,14 +174,11 @@ async function loadOverviewBalances() {
   const treasury = getTreasuryAddress();
   const escrow   = getEscrowAddress();
 
-  const BNUT_ABI_MIN = ['function balanceOf(address) view returns (uint256)'];
-  const BNUT_ADDR    = (window.CONTRACTS && window.CONTRACTS.bnut) || window.BNUT_CONTRACT_ADDRESS;
-
-  const usdcContract  = new ethers.Contract(usdc, ERC20_MIN_ABI, provider);
-  const bnutContract  = new ethers.Contract(BNUT_ADDR, BNUT_ABI_MIN, provider);
+  const usdcContract     = new ethers.Contract(usdc, ERC20_MIN_ABI, provider);
+  const treasuryContract = new ethers.Contract(treasury, TREASURY_MIN_ABI, provider);
 
   const [treasuryBnut, escrowUsdc, walletAddr] = await Promise.allSettled([
-    bnutContract.balanceOf(treasury),
+    treasuryContract.getBalance(),
     usdcContract.balanceOf(escrow),
     Promise.resolve(
       window.ethereum
