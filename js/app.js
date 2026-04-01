@@ -6,7 +6,7 @@ import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, get
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
 import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId } from './genieChat.js';
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
-import { initChakraAura, refreshChakraAura } from './chakra.js';
+import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -4850,6 +4850,16 @@ document.addEventListener('DOMContentLoaded', () => {
           cycleStatus.textContent = '✅ Saved! Day boundary updated.';
           cycleStatus.className = 'settings-status settings-status-success';
         }
+      });
+    }
+
+    // ── Chakra Aura toggle ──────────────────────────────────────────────────
+    const chakraAuraToggleEl = document.getElementById('chakra-aura-toggle');
+    if (chakraAuraToggleEl) {
+      // Restore persisted state (default: enabled)
+      chakraAuraToggleEl.checked = isChakraAuraEnabled();
+      chakraAuraToggleEl.addEventListener('change', () => {
+        setChakraAuraEnabled(chakraAuraToggleEl.checked);
       });
     }
   })();

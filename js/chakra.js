@@ -92,15 +92,80 @@ const WATER_HISTORY_KEY = 'waterDailyHistory';
 const WATER_MAX = 8;
 const CROWN_MODAL_KEY = 'chakraCrownLastOpened';
 const CROWN_STREAK_KEY = 'chakraCrownStreak';
+const CHAKRA_AURA_ENABLED_KEY = 'chakraAuraEnabled';
 
 // ── Internal state ────────────────────────────────────────────────────────
 let _prevScores = null;        // scores from the previous evaluation
 let _auraRafHandle = null;     // requestAnimationFrame handle
+let _auraIntervalId = null;    // setInterval handle for 60s re-evaluation
 let _auraPhase = 0;            // breathing phase (0–2π)
 let _canvasLastWidth = 0;
 let _canvasLastHeight = 0;
 let _latestScores = {};
 let _refreshDebounceTimer = null; // debounce handle for refreshChakraAura
+
+// ── Enable / disable helpers ──────────────────────────────────────────────
+
+/** Returns true when the chakra aura feature is enabled (default: true). */
+export function isChakraAuraEnabled() {
+  const stored = localStorage.getItem(CHAKRA_AURA_ENABLED_KEY);
+  return stored === null ? true : stored === 'true';
+}
+
+/** Persist the enabled/disabled preference and immediately update the UI. */
+export function setChakraAuraEnabled(enabled) {
+  localStorage.setItem(CHAKRA_AURA_ENABLED_KEY, String(enabled));
+  if (enabled) {
+    _enableAura();
+  } else {
+    _disableAura();
+  }
+}
+
+function _enableAura() {
+  const scores = computeChakraScores();
+  _latestScores = scores;
+  _prevScores = null;
+  applyChakraStates(scores);
+  startAuraLoop();
+  // Re-evaluate every 60 seconds (guard against double-call)
+  if (_auraIntervalId === null) {
+    _auraIntervalId = setInterval(() => {
+      const updated = computeChakraScores();
+      _latestScores = updated;
+      applyChakraStates(updated);
+    }, 60_000);
+  }
+}
+
+function _disableAura() {
+  // Stop RAF loop
+  if (_auraRafHandle !== null) {
+    cancelAnimationFrame(_auraRafHandle);
+    _auraRafHandle = null;
+  }
+  // Stop 60s interval
+  if (_auraIntervalId !== null) {
+    clearInterval(_auraIntervalId);
+    _auraIntervalId = null;
+  }
+  // Clear canvas
+  const canvas = document.getElementById('chakra-aura-canvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  // Remove all state classes and reset styles
+  CHAKRA_CONFIG.forEach(cfg => {
+    const el = document.getElementById(cfg.id);
+    if (!el) return;
+    el.classList.remove('chakra-active', 'chakra-partial', 'chakra-dormant', 'chakra-activating');
+    el.style.removeProperty('--chakra-intensity');
+  });
+  // Remove bloom class
+  const bgEl = document.getElementById('landing-bg');
+  if (bgEl) bgEl.classList.remove('all-chakras-lit');
+}
 
 // ── Utility helpers ───────────────────────────────────────────────────────
 
@@ -428,24 +493,13 @@ function updateLoginStreak() {
 export function initChakraAura() {
   setupCrownTracking();
 
-  const scores = computeChakraScores();
-  _latestScores = scores;
-  _prevScores = null; // don't trigger activation sparks on first load
-
-  applyChakraStates(scores);
-  startAuraLoop();
-
-  // Re-evaluate every 60 seconds
-  setInterval(() => {
-    const updated = computeChakraScores();
-    _latestScores = updated;
-    applyChakraStates(updated);
-  }, 60_000);
-
-  // Re-sync canvas if window resizes
+  // Re-sync canvas if window resizes (register regardless of enabled state)
   window.addEventListener('resize', () => {
     _canvasLastWidth = 0; // force resize on next draw
   });
+
+  if (!isChakraAuraEnabled()) return; // feature is disabled — stay dormant
+  _enableAura();
 }
 
 /**
@@ -454,6 +508,7 @@ export function initChakraAura() {
  * Debounced to 300 ms to avoid thrashing on rapid sequential saves.
  */
 export function refreshChakraAura() {
+  if (!isChakraAuraEnabled()) return;
   if (_refreshDebounceTimer !== null) clearTimeout(_refreshDebounceTimer);
   _refreshDebounceTimer = setTimeout(() => {
     _refreshDebounceTimer = null;
