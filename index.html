@@ -609,37 +609,56 @@
     </div>
   </div>
 
-  <!-- Correlation Graph Modal -->
-  <div id="correlation-graph-modal" class="modal-overlay modal-hidden">
-    <div class="modal">
-      <button class="modal-close">×</button>
-      <h2>Correlation Graph</h2>
-      <label for="graph-data-select">Select Data Points:</label>
-      <select id="graph-data-select" multiple style="width:100%;margin-bottom:1rem;">
-        <option value="weight">Weight</option>
-        <option value="Push-ups:reps">Push-ups Reps</option>
-        <option value="Push-ups:weight">Push-ups Weight</option>
-        <option value="Sit-ups:reps">Sit-ups Reps</option>
-        <option value="Sit-ups:weight">Sit-ups Weight</option>
-        <option value="Pull-ups:reps">Pull-ups Reps</option>
-        <option value="Pull-ups:weight">Pull-ups Weight</option>
-        <option value="Bicep Curl:reps">Bicep Curl Reps</option>
-        <option value="Bicep Curl:weight">Bicep Curl Weight</option>
-        <option value="Forearm Curl (forward):reps">Forearm Curl (forward) Reps</option>
-        <option value="Forearm Curl (forward):weight">Forearm Curl (forward) Weight</option>
-        <option value="Squats:reps">Squats Reps</option>
-        <option value="Squats:weight">Squats Weight</option>
-        <option value="Bench Press (Incline):reps">Bench Press (Incline) Reps</option>
-        <option value="Bench Press (Incline):weight">Bench Press (Incline) Weight</option>
-        <option value="Calf Raises:reps">Calf Raises Reps</option>
-        <option value="Calf Raises:weight">Calf Raises Weight</option>
-        <option value="Leg Press:reps">Leg Press Reps</option>
-        <option value="Leg Press:weight">Leg Press Weight</option>
-        <option value="Bicep">Bicep (measurement)</option>
-        <option value="Forearm">Forearm (measurement)</option>
-        <!-- Add more as needed -->
-      </select>
-      <canvas id="correlationChart" height="300"></canvas>
+  <!-- Correlation Graph Modal — 🧠 Third Eye Trends -->
+  <div id="correlation-graph-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="corr-graph-title">
+    <div class="modal corr-graph-modal">
+      <button class="modal-close" aria-label="Close">×</button>
+      <h2 id="corr-graph-title">🧠 Third Eye — Trends</h2>
+
+      <!-- Controls row: time range + chart type + normalize -->
+      <div class="corr-controls-row">
+        <div class="corr-ctrl-group">
+          <span class="corr-ctrl-label">Range</span>
+          <div class="corr-btn-row">
+            <button class="corr-time-btn" data-days="7">7d</button>
+            <button class="corr-time-btn active" data-days="14">14d</button>
+            <button class="corr-time-btn" data-days="30">30d</button>
+            <button class="corr-time-btn" data-days="90">90d</button>
+            <button class="corr-time-btn" data-days="0">All</button>
+          </div>
+        </div>
+        <div class="corr-ctrl-group">
+          <span class="corr-ctrl-label">Type</span>
+          <div class="corr-btn-row">
+            <button class="corr-type-btn active" data-type="line" title="Line">📈</button>
+            <button class="corr-type-btn" data-type="bar"     title="Bar">📊</button>
+            <button class="corr-type-btn" data-type="scatter" title="Scatter">⚡</button>
+            <button class="corr-type-btn" data-type="radar"   title="Radar/Chakra">🕸️</button>
+          </div>
+        </div>
+        <div class="corr-ctrl-group corr-normalize-wrap">
+          <label class="corr-normalize-label">
+            <input type="checkbox" id="corr-normalize" />
+            <span>Normalize</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Series chiclets (populated by JS) -->
+      <div id="corr-series-groups"></div>
+
+      <!-- Mini insight badges -->
+      <div id="corr-insights" class="corr-insights" aria-live="polite"></div>
+
+      <!-- Chart canvas -->
+      <div class="corr-chart-wrap">
+        <canvas id="correlationChart"></canvas>
+      </div>
+
+      <!-- Footer actions -->
+      <div class="corr-footer">
+        <button id="corr-export-btn" class="corr-export-btn" title="Save chart as PNG">📥 Export PNG</button>
+      </div>
     </div>
   </div>
 
