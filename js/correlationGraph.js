@@ -223,15 +223,13 @@ function buildDatasets(activeKeys, data, cutoff, normalize, chartType) {
     });
   }
 
-  // Emotion scatter overlay (always y=0 on its own axis or normalised)
+  // Emotion scatter overlay — always placed at y=0 (baseline)
   if (activeKeys.includes('emotions')) {
     const emotionPts = extractEmotions(data, cutoff);
     if (emotionPts.length) {
-      // Place emotion dots at bottom (y = -0.5 in raw, 0 in normalised)
-      const yVal = normalize ? 0 : (datasets.length ? undefined : 0);
       datasets.push({
         label: '🧠 Emotions',
-        data: emotionPts.map(p => ({ x: p.x, y: yVal ?? 0, _label: p.label })),
+        data: emotionPts.map(p => ({ x: p.x, y: 0, _label: p.label })),
         backgroundColor: emotionPts.map(p => p.color),
         borderColor: emotionPts.map(p => p.color),
         pointRadius: 7,
@@ -448,10 +446,12 @@ function renderInsights(data, activeKeys, cutoff, days) {
 
 function _waterStreak(pts) {
   if (!pts.length) return 0;
-  const today = new Date(); today.setHours(0,0,0,0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   let streak = 0;
   for (let i = pts.length - 1; i >= 0; i--) {
-    const d = new Date(pts[i].x); d.setHours(0,0,0,0);
+    const d = new Date(pts[i].x);
+    d.setHours(0, 0, 0, 0);
     const diffDays = Math.round((today - d) / 86400000);
     if (diffDays === streak && pts[i].y > 0) streak++;
     else break;
