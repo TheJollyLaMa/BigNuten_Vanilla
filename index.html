@@ -167,6 +167,7 @@
     </div>
     <div id="body-figure-wrapper">
       <img src="img/BigNuten.png" id="landing-bg" alt="BigNuten Background">
+      <canvas id="chakra-aura-canvas" aria-hidden="true"></canvas>
       <!-- Water Intake Tracker: upside-down semi-circle meter above BigNuten's head -->
       <div id="water-tracker">
         <div id="water-meter-container">
@@ -1371,6 +1372,29 @@
           💡 Examples: <strong>00:00</strong> = midnight &nbsp;·&nbsp;
           <strong>04:30</strong> = 4:30 AM (default) &nbsp;·&nbsp;
           <strong>18:00</strong> = 6 PM (third-shift workers)
+        </p>
+      </section>
+
+      <!-- Chakra Aura Mode Section -->
+      <section class="settings-section">
+        <h3>🌈 Chakra Aura Mode</h3>
+        <p class="settings-desc">
+          Animates each chakra on the BigNuten body figure based on your health data.
+          Glow intensity, breathing speed, and a body-aura canvas overlay all reflect
+          how active each energy centre is today.
+        </p>
+        <div class="genie-settings-row">
+          <label for="chakra-aura-toggle" class="genie-settings-label">
+            Enable Chakra Aura animations
+          </label>
+          <label class="genie-toggle" aria-label="Toggle Chakra Aura animations">
+            <input type="checkbox" id="chakra-aura-toggle" checked />
+            <span class="genie-toggle-slider"></span>
+          </label>
+        </div>
+        <p class="settings-hint">
+          💡 Disable to stop all chakra glow effects and the aura canvas overlay.
+          Your data is unaffected — you can re-enable at any time.
         </p>
       </section>
 
