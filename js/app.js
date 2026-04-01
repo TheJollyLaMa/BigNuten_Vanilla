@@ -6,6 +6,7 @@ import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, get
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
 import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId } from './genieChat.js';
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
+import { initChakraAura, refreshChakraAura } from './chakra.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -811,6 +812,7 @@ function getFitnessData() {
 function saveFitnessData(data) {
   const normalized = normalizeFitnessData(data);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  refreshChakraAura();
 }
 
 function logWeight(weight, timestamp) {
@@ -4199,6 +4201,7 @@ function saveWaterData(data) {
     hist[data.date] = data.count;
     localStorage.setItem(WATER_HISTORY_KEY, JSON.stringify(hist));
   } catch { /* ignore */ }
+  refreshChakraAura();
 }
 
 function updateWaterMeter() {
@@ -7570,4 +7573,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setGenieModelId(genieModelSelectEl.value);
     });
   }
+
+  // ── Chakra Aura System ────────────────────────────────────────────────────
+  initChakraAura();
 });

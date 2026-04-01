@@ -180,6 +180,7 @@ body.hide-icons #water-tracker {
   cursor: pointer;
   text-align: center;
   line-height: 40px;
+  --chakra-intensity: 0.2;
 }
 #emotion-icon {
   position: absolute;
@@ -189,8 +190,10 @@ body.hide-icons #water-tracker {
   height: 40px;
   cursor: pointer;
   z-index: 100;
+  color: #f4d03f;
   animation: shimmer-spin-y 6s linear infinite;
   filter: drop-shadow(0 0 6px #00e5ff);
+  --chakra-intensity: 0.2;
 }
 
 #graph-icon {
@@ -201,8 +204,10 @@ body.hide-icons #water-tracker {
   height: 40px;
   cursor: pointer;
   z-index: 100;
+  color: #00e5ff;
   animation: shimmer-spin-y 6s linear infinite;
   filter: drop-shadow(0 0 6px #00e5ff);
+  --chakra-intensity: 0.2;
 }
 
 /* Chakra placeholder icons */
@@ -217,7 +222,8 @@ body.hide-icons #water-tracker {
   cursor: pointer;
   text-align: center;
   line-height: 40px;
-  transition: text-shadow 0.3s ease;
+  transition: text-shadow 0.3s ease, opacity 0.4s ease, filter 0.3s ease;
+  --chakra-intensity: 0.2;
 }
 .chakra-icon:hover {
   filter: brightness(1.6) drop-shadow(0 0 8px currentColor);
@@ -226,22 +232,173 @@ body.hide-icons #water-tracker {
 #chakra-throat {
   top: 22%;
   color: #00bfff;
-  text-shadow: 0 0 10px #00bfff, 0 0 20px #00bfff;
+  text-shadow:
+    0 0 calc(10px * var(--chakra-intensity, 0.2)) #00bfff,
+    0 0 calc(30px * var(--chakra-intensity, 0.2)) #00bfff;
 }
 #chakra-heart {
   top: 30%;
   color: #00ff88;
-  text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
+  text-shadow:
+    0 0 calc(10px * var(--chakra-intensity, 0.2)) #00ff88,
+    0 0 calc(30px * var(--chakra-intensity, 0.2)) #00ff88;
 }
 #chakra-sacral {
   top: 44%;
   color: #ff8c00;
-  text-shadow: 0 0 10px #ff8c00, 0 0 20px #ff8c00;
+  text-shadow:
+    0 0 calc(10px * var(--chakra-intensity, 0.2)) #ff8c00,
+    0 0 calc(30px * var(--chakra-intensity, 0.2)) #ff8c00;
 }
 #chakra-root {
   top: 50%;
   color: #ff4444;
-  text-shadow: 0 0 10px #ff4444, 0 0 20px #ff4444;
+  text-shadow:
+    0 0 calc(10px * var(--chakra-intensity, 0.2)) #ff4444,
+    0 0 calc(30px * var(--chakra-intensity, 0.2)) #ff4444;
+}
+
+/* ── Chakra image icons (crown, third-eye, solar-plexus) ───────────────── */
+#moon-icon,
+#graph-icon,
+#emotion-icon {
+  --chakra-intensity: 0.2;
+  transition: filter 0.3s ease, opacity 0.4s ease;
+}
+
+/* ── Chakra Aura Canvas overlay ─────────────────────────────────────────── */
+#chakra-aura-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  z-index: 90;
+}
+
+/* ── Keyframe animations ─────────────────────────────────────────────────── */
+@keyframes chakra-breathe {
+  0%, 100% { filter: brightness(0.7) drop-shadow(0 0 4px currentColor); }
+  50%       { filter: brightness(1.8) drop-shadow(0 0 18px currentColor); }
+}
+@keyframes chakra-breathe-slow {
+  0%, 100% { filter: brightness(0.5) drop-shadow(0 0 2px currentColor); }
+  50%       { filter: brightness(1.1) drop-shadow(0 0 8px currentColor); }
+}
+@keyframes chakra-halo-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes chakra-activate {
+  0%   { transform: translate(-50%, -50%) scale(1);   filter: brightness(1); }
+  40%  { transform: translate(-50%, -50%) scale(1.6); filter: brightness(3); }
+  70%  { transform: translate(-50%, -50%) scale(0.9); filter: brightness(1.5); }
+  100% { transform: translate(-50%, -50%) scale(1);   filter: brightness(1); }
+}
+@keyframes chakra-activate-img {
+  0%   { transform: scale(1);   filter: brightness(1); }
+  40%  { transform: scale(1.6); filter: brightness(3); }
+  70%  { transform: scale(0.9); filter: brightness(1.5); }
+  100% { transform: scale(1);   filter: brightness(1); }
+}
+@keyframes chakra-spark-float {
+  0%   { transform: translate(0, 0) scale(1);   opacity: 0.9; }
+  100% { transform: translate(var(--dx, 0px), -40px) scale(0); opacity: 0; }
+}
+@keyframes rainbow-sweep {
+  0%   { background-position: 0% 100%; }
+  100% { background-position: 0% -20%; }
+}
+
+/* ── Chakra animation states ─────────────────────────────────────────────── */
+
+/* Active (score ≥ 0.75): fast bright breathing */
+.chakra-icon.chakra-active {
+  animation: chakra-breathe 1.8s ease-in-out infinite;
+  opacity: 1;
+}
+/* Active image-based chakras */
+#moon-icon.chakra-active,
+#graph-icon.chakra-active,
+#emotion-icon.chakra-active {
+  animation: chakra-breathe 1.8s ease-in-out infinite;
+  opacity: 1;
+}
+
+/* Partial (0.3 ≤ score < 0.75): medium breathing */
+.chakra-icon.chakra-partial {
+  animation: chakra-breathe 3s ease-in-out infinite;
+  opacity: 0.75;
+}
+#moon-icon.chakra-partial,
+#graph-icon.chakra-partial,
+#emotion-icon.chakra-partial {
+  animation: chakra-breathe 3s ease-in-out infinite;
+  opacity: 0.75;
+}
+
+/* Dormant (score < 0.3): slow dim breathing */
+.chakra-icon.chakra-dormant {
+  animation: chakra-breathe-slow 5s ease-in-out infinite;
+  opacity: 0.35;
+}
+#moon-icon.chakra-dormant,
+#graph-icon.chakra-dormant,
+#emotion-icon.chakra-dormant {
+  animation: chakra-breathe-slow 5s ease-in-out infinite;
+  opacity: 0.35;
+}
+
+/* Spring pop on activation */
+.chakra-icon.chakra-activating {
+  animation: chakra-activate 0.6s ease-out forwards !important;
+}
+#moon-icon.chakra-activating {
+  animation: chakra-activate 0.6s ease-out forwards !important;
+}
+#graph-icon.chakra-activating,
+#emotion-icon.chakra-activating {
+  animation: chakra-activate-img 0.6s ease-out forwards !important;
+}
+
+/* Rotating halo ring on active chakras */
+.chakra-icon.chakra-active,
+#moon-icon.chakra-active,
+#graph-icon.chakra-active,
+#emotion-icon.chakra-active {
+  position: absolute; /* ensure stacking context */
+}
+.chakra-icon.chakra-active::before,
+#moon-icon.chakra-active::before,
+#graph-icon.chakra-active::before,
+#emotion-icon.chakra-active::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  opacity: 0.5;
+  animation: chakra-halo-spin 3s linear infinite;
+  pointer-events: none;
+}
+
+/* Spark particles */
+.chakra-spark {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: chakra-spark-float 1.2s ease-out forwards;
+  z-index: 200;
+}
+
+/* "All Chakras Lit" body bloom */
+#landing-bg.all-chakras-lit {
+  filter: brightness(1.08) drop-shadow(0 0 18px rgba(255,255,255,0.35));
+  animation: rainbow-sweep 0.1s linear; /* placeholder — actual sweep via canvas */
 }
 #exercises-last7days video {
   display: inline-block;
