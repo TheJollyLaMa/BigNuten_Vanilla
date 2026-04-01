@@ -895,6 +895,7 @@ import { connectW3upClient, tryAutoRestoreW3upClient } from './w3upClient.js';
 import { uploadDataToIPFS } from './uploadToIPFS.js';
 import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
 import { initCommunityDashboard } from './communityDashboard.js';
+import { initCorrelationGraph } from './correlationGraph.js';
 
 // Supplements form logic (now unified in fitnessTrackerData)
 // --- Raw Intake Modal (New Modal) Logic ---
@@ -2782,69 +2783,9 @@ function markSnapshotTakenToday() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  // --- Correlation Graph Modal ---
-  document.getElementById('graph-icon')?.addEventListener('click', () => {
-    showModal('correlation-graph-modal');
-  });
+  // --- Correlation Graph Modal (🧠 Third Eye) — handled by correlationGraph.js ---
+  initCorrelationGraph();
 
-  // Updated modal close logic for correlation graph modal
-  const closeCorrGraphModal = document.querySelector('#correlation-graph-modal .modal-close');
-  if (closeCorrGraphModal) {
-    closeCorrGraphModal.addEventListener('click', () => {
-      hideModal('correlation-graph-modal');
-    });
-  }
-
-  document.getElementById('graph-data-select')?.addEventListener('change', () => {
-    const selected = Array.from(document.getElementById('graph-data-select').selectedOptions).map(opt => opt.value);
-    const ctx = document.getElementById('correlationChart').getContext('2d');
-    const data = getFitnessData();
-
-    const datasets = [];
-
-    selected.forEach(type => {
-      let entries = [];
-
-      if (type === 'weight') {
-        entries = data.weightLogs.map(e => ({ x: new Date(e.timestamp), y: parseFloat(e.weight) }));
-      } else if (type.includes(':')) {
-        const [exerciseType, field] = type.split(':');
-        if (['reps', 'weight'].includes(field)) {
-          entries = data.exercises.entries
-            .filter(e => e.type === exerciseType)
-            .map(e => ({
-              x: new Date(e.timestamp),
-              y: parseFloat(e[field])
-            }));
-        }
-      } else if (data.measurements?.some(m => m.type === type)) {
-        entries = data.measurements.filter(m => m.type === type).map(m => ({
-          x: new Date(`${m.date}T${m.time}`),
-          y: parseFloat(m.measurement)
-        }));
-      }
-
-      datasets.push({
-        label: type,
-        data: entries,
-        borderColor: `hsl(${Math.random() * 360}, 100%, 70%)`,
-        backgroundColor: 'transparent',
-        tension: 0.3
-      });
-    });
-
-    if (window._correlationChart) window._correlationChart.destroy();
-    window._correlationChart = new Chart(ctx, {
-      type: 'line',
-      data: { datasets },
-      options: {
-        scales: {
-          x: { type: 'time', title: { display: true, text: 'Time' } },
-          y: { beginAtZero: true, title: { display: true, text: 'Value' } }
-        }
-      }
-    });
-  });
   // --- IPFS Icon Hover Popup ---
   const ipfsWrapper = document.getElementById('ipfsIconWrapper');
   const ipfsPopup = document.getElementById('ipfsHoverPopup');
@@ -4225,6 +4166,7 @@ function prepareGraphData(data, type) {
 }
 // ===== Water Intake Tracker =====
 const WATER_KEY = 'waterTrackerData';
+const WATER_HISTORY_KEY = 'waterDailyHistory';
 const WATER_MAX = 8;
 const WATER_ARC_RADIUS = 90; // SVG radius matching the path's 'A 90 90' arc
 const WATER_ARC_LENGTH = Math.PI * WATER_ARC_RADIUS; // semi-circle arc length ≈ 282.74
@@ -4237,6 +4179,12 @@ function getWaterData() {
     if (data.date === today) {
       return data;
     }
+    // New day — save yesterday's count to daily history before resetting
+    try {
+      const hist = JSON.parse(localStorage.getItem(WATER_HISTORY_KEY) || '{}');
+      hist[data.date] = data.count;
+      localStorage.setItem(WATER_HISTORY_KEY, JSON.stringify(hist));
+    } catch { /* ignore */ }
   }
   const fresh = { date: today, count: 0 };
   localStorage.setItem(WATER_KEY, JSON.stringify(fresh));
@@ -4245,6 +4193,12 @@ function getWaterData() {
 
 function saveWaterData(data) {
   localStorage.setItem(WATER_KEY, JSON.stringify(data));
+  // Keep daily history up-to-date for the correlation graph
+  try {
+    const hist = JSON.parse(localStorage.getItem(WATER_HISTORY_KEY) || '{}');
+    hist[data.date] = data.count;
+    localStorage.setItem(WATER_HISTORY_KEY, JSON.stringify(hist));
+  } catch { /* ignore */ }
 }
 
 function updateWaterMeter() {
