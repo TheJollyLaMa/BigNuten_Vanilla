@@ -307,10 +307,6 @@ body.hide-icons #water-tracker {
   0%   { transform: translate(0, 0) scale(1);   opacity: 0.9; }
   100% { transform: translate(var(--dx, 0px), -40px) scale(0); opacity: 0; }
 }
-@keyframes rainbow-sweep {
-  0%   { background-position: 0% 100%; }
-  100% { background-position: 0% -20%; }
-}
 
 /* ── Chakra animation states ─────────────────────────────────────────────── */
 
@@ -398,7 +394,6 @@ body.hide-icons #water-tracker {
 /* "All Chakras Lit" body bloom */
 #landing-bg.all-chakras-lit {
   filter: brightness(1.08) drop-shadow(0 0 18px rgba(255,255,255,0.35));
-  animation: rainbow-sweep 0.1s linear; /* placeholder — actual sweep via canvas */
 }
 #exercises-last7days video {
   display: inline-block;

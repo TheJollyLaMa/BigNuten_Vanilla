@@ -20,6 +20,7 @@ const CHAKRA_CONFIG = [
     color: '#87fdb6',
     topPct: 9,
     activeDesc: 'Moon tracking — visited today ✅',
+    partialDesc: 'Moon tracking — active streak 🌀',
     dormantDesc: 'Moon tracking — not visited today',
   },
   {
@@ -29,6 +30,7 @@ const CHAKRA_CONFIG = [
     color: '#00e5ff',
     topPct: 14,
     activeDesc: 'Data richness — 3+ categories logged ✅',
+    partialDesc: 'Data richness — some categories logged 🌀',
     dormantDesc: 'Data richness — log more categories',
   },
   {
@@ -38,6 +40,7 @@ const CHAKRA_CONFIG = [
     color: '#00bfff',
     topPct: 22,
     activeDesc: 'Hydration — 8/8 glasses ✅',
+    partialDesc: 'Hydration — keep drinking 🌀',
     dormantDesc: 'Hydration — not yet',
   },
   {
@@ -47,6 +50,7 @@ const CHAKRA_CONFIG = [
     color: '#00ff88',
     topPct: 30,
     activeDesc: 'Emotion — logged today ✅',
+    partialDesc: 'Emotion — logged recently 🌀',
     dormantDesc: 'Emotion — not logged today',
   },
   {
@@ -56,6 +60,7 @@ const CHAKRA_CONFIG = [
     color: '#f4d03f',
     topPct: 36,
     activeDesc: 'Exercise — logged in last 24h ✅',
+    partialDesc: 'Exercise — logged recently 🌀',
     dormantDesc: 'Exercise — not yet today',
   },
   {
@@ -65,6 +70,7 @@ const CHAKRA_CONFIG = [
     color: '#ff8c00',
     topPct: 44,
     activeDesc: 'Nutrition — food logged today ✅',
+    partialDesc: 'Nutrition — logged yesterday 🌀',
     dormantDesc: 'Nutrition — not logged today',
   },
   {
@@ -74,6 +80,7 @@ const CHAKRA_CONFIG = [
     color: '#ff4444',
     topPct: 50,
     activeDesc: 'Weight — logged in last 7 days ✅',
+    partialDesc: 'Weight — logged recently 🌀',
     dormantDesc: 'Weight — not logged recently',
   },
 ];
@@ -238,8 +245,12 @@ function buildTooltip(cfg, score) {
     desc = score >= 1.0
       ? `Hydration — ${waterCount}/${WATER_MAX} glasses ✅`
       : `Hydration — ${waterCount}/${WATER_MAX} glasses 🌀`;
+  } else if (score >= 1.0) {
+    desc = cfg.activeDesc;
+  } else if (score >= 0.5) {
+    desc = cfg.partialDesc;
   } else {
-    desc = score >= 1.0 ? cfg.activeDesc : (score >= 0.5 ? cfg.dormantDesc.replace('not', 'partially') : cfg.dormantDesc);
+    desc = cfg.dormantDesc;
   }
   return `${cfg.emoji} ${cfg.name}: ${desc}`;
 }
@@ -356,7 +367,7 @@ function drawAuraCanvas(scores) {
   // Rainbow sweep when all lit
   const allActive = CHAKRA_CONFIG.every(cfg => (scores[cfg.id] || 0) >= 0.75);
   if (allActive) {
-    const sweepOffset = (_auraPhase % (Math.PI * 2)) / (Math.PI * 2); // 0.0–1.0
+    const sweepOffset = _auraPhase / (Math.PI * 2); // 0.0–1.0
     const sweepY = canvas.height * (1 - sweepOffset); // sweeps upward
     const grad = ctx.createLinearGradient(0, sweepY - 40, 0, sweepY + 40);
     grad.addColorStop(0,   'rgba(255,255,255,0)');
@@ -416,7 +427,6 @@ function updateLoginStreak() {
  */
 export function initChakraAura() {
   setupCrownTracking();
-  updateLoginStreak(); // count app-open as a daily visit for streak
 
   const scores = computeChakraScores();
   _latestScores = scores;
