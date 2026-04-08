@@ -1704,9 +1704,29 @@ function displayRecentFoods() {
   });
 }
 // --- Food hover graph popup ---
-function showFoodGraphPopup(foodName, anchorElement) {
+function getOrCreateHoverPopup() {
   let popup = document.getElementById('supplement-hover-popup');
-  if (!popup) return;
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'supplement-hover-popup';
+    popup.className = 'hover-popup';
+    popup.style.position = 'absolute';
+    popup.style.zIndex = 1000;
+    popup.style.background = 'rgba(0,0,40,0.95)';
+    popup.style.border = '1px solid #00e5ff';
+    popup.style.borderRadius = '8px';
+    popup.style.padding = '8px';
+    popup.style.color = 'white';
+    document.body.appendChild(popup);
+    popup.addEventListener('mouseenter', () => { popup.style.display = 'block'; });
+    popup.addEventListener('mouseleave', () => { popup.style.display = 'none'; });
+    popup._hoverEventsAdded = true;
+  }
+  return popup;
+}
+
+function showFoodGraphPopup(foodName, anchorElement) {
+  let popup = getOrCreateHoverPopup();
   popup.innerHTML = `<canvas id="supplementChart" width="300" height="200"></canvas>`;
   const rect = anchorElement.getBoundingClientRect();
   popup.style.top = `${rect.bottom + window.scrollY}px`;
@@ -1914,37 +1934,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Supplement hover graph popup
 function showSupplementGraphPopup(supplementName, anchorElement) {
-  let popup = document.getElementById('supplement-hover-popup');
-  let newlyCreated = false;
-  if (!popup) {
-    popup = document.createElement('div');
-    popup.id = 'supplement-hover-popup';
-    popup.className = 'hover-popup';
-    popup.style.position = 'absolute';
-    popup.style.zIndex = 1000;
-    popup.style.background = 'rgba(0,0,40,0.95)';
-    popup.style.border = '1px solid #00e5ff';
-    popup.style.borderRadius = '8px';
-    popup.style.padding = '8px';
-    popup.style.color = 'white';
-    popup.innerHTML = `<canvas id="supplementChart" width="300" height="200"></canvas>`;
-    document.body.appendChild(popup);
-    newlyCreated = true;
-  } else {
-    // Remove button if present from previous render
-    popup.innerHTML = `<canvas id="supplementChart" width="300" height="200"></canvas>`;
-  }
-
-  // Add mouseenter/mouseleave to keep popup visible when hovered
-  if (!popup._hoverEventsAdded) {
-    popup.addEventListener('mouseenter', () => {
-      popup.style.display = 'block';
-    });
-    popup.addEventListener('mouseleave', () => {
-      popup.style.display = 'none';
-    });
-    popup._hoverEventsAdded = true;
-  }
+  let popup = getOrCreateHoverPopup();
+  // Remove button if present from previous render
+  popup.innerHTML = `<canvas id="supplementChart" width="300" height="200"></canvas>`;
 
   const rect = anchorElement.getBoundingClientRect();
   popup.style.top = `${rect.bottom + window.scrollY}px`;
@@ -2211,8 +2203,7 @@ function displayRecentExercises() {
 
 // --- Exercise Hover Graph Popup ---
 function showExerciseGraphPopup(exerciseType, anchorElement) {
-  let popup = document.getElementById('supplement-hover-popup');
-  if (!popup) return;
+  let popup = getOrCreateHoverPopup();
   popup.innerHTML = `<canvas id="supplementChart" width="300" height="200"></canvas>`;
   const rect = anchorElement.getBoundingClientRect();
   popup.style.top = `${rect.bottom + window.scrollY}px`;
