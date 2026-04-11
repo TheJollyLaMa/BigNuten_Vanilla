@@ -55,12 +55,10 @@ const GITHUB_MODELS_ENDPOINT = 'https://models.inference.ai.azure.com/chat/compl
 // Each entry: { value: modelId, label: display name }
 // Update these lists when providers add/rename models.
 const GITHUB_MODELS_LIST = [
-  { value: 'gpt-4o',                        label: 'GPT-4o' },
-  { value: 'gpt-4o-mini',                   label: 'GPT-4o Mini' },
-  { value: 'claude-3-5-sonnet-20241022',     label: 'Claude 3.5 Sonnet' },
-  { value: 'claude-3-5-haiku-20241022',      label: 'Claude 3.5 Haiku' },
-  { value: 'meta-llama-3-3-70b-instruct',   label: 'Llama 3.3 70B' },
-  { value: 'mistral-large-2402',             label: 'Mistral Large' },
+  { value: 'Meta-Llama-3.1-405B-Instruct', label: '🦙 Llama 3.1 405B (128K — recommended)', contextTokens: 100_000, maxTokens: 4000 },
+  { value: 'Meta-Llama-3.1-8B-Instruct',   label: '🦙 Llama 3.1 8B (128K — fast)',          contextTokens: 100_000, maxTokens: 4000 },
+  { value: 'gpt-4o',                        label: 'GPT-4o (8K — small queries only)',        contextTokens: 6_000,   maxTokens: 800  },
+  { value: 'gpt-4o-mini',                   label: 'GPT-4o Mini (8K — small queries only)',   contextTokens: 6_000,   maxTokens: 800  },
 ];
 
 const OPENAI_MODELS_LIST = [
@@ -69,13 +67,16 @@ const OPENAI_MODELS_LIST = [
   { value: 'gpt-3.5-turbo',   label: 'GPT-3.5 Turbo' },
 ];
 
-const DEFAULT_HOSTED_MODEL = 'gpt-4o'; // safe default for both backends
+const DEFAULT_HOSTED_MODEL = 'Meta-Llama-3.1-405B-Instruct'; // 128K context, handles all health data
 
-// Context window for hosted models (no 4K cap — use generous budget)
-const HOSTED_CONTEXT_TOKENS = 32_000;
+// Combined model list for metadata lookups (avoids repeated array allocation)
+const ALL_HOSTED_MODELS = [...GITHUB_MODELS_LIST, ...OPENAI_MODELS_LIST];
+
+// Context window for hosted models (safe budget within 128K Llama window)
+const HOSTED_CONTEXT_TOKENS = 100_000;
 
 // Maximum reply tokens for hosted backends
-const HOSTED_MAX_TOKENS = 1200;
+const HOSTED_MAX_TOKENS = 4000;
 
 // Regex that matches meta-questions about what data Genie has access to.
 // Using non-greedy .*? to avoid catastrophic backtracking.
@@ -240,12 +241,10 @@ export function getHostedModelsForBackend(backend) {
 /** Returns the persisted hosted model name (or a safe default). */
 export function getGenieHostedModelName() {
   const stored  = localStorage.getItem(LS_MODEL_NAME);
+  if (stored) return stored; // respect user's last choice always
   const backend = getGenieBackend();
   const list    = getHostedModelsForBackend(backend);
-  // Return stored value if it's still valid for the current backend
-  if (stored && list.some(m => m.value === stored)) return stored;
-  // Fall back to the safe default
-  return DEFAULT_HOSTED_MODEL;
+  return list[0]?.value || DEFAULT_HOSTED_MODEL;
 }
 
 /** Persist the hosted model name. */
@@ -1275,10 +1274,11 @@ async function _chat(userMessage, panelId, statusEl) {
 
   const backend = getGenieBackend();
 
-  // Context window budget: hosted models get a much larger window
+  // Context window budget: use per-model metadata when available
+  const modelMeta     = ALL_HOSTED_MODELS.find(m => m.value === getGenieHostedModelName());
   const contextTokens = (backend === 'webllm')
     ? (GENIE_MODELS[getGenieModelId()]?.contextTokens ?? 4_096)
-    : HOSTED_CONTEXT_TOKENS;
+    : (modelMeta?.contextTokens || HOSTED_CONTEXT_TOKENS);
 
   const dataBudget    = contextTokens - TOKEN_RESERVE_OVERHEAD - TOKEN_RESERVE_REPLY
                         - _estimateTokens(userMessage);
@@ -1335,6 +1335,20 @@ async function _chatViaGitHubModels(messages, statusEl) {
   }
 
   const modelName = getGenieHostedModelName();
+  const modelMeta = GITHUB_MODELS_LIST.find(m => m.value === modelName);
+  const maxTokens = modelMeta?.maxTokens || HOSTED_MAX_TOKENS;
+
+  // Pre-flight guard: warn if selected model's context window is too small
+  const estimatedInput = _estimateTokens(JSON.stringify(messages));
+  const modelContextTokens = modelMeta?.contextTokens || HOSTED_CONTEXT_TOKENS;
+  if (estimatedInput > modelContextTokens) {
+    throw new Error(
+      `⚠️ Your selected model (${modelName}) has a small context window. ` +
+      `Your data is ~${estimatedInput.toLocaleString()} tokens. ` +
+      `Switch to 🦙 Llama 3.1 405B in Settings → Genie AI for full access to your health data.`
+    );
+  }
+
   if (statusEl) statusEl.textContent = '🧞 Thinking (GitHub Models)…';
 
   const res = await fetch(GITHUB_MODELS_ENDPOINT, {
@@ -1346,7 +1360,7 @@ async function _chatViaGitHubModels(messages, statusEl) {
     body: JSON.stringify({
       model:       modelName,
       messages,
-      max_tokens:  HOSTED_MAX_TOKENS,
+      max_tokens:  maxTokens,
       temperature: 0,
     }),
   });
@@ -1379,6 +1393,9 @@ async function _chatViaOpenAI(messages, statusEl) {
   }
 
   const modelName = getGenieHostedModelName();
+  const modelMeta = OPENAI_MODELS_LIST.find(m => m.value === modelName);
+  const maxTokens = modelMeta?.maxTokens || HOSTED_MAX_TOKENS;
+
   if (statusEl) statusEl.textContent = '🧞 Thinking (OpenAI)…';
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1390,7 +1407,7 @@ async function _chatViaOpenAI(messages, statusEl) {
     body: JSON.stringify({
       model:       modelName,
       messages,
-      max_tokens:  HOSTED_MAX_TOKENS,
+      max_tokens:  maxTokens,
       temperature: 0,
     }),
   });
@@ -1553,8 +1570,10 @@ function _updateTokenEstimate(panelId) {
     total += _estimateTokens(JSON.stringify(arr));
   }
 
-  const pct = Math.min(100, Math.round(total / HOSTED_CONTEXT_TOKENS * 100));
-  estEl.textContent = `~${total.toLocaleString()} tokens used (${pct}% of ${Math.round(HOSTED_CONTEXT_TOKENS / 1000)}K context)`;
+  const modelMeta     = ALL_HOSTED_MODELS.find(m => m.value === getGenieHostedModelName());
+  const contextTokens = modelMeta?.contextTokens || HOSTED_CONTEXT_TOKENS;
+  const pct = Math.min(100, Math.round(total / contextTokens * 100));
+  estEl.textContent = `~${total.toLocaleString()} tokens used (${pct}% of ${Math.round(contextTokens / 1000)}K context)`;
   estEl.style.color = pct > 80 ? '#ff8888' : pct > 60 ? '#ffcc44' : '#00ff88';
 }
 
