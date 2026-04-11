@@ -41,6 +41,9 @@ const GITHUB_MODELS_DEFAULT  = 'claude-3-5-sonnet';
 // Context window for hosted models (no 4K cap — use generous budget)
 const HOSTED_CONTEXT_TOKENS = 32_000;
 
+// Maximum reply tokens for hosted backends
+const HOSTED_MAX_TOKENS = 1200;
+
 // Regex that matches meta-questions about what data Genie has access to.
 // Using non-greedy .*? to avoid catastrophic backtracking.
 const META_QUESTION_RE = /what\s+data|where.*?find|connected\s+to|where.*?coming\s+from/i;
@@ -155,10 +158,19 @@ export function setGenieBackend(backend) {
   }
 }
 
+/**
+ * Returns the user's API key from localStorage.
+ * The key is stored as plain text in localStorage by design — there is no
+ * server-side component. Callers must not log the returned value.
+ */
 export function getGenieApiKey() {
   return localStorage.getItem(LS_API_KEY) || '';
 }
 
+/**
+ * Persist or clear the user's API key in localStorage.
+ * Stored as plain text — intentional for a purely client-side app with no server.
+ */
 export function setGenieApiKey(key) {
   if (key) {
     localStorage.setItem(LS_API_KEY, key);
@@ -819,7 +831,7 @@ async function _chatViaGitHubModels(messages, statusEl) {
     body: JSON.stringify({
       model:       GITHUB_MODELS_DEFAULT,
       messages,
-      max_tokens:  1200,
+      max_tokens:  HOSTED_MAX_TOKENS,
       temperature: 0,
     }),
   });
@@ -857,7 +869,7 @@ async function _chatViaOpenAI(messages, statusEl) {
     body: JSON.stringify({
       model:       'gpt-4o',
       messages,
-      max_tokens:  1200,
+      max_tokens:  HOSTED_MAX_TOKENS,
       temperature: 0,
     }),
   });
