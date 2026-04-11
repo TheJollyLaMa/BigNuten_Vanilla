@@ -1,5 +1,10 @@
 /**
- * genieChat.js — WebLLM-powered Genie Chat assistant for BigNuten side panels.
+ * genieChat.js — AI Chat assistant for BigNuten side panels.
+ *
+ * Supports multiple backends:
+ *   • WebLLM (local, private — default offline fallback)
+ *   • GitHub Models (Claude 3.5 Sonnet / GPT-4o — hosted)
+ *   • OpenAI API (GPT-4o — hosted)
  *
  * Exports:
  *   initGenieChat()   — call once on DOMContentLoaded
@@ -11,7 +16,10 @@
  *     side panel.
  *   • Clicking the icon toggles a chat window that sits ALONGSIDE the panel
  *     (toward the page centre), never on top of it.
- *   • WebLLM (via CDN) is lazy-loaded only when the user first sends a message.
+ *   • WebLLM (via CDN) is lazy-loaded only when the user first sends a message
+ *     and the WebLLM backend is selected.
+ *   • Hosted backends (GitHub Models, OpenAI) use the user's API key stored in
+ *     localStorage — keys are never hardcoded or logged.
  *   • LLM is strictly data-driven: it only reports what is in the logs and says
  *     "The logs don't show data for that" when information is missing.
  *   • Per-panel open/close state is preserved in localStorage.
@@ -20,7 +28,18 @@
 const LS_ENABLED   = 'genieEnabled';
 const LS_OPEN      = 'genieChatOpen';    // JSON object: { panelId: true/false }
 const LS_MODEL_ID  = 'genieModelId';
+const LS_BACKEND   = 'genieBackend';     // 'webllm' | 'github-models' | 'openai'
+const LS_API_KEY   = 'genieApiKey';      // user-provided key, localStorage only
 const STORAGE_KEY  = 'fitnessTrackerData';
+
+const DEFAULT_BACKEND = 'github-models'; // default to hosted for best experience
+
+// GitHub Models endpoint (OpenAI-compatible)
+const GITHUB_MODELS_ENDPOINT = 'https://models.inference.ai.azure.com/chat/completions';
+const GITHUB_MODELS_DEFAULT  = 'claude-3-5-sonnet';
+
+// Context window for hosted models (no 4K cap — use generous budget)
+const HOSTED_CONTEXT_TOKENS = 32_000;
 
 // Regex that matches meta-questions about what data Genie has access to.
 // Using non-greedy .*? to avoid catastrophic backtracking.
@@ -115,6 +134,41 @@ export function setGenieModelId(modelId) {
 /** Returns the map of all available models (id → metadata). */
 export function getGenieModels() {
   return GENIE_MODELS;
+}
+
+/** Returns the active backend: 'webllm' | 'github-models' | 'openai' */
+export function getGenieBackend() {
+  const stored = localStorage.getItem(LS_BACKEND);
+  return ['webllm', 'github-models', 'openai'].includes(stored)
+    ? stored
+    : DEFAULT_BACKEND;
+}
+
+export function setGenieBackend(backend) {
+  localStorage.setItem(LS_BACKEND, backend);
+  // Force WebLLM engine reset if switching away from it and back
+  if (backend !== 'webllm') {
+    _engine        = null;
+    _engineReady   = false;
+    _engineLoading = false;
+    _loadedModelId = null;
+  }
+}
+
+export function getGenieApiKey() {
+  return localStorage.getItem(LS_API_KEY) || '';
+}
+
+export function setGenieApiKey(key) {
+  if (key) {
+    localStorage.setItem(LS_API_KEY, key);
+  } else {
+    localStorage.removeItem(LS_API_KEY);
+  }
+}
+
+export function hasGenieApiKey() {
+  return !!getGenieApiKey();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -279,6 +333,16 @@ function _isMobile() {
   return window.innerWidth <= 700;
 }
 
+function _buildGenieHint() {
+  const backend = getGenieBackend();
+  const hints = {
+    'webllm':        '🔒 Local &amp; private — powered by WebLLM',
+    'github-models': '⭐ Powered by GitHub Models (Claude/GPT-4o)',
+    'openai':        '🟢 Powered by OpenAI API',
+  };
+  return hints[backend] || hints['webllm'];
+}
+
 function _buildChatWindow(panel) {
   const win = document.createElement('div');
   win.className = 'genie-chat-window';
@@ -296,7 +360,7 @@ function _buildChatWindow(panel) {
       <textarea class="genie-chat-input" rows="2" placeholder="Ask your Genie…" aria-label="Chat message"></textarea>
       <button class="genie-chat-send" aria-label="Send message">Send</button>
     </div>
-    <div class="genie-chat-hint">Your data stays local — powered by WebLLM 🔒</div>
+    <div class="genie-chat-hint">${_buildGenieHint()}</div>
   `;
 
   // Prevent clicks inside the chat from bubbling to the document outside-click
@@ -350,13 +414,18 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
   _appendMessage(messagesEl, 'user', text);
 
   try {
-    const modelId   = getGenieModelId();
-    const modelMeta = GENIE_MODELS[modelId] || GENIE_MODELS[DEFAULT_MODEL_ID];
-    const sizeDesc  = modelMeta.sizeDesc;
+    const backend = getGenieBackend();
 
-    if (!_engineReady || _loadedModelId !== modelId) {
-      statusEl.textContent = `⏳ Loading AI model (first-time download, ${sizeDesc} cached for future use)…`;
-      await _loadEngine(statusEl);
+    // Only load WebLLM engine if using local backend
+    if (backend === 'webllm') {
+      const modelId   = getGenieModelId();
+      const modelMeta = GENIE_MODELS[modelId] || GENIE_MODELS[DEFAULT_MODEL_ID];
+      const sizeDesc  = modelMeta.sizeDesc;
+
+      if (!_engineReady || _loadedModelId !== modelId) {
+        statusEl.textContent = `⏳ Loading AI model (first-time download, ${sizeDesc} cached for future use)…`;
+        await _loadEngine(statusEl);
+      }
     }
 
     statusEl.textContent = '🧞 Thinking…';
@@ -666,43 +735,47 @@ async function _chat(userMessage, panelId, statusEl) {
   // Short-circuit meta-questions about the assistant's data source — these need
   // no data block and would otherwise hit the same token budget as any other query.
   if (META_QUESTION_RE.test(userMessage)) {
-    return "🧞 I read your locally-stored BigNuten fitness logs from your browser. " +
-           "Your data never leaves your device. " +
-           "I can see: food logs, weight logs, supplements, exercises, and workout sessions.";
+    const backend = getGenieBackend();
+    const backendLabel = {
+      'webllm':        'WebLLM (local, private)',
+      'github-models': 'GitHub Models (Claude/GPT-4o, hosted)',
+      'openai':        'OpenAI API (hosted)',
+    }[backend] || backend;
+    return `🧞 I read your locally-stored BigNuten fitness logs. ` +
+           `Currently running via: ${backendLabel}. ` +
+           `Your fitness data never leaves your device. ` +
+           `I can see: food logs, weight logs, supplements, exercises, and workout sessions.`;
   }
 
-  const modelId       = getGenieModelId();
-  const contextTokens = GENIE_MODELS[modelId]?.contextTokens ?? 4_096;
+  const backend = getGenieBackend();
+
+  // Context window budget: hosted models get a much larger window
+  const contextTokens = (backend === 'webllm')
+    ? (GENIE_MODELS[getGenieModelId()]?.contextTokens ?? 4_096)
+    : HOSTED_CONTEXT_TOKENS;
+
   const dataBudget    = contextTokens - TOKEN_RESERVE_OVERHEAD - TOKEN_RESERVE_REPLY
                         - _estimateTokens(userMessage);
 
   if (dataBudget < 50) {
-    // Even with an empty data block, the prompt is too large.
-    return "⚠️ Your message is too long for the selected model's context window. Please try a shorter question.";
+    return '⚠️ Your message is too long for the model context window. Try a shorter question.';
   }
 
   const { sections, trimmed, longitudinal, windowLabel, targetDate } = _buildDataSections(panelId, dataBudget, userMessage);
 
-  // Longitudinal queries that contain no raw entries still produce a stats summary —
-  // but if even that summary is empty, show a friendly "coming soon" message.
   if (longitudinal && sections.length === 0) {
-    return "🧞 Multi-year analysis requires a larger context window than current models support. " +
-           "This feature is planned for future increased-context or subscription models. " +
-           "Try asking about a specific week or month instead — e.g. \"What did I eat this week?\"";
+    return '🧞 Multi-year analysis requires a larger context window. Try asking about a specific week or month.';
   }
 
   const contextBlock = sections.length
     ? sections.join('\n\n')
     : '(no data logged yet)';
 
-  // Final safety check after building the full prompt.
-  // The extra 300-token margin absorbs the under-counting by the 1-token-per-4-chars
-  // heuristic for JSON with heavy punctuation, whitespace, and unicode.
   const systemPrompt = _buildSystemPromptText(contextBlock, trimmed, targetDate);
   const fullTokenEst = _estimateTokens(systemPrompt) + _estimateTokens(userMessage);
+
   if (fullTokenEst > contextTokens - TOKEN_RESERVE_REPLY - 300) {
-    return "⚠️ Your logs are too large to fit in the context window even after trimming. " +
-           "Try asking about a shorter time range — e.g. \"this week\" or \"today\".";
+    return '⚠️ Your logs are too large for the context window. Try asking about a shorter time range.';
   }
 
   const messages = [
@@ -710,22 +783,110 @@ async function _chat(userMessage, panelId, statusEl) {
     { role: 'user',   content: userMessage  },
   ];
 
-  // Stream the reply for a responsive feel.
-  let reply  = '';
+  // ── Dispatch to the selected backend ──────────────────────────────────
+  if (backend === 'github-models') {
+    return _chatViaGitHubModels(messages, statusEl);
+  }
+  if (backend === 'openai') {
+    return _chatViaOpenAI(messages, statusEl);
+  }
+
+  // Default: WebLLM (existing streaming path)
+  return _chatViaWebLLM(messages, statusEl);
+}
+
+/**
+ * Send messages to GitHub Models (OpenAI-compatible endpoint).
+ * Uses the user's GitHub PAT (Personal Access Token) with models:read scope.
+ * Key is read from localStorage — never hardcoded.
+ */
+async function _chatViaGitHubModels(messages, statusEl) {
+  const key = getGenieApiKey();
+  if (!key) {
+    throw new Error(
+      '🔑 No API key saved. Go to Settings → Genie AI → paste your GitHub PAT and click Save.'
+    );
+  }
+
+  if (statusEl) statusEl.textContent = '🧞 Thinking (GitHub Models)…';
+
+  const res = await fetch(GITHUB_MODELS_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type':  'application/json',
+    },
+    body: JSON.stringify({
+      model:       GITHUB_MODELS_DEFAULT,
+      messages,
+      max_tokens:  1200,
+      temperature: 0,
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    const msg = errBody?.error?.message || `HTTP ${res.status}`;
+    throw new Error(`GitHub Models error: ${msg}`);
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content?.trim() || '(no response)';
+}
+
+/**
+ * Send messages to OpenAI API directly.
+ * Key is read from localStorage — never hardcoded.
+ */
+async function _chatViaOpenAI(messages, statusEl) {
+  const key = getGenieApiKey();
+  if (!key) {
+    throw new Error(
+      '🔑 No API key saved. Go to Settings → Genie AI → paste your OpenAI API key and click Save.'
+    );
+  }
+
+  if (statusEl) statusEl.textContent = '🧞 Thinking (OpenAI)…';
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type':  'application/json',
+    },
+    body: JSON.stringify({
+      model:       'gpt-4o',
+      messages,
+      max_tokens:  1200,
+      temperature: 0,
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    const msg = errBody?.error?.message || `HTTP ${res.status}`;
+    throw new Error(`OpenAI error: ${msg}`);
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content?.trim() || '(no response)';
+}
+
+/** Extracted WebLLM streaming path (was inline in _chat) — unchanged logic */
+async function _chatViaWebLLM(messages, statusEl) {
+  let reply = '';
   const chunks = await _engine.chat.completions.create({
     messages,
     stream:      true,
-    temperature: 0,    // greedy decoding for consistent responses
+    temperature: 0,
     max_tokens:  512,
   });
-
   for await (const chunk of chunks) {
     const delta = chunk.choices[0]?.delta?.content ?? '';
     reply += delta;
     if (statusEl) statusEl.textContent = '🧞 Typing…';
   }
-
-  return reply.trim() || "(no response)";
+  return reply.trim() || '(no response)';
 }
 
 function _buildSystemPromptText(contextBlock, trimmed, targetDate = null) {

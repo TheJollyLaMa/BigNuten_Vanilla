@@ -7008,6 +7008,115 @@ svg text {
   outline: 2px solid rgba(168, 85, 247, 0.7);
 }
 
+/* ── Genie Backend Selector ───────────────────────────────────────────── */
+.genie-backend-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.genie-backend-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.genie-backend-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.genie-backend-option:hover {
+  background: rgba(0, 229, 255, 0.06);
+}
+
+.genie-backend-option input[type="radio"] {
+  accent-color: #00e5ff;
+}
+
+.backend-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.backend-github { background: rgba(0, 229, 255, 0.15); color: #00e5ff; }
+.backend-openai { background: rgba(0, 200, 100, 0.15); color: #00cc66; }
+.backend-webllm { background: rgba(180, 120, 255, 0.15); color: #bb88ff; }
+
+.backend-desc {
+  font-size: 0.78rem;
+  color: rgba(200, 220, 255, 0.6);
+}
+
+/* ── API Key Input ────────────────────────────────────────────────────── */
+.genie-apikey-section {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.genie-apikey-input-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.genie-api-key-input {
+  flex: 1;
+  background: rgba(0, 10, 30, 0.7);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 6px;
+  color: #cceeff;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  font-family: monospace;
+}
+
+.genie-api-key-input:focus {
+  outline: none;
+  border-color: #00e5ff;
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.25);
+}
+
+.genie-key-btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  background: rgba(0, 229, 255, 0.1);
+  color: #00e5ff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.genie-key-btn:hover { background: rgba(0, 229, 255, 0.2); }
+
+.genie-key-btn--clear {
+  border-color: rgba(255, 80, 80, 0.4);
+  background: rgba(255, 80, 80, 0.08);
+  color: #ff8888;
+}
+
+.genie-key-btn--clear:hover { background: rgba(255, 80, 80, 0.18); }
+
+.genie-apikey-status {
+  font-size: 0.78rem;
+  margin-left: 0.5rem;
+}
+
+.genie-apikey-status.saved   { color: #00ff88; }
+.genie-apikey-status.cleared { color: #ff8888; }
+
 /* ── Mobile tweaks ─────────────────────────────────────────────────────────── */
 @media (max-width: 700px) {
   /* JS handles mobile positioning; no static overrides needed. */
