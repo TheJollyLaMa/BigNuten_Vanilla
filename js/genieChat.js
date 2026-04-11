@@ -43,6 +43,7 @@ const LS_MODEL_ID     = 'genieModelId';
 const LS_BACKEND      = 'genieBackend';     // 'webllm' | 'github-models' | 'openai'
 const LS_API_KEY      = 'genieApiKey';      // user-provided key, localStorage only
 const LS_MODEL_NAME   = 'genieModelName';   // hosted model name (persisted per-user)
+const LS_GENIE_CATS   = 'genieContextCategories'; // JSON: { exercises: true, ... }
 const STORAGE_KEY     = 'fitnessTrackerData';
 
 const DEFAULT_BACKEND = 'github-models'; // default to hosted for best experience
@@ -548,13 +549,37 @@ function _buildChatWindow(panel) {
   const insights = getGenieInsights();
   const memoryFooterText = `🧠 ${insights.length} insight${insights.length !== 1 ? 's' : ''} · 💬 ${sessions.length} recent session${sessions.length !== 1 ? 's' : ''}`;
 
+  // Build category checkbox list
+  const prefs = _loadCategoryPrefs();
+  const catCheckboxes = GENIE_CATEGORIES.map(cat => {
+    const checked  = cat.disabled ? '' : (prefs[cat.key] ? 'checked' : '');
+    const disabled = cat.disabled ? 'disabled' : '';
+    const cls      = cat.disabled ? ' class="genie-cat-disabled"' : '';
+    const suffix   = cat.disabled ? ' <span class="genie-cat-soon">soon</span>' : '';
+    return `<label${cls}><input type="checkbox" value="${cat.key}" ${checked} ${disabled} /> ${cat.label}${suffix}</label>`;
+  }).join('\n      ');
+
   win.innerHTML = `
     <div class="genie-chat-header">
       <span class="genie-chat-title">🧞 Genie Assistant</span>
       <div class="genie-chat-header-actions">
+        <button class="genie-chat-data-toggle" aria-label="Toggle context data panel" title="Context data categories">🗂 Data</button>
         <button class="genie-chat-new" aria-label="New conversation" title="New conversation">🔄</button>
         <button class="genie-chat-clear" aria-label="Clear chat" title="Clear chat">🗑</button>
         <button class="genie-chat-close" aria-label="Close genie chat">✕</button>
+      </div>
+    </div>
+    <div class="genie-category-panel" id="genie-cats-panel-${panel.id}" hidden>
+      <div class="genie-cat-header">
+        <span>📂 Context Data</span>
+        <button class="genie-cat-selectall">All</button>
+        <button class="genie-cat-deselectall">None</button>
+      </div>
+      <div class="genie-cat-list">
+        ${catCheckboxes}
+      </div>
+      <div class="genie-cat-token-estimate">
+        <span id="genie-token-est-${panel.id}">Estimating context…</span>
       </div>
     </div>
     <div class="genie-chat-status" aria-live="polite"></div>
@@ -598,6 +623,44 @@ function _buildChatWindow(panel) {
     messagesEl.innerHTML = '';
     _appendMessage(messagesEl, 'genie', _getWelcomeMessage(panel.id));
     _updateMemoryFooter(win);
+  });
+
+  // ── Category panel toggle + events ──────────────────────────────────────
+  const catPanel = win.querySelector('.genie-category-panel');
+  win.querySelector('.genie-chat-data-toggle').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isHidden = catPanel.hidden;
+    catPanel.hidden = !isHidden;
+    if (!catPanel.hidden) _updateTokenEstimate(panel.id);
+  });
+
+  // All / None buttons
+  catPanel.querySelector('.genie-cat-selectall').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const p = _loadCategoryPrefs();
+    Object.keys(p).forEach(k => { p[k] = true; });
+    _saveCategoryPrefs(p);
+    catPanel.querySelectorAll('.genie-cat-list input[type="checkbox"]:not(:disabled)').forEach(cb => { cb.checked = true; });
+    _updateTokenEstimate(panel.id);
+  });
+
+  catPanel.querySelector('.genie-cat-deselectall').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const p = _loadCategoryPrefs();
+    Object.keys(p).forEach(k => { p[k] = false; });
+    _saveCategoryPrefs(p);
+    catPanel.querySelectorAll('.genie-cat-list input[type="checkbox"]:not(:disabled)').forEach(cb => { cb.checked = false; });
+    _updateTokenEstimate(panel.id);
+  });
+
+  // Individual checkbox changes
+  catPanel.querySelectorAll('.genie-cat-list input[type="checkbox"]:not(:disabled)').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const p = _loadCategoryPrefs();
+      p[cb.value] = cb.checked;
+      _saveCategoryPrefs(p);
+      _updateTokenEstimate(panel.id);
+    });
   });
 
   const sendBtn    = win.querySelector('.genie-chat-send');
@@ -1073,16 +1136,17 @@ function _buildNumericSummary(arr, numericField, label) {
 }
 
 /**
- * Build data sections for the given panel, automatically trimming entries to
- * fit within `budgetTokens`.
+ * Build data sections driven by user's category preferences, automatically
+ * trimming entries to fit within `budgetTokens`.
  *
- * @param {string} panelId
+ * @param {string} panelId        – the originating panel (no longer restricts categories)
  * @param {number} budgetTokens   – token budget available for data content
  * @param {string} [userMessage]  – raw user query (used to detect timeframe)
  * @returns {{ sections: string[], trimmed: boolean, longitudinal: boolean, windowLabel: string }}
  */
 function _buildDataSections(panelId, budgetTokens, userMessage = '') {
-  const data = _loadFitnessData();
+  const data  = _loadFitnessData();
+  const prefs = _loadCategoryPrefs();
   const sections = [];
   let trimmed = false;
 
@@ -1094,14 +1158,12 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
     let slice = arr;
     let json  = JSON.stringify(slice, null, 2);
     while (_estimateTokens(json) > maxTokens && slice.length > 1) {
-      // Remove at least one entry per iteration, targeting ~20% reduction.
       const dropCount = Math.max(1, Math.floor(slice.length * 0.2));
       slice = slice.slice(dropCount);
       json  = JSON.stringify(slice, null, 2);
       trimmed = true;
     }
     if (_estimateTokens(json) > maxTokens) {
-      // Even a single entry is too large — surface this gracefully.
       trimmed = true;
       return null;
     }
@@ -1111,61 +1173,80 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
     return `${label}${note}\n${json}`;
   }
 
-  if (['recent-exercises-list', 'workout-set-list'].includes(panelId)) {
-    const perSectionBudget = Math.floor(budgetTokens / 2);
+  // Count enabled categories to divide budget evenly
+  const enabledCount = Object.values(prefs).filter(Boolean).length || 1;
+  const perCatBudget = Math.floor(budgetTokens / enabledCount);
 
+  if (prefs.exercises) {
     if (longitudinal) {
-      // Long-range query: include a compact statistics summary instead of raw entries.
       const allExercises = data.exercises?.entries || [];
       const summaryLine  = `Exercise entries total: ${allExercises.length}`;
       sections.push(`## Exercise Summary (${windowLabel})\n${summaryLine}`);
     } else {
-      const exercises = _filterByTimeframe(data.exercises?.entries || [], days, targetDate);
-      const exSection = fitArray(exercises, perSectionBudget, `## Exercise Log (${windowLabel})`);
-      if (exSection) sections.push(exSection);
-    }
-
-    const sessionLog = (data.sessionLog || []).slice(-20);
-    const sesSection = fitArray(sessionLog, perSectionBudget, '## Workout Sessions (last 20)');
-    if (sesSection) sections.push(sesSection);
-  }
-
-  if (panelId === 'recent-supplements-list') {
-    if (longitudinal) {
-      const allSupps   = data.supplements || [];
-      const summaryLine = _buildNumericSummary(allSupps, 'amount', `Supplements (${windowLabel})`)
-        || `Supplement entries: ${allSupps.length}`;
-      sections.push(`## Supplement Summary (${windowLabel})\n${summaryLine}`);
-    } else {
-      const supps = _filterByTimeframe(data.supplements || [], days, targetDate);
-      const sec = fitArray(supps, budgetTokens, `## Supplement Log (${windowLabel})`);
+      const entries = _filterByTimeframe(data.exercises?.entries || [], days, targetDate);
+      const sec = fitArray(entries, perCatBudget, `## Exercise Log (${windowLabel})`);
       if (sec) sections.push(sec);
     }
   }
 
-  if (panelId === 'recent-foods-list') {
-    const perSectionBudget = Math.floor(budgetTokens * FOOD_SECTION_BUDGET_RATIO);
+  if (prefs.sessionLog) {
+    const sec = fitArray((data.sessionLog || []).slice(-20), perCatBudget, '## Workout Sessions (last 20)');
+    if (sec) sections.push(sec);
+  }
 
+  if (prefs.foods) {
     if (longitudinal) {
-      const allFoods   = data.foods || [];
+      const allFoods = data.foods || [];
+      sections.push(`## Nutrition Summary (${windowLabel})\nTotal food entries: ${allFoods.length}`);
+    } else {
+      const entries = _filterByTimeframe(data.foods || [], days, targetDate);
+      const sec = fitArray(entries, perCatBudget, `## Food / Diet Log (${windowLabel})`);
+      if (sec) sections.push(sec);
+    }
+  }
+
+  if (prefs.supplements) {
+    if (longitudinal) {
+      const allSupps    = data.supplements || [];
+      const summaryLine = _buildNumericSummary(allSupps, 'amount', `Supplements (${windowLabel})`)
+        || `Supplement entries: ${allSupps.length}`;
+      sections.push(`## Supplement Summary (${windowLabel})\n${summaryLine}`);
+    } else {
+      const entries = _filterByTimeframe(data.supplements || [], days, targetDate);
+      const sec = fitArray(entries, perCatBudget, `## Supplement Log (${windowLabel})`);
+      if (sec) sections.push(sec);
+    }
+  }
+
+  if (prefs.emotions) {
+    const entries = _filterByTimeframe(data.emotions || [], days, targetDate);
+    const sec = fitArray(entries, perCatBudget, `## Emotion Log (${windowLabel})`);
+    if (sec) sections.push(sec);
+  }
+
+  if (prefs.painLogs) {
+    const entries = _filterByTimeframe(data.painLogs || [], days, targetDate);
+    const sec = fitArray(entries, perCatBudget, `## Pain Log (${windowLabel})`);
+    if (sec) sections.push(sec);
+  }
+
+  if (prefs.weightLogs) {
+    if (longitudinal) {
       const allWeights = data.weightLogs || [];
       const wtSummary  = _buildNumericSummary(allWeights, 'weight', 'Weight log')
         || `Weight entries: ${allWeights.length}`;
-      sections.push(
-        `## Nutrition & Weight Summary (${windowLabel})\n` +
-        `Total food entries: ${allFoods.length}\n${wtSummary}`
-      );
+      sections.push(`## Weight Summary (${windowLabel})\n${wtSummary}`);
     } else {
-      const foods   = _filterByTimeframe(data.foods || [], days, targetDate);
-      const foodSec = fitArray(foods, perSectionBudget, `## Food / Diet Log (${windowLabel})`);
-      if (foodSec) sections.push(foodSec);
-
-      const weights        = _filterByTimeframe(data.weightLogs || [], days, targetDate);
-      const foodTokensUsed = foodSec ? _estimateTokens(foodSec) : 0;
-      const wtBudget       = Math.max(MIN_WEIGHT_LOG_TOKENS, budgetTokens - foodTokensUsed);
-      const wtSec          = fitArray(weights, wtBudget, `## Weight Logs (${windowLabel})`);
-      if (wtSec) sections.push(wtSec);
+      const entries = _filterByTimeframe(data.weightLogs || [], days, targetDate);
+      const sec = fitArray(entries, perCatBudget, `## Weight Logs (${windowLabel})`);
+      if (sec) sections.push(sec);
     }
+  }
+
+  if (prefs.measurements) {
+    const entries = _filterByTimeframe(data.measurements || [], days, targetDate);
+    const sec = fitArray(entries, perCatBudget, `## Body Measurements (${windowLabel})`);
+    if (sec) sections.push(sec);
   }
 
   return { sections, trimmed, longitudinal, windowLabel, targetDate };
@@ -1188,7 +1269,8 @@ async function _chat(userMessage, panelId, statusEl) {
     return `🧞 I read your locally-stored BigNuten fitness logs. ` +
            `Currently running via: ${backendLabel}. ` +
            `Your fitness data never leaves your device. ` +
-           `I can see: food logs, weight logs, supplements, exercises, and workout sessions.`;
+           `I can see: exercises, workout sessions, nutrition, supplements, emotions, pain logs, weight, and body measurements. ` +
+           `Use the 🗂 Data button to control which categories I include.`;
   }
 
   const backend = getGenieBackend();
@@ -1414,6 +1496,66 @@ function _getRecentExercises(data, days) {
     const t = new Date(e.timestamp || e.date || 0).getTime();
     return t >= cutoff;
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Category preference helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** All available dataset categories with their display metadata. */
+const GENIE_CATEGORIES = [
+  { key: 'exercises',    label: '💪 Exercise',           dataPath: d => d.exercises?.entries || [] },
+  { key: 'sessionLog',   label: '🏋️ Workout Sessions',  dataPath: d => d.sessionLog || [] },
+  { key: 'foods',        label: '🥗 Nutrition',          dataPath: d => d.foods || [] },
+  { key: 'supplements',  label: '💊 Supplements',        dataPath: d => d.supplements || [] },
+  { key: 'emotions',     label: '😊 Emotions',           dataPath: d => d.emotions || [] },
+  { key: 'painLogs',     label: '🩹 Pain',               dataPath: d => d.painLogs || [] },
+  { key: 'weightLogs',   label: '⚖️ Weight',             dataPath: d => d.weightLogs || [] },
+  { key: 'measurements', label: '📏 Measurements',       dataPath: d => d.measurements || [] },
+  { key: 'breathwork',   label: '🌬️ Breathwork',         disabled: true },
+  { key: 'chanting',     label: '🎵 Chanting',           disabled: true },
+];
+
+function _defaultCategoryPrefs() {
+  return {
+    exercises:    true,
+    sessionLog:   true,
+    foods:        true,
+    supplements:  true,
+    emotions:     true,
+    painLogs:     true,
+    weightLogs:   true,
+    measurements: true,
+  };
+}
+
+function _loadCategoryPrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_GENIE_CATS) || 'null') || _defaultCategoryPrefs();
+  } catch { return _defaultCategoryPrefs(); }
+}
+
+function _saveCategoryPrefs(prefs) {
+  localStorage.setItem(LS_GENIE_CATS, JSON.stringify(prefs));
+}
+
+/** Update the live token estimate display in a category panel. */
+function _updateTokenEstimate(panelId) {
+  const prefs  = _loadCategoryPrefs();
+  const data   = _loadFitnessData();
+  const estEl  = document.getElementById(`genie-token-est-${panelId}`);
+  if (!estEl) return;
+
+  let total = 0;
+  for (const cat of GENIE_CATEGORIES) {
+    if (cat.disabled || !prefs[cat.key]) continue;
+    const arr = cat.dataPath ? cat.dataPath(data) : [];
+    total += _estimateTokens(JSON.stringify(arr));
+  }
+
+  const pct = Math.min(100, Math.round(total / HOSTED_CONTEXT_TOKENS * 100));
+  estEl.textContent = `~${total.toLocaleString()} tokens used (${pct}% of ${Math.round(HOSTED_CONTEXT_TOKENS / 1000)}K context)`;
+  estEl.style.color = pct > 80 ? '#ff8888' : pct > 60 ? '#ffcc44' : '#00ff88';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

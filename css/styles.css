@@ -7173,6 +7173,121 @@ svg text {
 .genie-chat-new:hover { color: #a78bfa; transform: scale(1.15); }
 .genie-chat-clear:hover { color: #ff6b6b; transform: scale(1.15); }
 
+/* ── Data toggle button ────────────────────────────────────────────────────── */
+.genie-chat-data-toggle {
+  background: transparent;
+  border: 1px solid rgba(115, 0, 255, 0.25);
+  color: rgba(200, 180, 255, 0.7);
+  font-size: 0.72rem;
+  cursor: pointer;
+  padding: 0.1rem 0.4rem;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s, transform 0.15s;
+  border-radius: 4px;
+}
+.genie-chat-data-toggle:hover {
+  color: #c084fc;
+  border-color: rgba(115, 0, 255, 0.5);
+  transform: scale(1.05);
+}
+
+/* ── Genie Category Panel ──────────────────────────────────────────────────── */
+.genie-category-panel {
+  background: rgba(0, 2, 15, 0.92);
+  border-bottom: 1px solid rgba(115, 0, 255, 0.25);
+  padding: 0.5rem 0.6rem;
+  flex-shrink: 0;
+  animation: genie-pop 0.15s ease;
+}
+
+.genie-cat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  color: #c084fc;
+}
+
+.genie-cat-header span {
+  flex: 1;
+  font-weight: 600;
+}
+
+.genie-cat-selectall,
+.genie-cat-deselectall {
+  background: rgba(115, 0, 255, 0.12);
+  border: 1px solid rgba(115, 0, 255, 0.3);
+  color: rgba(200, 180, 255, 0.7);
+  font-size: 0.65rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.genie-cat-selectall:hover,
+.genie-cat-deselectall:hover {
+  background: rgba(115, 0, 255, 0.25);
+  color: #e0d0ff;
+}
+
+.genie-cat-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.15rem 0.5rem;
+}
+
+.genie-cat-list label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  color: rgba(200, 190, 230, 0.85);
+  cursor: pointer;
+  padding: 0.1rem 0;
+  transition: color 0.15s;
+}
+
+.genie-cat-list label:hover {
+  color: #e0d0ff;
+}
+
+.genie-cat-list label.genie-cat-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.genie-cat-soon {
+  font-size: 0.55rem;
+  color: rgba(200, 180, 255, 0.4);
+  font-style: italic;
+}
+
+.genie-cat-list input[type="checkbox"] {
+  accent-color: #7c3aed;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+
+.genie-cat-list label.genie-cat-disabled input[type="checkbox"] {
+  cursor: not-allowed;
+}
+
+.genie-cat-token-estimate {
+  margin-top: 0.35rem;
+  font-size: 0.65rem;
+  text-align: center;
+  color: #00ff88;
+  transition: color 0.2s;
+}
+
+@media (max-width: 480px) {
+  .genie-cat-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Pin button on Genie messages (Tier 3) ─────────────────────────────────── */
 .genie-msg-genie {
   position: relative;
