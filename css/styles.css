@@ -6932,6 +6932,40 @@ svg text {
   flex-shrink: 0;
 }
 
+/* ── Resize handle ─────────────────────────────────────────────────────────── */
+.genie-resize-handle {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  color: rgba(0, 229, 255, 0.35);
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+  transition: color 0.15s;
+  z-index: 10;
+}
+
+.genie-resize-handle:hover {
+  color: rgba(0, 229, 255, 0.85);
+}
+
+/* Left-panel Genie: handle in bottom-left */
+.genie-chat-window[data-panel="recent-supplements-list"] .genie-resize-handle,
+.genie-chat-window[data-panel="recent-foods-list"] .genie-resize-handle {
+  right: auto;
+  left: 6px;
+  bottom: 4px;
+  cursor: nesw-resize;
+  transform: scaleX(-1);
+}
+
+.genie-chat-messages {
+  min-height: 80px;
+}
+
 /* ── Settings toggle row ───────────────────────────────────────────────────── */
 .genie-settings-row {
   display: flex;

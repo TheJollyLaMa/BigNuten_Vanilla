@@ -101,6 +101,11 @@ const DEFAULT_MODEL_ID = 'Phi-3.5-mini-instruct-q4f16_1-MLC';
 // Panels that live on the LEFT side of the screen.
 const LEFT_PANEL_IDS = new Set(['recent-supplements-list', 'recent-foods-list']);
 
+// Resize constraints
+const GENIE_MIN_W = 320;
+const GENIE_MIN_H = 300;
+const LS_CHAT_SIZE = 'genieChatSize'; // localStorage key for saved size
+
 let _engine        = null;
 let _engineLoading = false;
 let _engineReady   = false;
@@ -356,7 +361,9 @@ function _openChatWindow(panel) {
   const win = _buildChatWindow(panel);
   win.dataset.panel = panel.id;
   document.body.appendChild(win);
+  _restoreChatSize(win);          // restore preferred size before positioning
   _positionChatWindow(win, panel);
+  _makeResizable(win, panel);     // attach resize handle
   _saveOpenState(panel.id, true);
 
   const input = win.querySelector('.genie-chat-input');
@@ -376,17 +383,27 @@ function _closeChatWindow(panelId) {
 /** Position chat window ALONGSIDE the panel (toward the page centre). */
 function _positionChatWindow(win, panel) {
   const rect      = panel.getBoundingClientRect();
-  const CHAT_W    = 320;
   const GAP       = 8;   // gap between panel edge and chat window
   const TOP_OFFSET = 46; // drop below the genie icon (36px) + small gap
+
+  // Use current (possibly user-resized) width, falling back to default
+  const curW = win.offsetWidth || GENIE_MIN_W;
 
   const rawTop  = rect.top + TOP_OFFSET;
   const top     = Math.max(8, rawTop);
   const maxH    = window.innerHeight - top - 12;
 
   win.style.position  = 'fixed';
-  win.style.width     = CHAT_W + 'px';
-  win.style.maxHeight = Math.min(420, maxH) + 'px';
+  // Only set width/maxHeight if no explicit resize has been applied
+  if (!win.style.height) {
+    win.style.width     = GENIE_MIN_W + 'px';
+    win.style.maxHeight = Math.min(420, maxH) + 'px';
+  } else {
+    // Ensure resized height doesn't exceed available space
+    const curH = parseInt(win.style.height, 10) || 420;
+    win.style.maxHeight = Math.min(curH, maxH) + 'px';
+    win.style.height    = Math.min(curH, maxH) + 'px';
+  }
   win.style.top       = top + 'px';
   win.style.zIndex    = '1150';
 
@@ -399,16 +416,116 @@ function _positionChatWindow(win, panel) {
   } else if (_isLeftPanel(panel.id)) {
     // Left panel → chat opens to its RIGHT (toward centre).
     const left = rect.right + GAP;
-    win.style.left = Math.min(left, window.innerWidth - CHAT_W - 10) + 'px';
+    win.style.left = Math.min(left, window.innerWidth - curW - 10) + 'px';
   } else {
     // Right panel → chat opens to its LEFT (toward centre).
-    const left = rect.left - CHAT_W - GAP;
+    const left = rect.left - curW - GAP;
     win.style.left = Math.max(10, left) + 'px';
   }
 }
 
 function _isMobile() {
   return window.innerWidth <= 700;
+}
+
+/** Restore saved chat size from localStorage. */
+function _restoreChatSize(win) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_CHAT_SIZE) || 'null');
+    if (saved?.w && saved?.h) {
+      win.style.width     = Math.max(GENIE_MIN_W, saved.w) + 'px';
+      win.style.height    = Math.max(GENIE_MIN_H, saved.h) + 'px';
+      win.style.maxHeight = Math.max(GENIE_MIN_H, saved.h) + 'px';
+    }
+  } catch { /* ignore corrupt data */ }
+}
+
+/** Attach drag-to-resize behaviour to the chat window via its resize handle. */
+function _makeResizable(win, panel) {
+  const handle = win.querySelector('.genie-resize-handle');
+  if (!handle) return;
+
+  let startX, startY, startW, startH;
+
+  function onStart(clientX, clientY) {
+    startX = clientX;
+    startY = clientY;
+    startW = win.offsetWidth;
+    startH = win.offsetHeight;
+
+    // Calculate max bounds from available canvas space
+    const headerEl  = document.querySelector('header, .app-header, nav');
+    const footerEl  = document.querySelector('footer, .app-footer');
+    const headerBot = headerEl ? headerEl.getBoundingClientRect().bottom : 0;
+    const footerTop = footerEl ? footerEl.getBoundingClientRect().top : window.innerHeight;
+    const maxH = footerTop - headerBot - 16; // 8px gap each side
+    const maxW = window.innerWidth - 32;     // 16px gap each side
+    const isLeft = _isLeftPanel(panel.id);
+
+    let lastW, lastH;
+
+    function onMove(cx, cy) {
+      const dx = cx - startX;
+      const dy = cy - startY;
+
+      // Left-panel Genies grow rightward (+dx); right-panel grow leftward (-dx)
+      lastW = Math.min(maxW, Math.max(GENIE_MIN_W,
+        isLeft ? startW + dx : startW - dx
+      ));
+      lastH = Math.min(maxH, Math.max(GENIE_MIN_H, startH + dy));
+
+      win.style.width     = lastW + 'px';
+      win.style.maxHeight = lastH + 'px';
+      win.style.height    = lastH + 'px';
+
+      // Right-panel grows left — adjust left position
+      if (!isLeft) {
+        const rect = panel.getBoundingClientRect();
+        const GAP  = 8;
+        const newLeft = rect.left - lastW - GAP;
+        win.style.left = Math.max(10, newLeft) + 'px';
+      }
+    }
+
+    function saveSize() {
+      if (lastW && lastH) {
+        localStorage.setItem(LS_CHAT_SIZE, JSON.stringify({ w: lastW, h: lastH }));
+      }
+    }
+
+    function onMouseMove(e) { onMove(e.clientX, e.clientY); }
+    function onMouseUp()    {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      saveSize();
+    }
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    function onTouchMove(e) {
+      if (e.touches.length) {
+        e.preventDefault();
+        onMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }
+    function onTouchEnd() {
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+      saveSize();
+    }
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+  }
+
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    onStart(e.clientX, e.clientY);
+  });
+
+  handle.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (e.touches.length) onStart(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
 }
 
 function _buildGenieHint() {
@@ -448,6 +565,7 @@ function _buildChatWindow(panel) {
     </div>
     <div class="genie-chat-memory-footer">${memoryFooterText}</div>
     <div class="genie-chat-hint">${_buildGenieHint()}</div>
+    <div class="genie-resize-handle" aria-label="Drag to resize">◢</div>
   `;
 
   // Prevent clicks inside the chat from bubbling to the document outside-click
