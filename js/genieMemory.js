@@ -30,7 +30,10 @@ export function saveSessionMessages(panelId, messages) {
 export function loadSessionMessages(panelId) {
   try {
     return JSON.parse(sessionStorage.getItem(SESSION_CHAT_KEY(panelId)) || '[]');
-  } catch { return []; }
+  } catch (err) {
+    console.warn('[GenieMemory] Failed to parse session messages:', err);
+    return [];
+  }
 }
 
 /** Clear session messages for a specific panel. */
@@ -146,13 +149,20 @@ export function clearAllGenieMemory() {
 // System prompt injection helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Format a timestamp for display, returning 'unknown date' if missing. */
+function _formatDate(timestamp) {
+  if (!timestamp) return 'unknown date';
+  const datePart = timestamp.split('T')[0];
+  return datePart || 'unknown date';
+}
+
 /** Build the "Recent Conversations" section for the system prompt. */
 export function buildRecentSessionsPrompt() {
   const sessions = getGenieSessions();
   if (sessions.length === 0) return '';
   return '## Recent Genie Conversations (short-term memory)\n' +
     sessions.map(s =>
-      `[${(s.timestamp || '').split('T')[0]}] ${s.summary || '(no summary)'}`
+      `[${_formatDate(s.timestamp)}] ${s.summary || '(no summary)'}`
     ).join('\n\n');
 }
 

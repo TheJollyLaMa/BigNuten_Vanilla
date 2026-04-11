@@ -4,7 +4,7 @@ import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, i
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
-import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey, getHostedModelsForBackend, getGenieHostedModelName, setGenieHostedModelName, getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory, rateGenieSession, deleteGenieSession } from './genieChat.js';
+import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey, getHostedModelsForBackend, getGenieHostedModelName, setGenieHostedModelName, getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory, rateGenieSession, deleteGenieSession, MAX_INSIGHTS } from './genieChat.js';
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 
@@ -7691,7 +7691,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const sessions = getGenieSessions();
       const insights = getGenieInsights();
       memoryStats.innerHTML =
-        `📌 Long-term insights: <strong>${insights.length}/20</strong> saved<br>` +
+        `📌 Long-term insights: <strong>${insights.length}/${MAX_INSIGHTS}</strong> saved<br>` +
         `💬 Recent session summaries: <strong>${sessions.length}</strong> stored`;
     }
     _updateMemoryStats();

@@ -110,6 +110,9 @@ let _loadedModelId = null;   // which model is currently loaded in the engine
 // Map<panelId, Array<{role, text}>>
 const _panelMessages = new Map();
 
+// Maximum characters for a pinned insight text
+const MAX_INSIGHT_TEXT_LENGTH = 300;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
@@ -613,7 +616,7 @@ function _pinMessageAsInsight(text, source, btnEl) {
 
   const insight = {
     id: generateId(),
-    text: trimmed.length > 300 ? trimmed.slice(0, 297) + '…' : trimmed,
+    text: trimmed.length > MAX_INSIGHT_TEXT_LENGTH ? trimmed.slice(0, MAX_INSIGHT_TEXT_LENGTH - 3) + '…' : trimmed,
     source,
     category: 'general',
     timestamp: new Date().toISOString(),
@@ -741,7 +744,6 @@ function _suggestInsightPin(panelId, insightText) {
 
   const div = document.createElement('div');
   div.className = 'genie-msg genie-msg-genie genie-insight-suggestion';
-  div.innerHTML = '';
 
   const textSpan = document.createElement('span');
   textSpan.textContent = `💡 Worth remembering: "${insightText}"`;
@@ -1334,7 +1336,7 @@ function _restoreOpenChats() {
 // Re-export memory functions for app.js settings wiring
 // ─────────────────────────────────────────────────────────────────────────────
 
-export { getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory };
+export { getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory, MAX_INSIGHTS };
 
 // These are not imported at the top, so re-export directly from the module
 export { rateGenieSession, deleteGenieSession } from './genieMemory.js';
