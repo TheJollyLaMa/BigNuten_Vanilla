@@ -1495,6 +1495,51 @@
         </p>
       </section>
 
+      <!-- Genie Memory Section -->
+      <section class="settings-section">
+        <h3>🧠 Genie Memory</h3>
+        <p class="settings-desc">
+          Genie remembers your conversations across sessions. Recent chats are
+          auto-summarized and key insights can be pinned for permanent recall.
+        </p>
+        <div class="genie-memory-stats" id="genie-memory-stats">
+          <!-- populated by JS -->
+        </div>
+        <div class="genie-memory-actions">
+          <button id="genie-memory-review-btn" class="genie-key-btn">📋 Review &amp; Edit</button>
+          <button id="genie-memory-clear-btn" class="genie-key-btn genie-key-btn--clear">🗑 Clear all Genie memory</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ── Genie Memory Review Modal ──────────────────────────────────────────── -->
+  <div id="genie-memory-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="genie-memory-modal-title">
+    <div class="modal genie-memory-modal">
+      <button class="modal-close" id="genie-memory-modal-close" aria-label="Close memory review">×</button>
+      <h2 id="genie-memory-modal-title">🧠 Genie Memory Review</h2>
+
+      <div class="genie-memory-tabs">
+        <button class="genie-memory-tab active" data-tab="insights">📌 Pinned Insights</button>
+        <button class="genie-memory-tab" data-tab="sessions">💬 Session Summaries</button>
+      </div>
+
+      <div class="genie-memory-tab-content" id="genie-memory-insights-tab">
+        <div id="genie-memory-insights-list" class="genie-memory-list">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <div class="genie-memory-tab-content" id="genie-memory-sessions-tab" style="display:none;">
+        <div id="genie-memory-sessions-list" class="genie-memory-list">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <div class="genie-memory-modal-footer">
+        <button id="genie-memory-export-btn" class="genie-key-btn">📤 Export as Markdown</button>
+      </div>
     </div>
   </div>
 

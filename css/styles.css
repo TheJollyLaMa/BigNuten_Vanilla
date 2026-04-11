@@ -7117,6 +7117,258 @@ svg text {
 .genie-apikey-status.saved   { color: #00ff88; }
 .genie-apikey-status.cleared { color: #ff8888; }
 
+/* ── Genie Chat Header Actions ─────────────────────────────────────────────── */
+.genie-chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.genie-chat-new,
+.genie-chat-clear {
+  background: transparent;
+  border: none;
+  color: rgba(200, 180, 255, 0.6);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.1rem 0.25rem;
+  line-height: 1;
+  transition: color 0.15s, transform 0.15s;
+  border-radius: 4px;
+}
+.genie-chat-new:hover { color: #a78bfa; transform: scale(1.15); }
+.genie-chat-clear:hover { color: #ff6b6b; transform: scale(1.15); }
+
+/* ── Pin button on Genie messages (Tier 3) ─────────────────────────────────── */
+.genie-msg-genie {
+  position: relative;
+}
+
+.genie-pin-btn {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.7rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+  padding: 0.1rem;
+  line-height: 1;
+}
+
+.genie-msg-genie:hover .genie-pin-btn {
+  opacity: 0.7;
+}
+
+.genie-pin-btn:hover {
+  opacity: 1 !important;
+  transform: scale(1.2);
+}
+
+/* ── Memory footer in chat window ──────────────────────────────────────────── */
+.genie-chat-memory-footer {
+  font-size: 0.62rem;
+  color: rgba(160, 140, 200, 0.45);
+  text-align: center;
+  padding: 0.15rem 0.5rem;
+  background: rgba(0, 0, 15, 0.4);
+  border-top: 1px solid rgba(115, 0, 255, 0.08);
+  flex-shrink: 0;
+}
+
+/* ── Insight suggestion in chat ────────────────────────────────────────────── */
+.genie-insight-suggestion {
+  border: 1px solid rgba(255, 200, 0, 0.3) !important;
+  background: rgba(255, 200, 0, 0.06) !important;
+}
+
+.genie-insight-btn-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.genie-insight-action-btn {
+  padding: 0.2rem 0.6rem;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  border: 1px solid rgba(115, 0, 255, 0.4);
+  background: rgba(115, 0, 255, 0.12);
+  color: #c084fc;
+  transition: background 0.15s;
+}
+
+.genie-insight-action-btn:hover { background: rgba(115, 0, 255, 0.3); }
+.genie-insight-action-btn:disabled { opacity: 0.5; cursor: default; }
+.genie-insight-skip { border-color: rgba(255, 255, 255, 0.15); background: transparent; color: rgba(200, 180, 255, 0.5); }
+.genie-insight-skip:hover { background: rgba(255, 255, 255, 0.05); }
+
+/* ── Genie Memory Settings ─────────────────────────────────────────────────── */
+.genie-memory-stats {
+  font-size: 0.85rem;
+  color: #cceeff;
+  padding: 0.5rem 0;
+  line-height: 1.6;
+}
+
+.genie-memory-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ── Genie Memory Review Modal ─────────────────────────────────────────────── */
+.genie-memory-modal {
+  background: linear-gradient(160deg, rgba(0, 5, 22, 0.98) 0%, rgba(10, 0, 40, 0.98) 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(115, 0, 255, 0.45);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(115, 0, 255, 0.2);
+  padding: 1.5rem;
+  max-width: 600px;
+  width: 95%;
+  max-height: 85vh;
+  overflow-y: auto;
+  color: #e0d0ff;
+}
+
+.genie-memory-modal h2 {
+  text-align: center;
+  font-size: 1.2rem;
+  color: #c084fc;
+  margin-bottom: 1rem;
+}
+
+.genie-memory-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgba(115, 0, 255, 0.2);
+  padding-bottom: 0.5rem;
+}
+
+.genie-memory-tab {
+  padding: 0.35rem 0.8rem;
+  border: 1px solid rgba(115, 0, 255, 0.3);
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(200, 180, 255, 0.6);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.genie-memory-tab:hover { background: rgba(115, 0, 255, 0.1); }
+.genie-memory-tab.active {
+  background: rgba(115, 0, 255, 0.2);
+  color: #c084fc;
+  border-color: rgba(115, 0, 255, 0.5);
+}
+
+.genie-memory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.genie-memory-item {
+  padding: 0.6rem 0.7rem;
+  background: rgba(115, 0, 255, 0.06);
+  border: 1px solid rgba(115, 0, 255, 0.18);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.genie-memory-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+}
+
+.genie-memory-item-date {
+  font-size: 0.7rem;
+  color: rgba(200, 180, 255, 0.5);
+}
+
+.genie-memory-item-category {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  background: rgba(115, 0, 255, 0.15);
+  color: #c084fc;
+}
+
+.genie-memory-item-text {
+  color: #e0d0ff;
+}
+
+.genie-memory-item-topics {
+  margin-top: 0.3rem;
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.genie-memory-topic-tag {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  background: rgba(0, 229, 255, 0.1);
+  color: rgba(0, 229, 255, 0.7);
+}
+
+.genie-memory-item-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  align-items: center;
+}
+
+.genie-memory-item-actions button {
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  border: 1px solid rgba(115, 0, 255, 0.3);
+  background: rgba(115, 0, 255, 0.08);
+  color: rgba(200, 180, 255, 0.7);
+  transition: background 0.15s;
+}
+
+.genie-memory-item-actions button:hover { background: rgba(115, 0, 255, 0.2); }
+
+.genie-memory-delete-btn {
+  border-color: rgba(255, 80, 80, 0.3) !important;
+  color: #ff8888 !important;
+}
+.genie-memory-delete-btn:hover { background: rgba(255, 80, 80, 0.15) !important; }
+
+.genie-memory-rating-btn.active {
+  background: rgba(0, 229, 255, 0.2);
+  border-color: rgba(0, 229, 255, 0.5);
+  color: #00e5ff;
+}
+
+.genie-memory-modal-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(115, 0, 255, 0.15);
+}
+
+.genie-memory-empty {
+  text-align: center;
+  color: rgba(200, 180, 255, 0.4);
+  font-size: 0.85rem;
+  padding: 1.5rem;
+}
+
 /* ── Mobile tweaks ─────────────────────────────────────────────────────────── */
 @media (max-width: 700px) {
   /* JS handles mobile positioning; no static overrides needed. */

@@ -17,7 +17,9 @@ const defaultData = {
   },
   sessionLog: [],
   painLogs: [],
-  emotions: []
+  emotions: [],
+  genieSessions: [],
+  genieInsights: []
 };
 
 /**
@@ -61,6 +63,8 @@ export function normalizeFitnessData(data) {
   if (!Array.isArray(data.sessionLog)) data.sessionLog = [];
   if (!Array.isArray(data.painLogs)) data.painLogs = [];
   if (!Array.isArray(data.emotions)) data.emotions = [];
+  if (!Array.isArray(data.genieSessions)) data.genieSessions = [];
+  if (!Array.isArray(data.genieInsights)) data.genieInsights = [];
   if (typeof data.timeZone !== 'string') data.timeZone = '';
 
   data.dataVersion = DATA_VERSION;
@@ -238,7 +242,7 @@ export function mergeSnapshotData(current, imported) {
   const merged = { ...current };
 
   // Simple array fields — deduplicate by timestamp (or full JSON if no timestamp)
-  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions'];
+  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions', 'genieSessions', 'genieInsights'];
   simpleArrayFields.forEach(field => {
     const a = Array.isArray(current[field]) ? current[field] : [];
     const b = Array.isArray(imported[field]) ? imported[field] : [];

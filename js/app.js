@@ -4,7 +4,7 @@ import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, i
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
-import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey, getHostedModelsForBackend, getGenieHostedModelName, setGenieHostedModelName } from './genieChat.js';
+import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey, getHostedModelsForBackend, getGenieHostedModelName, setGenieHostedModelName, getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory, rateGenieSession, deleteGenieSession } from './genieChat.js';
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 
@@ -7669,6 +7669,194 @@ document.addEventListener('DOMContentLoaded', () => {
           apiKeyStatus.className   = 'genie-apikey-status cleared';
           setTimeout(() => { apiKeyStatus.textContent = ''; }, 2500);
         }
+      });
+    }
+  }
+
+  // ── Genie Memory Settings & Review Modal ──────────────────────────────────
+  {
+    const memoryStats     = document.getElementById('genie-memory-stats');
+    const memoryReviewBtn = document.getElementById('genie-memory-review-btn');
+    const memoryClearBtn  = document.getElementById('genie-memory-clear-btn');
+    const memoryModal     = document.getElementById('genie-memory-modal');
+    const memoryCloseBtn  = document.getElementById('genie-memory-modal-close');
+    const insightsListEl  = document.getElementById('genie-memory-insights-list');
+    const sessionsListEl  = document.getElementById('genie-memory-sessions-list');
+    const insightsTab     = document.getElementById('genie-memory-insights-tab');
+    const sessionsTab     = document.getElementById('genie-memory-sessions-tab');
+    const exportBtn       = document.getElementById('genie-memory-export-btn');
+
+    function _updateMemoryStats() {
+      if (!memoryStats) return;
+      const sessions = getGenieSessions();
+      const insights = getGenieInsights();
+      memoryStats.innerHTML =
+        `📌 Long-term insights: <strong>${insights.length}/20</strong> saved<br>` +
+        `💬 Recent session summaries: <strong>${sessions.length}</strong> stored`;
+    }
+    _updateMemoryStats();
+
+    function _renderInsightsList() {
+      if (!insightsListEl) return;
+      const insights = getGenieInsights();
+      if (insights.length === 0) {
+        insightsListEl.innerHTML = '<div class="genie-memory-empty">No pinned insights yet. Pin important findings from Genie chats!</div>';
+        return;
+      }
+      insightsListEl.innerHTML = insights.map(i => `
+        <div class="genie-memory-item" data-id="${i.id}">
+          <div class="genie-memory-item-header">
+            <span class="genie-memory-item-category">${i.category || 'general'}</span>
+            <span class="genie-memory-item-date">${(i.timestamp || '').split('T')[0]}</span>
+          </div>
+          <div class="genie-memory-item-text">${_escapeHtml(i.text)}</div>
+          <div class="genie-memory-item-actions">
+            <span style="font-size:0.65rem;color:rgba(200,180,255,0.4)">Used ${i.usedCount || 0}×</span>
+            <button class="genie-memory-delete-btn" data-insight-id="${i.id}">🗑 Remove</button>
+          </div>
+        </div>
+      `).join('');
+
+      insightsListEl.querySelectorAll('.genie-memory-delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          deleteInsight(btn.dataset.insightId);
+          _renderInsightsList();
+          _updateMemoryStats();
+        });
+      });
+    }
+
+    function _renderSessionsList() {
+      if (!sessionsListEl) return;
+      const sessions = getGenieSessions();
+      if (sessions.length === 0) {
+        sessionsListEl.innerHTML = '<div class="genie-memory-empty">No session summaries yet. Chat with Genie and close the window to auto-generate!</div>';
+        return;
+      }
+      sessionsListEl.innerHTML = sessions.map(s => `
+        <div class="genie-memory-item" data-id="${s.id}">
+          <div class="genie-memory-item-header">
+            <span class="genie-memory-item-date">${(s.timestamp || '').split('T')[0]} · ${s.messageCount || 0} messages</span>
+          </div>
+          <div class="genie-memory-item-text">${_escapeHtml(s.summary || '(no summary)')}</div>
+          ${(s.keyTopics && s.keyTopics.length > 0)
+            ? `<div class="genie-memory-item-topics">${s.keyTopics.map(t => `<span class="genie-memory-topic-tag">${_escapeHtml(t)}</span>`).join('')}</div>`
+            : ''}
+          <div class="genie-memory-item-actions">
+            <button class="genie-memory-rating-btn ${s.userRating === 'helpful' ? 'active' : ''}" data-session-id="${s.id}" data-rating="helpful">👍 Helpful</button>
+            <button class="genie-memory-rating-btn ${s.userRating === 'not helpful' ? 'active' : ''}" data-session-id="${s.id}" data-rating="not helpful">👎 Not helpful</button>
+            <button class="genie-memory-delete-btn" data-session-id="${s.id}">🗑</button>
+          </div>
+        </div>
+      `).join('');
+
+      sessionsListEl.querySelectorAll('.genie-memory-rating-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          rateGenieSession(btn.dataset.sessionId, btn.dataset.rating);
+          _renderSessionsList();
+        });
+      });
+
+      sessionsListEl.querySelectorAll('.genie-memory-delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          deleteGenieSession(btn.dataset.sessionId);
+          _renderSessionsList();
+          _updateMemoryStats();
+        });
+      });
+    }
+
+    function _escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // Open memory review modal
+    if (memoryReviewBtn && memoryModal) {
+      memoryReviewBtn.addEventListener('click', () => {
+        memoryModal.classList.remove('modal-hidden');
+        _renderInsightsList();
+        _renderSessionsList();
+      });
+    }
+
+    // Close memory review modal
+    if (memoryCloseBtn && memoryModal) {
+      memoryCloseBtn.addEventListener('click', () => {
+        memoryModal.classList.add('modal-hidden');
+        _updateMemoryStats();
+      });
+    }
+
+    // Close on overlay click
+    if (memoryModal) {
+      memoryModal.addEventListener('click', (e) => {
+        if (e.target === memoryModal) {
+          memoryModal.classList.add('modal-hidden');
+          _updateMemoryStats();
+        }
+      });
+    }
+
+    // Tab switching
+    document.querySelectorAll('.genie-memory-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.genie-memory-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        if (insightsTab) insightsTab.style.display = tab.dataset.tab === 'insights' ? '' : 'none';
+        if (sessionsTab) sessionsTab.style.display = tab.dataset.tab === 'sessions' ? '' : 'none';
+      });
+    });
+
+    // Clear all memory
+    if (memoryClearBtn) {
+      memoryClearBtn.addEventListener('click', () => {
+        if (confirm('Clear all Genie memory? This will remove all session summaries and pinned insights.')) {
+          clearAllGenieMemory();
+          _updateMemoryStats();
+          if (insightsListEl) _renderInsightsList();
+          if (sessionsListEl) _renderSessionsList();
+        }
+      });
+    }
+
+    // Export as Markdown
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        const insights = getGenieInsights();
+        const sessions = getGenieSessions();
+        let md = '# 🧠 Genie Memory Export\n\n';
+        md += `*Exported: ${new Date().toISOString().split('T')[0]}*\n\n`;
+
+        if (insights.length > 0) {
+          md += '## 📌 Pinned Insights\n\n';
+          insights.forEach(i => {
+            md += `- **[${i.category || 'general'}]** ${i.text} *(${(i.timestamp || '').split('T')[0]}, used ${i.usedCount || 0}×)*\n`;
+          });
+          md += '\n';
+        }
+
+        if (sessions.length > 0) {
+          md += '## 💬 Session Summaries\n\n';
+          sessions.forEach(s => {
+            md += `### ${(s.timestamp || '').split('T')[0]} (${s.messageCount || 0} messages)\n`;
+            md += `${s.summary || '(no summary)'}\n`;
+            if (s.keyTopics && s.keyTopics.length) {
+              md += `*Topics: ${s.keyTopics.join(', ')}*\n`;
+            }
+            if (s.userRating) md += `*Rating: ${s.userRating}*\n`;
+            md += '\n';
+          });
+        }
+
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `genie-memory-${new Date().toISOString().split('T')[0]}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
       });
     }
   }
