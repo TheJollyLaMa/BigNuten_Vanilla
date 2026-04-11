@@ -1480,6 +1480,16 @@
           </select>
         </div>
 
+        <!-- Hosted model picker — shown when GitHub Models or OpenAI backend is selected -->
+        <div class="genie-settings-row" id="genie-hosted-model-row" style="display:none;">
+          <label for="genie-hosted-model-select" class="genie-settings-label">
+            Model
+          </label>
+          <select id="genie-hosted-model-select" class="genie-model-select" aria-label="Select hosted AI model">
+            <!-- populated dynamically by JS -->
+          </select>
+        </div>
+
         <p class="settings-hint" id="genie-settings-hint">
           <!-- dynamically updated by JS based on selected backend -->
         </p>

@@ -4,7 +4,7 @@ import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, i
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
-import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey } from './genieChat.js';
+import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey, getHostedModelsForBackend, getGenieHostedModelName, setGenieHostedModelName } from './genieChat.js';
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 
@@ -7575,22 +7575,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Wire up backend selector, API key input, and dynamic hint text.
+  // Wire up backend selector, API key input, hosted model dropdown, and hint text.
   {
-    const backendRadios   = document.querySelectorAll('input[name="genie-backend"]');
-    const apiKeySection   = document.getElementById('genie-apikey-section');
-    const webllmModelRow  = document.getElementById('genie-webllm-model-row');
-    const apiKeyInput     = document.getElementById('genie-api-key-input');
-    const apiKeyStatus    = document.getElementById('genie-apikey-status');
-    const apiKeySaveBtn   = document.getElementById('genie-api-key-save');
-    const apiKeyClearBtn  = document.getElementById('genie-api-key-clear');
-    const hintEl          = document.getElementById('genie-settings-hint');
+    const backendRadios       = document.querySelectorAll('input[name="genie-backend"]');
+    const apiKeySection       = document.getElementById('genie-apikey-section');
+    const webllmModelRow      = document.getElementById('genie-webllm-model-row');
+    const hostedModelRow      = document.getElementById('genie-hosted-model-row');
+    const hostedModelSelect   = document.getElementById('genie-hosted-model-select');
+    const apiKeyInput         = document.getElementById('genie-api-key-input');
+    const apiKeyStatus        = document.getElementById('genie-apikey-status');
+    const apiKeySaveBtn       = document.getElementById('genie-api-key-save');
+    const apiKeyClearBtn      = document.getElementById('genie-api-key-clear');
+    const hintEl              = document.getElementById('genie-settings-hint');
+
+    /** Populate the hosted model dropdown for the given backend. */
+    function _populateHostedModelDropdown(backend) {
+      if (!hostedModelSelect) return;
+      hostedModelSelect.innerHTML = '';
+      const models = getHostedModelsForBackend(backend);
+      for (const m of models) {
+        const opt   = document.createElement('option');
+        opt.value   = m.value;
+        opt.textContent = m.label;
+        hostedModelSelect.appendChild(opt);
+      }
+      hostedModelSelect.value = getGenieHostedModelName();
+    }
 
     function _updateGenieSettingsUI(backend) {
       const isHosted = backend !== 'webllm';
       const isWebLLM = backend === 'webllm';
       if (apiKeySection)  apiKeySection.style.display  = isHosted ? '' : 'none';
       if (webllmModelRow) webllmModelRow.style.display = isWebLLM ? '' : 'none';
+      if (hostedModelRow) hostedModelRow.style.display = isHosted ? '' : 'none';
+      if (isHosted) _populateHostedModelDropdown(backend);
       const hints = {
         'github-models': '⭐ Get a free GitHub PAT at <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a> with <code>models:read</code> scope. Free tier is generous during GitHub Models preview.',
         'openai':        '🟢 Uses your OpenAI API key. Billed per token at OpenAI rates — very cheap for personal use.',
@@ -7619,6 +7637,13 @@ document.addEventListener('DOMContentLoaded', () => {
         _updateGenieSettingsUI(radio.value);
       });
     });
+
+    // Hosted model dropdown change
+    if (hostedModelSelect) {
+      hostedModelSelect.addEventListener('change', () => {
+        setGenieHostedModelName(hostedModelSelect.value);
+      });
+    }
 
     // Save API key
     if (apiKeySaveBtn) {

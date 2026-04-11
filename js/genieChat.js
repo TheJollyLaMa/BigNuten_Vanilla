@@ -25,18 +25,38 @@
  *   • Per-panel open/close state is preserved in localStorage.
  */
 
-const LS_ENABLED   = 'genieEnabled';
-const LS_OPEN      = 'genieChatOpen';    // JSON object: { panelId: true/false }
-const LS_MODEL_ID  = 'genieModelId';
-const LS_BACKEND   = 'genieBackend';     // 'webllm' | 'github-models' | 'openai'
-const LS_API_KEY   = 'genieApiKey';      // user-provided key, localStorage only
-const STORAGE_KEY  = 'fitnessTrackerData';
+const LS_ENABLED      = 'genieEnabled';
+const LS_OPEN         = 'genieChatOpen';    // JSON object: { panelId: true/false }
+const LS_MODEL_ID     = 'genieModelId';
+const LS_BACKEND      = 'genieBackend';     // 'webllm' | 'github-models' | 'openai'
+const LS_API_KEY      = 'genieApiKey';      // user-provided key, localStorage only
+const LS_MODEL_NAME   = 'genieModelName';   // hosted model name (persisted per-user)
+const STORAGE_KEY     = 'fitnessTrackerData';
 
 const DEFAULT_BACKEND = 'github-models'; // default to hosted for best experience
 
 // GitHub Models endpoint (OpenAI-compatible)
 const GITHUB_MODELS_ENDPOINT = 'https://models.inference.ai.azure.com/chat/completions';
-const GITHUB_MODELS_DEFAULT  = 'claude-3-5-sonnet';
+
+// ── Hosted model catalogues ─────────────────────────────────────────────────
+// Each entry: { value: modelId, label: display name }
+// Update these lists when providers add/rename models.
+const GITHUB_MODELS_LIST = [
+  { value: 'gpt-4o',                        label: 'GPT-4o' },
+  { value: 'gpt-4o-mini',                   label: 'GPT-4o Mini' },
+  { value: 'claude-3-5-sonnet-20241022',     label: 'Claude 3.5 Sonnet' },
+  { value: 'claude-3-5-haiku-20241022',      label: 'Claude 3.5 Haiku' },
+  { value: 'meta-llama-3-3-70b-instruct',   label: 'Llama 3.3 70B' },
+  { value: 'mistral-large-2402',             label: 'Mistral Large' },
+];
+
+const OPENAI_MODELS_LIST = [
+  { value: 'gpt-4o',          label: 'GPT-4o' },
+  { value: 'gpt-4o-mini',     label: 'GPT-4o Mini' },
+  { value: 'gpt-3.5-turbo',   label: 'GPT-3.5 Turbo' },
+];
+
+const DEFAULT_HOSTED_MODEL = 'gpt-4o'; // safe default for both backends
 
 // Context window for hosted models (no 4K cap — use generous budget)
 const HOSTED_CONTEXT_TOKENS = 32_000;
@@ -181,6 +201,31 @@ export function setGenieApiKey(key) {
 
 export function hasGenieApiKey() {
   return !!getGenieApiKey();
+}
+
+// ── Hosted model picker helpers ─────────────────────────────────────────────
+
+/** Returns the model list for a given backend (or empty array for webllm). */
+export function getHostedModelsForBackend(backend) {
+  if (backend === 'github-models') return GITHUB_MODELS_LIST;
+  if (backend === 'openai')        return OPENAI_MODELS_LIST;
+  return [];
+}
+
+/** Returns the persisted hosted model name (or a safe default). */
+export function getGenieHostedModelName() {
+  const stored  = localStorage.getItem(LS_MODEL_NAME);
+  const backend = getGenieBackend();
+  const list    = getHostedModelsForBackend(backend);
+  // Return stored value if it's still valid for the current backend
+  if (stored && list.some(m => m.value === stored)) return stored;
+  // Fall back to the safe default
+  return DEFAULT_HOSTED_MODEL;
+}
+
+/** Persist the hosted model name. */
+export function setGenieHostedModelName(name) {
+  localStorage.setItem(LS_MODEL_NAME, name);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -820,6 +865,7 @@ async function _chatViaGitHubModels(messages, statusEl) {
     );
   }
 
+  const modelName = getGenieHostedModelName();
   if (statusEl) statusEl.textContent = '🧞 Thinking (GitHub Models)…';
 
   const res = await fetch(GITHUB_MODELS_ENDPOINT, {
@@ -829,7 +875,7 @@ async function _chatViaGitHubModels(messages, statusEl) {
       'Content-Type':  'application/json',
     },
     body: JSON.stringify({
-      model:       GITHUB_MODELS_DEFAULT,
+      model:       modelName,
       messages,
       max_tokens:  HOSTED_MAX_TOKENS,
       temperature: 0,
@@ -839,6 +885,11 @@ async function _chatViaGitHubModels(messages, statusEl) {
   if (!res.ok) {
     const errBody = await res.json().catch(() => ({}));
     const msg = errBody?.error?.message || `HTTP ${res.status}`;
+    if (_isUnknownModelError(msg)) {
+      throw new Error(
+        `⚠️ Unknown model "${modelName}". Please go to Settings → Genie AI and choose a different model from the dropdown.`
+      );
+    }
     throw new Error(`GitHub Models error: ${msg}`);
   }
 
@@ -858,6 +909,7 @@ async function _chatViaOpenAI(messages, statusEl) {
     );
   }
 
+  const modelName = getGenieHostedModelName();
   if (statusEl) statusEl.textContent = '🧞 Thinking (OpenAI)…';
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -867,7 +919,7 @@ async function _chatViaOpenAI(messages, statusEl) {
       'Content-Type':  'application/json',
     },
     body: JSON.stringify({
-      model:       'gpt-4o',
+      model:       modelName,
       messages,
       max_tokens:  HOSTED_MAX_TOKENS,
       temperature: 0,
@@ -877,11 +929,25 @@ async function _chatViaOpenAI(messages, statusEl) {
   if (!res.ok) {
     const errBody = await res.json().catch(() => ({}));
     const msg = errBody?.error?.message || `HTTP ${res.status}`;
+    if (_isUnknownModelError(msg)) {
+      throw new Error(
+        `⚠️ Unknown model "${modelName}". Please go to Settings → Genie AI and choose a different model from the dropdown.`
+      );
+    }
     throw new Error(`OpenAI error: ${msg}`);
   }
 
   const data = await res.json();
   return data.choices?.[0]?.message?.content?.trim() || '(no response)';
+}
+
+/** Check if an error message indicates an unknown/invalid model. */
+function _isUnknownModelError(msg) {
+  const lower = (msg || '').toLowerCase();
+  return lower.includes('unknown model') ||
+         lower.includes('model not found') ||
+         lower.includes('does not exist') ||
+         lower.includes('invalid model');
 }
 
 /** Extracted WebLLM streaming path (was inline in _chat) — unchanged logic */
