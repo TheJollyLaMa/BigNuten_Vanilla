@@ -1553,8 +1553,8 @@ function _updateTokenEstimate(panelId) {
     total += _estimateTokens(JSON.stringify(arr));
   }
 
-  const pct = Math.min(100, Math.round(total / 32_000 * 100));
-  estEl.textContent = `~${total.toLocaleString()} tokens used (${pct}% of 32K context)`;
+  const pct = Math.min(100, Math.round(total / HOSTED_CONTEXT_TOKENS * 100));
+  estEl.textContent = `~${total.toLocaleString()} tokens used (${pct}% of ${Math.round(HOSTED_CONTEXT_TOKENS / 1000)}K context)`;
   estEl.style.color = pct > 80 ? '#ff8888' : pct > 60 ? '#ffcc44' : '#00ff88';
 }
 
