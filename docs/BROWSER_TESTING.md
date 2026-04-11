@@ -117,11 +117,14 @@ the origin's storage quota and will be removed along with IndexedDB / OPFS.
 | `genieEnabled` | `"true"` / `"false"` — whether Genie is active |
 | `genieModelId` | Persisted model selection (now always `Phi-3.5-mini-instruct-q4f16_1-MLC`) |
 | `genieChatOpen` | JSON map of `{ panelId: boolean }` — which chat windows were open |
+| `genieBackend`  | `'webllm'` / `'github-models'` / `'openai'` — selected AI backend |
+| `genieApiKey`   | User-pasted API key — stored as plain string, never logged or transmitted to BigNuten |
 
 To reset Genie state only (without wiping everything):
 
 ```js
-['genieEnabled', 'genieModelId', 'genieChatOpen'].forEach(k => localStorage.removeItem(k));
+['genieEnabled', 'genieModelId', 'genieChatOpen', 'genieBackend', 'genieApiKey']
+  .forEach(k => localStorage.removeItem(k));
 location.reload();
 ```
 

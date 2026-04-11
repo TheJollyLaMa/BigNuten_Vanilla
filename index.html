@@ -1402,10 +1402,9 @@
       <section class="settings-section">
         <h3>🧞 Genie AI Assistant</h3>
         <p class="settings-desc">
-          Embed a local AI chat assistant inside each side panel. Uses
-          <strong>WebLLM</strong> to run a quantized language model entirely
-          in your browser — <em>your data never leaves your device</em>.
-          The model is downloaded once and cached for fast future start-up.
+          AI chat assistant inside each side panel. Choose a hosted backend
+          (GitHub Models or OpenAI) for best quality, or use
+          <strong>WebLLM</strong> for fully local &amp; private processing.
         </p>
         <div class="genie-settings-row">
           <label for="genie-enabled-toggle" class="genie-settings-label">
@@ -1416,17 +1415,73 @@
             <span class="genie-toggle-slider"></span>
           </label>
         </div>
-        <div class="genie-settings-row">
+
+        <!-- Backend selector -->
+        <div class="genie-settings-row genie-backend-row">
+          <span class="genie-settings-label">AI Backend</span>
+          <div class="genie-backend-options" role="radiogroup" aria-label="Genie AI Backend">
+
+            <label class="genie-backend-option">
+              <input type="radio" name="genie-backend" value="github-models" />
+              <span class="backend-badge backend-github">⭐ GitHub Models</span>
+              <span class="backend-desc">Claude 3.5 Sonnet / GPT-4o — free tier, best quality</span>
+            </label>
+
+            <label class="genie-backend-option">
+              <input type="radio" name="genie-backend" value="openai" />
+              <span class="backend-badge backend-openai">🟢 OpenAI API</span>
+              <span class="backend-desc">GPT-4o — bring your own key</span>
+            </label>
+
+            <label class="genie-backend-option">
+              <input type="radio" name="genie-backend" value="webllm" />
+              <span class="backend-badge backend-webllm">🧠 WebLLM</span>
+              <span class="backend-desc">Local &amp; private — no key needed, large download</span>
+            </label>
+
+          </div>
+        </div>
+
+        <!-- API key input (shown only for hosted backends) -->
+        <div class="genie-apikey-section" id="genie-apikey-section">
+          <label class="genie-settings-label" for="genie-api-key-input">
+            API Key
+            <span id="genie-apikey-status" class="genie-apikey-status"></span>
+          </label>
+          <div class="genie-apikey-input-row">
+            <input
+              type="password"
+              id="genie-api-key-input"
+              class="genie-api-key-input"
+              placeholder="Paste your GitHub PAT or OpenAI key…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="genie-api-key-save" class="genie-key-btn">Save</button>
+            <button id="genie-api-key-clear" class="genie-key-btn genie-key-btn--clear">Clear</button>
+          </div>
+          <p class="settings-hint">
+            🔒 Stored only in your browser's localStorage. Never sent to BigNuten.
+            Sent directly and only to the AI provider you select.
+            <br />
+            <strong>GitHub PAT:</strong>
+            <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a>
+            — create a fine-grained token with <code>models:read</code> scope only.
+          </p>
+        </div>
+
+        <!-- WebLLM model picker — only shown when WebLLM backend is selected -->
+        <div class="genie-settings-row" id="genie-webllm-model-row">
           <label for="genie-model-select" class="genie-settings-label">
-            AI Model
+            WebLLM Model
           </label>
           <select id="genie-model-select" class="genie-model-select" aria-label="Select Genie AI model">
-            <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi-3.5-mini (2.2 GB, 128K context)</option>
+            <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi-3.5-mini (2.2 GB, 4K ctx)</option>
           </select>
         </div>
+
         <p class="settings-hint" id="genie-settings-hint">
-          🔒 All AI processing happens locally. Enable WebGPU in your browser
-          for best performance. The model is downloaded once and cached for future use.
+          <!-- dynamically updated by JS based on selected backend -->
         </p>
       </section>
 

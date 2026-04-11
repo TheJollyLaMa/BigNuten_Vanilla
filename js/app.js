@@ -4,7 +4,7 @@ import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, i
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
-import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId } from './genieChat.js';
+import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey } from './genieChat.js';
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 
@@ -7573,6 +7573,79 @@ document.addEventListener('DOMContentLoaded', () => {
     genieModelSelectEl.addEventListener('change', () => {
       setGenieModelId(genieModelSelectEl.value);
     });
+  }
+
+  // Wire up backend selector, API key input, and dynamic hint text.
+  {
+    const backendRadios   = document.querySelectorAll('input[name="genie-backend"]');
+    const apiKeySection   = document.getElementById('genie-apikey-section');
+    const webllmModelRow  = document.getElementById('genie-webllm-model-row');
+    const apiKeyInput     = document.getElementById('genie-api-key-input');
+    const apiKeyStatus    = document.getElementById('genie-apikey-status');
+    const apiKeySaveBtn   = document.getElementById('genie-api-key-save');
+    const apiKeyClearBtn  = document.getElementById('genie-api-key-clear');
+    const hintEl          = document.getElementById('genie-settings-hint');
+
+    function _updateGenieSettingsUI(backend) {
+      const isHosted = backend !== 'webllm';
+      const isWebLLM = backend === 'webllm';
+      if (apiKeySection)  apiKeySection.style.display  = isHosted ? '' : 'none';
+      if (webllmModelRow) webllmModelRow.style.display = isWebLLM ? '' : 'none';
+      const hints = {
+        'github-models': '⭐ Get a free GitHub PAT at <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a> with <code>models:read</code> scope. Free tier is generous during GitHub Models preview.',
+        'openai':        '🟢 Uses your OpenAI API key. Billed per token at OpenAI rates — very cheap for personal use.',
+        'webllm':        '🔒 All AI processing happens locally in your browser. No key needed. Model is downloaded once (~2.2 GB) and cached.',
+      };
+      if (hintEl) hintEl.innerHTML = hints[backend] || '';
+    }
+
+    // Restore saved backend selection
+    const savedBackend = getGenieBackend();
+    backendRadios.forEach(r => { r.checked = (r.value === savedBackend); });
+    _updateGenieSettingsUI(savedBackend);
+
+    // Show saved key status
+    if (hasGenieApiKey()) {
+      if (apiKeyStatus) {
+        apiKeyStatus.textContent = '✅ Key saved';
+        apiKeyStatus.className   = 'genie-apikey-status saved';
+      }
+    }
+
+    // Backend radio change
+    backendRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        setGenieBackend(radio.value);
+        _updateGenieSettingsUI(radio.value);
+      });
+    });
+
+    // Save API key
+    if (apiKeySaveBtn) {
+      apiKeySaveBtn.addEventListener('click', () => {
+        const val = apiKeyInput ? apiKeyInput.value.trim() : '';
+        if (!val) return;
+        setGenieApiKey(val);
+        if (apiKeyInput)  apiKeyInput.value        = '';
+        if (apiKeyStatus) {
+          apiKeyStatus.textContent = '✅ Key saved';
+          apiKeyStatus.className   = 'genie-apikey-status saved';
+        }
+      });
+    }
+
+    // Clear API key
+    if (apiKeyClearBtn) {
+      apiKeyClearBtn.addEventListener('click', () => {
+        setGenieApiKey('');
+        if (apiKeyInput)  apiKeyInput.value        = '';
+        if (apiKeyStatus) {
+          apiKeyStatus.textContent = '🗑 Key cleared';
+          apiKeyStatus.className   = 'genie-apikey-status cleared';
+          setTimeout(() => { apiKeyStatus.textContent = ''; }, 2500);
+        }
+      });
+    }
   }
 
   // ── Chakra Aura System ────────────────────────────────────────────────────
