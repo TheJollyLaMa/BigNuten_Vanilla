@@ -23,7 +23,19 @@
  *   • LLM is strictly data-driven: it only reports what is in the logs and says
  *     "The logs don't show data for that" when information is missing.
  *   • Per-panel open/close state is preserved in localStorage.
+ *   • Three-tier memory: working (sessionStorage), short-term (session summaries),
+ *     long-term (pinned insights).
  */
+
+import {
+  saveSessionMessages, loadSessionMessages, clearSessionMessages,
+  getGenieSessions, saveGenieSession,
+  getGenieInsights, pinInsight, deleteInsight,
+  clearAllGenieMemory,
+  buildRecentSessionsPrompt, buildInsightsPrompt,
+  buildSummarizePrompt, generateId,
+  MAX_INSIGHTS,
+} from './genieMemory.js';
 
 const LS_ENABLED      = 'genieEnabled';
 const LS_OPEN         = 'genieChatOpen';    // JSON object: { panelId: true/false }
@@ -93,6 +105,13 @@ let _engine        = null;
 let _engineLoading = false;
 let _engineReady   = false;
 let _loadedModelId = null;   // which model is currently loaded in the engine
+
+// Per-panel message tracking for memory persistence (Tier 1)
+// Map<panelId, Array<{role, text}>>
+const _panelMessages = new Map();
+
+// Maximum characters for a pinned insight text
+const MAX_INSIGHT_TEXT_LENGTH = 300;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
@@ -347,6 +366,8 @@ function _openChatWindow(panel) {
 function _closeChatWindow(panelId) {
   const win = document.querySelector(`.genie-chat-window[data-panel="${panelId}"]`);
   if (win) {
+    // Tier 2: Generate session summary on close (fire-and-forget)
+    _generateSessionSummary(panelId).catch(() => {});
     win.remove();
     _saveOpenState(panelId, false);
   }
@@ -406,10 +427,18 @@ function _buildChatWindow(panel) {
   win.setAttribute('role', 'dialog');
   win.setAttribute('aria-label', 'Genie AI Chat');
 
+  const sessions = getGenieSessions();
+  const insights = getGenieInsights();
+  const memoryFooterText = `🧠 ${insights.length} insight${insights.length !== 1 ? 's' : ''} · 💬 ${sessions.length} recent session${sessions.length !== 1 ? 's' : ''}`;
+
   win.innerHTML = `
     <div class="genie-chat-header">
       <span class="genie-chat-title">🧞 Genie Assistant</span>
-      <button class="genie-chat-close" aria-label="Close genie chat">✕</button>
+      <div class="genie-chat-header-actions">
+        <button class="genie-chat-new" aria-label="New conversation" title="New conversation">🔄</button>
+        <button class="genie-chat-clear" aria-label="Clear chat" title="Clear chat">🗑</button>
+        <button class="genie-chat-close" aria-label="Close genie chat">✕</button>
+      </div>
     </div>
     <div class="genie-chat-status" aria-live="polite"></div>
     <div class="genie-chat-messages" role="log" aria-live="polite"></div>
@@ -417,6 +446,7 @@ function _buildChatWindow(panel) {
       <textarea class="genie-chat-input" rows="2" placeholder="Ask your Genie…" aria-label="Chat message"></textarea>
       <button class="genie-chat-send" aria-label="Send message">Send</button>
     </div>
+    <div class="genie-chat-memory-footer">${memoryFooterText}</div>
     <div class="genie-chat-hint">${_buildGenieHint()}</div>
   `;
 
@@ -427,6 +457,29 @@ function _buildChatWindow(panel) {
   win.querySelector('.genie-chat-close').addEventListener('click', (e) => {
     e.stopPropagation();
     _closeChatWindow(panel.id);
+  });
+
+  // Clear chat — wipes sessionStorage for this panel only
+  win.querySelector('.genie-chat-clear').addEventListener('click', (e) => {
+    e.stopPropagation();
+    _panelMessages.delete(panel.id);
+    clearSessionMessages(panel.id);
+    const messagesEl = win.querySelector('.genie-chat-messages');
+    messagesEl.innerHTML = '';
+    _appendMessage(messagesEl, 'genie', _getWelcomeMessage(panel.id));
+    _updateMemoryFooter(win);
+  });
+
+  // New conversation — triggers summary generation then clears
+  win.querySelector('.genie-chat-new').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await _generateSessionSummary(panel.id);
+    _panelMessages.delete(panel.id);
+    clearSessionMessages(panel.id);
+    const messagesEl = win.querySelector('.genie-chat-messages');
+    messagesEl.innerHTML = '';
+    _appendMessage(messagesEl, 'genie', _getWelcomeMessage(panel.id));
+    _updateMemoryFooter(win);
   });
 
   const sendBtn    = win.querySelector('.genie-chat-send');
@@ -442,7 +495,14 @@ function _buildChatWindow(panel) {
     }
   });
 
-  _appendMessage(messagesEl, 'genie', _getWelcomeMessage(panel.id));
+  // Tier 1: Restore messages from sessionStorage if they exist
+  const saved = loadSessionMessages(panel.id);
+  if (saved.length > 0) {
+    _panelMessages.set(panel.id, [...saved]);
+    saved.forEach(msg => _appendMessage(messagesEl, msg.role, msg.text, panel.id, true));
+  } else {
+    _appendMessage(messagesEl, 'genie', _getWelcomeMessage(panel.id));
+  }
 
   return win;
 }
@@ -468,7 +528,7 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
   const sendBtn = win ? win.querySelector('.genie-chat-send') : null;
   if (sendBtn) sendBtn.disabled = true;
 
-  _appendMessage(messagesEl, 'user', text);
+  _appendMessage(messagesEl, 'user', text, panelId);
 
   try {
     const backend = getGenieBackend();
@@ -487,11 +547,11 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
 
     statusEl.textContent = '🧞 Thinking…';
     const reply = await _chat(text, panelId, statusEl);
-    _appendMessage(messagesEl, 'genie', reply);
+    _appendMessage(messagesEl, 'genie', reply, panelId);
     statusEl.textContent = '';
   } catch (err) {
     console.error('[GenieChat]', err);
-    _appendMessage(messagesEl, 'error', `⚠️ Error: ${err.message || 'Unknown error'}`);
+    _appendMessage(messagesEl, 'error', `⚠️ Error: ${err.message || 'Unknown error'}`, panelId);
     statusEl.textContent = '';
   } finally {
     inputEl.disabled = false;
@@ -500,10 +560,219 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
   }
 }
 
-function _appendMessage(messagesEl, role, text) {
+/**
+ * Append a message bubble to the chat window.
+ * @param {HTMLElement} messagesEl - The messages container element.
+ * @param {string} role - 'user' | 'genie' | 'error'
+ * @param {string} text - Message text.
+ * @param {string} [panelId] - Panel ID for persistence tracking.
+ * @param {boolean} [isRestore=false] - True when restoring from sessionStorage (skip re-saving).
+ */
+function _appendMessage(messagesEl, role, text, panelId, isRestore = false) {
   const div = document.createElement('div');
   div.className = `genie-msg genie-msg-${role}`;
   div.textContent = text;
+
+  // Add 📌 pin button for genie messages (Tier 3)
+  if (role === 'genie') {
+    const pinBtn = document.createElement('button');
+    pinBtn.className = 'genie-pin-btn';
+    pinBtn.setAttribute('aria-label', 'Pin this insight');
+    pinBtn.setAttribute('title', 'Pin this insight to long-term memory');
+    pinBtn.textContent = '📌';
+    pinBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      _pinMessageAsInsight(text, 'user-pinned', pinBtn);
+    });
+    div.appendChild(pinBtn);
+  }
+
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  // Track messages for Tier 1 persistence (skip errors and restores)
+  if (panelId && role !== 'error' && !isRestore) {
+    if (!_panelMessages.has(panelId)) _panelMessages.set(panelId, []);
+    _panelMessages.get(panelId).push({ role, text });
+    saveSessionMessages(panelId, _panelMessages.get(panelId));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Memory helpers (Tier 2 & 3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Pin a message text as a long-term insight. */
+function _pinMessageAsInsight(text, source, btnEl) {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+
+  // Check for duplicates
+  const existing = getGenieInsights();
+  if (existing.some(i => i.text === trimmed)) {
+    if (btnEl) { btnEl.textContent = '✅'; btnEl.title = 'Already pinned'; }
+    return;
+  }
+
+  const insight = {
+    id: generateId(),
+    text: trimmed.length > MAX_INSIGHT_TEXT_LENGTH ? trimmed.slice(0, MAX_INSIGHT_TEXT_LENGTH - 3) + '…' : trimmed,
+    source,
+    category: 'general',
+    timestamp: new Date().toISOString(),
+    usedCount: 0,
+  };
+
+  const ok = pinInsight(insight);
+  if (btnEl) {
+    if (ok) {
+      btnEl.textContent = '✅';
+      btnEl.title = 'Pinned!';
+    } else {
+      btnEl.textContent = '⚠️';
+      btnEl.title = `Limit reached (${MAX_INSIGHTS} insights). Review & prune in Settings.`;
+    }
+  }
+}
+
+/** Update the memory footer inside a chat window. */
+function _updateMemoryFooter(win) {
+  const footer = win.querySelector('.genie-chat-memory-footer');
+  if (!footer) return;
+  const sessions = getGenieSessions();
+  const insights = getGenieInsights();
+  footer.textContent = `🧠 ${insights.length} insight${insights.length !== 1 ? 's' : ''} · 💬 ${sessions.length} recent session${sessions.length !== 1 ? 's' : ''}`;
+}
+
+/**
+ * Generate a session summary when closing a chat or starting a new conversation.
+ * Only summarizes if ≥3 user messages were exchanged.
+ */
+async function _generateSessionSummary(panelId) {
+  const messages = _panelMessages.get(panelId) || [];
+  const userMsgCount = messages.filter(m => m.role === 'user').length;
+  if (userMsgCount < 3) return;
+
+  const conversationText = messages
+    .filter(m => m.role !== 'error')
+    .map(m => `${m.role === 'user' ? 'User' : 'Genie'}: ${m.text}`)
+    .join('\n');
+
+  const backend = getGenieBackend();
+
+  // Only attempt summary via hosted backends (need API key)
+  if (backend === 'webllm' || !hasGenieApiKey()) {
+    // Fallback: save a simple summary without LLM
+    const topicWords = messages
+      .filter(m => m.role === 'user')
+      .map(m => m.text)
+      .join(' ')
+      .slice(0, 200);
+
+    saveGenieSession({
+      id: generateId(),
+      panelId,
+      timestamp: new Date().toISOString(),
+      messageCount: messages.length,
+      summary: `Conversation with ${userMsgCount} user messages. Topics discussed: ${topicWords}`,
+      keyTopics: [],
+      userRating: null,
+    });
+    return;
+  }
+
+  try {
+    const prompt = buildSummarizePrompt(conversationText);
+    const summaryMessages = [
+      { role: 'system', content: 'You are a concise summarizer. Respond ONLY with valid JSON.' },
+      { role: 'user',   content: prompt },
+    ];
+
+    let rawReply;
+    if (backend === 'github-models') {
+      rawReply = await _chatViaGitHubModels(summaryMessages, null);
+    } else {
+      rawReply = await _chatViaOpenAI(summaryMessages, null);
+    }
+
+    let parsed;
+    try {
+      // Strip markdown code fences if present
+      const cleaned = rawReply.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+      parsed = JSON.parse(cleaned);
+    } catch {
+      parsed = { summary: rawReply.slice(0, 600), keyTopics: [], suggestedInsight: '' };
+    }
+
+    const session = {
+      id: generateId(),
+      panelId,
+      timestamp: new Date().toISOString(),
+      messageCount: messages.length,
+      summary: (parsed.summary || '').slice(0, 600),
+      keyTopics: Array.isArray(parsed.keyTopics) ? parsed.keyTopics.slice(0, 5) : [],
+      userRating: null,
+    };
+
+    saveGenieSession(session);
+
+    // Tier 3: Suggest pinning if the LLM found a key insight
+    if (parsed.suggestedInsight && parsed.suggestedInsight.trim()) {
+      _suggestInsightPin(panelId, parsed.suggestedInsight.trim());
+    }
+  } catch (err) {
+    console.warn('[GenieChat] Summary generation failed:', err.message);
+    // Fallback: save basic session
+    saveGenieSession({
+      id: generateId(),
+      panelId,
+      timestamp: new Date().toISOString(),
+      messageCount: messages.length,
+      summary: `Conversation with ${userMsgCount} user messages (summary generation failed).`,
+      keyTopics: [],
+      userRating: null,
+    });
+  }
+}
+
+/** Show a suggested insight pin in the chat window. */
+function _suggestInsightPin(panelId, insightText) {
+  const win = document.querySelector(`.genie-chat-window[data-panel="${panelId}"]`);
+  if (!win) return;
+  const messagesEl = win.querySelector('.genie-chat-messages');
+  if (!messagesEl) return;
+
+  const div = document.createElement('div');
+  div.className = 'genie-msg genie-msg-genie genie-insight-suggestion';
+
+  const textSpan = document.createElement('span');
+  textSpan.textContent = `💡 Worth remembering: "${insightText}"`;
+  div.appendChild(textSpan);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'genie-insight-btn-row';
+
+  const pinBtn = document.createElement('button');
+  pinBtn.className = 'genie-insight-action-btn';
+  pinBtn.textContent = '📌 Pin it';
+  pinBtn.addEventListener('click', () => {
+    _pinMessageAsInsight(insightText, 'genie-observed', pinBtn);
+    pinBtn.textContent = '✅ Pinned';
+    pinBtn.disabled = true;
+    _updateMemoryFooter(win);
+  });
+
+  const skipBtn = document.createElement('button');
+  skipBtn.className = 'genie-insight-action-btn genie-insight-skip';
+  skipBtn.textContent = 'Skip';
+  skipBtn.addEventListener('click', () => {
+    div.remove();
+  });
+
+  btnRow.appendChild(pinBtn);
+  btnRow.appendChild(skipBtn);
+  div.appendChild(btnRow);
+
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
@@ -976,6 +1245,16 @@ function _buildSystemPromptText(contextBlock, trimmed, targetDate = null) {
     ? `\nFocus date: ${targetDate} — the user is asking about THIS calendar day only.`
     : '';
 
+  // Inject memory context (Tier 2 + Tier 3)
+  const recentSessionsBlock = buildRecentSessionsPrompt();
+  const insightsBlock = buildInsightsPrompt();
+  const memorySection = [recentSessionsBlock, insightsBlock]
+    .filter(Boolean)
+    .join('\n\n');
+  const memoryBlock = memorySection
+    ? `\n\n--- GENIE MEMORY ---\n${memorySection}\n--- END MEMORY ---\n`
+    : '';
+
   return `You are Genie, a knowledgeable and compassionate AI health companion \
 for the BigNuten personal wellness tracker. You have two superpowers:
 
@@ -990,7 +1269,7 @@ Current date/time: ${now}${dateNote}${trimNote}
 
 --- USER'S LOGGED DATA ---
 ${contextBlock}
---- END LOGGED DATA ---
+--- END LOGGED DATA ---${memoryBlock}
 
 HOW TO RESPOND:
 - When asked about logged data (what did I take, how much did I weigh, etc.) — \
@@ -1005,7 +1284,9 @@ use it to personalize every answer.
 - If data is missing for something asked, say so clearly but still offer \
 relevant general guidance if it would help.
 - Keep responses focused and readable. Use bullet points for lists of facts, \
-prose for insights and explanations.`;
+prose for insights and explanations.
+- If you have memory of past conversations (shown above), reference relevant \
+past discussions when helpful — but don't repeat old information unnecessarily.`;
 }
 
 function _getRecentExercises(data, days) {
@@ -1050,4 +1331,14 @@ function _restoreOpenChats() {
     }
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Re-export memory functions for app.js settings wiring
+// ─────────────────────────────────────────────────────────────────────────────
+
+export { getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory, MAX_INSIGHTS };
+
+// These are not imported at the top, so re-export directly from the module
+export { rateGenieSession, deleteGenieSession } from './genieMemory.js';
+
 
