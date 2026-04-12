@@ -82,11 +82,11 @@ const AAVE_V3_POOL_ADDRESS = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
 const ALCHEMIST_V2_ADDRESS = '0x10294d57A419C8eb78C648372c5bAA27fD1484af';
 
 /**
- * StreakBetEscrow — v3.1.0 competition & streak bet escrow with optional Aave yield.
+ * StreakBetEscrow — BigNutenv3.1.0 now has competition & streak bet escrow with optional Aave yield.
  * Deployed on Optimism Mainnet. Set after deployment; empty string means "not yet deployed".
  * Related issue: #71
  */
-const STREAK_BET_ESCROW_ADDRESS = '';
+const STREAK_BET_ESCROW_ADDRESS = '0x80f6492eFD6D27c877B2bd0936451f7AF61c7215';
 
 // ─── Token Metadata ───────────────────────────────────────────────────────────
 
