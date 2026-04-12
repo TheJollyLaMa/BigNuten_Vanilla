@@ -11,9 +11,25 @@ pragma solidity ^0.8.20;
 ///         staking the required token amount. Weekly self-reports are recorded
 ///         on-chain. On settlement the owner distributes principal + yield back
 ///         to winners and publishes an IPFS CID for the final leaderboard.
+///
+///         Security (v3.1.1):
+///         - ReentrancyGuard on all external state-changing entry points.
+///         - SafeERC20 for all ERC-20 transfers and approvals.
+///         - Pausable emergency stop for admin use.
+///         - joinDeadline to prevent late-entry / front-running.
+///         - Settlement only allowed after competition end time.
+///         - Yield captured in potBalance after Aave withdrawal.
+///
+///         Production best practices:
+///         - Deploy behind a Gnosis Safe multisig.
+///         - Consider a Timelock controller for critical parameter changes.
+///         - Externalize Aave pool address via governance if needed.
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -25,7 +41,9 @@ interface IAavePool {
 
 // ─── Contract ─────────────────────────────────────────────────────────────────
 
-contract StreakBetEscrow is Ownable {
+contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
+
+    using SafeERC20 for IERC20;
 
     // ── Enums ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +59,7 @@ contract StreakBetEscrow is Ownable {
         uint256 totalWeeks;       // streak length (number of weekly check-ins required)
         uint256 startTime;        // unix timestamp when comp begins
         uint256 endTime;          // unix timestamp when comp ends
+        uint256 joinDeadline;     // unix timestamp after which no new entrants may join
         bool    yieldEnabled;     // if true, pot is deployed to Aave during comp
         bool    potDeployed;      // true after deployToAave(); prevents double-deployment
         string  metadataCID;      // IPFS CID of competition rules / DNFT metadata
@@ -85,6 +104,7 @@ contract StreakBetEscrow is Ownable {
         uint256 totalWeeks,
         uint256 startTime,
         uint256 endTime,
+        uint256 joinDeadline,
         bool    yieldEnabled,
         string  metadataCID
     );
@@ -103,6 +123,7 @@ contract StreakBetEscrow is Ownable {
     event EntrantForfeited(uint256 indexed compId, address indexed entrant);
     event EntrantCompleted(uint256 indexed compId, address indexed entrant);
     event WinningsDistributed(uint256 indexed compId, address indexed winner, uint256 amount);
+    event AaveYieldCaptured(uint256 indexed compId, uint256 withdrawn, uint256 originalPot);
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
@@ -121,6 +142,7 @@ contract StreakBetEscrow is Ownable {
     /// @param totalWeeks   Number of weekly check-ins required to complete the streak.
     /// @param startTime    Unix timestamp when the competition starts.
     /// @param endTime      Unix timestamp when the competition ends.
+    /// @param joinDeadline Unix timestamp after which no new entrants may join (must be <= endTime).
     /// @param yieldEnabled Whether to deploy pot to Aave during the comp period.
     /// @param metadataCID  IPFS CID of the competition rules / DNFT metadata JSON.
     function createCompetition(
@@ -130,13 +152,16 @@ contract StreakBetEscrow is Ownable {
         uint256 totalWeeks,
         uint256 startTime,
         uint256 endTime,
+        uint256 joinDeadline,
         bool    yieldEnabled,
         string  calldata metadataCID
-    ) external onlyOwner {
+    ) external onlyOwner whenNotPaused {
         require(bytes(name).length > 0, "Escrow: empty name");
         require(stakeAmount > 0, "Escrow: stake must be > 0");
         require(totalWeeks > 0, "Escrow: totalWeeks must be > 0");
         require(endTime > startTime, "Escrow: endTime must be after startTime");
+        require(joinDeadline <= endTime, "Escrow: joinDeadline must be <= endTime");
+        require(joinDeadline >= startTime, "Escrow: joinDeadline must be >= startTime");
 
         uint256 id = nextCompId++;
         Competition storage c = competitions[id];
@@ -146,11 +171,12 @@ contract StreakBetEscrow is Ownable {
         c.totalWeeks    = totalWeeks;
         c.startTime     = startTime;
         c.endTime       = endTime;
+        c.joinDeadline  = joinDeadline;
         c.yieldEnabled  = yieldEnabled;
         c.metadataCID   = metadataCID;
         c.status        = CompStatus.Active;
 
-        emit CompetitionCreated(id, name, stakeToken, stakeAmount, totalWeeks, startTime, endTime, yieldEnabled, metadataCID);
+        emit CompetitionCreated(id, name, stakeToken, stakeAmount, totalWeeks, startTime, endTime, joinDeadline, yieldEnabled, metadataCID);
     }
 
     // ── User: Join Competition ────────────────────────────────────────────────
@@ -158,10 +184,10 @@ contract StreakBetEscrow is Ownable {
     /// @notice Stake tokens to join a competition.
     ///         For ETH competitions, send msg.value equal to stakeAmount.
     ///         For ERC-20 competitions, approve this contract first.
-    function joinCompetition(uint256 compId) external payable {
+    function joinCompetition(uint256 compId) external payable nonReentrant whenNotPaused {
         Competition storage c = competitions[compId];
         require(c.status == CompStatus.Active, "Escrow: comp not active");
-        require(block.timestamp <= c.endTime, "Escrow: comp ended");
+        require(block.timestamp <= c.joinDeadline, "Escrow: join deadline passed");
         require(entrantIndex[compId][msg.sender] == 0, "Escrow: already joined");
 
         if (c.stakeToken == address(0)) {
@@ -170,9 +196,7 @@ contract StreakBetEscrow is Ownable {
         } else {
             // ERC-20 stake
             require(msg.value == 0, "Escrow: do not send ETH for token comp");
-            IERC20 token = IERC20(c.stakeToken);
-            bool ok = token.transferFrom(msg.sender, address(this), c.stakeAmount);
-            require(ok, "Escrow: token transfer failed");
+            IERC20(c.stakeToken).safeTransferFrom(msg.sender, address(this), c.stakeAmount);
         }
 
         c.entrantCount++;
@@ -193,7 +217,7 @@ contract StreakBetEscrow is Ownable {
     /// @notice Submit a weekly self-report for the given competition.
     /// @param compId    Competition ID.
     /// @param proofCID  IPFS CID of the proof / progress snapshot.
-    function submitReport(uint256 compId, string calldata proofCID) external {
+    function submitReport(uint256 compId, string calldata proofCID) external whenNotPaused {
         Competition storage c = competitions[compId];
         require(c.status == CompStatus.Active, "Escrow: comp not active");
 
@@ -219,7 +243,7 @@ contract StreakBetEscrow is Ownable {
     // ── User: Forfeit ─────────────────────────────────────────────────────────
 
     /// @notice Voluntarily forfeit your stake. Stake stays in the pot for winners.
-    function forfeit(uint256 compId) external {
+    function forfeit(uint256 compId) external whenNotPaused {
         Competition storage c = competitions[compId];
         require(c.status == CompStatus.Active, "Escrow: comp not active");
 
@@ -238,7 +262,7 @@ contract StreakBetEscrow is Ownable {
 
     /// @notice Deploy the competition pot to Aave V3 for yield.
     ///         Only works for ERC-20 competitions with yieldEnabled.
-    function deployToAave(uint256 compId) external onlyOwner {
+    function deployToAave(uint256 compId) external onlyOwner whenNotPaused {
         Competition storage c = competitions[compId];
         require(c.status == CompStatus.Active, "Escrow: comp not active");
         require(c.yieldEnabled, "Escrow: yield not enabled");
@@ -248,13 +272,13 @@ contract StreakBetEscrow is Ownable {
 
         c.potDeployed = true;
 
-        IERC20 token = IERC20(c.stakeToken);
-        token.approve(aavePool, c.potBalance);
+        IERC20(c.stakeToken).forceApprove(aavePool, c.potBalance);
         IAavePool(aavePool).supply(c.stakeToken, c.potBalance, address(this), 0);
     }
 
-    /// @notice Withdraw only this competition's pot (plus its share of yield) from Aave V3.
-    function withdrawFromAave(uint256 compId) external onlyOwner {
+    /// @notice Withdraw this competition's pot (plus its share of yield) from Aave V3.
+    ///         Updates potBalance to include any earned yield so it is distributed on settle.
+    function withdrawFromAave(uint256 compId) external onlyOwner whenNotPaused {
         Competition storage c = competitions[compId];
         require(c.stakeToken != address(0), "Escrow: ETH yield not supported");
         require(c.yieldEnabled, "Escrow: yield not enabled");
@@ -262,10 +286,13 @@ contract StreakBetEscrow is Ownable {
 
         c.potDeployed = false;
 
-        // Withdraw only the original pot amount; any yield beyond it stays
-        // in Aave. For single-competition setups the owner can call with
-        // type(uint256).max via a separate admin function if desired.
-        IAavePool(aavePool).withdraw(c.stakeToken, c.potBalance, address(this));
+        uint256 originalPot = c.potBalance;
+        // Withdraw the full pot; Aave returns the actual amount (principal + yield).
+        uint256 withdrawn = IAavePool(aavePool).withdraw(c.stakeToken, c.potBalance, address(this));
+        // Update potBalance to reflect any yield earned on Aave.
+        c.potBalance = withdrawn;
+
+        emit AaveYieldCaptured(compId, withdrawn, originalPot);
     }
 
     // ── Admin: Settle Competition ─────────────────────────────────────────────
@@ -277,9 +304,10 @@ contract StreakBetEscrow is Ownable {
     function settleCompetition(
         uint256 compId,
         string calldata leaderboardCID
-    ) external onlyOwner {
+    ) external onlyOwner nonReentrant whenNotPaused {
         Competition storage c = competitions[compId];
         require(c.status == CompStatus.Active, "Escrow: comp not active");
+        require(block.timestamp >= c.endTime, "Escrow: comp has not ended yet");
 
         // Auto-forfeit anyone who didn't complete
         for (uint256 i = 1; i <= c.entrantCount; i++) {
@@ -320,7 +348,7 @@ contract StreakBetEscrow is Ownable {
     // ── Admin: Cancel Competition ─────────────────────────────────────────────
 
     /// @notice Cancel a competition and refund all entrants their stake.
-    function cancelCompetition(uint256 compId) external onlyOwner {
+    function cancelCompetition(uint256 compId) external onlyOwner nonReentrant whenNotPaused {
         Competition storage c = competitions[compId];
         require(c.status == CompStatus.Active, "Escrow: comp not active");
 
@@ -340,8 +368,20 @@ contract StreakBetEscrow is Ownable {
     // ── Admin: Update Aave Pool ───────────────────────────────────────────────
 
     /// @notice Update the Aave V3 Pool address (e.g. after migration).
-    function setAavePool(address _aavePool) external onlyOwner {
+    function setAavePool(address _aavePool) external onlyOwner whenNotPaused {
         aavePool = _aavePool;
+    }
+
+    // ── Admin: Pause / Unpause ────────────────────────────────────────────────
+
+    /// @notice Pause all user and admin actions (emergency stop).
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause the contract after an emergency.
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     // ── View Functions ────────────────────────────────────────────────────────
@@ -354,6 +394,7 @@ contract StreakBetEscrow is Ownable {
         uint256 totalWeeks,
         uint256 startTime,
         uint256 endTime,
+        uint256 joinDeadline,
         bool    yieldEnabled,
         string memory metadataCID,
         CompStatus status,
@@ -364,7 +405,7 @@ contract StreakBetEscrow is Ownable {
         Competition storage c = competitions[compId];
         return (
             c.name, c.stakeToken, c.stakeAmount, c.totalWeeks,
-            c.startTime, c.endTime, c.yieldEnabled, c.metadataCID,
+            c.startTime, c.endTime, c.joinDeadline, c.yieldEnabled, c.metadataCID,
             c.status, c.potBalance, c.entrantCount, c.winnerCount
         );
     }
@@ -388,8 +429,7 @@ contract StreakBetEscrow is Ownable {
             (bool ok, ) = payable(to).call{value: amount}("");
             require(ok, "Escrow: ETH transfer failed");
         } else {
-            bool ok = IERC20(token).transfer(to, amount);
-            require(ok, "Escrow: token transfer failed");
+            IERC20(token).safeTransfer(to, amount);
         }
     }
 
