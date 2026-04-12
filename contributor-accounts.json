@@ -7,7 +7,7 @@
       "role": "owner",
       "walletAddress": "0x807061DF657A7697c04045dA7d16D941861cAABc",
       "bnutEarned": 0,
-      "bnutPending": 119.6,
+      "bnutPending": 120.8,
       "issuesClosed": [
         "TheJollyLaMa/BigNuten_Vanilla#101",
         "TheJollyLaMa/BigNuten_Vanilla#105",
@@ -64,7 +64,8 @@
         "TheJollyLaMa/BigNuten_Vanilla#296",
         "TheJollyLaMa/BigNuten_Vanilla#297",
         "TheJollyLaMa/BigNuten_Vanilla#300",
-        "TheJollyLaMa/BigNuten_Vanilla#158"
+        "TheJollyLaMa/BigNuten_Vanilla#158",
+        "TheJollyLaMa/BigNuten_Vanilla#159"
       ],
       "registeredAt": "2026-03-19T08:55:31.049Z",
       "notes": "Repo owner and maintainer. Update walletAddress to your Optimism Mainnet address to enable payouts.",
@@ -86,7 +87,8 @@
         "TheJollyLaMa/BigNuten_Vanilla#155",
         "TheJollyLaMa/BigNuten_Vanilla#156",
         "TheJollyLaMa/BigNuten_Vanilla#233",
-        "TheJollyLaMa/BigNuten_Vanilla#158"
+        "TheJollyLaMa/BigNuten_Vanilla#158",
+        "TheJollyLaMa/BigNuten_Vanilla#159"
       ]
     },
     {
@@ -95,7 +97,7 @@
       "role": "contributor",
       "walletAddress": "0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e",
       "bnutEarned": 0,
-      "bnutPending": 104.4,
+      "bnutPending": 105.2,
       "issuesClosed": [
         "TheJollyLaMa/BigNuten_Vanilla#101",
         "TheJollyLaMa/BigNuten_Vanilla#105",
@@ -152,7 +154,8 @@
         "TheJollyLaMa/BigNuten_Vanilla#296",
         "TheJollyLaMa/BigNuten_Vanilla#297",
         "TheJollyLaMa/BigNuten_Vanilla#300",
-        "TheJollyLaMa/BigNuten_Vanilla#158"
+        "TheJollyLaMa/BigNuten_Vanilla#158",
+        "TheJollyLaMa/BigNuten_Vanilla#159"
       ],
       "registeredAt": "2026-03-19T08:55:31.049Z",
       "notes": "GitHub Copilot AI contributor. Wallet address to be registered by the maintainer after onboarding."
