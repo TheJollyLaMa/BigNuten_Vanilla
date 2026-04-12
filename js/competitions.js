@@ -551,7 +551,8 @@ async function adminDailyReport(compId) {
           joined: e.joined,
           reportsSubmitted: Number(e.reportsSubmitted),
           status: ENTRANT_STATUS[entrantStatus] || 'Unknown',
-          verified: entrantStatus === 0 || entrantStatus === 1, // active or completed
+          // Entrant is "still in" if Active (0) or Completed (1); Forfeited (2) means out
+          verified: entrantStatus === 0 || entrantStatus === 1,
           dateChecked: dateStr,
           dataSource: source || 'manual',
         });
