@@ -223,6 +223,7 @@
     ],
     "name": "getEntrant",
     "outputs": [
+      { "internalType": "bool",    "name": "joined",           "type": "bool"    },
       { "internalType": "uint256", "name": "reportsSubmitted", "type": "uint256" },
       { "internalType": "uint8",   "name": "status",           "type": "uint8"   }
     ],

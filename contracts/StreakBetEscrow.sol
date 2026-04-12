@@ -42,6 +42,7 @@ contract StreakBetEscrow is Ownable {
         uint256 startTime;        // unix timestamp when comp begins
         uint256 endTime;          // unix timestamp when comp ends
         bool    yieldEnabled;     // if true, pot is deployed to Aave during comp
+        bool    potDeployed;      // true after deployToAave(); prevents double-deployment
         string  metadataCID;      // IPFS CID of competition rules / DNFT metadata
         CompStatus status;
         uint256 potBalance;       // total staked (in escrow)
@@ -243,20 +244,28 @@ contract StreakBetEscrow is Ownable {
         require(c.yieldEnabled, "Escrow: yield not enabled");
         require(c.stakeToken != address(0), "Escrow: ETH yield not supported");
         require(c.potBalance > 0, "Escrow: no pot to deploy");
+        require(!c.potDeployed, "Escrow: pot already deployed to Aave");
+
+        c.potDeployed = true;
 
         IERC20 token = IERC20(c.stakeToken);
         token.approve(aavePool, c.potBalance);
         IAavePool(aavePool).supply(c.stakeToken, c.potBalance, address(this), 0);
     }
 
-    /// @notice Withdraw the competition pot (plus yield) from Aave V3.
+    /// @notice Withdraw only this competition's pot (plus its share of yield) from Aave V3.
     function withdrawFromAave(uint256 compId) external onlyOwner {
         Competition storage c = competitions[compId];
         require(c.stakeToken != address(0), "Escrow: ETH yield not supported");
         require(c.yieldEnabled, "Escrow: yield not enabled");
+        require(c.potDeployed, "Escrow: pot not deployed to Aave");
 
-        // type(uint256).max withdraws all (principal + yield)
-        IAavePool(aavePool).withdraw(c.stakeToken, type(uint256).max, address(this));
+        c.potDeployed = false;
+
+        // Withdraw only the original pot amount; any yield beyond it stays
+        // in Aave. For single-competition setups the owner can call with
+        // type(uint256).max via a separate admin function if desired.
+        IAavePool(aavePool).withdraw(c.stakeToken, c.potBalance, address(this));
     }
 
     // ── Admin: Settle Competition ─────────────────────────────────────────────
@@ -282,22 +291,28 @@ contract StreakBetEscrow is Ownable {
 
         c.status = CompStatus.Settled;
 
-        uint256 totalToDistribute;
-        if (c.stakeToken == address(0)) {
-            totalToDistribute = c.potBalance;
-        } else {
-            totalToDistribute = IERC20(c.stakeToken).balanceOf(address(this));
-        }
+        // Use the tracked potBalance so multi-competition accounting is safe.
+        uint256 totalToDistribute = c.potBalance;
 
         if (c.winnerCount > 0 && totalToDistribute > 0) {
             uint256 share = totalToDistribute / c.winnerCount;
+            uint256 distributed = 0;
             for (uint256 i = 1; i <= c.entrantCount; i++) {
                 if (entrants[compId][i].status == EntrantStatus.Completed) {
                     _transferOut(c.stakeToken, entrants[compId][i].addr, share);
+                    distributed += share;
                     emit WinningsDistributed(compId, entrants[compId][i].addr, share);
                 }
             }
+            // Send any dust remainder to the contract owner
+            uint256 dust = totalToDistribute - distributed;
+            if (dust > 0) {
+                _transferOut(c.stakeToken, owner(), dust);
+            }
         }
+
+        // Zero out pot so it cannot be double-claimed
+        c.potBalance = 0;
 
         emit CompetitionSettled(compId, c.winnerCount, totalToDistribute, leaderboardCID);
     }
@@ -356,13 +371,14 @@ contract StreakBetEscrow is Ownable {
 
     /// @notice Returns entrant details for a given competition and entrant address.
     function getEntrant(uint256 compId, address addr) external view returns (
+        bool    joined,
         uint256 reportsSubmitted,
         EntrantStatus status
     ) {
         uint256 idx = entrantIndex[compId][addr];
-        if (idx == 0) return (0, EntrantStatus.Joined); // not joined; default
+        if (idx == 0) return (false, 0, EntrantStatus.Joined); // not joined
         Entrant storage e = entrants[compId][idx];
-        return (e.reportsSubmitted, e.status);
+        return (true, e.reportsSubmitted, e.status);
     }
 
     // ── Internal ──────────────────────────────────────────────────────────────
