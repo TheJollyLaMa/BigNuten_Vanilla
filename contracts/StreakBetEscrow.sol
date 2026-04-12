@@ -75,21 +75,31 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
         EntrantStatus status;
     }
 
+    /// @notice Input params for createCompetition — avoids stack-too-deep on 9-arg call.
+    struct CreateParams {
+        string  name;
+        address stakeToken;
+        uint256 stakeAmount;
+        uint256 totalWeeks;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 joinDeadline;
+        bool    yieldEnabled;
+        string  metadataCID;
+    }
+
     // ── State ─────────────────────────────────────────────────────────────────
 
     uint256 public nextCompId;
 
     /// @notice Competition ID → Competition data.
-    mapping(uint256 => Competition) public competitions;
+    mapping(uint256 => Competition) internal competitions;
 
     /// @notice Competition ID → entrant index → Entrant data.
     mapping(uint256 => mapping(uint256 => Entrant)) public entrants;
 
     /// @notice Competition ID → entrant address → entrant index (1-indexed, 0 = not joined).
     mapping(uint256 => mapping(address => uint256)) public entrantIndex;
-
-    /// @notice Competition ID → entrant count (used as next index for new entrants).
-    mapping(uint256 => uint256) private _entrantCounts;
 
     /// @notice Aave V3 Pool address (Optimism Mainnet).
     address public aavePool;
@@ -136,47 +146,29 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
     // ── Admin: Create Competition ─────────────────────────────────────────────
 
     /// @notice Create a new competition. Only the owner can call this.
-    /// @param name         Human-readable competition name.
-    /// @param stakeToken   ERC-20 address for the stake token, or address(0) for ETH.
-    /// @param stakeAmount  Amount each entrant must stake.
-    /// @param totalWeeks   Number of weekly check-ins required to complete the streak.
-    /// @param startTime    Unix timestamp when the competition starts.
-    /// @param endTime      Unix timestamp when the competition ends.
-    /// @param joinDeadline Unix timestamp after which no new entrants may join (must be <= endTime).
-    /// @param yieldEnabled Whether to deploy pot to Aave during the comp period.
-    /// @param metadataCID  IPFS CID of the competition rules / DNFT metadata JSON.
-    function createCompetition(
-        string  calldata name,
-        address stakeToken,
-        uint256 stakeAmount,
-        uint256 totalWeeks,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 joinDeadline,
-        bool    yieldEnabled,
-        string  calldata metadataCID
-    ) external onlyOwner whenNotPaused {
-        require(bytes(name).length > 0, "Escrow: empty name");
-        require(stakeAmount > 0, "Escrow: stake must be > 0");
-        require(totalWeeks > 0, "Escrow: totalWeeks must be > 0");
-        require(endTime > startTime, "Escrow: endTime must be after startTime");
-        require(joinDeadline <= endTime, "Escrow: joinDeadline must be <= endTime");
-        require(joinDeadline >= startTime, "Escrow: joinDeadline must be >= startTime");
+    /// @param p  CreateParams struct containing all competition configuration.
+    function createCompetition(CreateParams calldata p) external onlyOwner whenNotPaused {
+        require(bytes(p.name).length > 0, "Escrow: empty name");
+        require(p.stakeAmount > 0, "Escrow: stake must be > 0");
+        require(p.totalWeeks > 0, "Escrow: totalWeeks must be > 0");
+        require(p.endTime > p.startTime, "Escrow: endTime must be after startTime");
+        require(p.joinDeadline <= p.endTime, "Escrow: joinDeadline must be <= endTime");
+        require(p.joinDeadline >= p.startTime, "Escrow: joinDeadline must be >= startTime");
 
         uint256 id = nextCompId++;
         Competition storage c = competitions[id];
-        c.name          = name;
-        c.stakeToken    = stakeToken;
-        c.stakeAmount   = stakeAmount;
-        c.totalWeeks    = totalWeeks;
-        c.startTime     = startTime;
-        c.endTime       = endTime;
-        c.joinDeadline  = joinDeadline;
-        c.yieldEnabled  = yieldEnabled;
-        c.metadataCID   = metadataCID;
+        c.name          = p.name;
+        c.stakeToken    = p.stakeToken;
+        c.stakeAmount   = p.stakeAmount;
+        c.totalWeeks    = p.totalWeeks;
+        c.startTime     = p.startTime;
+        c.endTime       = p.endTime;
+        c.joinDeadline  = p.joinDeadline;
+        c.yieldEnabled  = p.yieldEnabled;
+        c.metadataCID   = p.metadataCID;
         c.status        = CompStatus.Active;
 
-        emit CompetitionCreated(id, name, stakeToken, stakeAmount, totalWeeks, startTime, endTime, joinDeadline, yieldEnabled, metadataCID);
+        emit CompetitionCreated(id, p.name, p.stakeToken, p.stakeAmount, p.totalWeeks, p.startTime, p.endTime, p.joinDeadline, p.yieldEnabled, p.metadataCID);
     }
 
     // ── User: Join Competition ────────────────────────────────────────────────

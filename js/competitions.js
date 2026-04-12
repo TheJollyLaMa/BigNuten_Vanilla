@@ -42,7 +42,7 @@ const STREAK_BET_ABI = [
   'function nextCompId() view returns (uint256)',
   'function getCompetition(uint256 compId) view returns (tuple(string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, uint256 joinDeadline, bool yieldEnabled, bool potDeployed, string metadataCID, uint8 status, uint256 potBalance, uint256 entrantCount, uint256 winnerCount))',
   'function getEntrant(uint256 compId, address addr) view returns (bool joined, uint256 reportsSubmitted, uint8 status)',
-  'function createCompetition(string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, uint256 joinDeadline, bool yieldEnabled, string metadataCID)',
+  'function createCompetition(tuple(string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, uint256 joinDeadline, bool yieldEnabled, string metadataCID) p)',
   'function joinCompetition(uint256 compId) payable',
   'function submitReport(uint256 compId, string proofCID)',
   'function forfeit(uint256 compId)',
@@ -463,10 +463,10 @@ async function adminCreateComp() {
     if (joinDeadline < startTime) throw new Error('Join deadline must be on or after start date.');
 
     statusMsg(statusId, '⏳ Submitting create tx…');
-    const tx = await contract.createCompetition(
-      name, stakeToken, stakeAmount, Number(weeks),
-      startTime, endTime, joinDeadline, yieldOn, metaCID
-    );
+    const tx = await contract.createCompetition({
+      name, stakeToken, stakeAmount, totalWeeks: Number(weeks),
+      startTime, endTime, joinDeadline, yieldEnabled: yieldOn, metadataCID: metaCID
+    });
     statusMsg(statusId, '⏳ Waiting for confirmation…');
     await tx.wait();
 

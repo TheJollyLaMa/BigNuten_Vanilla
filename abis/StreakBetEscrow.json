@@ -110,38 +110,23 @@
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "name": "competitions",
-    "outputs": [
-      { "internalType": "string",  "name": "name",          "type": "string"  },
-      { "internalType": "address", "name": "stakeToken",    "type": "address" },
-      { "internalType": "uint256", "name": "stakeAmount",   "type": "uint256" },
-      { "internalType": "uint256", "name": "totalWeeks",    "type": "uint256" },
-      { "internalType": "uint256", "name": "startTime",     "type": "uint256" },
-      { "internalType": "uint256", "name": "endTime",       "type": "uint256" },
-      { "internalType": "uint256", "name": "joinDeadline",  "type": "uint256" },
-      { "internalType": "bool",    "name": "yieldEnabled",  "type": "bool"    },
-      { "internalType": "bool",    "name": "potDeployed",   "type": "bool"    },
-      { "internalType": "string",  "name": "metadataCID",   "type": "string"  },
-      { "internalType": "uint8",   "name": "status",        "type": "uint8"   },
-      { "internalType": "uint256", "name": "potBalance",    "type": "uint256" },
-      { "internalType": "uint256", "name": "entrantCount",  "type": "uint256" },
-      { "internalType": "uint256", "name": "winnerCount",   "type": "uint256" }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
-      { "internalType": "string",  "name": "name",         "type": "string"  },
-      { "internalType": "address", "name": "stakeToken",   "type": "address" },
-      { "internalType": "uint256", "name": "stakeAmount",  "type": "uint256" },
-      { "internalType": "uint256", "name": "totalWeeks",   "type": "uint256" },
-      { "internalType": "uint256", "name": "startTime",    "type": "uint256" },
-      { "internalType": "uint256", "name": "endTime",      "type": "uint256" },
-      { "internalType": "uint256", "name": "joinDeadline", "type": "uint256" },
-      { "internalType": "bool",    "name": "yieldEnabled", "type": "bool"    },
-      { "internalType": "string",  "name": "metadataCID",  "type": "string"  }
+      {
+        "components": [
+          { "internalType": "string",  "name": "name",         "type": "string"  },
+          { "internalType": "address", "name": "stakeToken",   "type": "address" },
+          { "internalType": "uint256", "name": "stakeAmount",  "type": "uint256" },
+          { "internalType": "uint256", "name": "totalWeeks",   "type": "uint256" },
+          { "internalType": "uint256", "name": "startTime",    "type": "uint256" },
+          { "internalType": "uint256", "name": "endTime",      "type": "uint256" },
+          { "internalType": "uint256", "name": "joinDeadline", "type": "uint256" },
+          { "internalType": "bool",    "name": "yieldEnabled", "type": "bool"    },
+          { "internalType": "string",  "name": "metadataCID",  "type": "string"  }
+        ],
+        "internalType": "struct StreakBetEscrow.CreateParams",
+        "name": "p",
+        "type": "tuple"
+      }
     ],
     "name": "createCompetition",
     "outputs": [],
