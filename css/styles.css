@@ -8096,6 +8096,65 @@ svg text {
 
 /* ─── v3.1.0 Competition / Streak Bet Styles ─────────────────────────────── */
 
+/* Competition admin filter bar */
+.comp-filter-bar {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.comp-filter-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  border-radius: 6px;
+  background: rgba(0, 229, 255, 0.05);
+  color: #aacfdd;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.comp-filter-btn:hover {
+  background: rgba(0, 229, 255, 0.15);
+  color: #e0f7fa;
+}
+.comp-filter-btn.comp-filter-active {
+  background: rgba(0, 229, 255, 0.2);
+  border-color: #00e5ff;
+  color: #00e5ff;
+}
+
+/* Competition admin stats grid */
+.comp-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 0.5rem;
+}
+.comp-stats-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0.25rem;
+  border-radius: 8px;
+  background: rgba(0, 229, 255, 0.05);
+  border: 1px solid rgba(0, 229, 255, 0.1);
+}
+.comp-stats-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #e0f7fa;
+}
+.comp-stats-label {
+  font-size: 0.72rem;
+  color: #aacfdd;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 0.15rem;
+}
+.comp-stats-active .comp-stats-value { color: #00e676; }
+.comp-stats-settled .comp-stats-value { color: #ffd740; }
+.comp-stats-cancelled .comp-stats-value { color: #ff5252; }
+
 .comp-table {
   width: 100%;
   border-collapse: collapse;

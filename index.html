@@ -2159,10 +2159,26 @@
 
       <div class="gov-admin-panel">
 
+        <!-- Summary Stats -->
+        <details class="gov-admin-section" open>
+          <summary>📊 Summary Stats</summary>
+          <div class="gov-admin-section-body">
+            <div id="comp-stats-panel" class="comp-stats-grid">
+              <p class="gov-loading">Loading…</p>
+            </div>
+          </div>
+        </details>
+
         <!-- Existing Competitions -->
         <details class="gov-admin-section" open>
-          <summary>📋 Active Competitions</summary>
+          <summary>📋 All Competitions</summary>
           <div class="gov-admin-section-body">
+            <div class="comp-filter-bar" id="comp-filter-bar">
+              <button class="comp-filter-btn comp-filter-active" data-filter="all">All</button>
+              <button class="comp-filter-btn" data-filter="0">Active</button>
+              <button class="comp-filter-btn" data-filter="1">Settled</button>
+              <button class="comp-filter-btn" data-filter="2">Cancelled</button>
+            </div>
             <div id="comp-admin-list">
               <p class="gov-loading">Loading…</p>
             </div>
@@ -2193,6 +2209,13 @@
 
             <label class="gov-label">Total Weeks (streak length)
               <input id="comp-create-weeks" class="gov-input gov-input-short" type="number" min="1" placeholder="4" />
+            </label>
+
+            <label class="gov-label">Self-Report Cycle
+              <select id="comp-create-cycle" class="gov-input">
+                <option value="weekly">Weekly (1 report per week)</option>
+                <option value="daily">Daily (7 reports per week)</option>
+              </select>
             </label>
 
             <label class="gov-label">Start Date

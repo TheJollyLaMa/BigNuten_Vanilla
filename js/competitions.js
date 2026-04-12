@@ -164,6 +164,39 @@ async function fetchAllCompetitions() {
   return comps;
 }
 
+// ─── Admin: Current filter state ──────────────────────────────────────────────
+
+let _adminFilter = 'all';  // 'all' | '0' (Active) | '1' (Settled) | '2' (Cancelled)
+
+// ─── Admin: Render Summary Stats ──────────────────────────────────────────────
+
+function renderCompStats(comps) {
+  const el = document.getElementById('comp-stats-panel');
+  if (!el) return;
+
+  if (!comps || comps.length === 0) {
+    el.innerHTML = '<p style="color:#aaa;">No competition data yet.</p>';
+    return;
+  }
+
+  const active    = comps.filter(c => c.status === 0);
+  const settled   = comps.filter(c => c.status === 1);
+  const cancelled = comps.filter(c => c.status === 2);
+
+  const totalEntrants = comps.reduce((s, c) => s + c.entrantCount, 0);
+  const totalWinners  = comps.reduce((s, c) => s + c.winnerCount, 0);
+  const activePot     = active.reduce((s, c) => s + Number(c.potBalance || 0), 0);
+
+  el.innerHTML = `
+    <div class="comp-stats-item"><span class="comp-stats-value">${comps.length}</span><span class="comp-stats-label">Total</span></div>
+    <div class="comp-stats-item comp-stats-active"><span class="comp-stats-value">${active.length}</span><span class="comp-stats-label">Active</span></div>
+    <div class="comp-stats-item comp-stats-settled"><span class="comp-stats-value">${settled.length}</span><span class="comp-stats-label">Settled</span></div>
+    <div class="comp-stats-item comp-stats-cancelled"><span class="comp-stats-value">${cancelled.length}</span><span class="comp-stats-label">Cancelled</span></div>
+    <div class="comp-stats-item"><span class="comp-stats-value">${totalEntrants}</span><span class="comp-stats-label">Entrants</span></div>
+    <div class="comp-stats-item"><span class="comp-stats-value">${totalWinners}</span><span class="comp-stats-label">Winners</span></div>
+  `;
+}
+
 // ─── Admin: Render Competition List ───────────────────────────────────────────
 
 async function renderAdminCompList() {
@@ -172,6 +205,7 @@ async function renderAdminCompList() {
 
   if (!getStreakBetAddress()) {
     listEl.innerHTML = '<p style="color:#ffd740;">⚠️ StreakBetEscrow contract address not configured yet. Deploy the contract and add it to <code>contracts.js</code>.</p>';
+    renderCompStats([]);
     return;
   }
 
@@ -179,26 +213,39 @@ async function renderAdminCompList() {
 
   try {
     const comps = await fetchAllCompetitions();
-    if (comps.length === 0) {
-      listEl.innerHTML = '<p style="color:#aaa;">No competitions created yet.</p>';
+    renderCompStats(comps);
+
+    const filtered = _adminFilter === 'all'
+      ? comps
+      : comps.filter(c => c.status === Number(_adminFilter));
+
+    if (filtered.length === 0) {
+      const filterLabel = _adminFilter === 'all' ? '' : ` (${COMP_STATUS[Number(_adminFilter)] || ''})`;
+      listEl.innerHTML = `<p style="color:#aaa;">No${filterLabel} competitions found.</p>`;
       return;
     }
 
     let html = '<table class="comp-table"><thead><tr>' +
       '<th>#</th><th>Name</th><th>Token</th><th>Stake</th><th>Weeks</th>' +
-      '<th>Entrants</th><th>Winners</th><th>Status</th><th>Actions</th>' +
+      '<th>Cycle</th><th>Entrants</th><th>Winners</th><th>Pot</th><th>Dates</th><th>Status</th><th>Actions</th>' +
       '</tr></thead><tbody>';
 
-    for (const c of comps) {
+    for (const c of filtered) {
       const tokenLabel = c.stakeToken === ZERO_ADDR ? 'ETH' : shortAddr(c.stakeToken);
+      const potDisplay = fmtToken(c.potBalance, c.stakeToken);
+      const cycle = c.metadataCID && c.metadataCID.startsWith('cycle:')
+        ? c.metadataCID.split(';')[0].split(':')[1] : 'weekly';
       html += `<tr>
         <td>${c.id}</td>
         <td>${escHtml(c.name)}</td>
         <td>${tokenLabel}</td>
         <td>${fmtToken(c.stakeAmount, c.stakeToken)}</td>
         <td>${c.totalWeeks}</td>
+        <td>${escHtml(cycle)}</td>
         <td>${c.entrantCount}</td>
         <td>${c.winnerCount}</td>
+        <td>${potDisplay}</td>
+        <td style="white-space:normal;font-size:0.75rem;">${fmtDate(c.startTime)} – ${fmtDate(c.endTime)}</td>
         <td>${statusBadge(c.status)}</td>
         <td>
           ${c.status === 0 ? `
@@ -251,6 +298,10 @@ async function renderUserCompList() {
 
     for (const c of activeComps) {
       const tokenLabel = c.stakeToken === ZERO_ADDR ? 'ETH' : shortAddr(c.stakeToken);
+      const cycle = c.metadataCID && c.metadataCID.startsWith('cycle:')
+        ? c.metadataCID.split(';')[0].split(':')[1] : 'weekly';
+      const ipfsCID = c.metadataCID && c.metadataCID.includes(';')
+        ? c.metadataCID.split(';').slice(1).join(';') : '';
       let entrantInfo = '';
       let actionBtns = '';
 
@@ -294,10 +345,11 @@ async function renderUserCompList() {
             <div class="comp-stat"><span>Token</span><strong>${tokenLabel}</strong></div>
             <div class="comp-stat"><span>Stake</span><strong>${fmtToken(c.stakeAmount, c.stakeToken)}</strong></div>
             <div class="comp-stat"><span>Weeks</span><strong>${c.totalWeeks}</strong></div>
+            <div class="comp-stat"><span>Report Cycle</span><strong>${escHtml(cycle)}</strong></div>
             <div class="comp-stat"><span>Entrants</span><strong>${c.entrantCount}</strong></div>
             <div class="comp-stat"><span>Dates</span><strong>${fmtDate(c.startTime)} – ${fmtDate(c.endTime)}</strong></div>
             ${c.yieldEnabled ? '<div class="comp-stat"><span>Yield</span><strong>🌾 Aave enabled</strong></div>' : ''}
-            ${c.metadataCID ? `<div class="comp-stat"><span>Rules</span><a href="https://dweb.link/ipfs/${c.metadataCID}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">IPFS ↗</a></div>` : ''}
+            ${ipfsCID ? `<div class="comp-stat"><span>Rules</span><a href="https://dweb.link/ipfs/${ipfsCID}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">IPFS ↗</a></div>` : ''}
           </div>
           ${entrantInfo}
           <div class="comp-card-actions">${actionBtns}</div>
@@ -327,10 +379,16 @@ async function adminCreateComp() {
     const tokenSelect = document.getElementById('comp-create-token')?.value || 'ETH';
     const stakeRaw    = document.getElementById('comp-create-stake')?.value.trim();
     const weeks       = document.getElementById('comp-create-weeks')?.value.trim();
+    const cycle       = document.getElementById('comp-create-cycle')?.value || 'weekly';
     const startDate   = document.getElementById('comp-create-start')?.value;
     const endDate     = document.getElementById('comp-create-end')?.value;
     const yieldOn     = document.getElementById('comp-create-yield')?.checked || false;
-    const metaCID     = document.getElementById('comp-create-cid')?.value.trim() || '';
+    const metaCIDRaw  = document.getElementById('comp-create-cid')?.value.trim() || '';
+
+    // Prepend cycle info to metadataCID so it's stored on-chain
+    const metaCID = metaCIDRaw
+      ? `cycle:${cycle};${metaCIDRaw}`
+      : `cycle:${cycle}`;
 
     if (!name) throw new Error('Enter a competition name.');
     if (!stakeRaw || isNaN(stakeRaw) || Number(stakeRaw) <= 0) throw new Error('Enter a valid stake amount.');
@@ -520,6 +578,19 @@ export function initCompetitions() {
   const createBtn = document.getElementById('comp-create-btn');
   if (createBtn) {
     createBtn.addEventListener('click', adminCreateComp);
+  }
+
+  // Admin: filter buttons
+  const filterBar = document.getElementById('comp-filter-bar');
+  if (filterBar) {
+    filterBar.addEventListener('click', (e) => {
+      const btn = e.target.closest('.comp-filter-btn');
+      if (!btn) return;
+      _adminFilter = btn.dataset.filter;
+      filterBar.querySelectorAll('.comp-filter-btn').forEach(b => b.classList.remove('comp-filter-active'));
+      btn.classList.add('comp-filter-active');
+      renderAdminCompList();
+    });
   }
 
   // Expose loadCompetitionsList on window for modal open callbacks

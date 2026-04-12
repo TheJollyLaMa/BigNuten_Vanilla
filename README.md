@@ -187,8 +187,9 @@ The Admin Panel is accessible to the owner wallet (`DEFAULT_ADMIN_ROLE`) via the
   - After MetaMask confirmation, the admin runs `settle-payroll.yml` to commit the settled state
 
 ### 6. 🏆 Competitions (`comp-admin-modal`) — v3.1.0
-- **Active Competitions** — lists all on-chain competitions with status, entrant count, and admin actions
-- **Create New Competition** — admin defines name, stake token (ETH/USDC/BNUT), stake amount, week count, dates, Aave yield toggle, and optional IPFS metadata CID
+- **Summary Stats** — at-a-glance counters for total, active, settled, cancelled competitions, total entrants, and total winners
+- **All Competitions** — lists all on-chain competitions with status filter tabs (All / Active / Settled / Cancelled), showing pot balance, self-report cycle, dates, and admin actions
+- **Create New Competition** — admin defines name, stake token (ETH/USDC/BNUT), stake amount, week count, self-report cycle (weekly/daily), dates, Aave yield toggle, and optional IPFS metadata CID
 - **Settle** — auto-forfeits incomplete entrants, distributes pot + yield to winners, publishes leaderboard CID
 - **Cancel** — refunds all non-forfeited entrants
 - **Aave Deploy** — deploys pot to Aave V3 for yield during the comp period (ERC-20 only)
