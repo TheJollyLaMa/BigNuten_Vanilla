@@ -7,14 +7,26 @@
  *  - loadCompetitionsList()      — fetch all comps from chain, render in admin & user modals
  *
  * Features:
- *  - Admin: create / settle / cancel competitions
- *  - User:  join, self-report weekly, forfeit, view streak
+ *  - Admin: create / settle / cancel / compile daily report
+ *  - User:  join, auto-verified via local data, forfeit, view streak
  *  - Aave yield: deploy pot / withdraw (admin)
- *  - IPFS: publish leaderboard CID on settlement
+ *  - IPFS: publish daily chained reports & leaderboard CID on settlement
+ *  - Streak bot: auto-verifies user data at app load (see streakVerify.js)
  *
  * All on-chain calls target StreakBetEscrow on Optimism Mainnet.
  * Related issue: #71 (v3.1.0 Epic).
  */
+
+import {
+  DATA_SOURCES,
+  extractSource,
+  checkDataForDate,
+  buildDailyReport,
+  publishDailyReport,
+  getLatestReportCID,
+  getReportChain,
+  runAutoVerify,
+} from './streakVerify.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -102,6 +114,22 @@ function setEl(id, html) {
   if (el) el.innerHTML = html;
 }
 
+// metadataCID on-chain format: "cycle:<weekly|daily>;src:<dataSource>[;<ipfsCID>]"
+function extractCycle(metadataCID) {
+  if (metadataCID && metadataCID.includes('cycle:')) {
+    const match = metadataCID.match(/cycle:([^;]+)/);
+    return match ? match[1] : 'weekly';
+  }
+  return 'weekly';
+}
+
+function extractIPFSCID(metadataCID) {
+  if (!metadataCID) return '';
+  // Remove known key-value pairs, whatever remains after the last ; is the IPFS CID
+  const parts = metadataCID.split(';').filter(p => !p.startsWith('cycle:') && !p.startsWith('src:'));
+  return parts.join(';');
+}
+
 function statusMsg(id, msg, isErr) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -164,6 +192,39 @@ async function fetchAllCompetitions() {
   return comps;
 }
 
+// ─── Admin: Current filter state ──────────────────────────────────────────────
+
+let _adminFilter = 'all';  // 'all' | '0' (Active) | '1' (Settled) | '2' (Cancelled)
+
+// ─── Admin: Render Summary Stats ──────────────────────────────────────────────
+
+function renderCompStats(comps) {
+  const el = document.getElementById('comp-stats-panel');
+  if (!el) return;
+
+  if (!comps || comps.length === 0) {
+    el.innerHTML = '<p style="color:#aaa;">No competition data yet.</p>';
+    return;
+  }
+
+  const active    = comps.filter(c => c.status === 0);
+  const settled   = comps.filter(c => c.status === 1);
+  const cancelled = comps.filter(c => c.status === 2);
+
+  const totalEntrants = comps.reduce((s, c) => s + c.entrantCount, 0);
+  const totalWinners  = comps.reduce((s, c) => s + c.winnerCount, 0);
+  const activePot     = active.reduce((s, c) => s + Number(c.potBalance || 0), 0);
+
+  el.innerHTML = `
+    <div class="comp-stats-item"><span class="comp-stats-value">${comps.length}</span><span class="comp-stats-label">Total</span></div>
+    <div class="comp-stats-item comp-stats-active"><span class="comp-stats-value">${active.length}</span><span class="comp-stats-label">Active</span></div>
+    <div class="comp-stats-item comp-stats-settled"><span class="comp-stats-value">${settled.length}</span><span class="comp-stats-label">Settled</span></div>
+    <div class="comp-stats-item comp-stats-cancelled"><span class="comp-stats-value">${cancelled.length}</span><span class="comp-stats-label">Cancelled</span></div>
+    <div class="comp-stats-item"><span class="comp-stats-value">${totalEntrants}</span><span class="comp-stats-label">Entrants</span></div>
+    <div class="comp-stats-item"><span class="comp-stats-value">${totalWinners}</span><span class="comp-stats-label">Winners</span></div>
+  `;
+}
+
 // ─── Admin: Render Competition List ───────────────────────────────────────────
 
 async function renderAdminCompList() {
@@ -172,6 +233,7 @@ async function renderAdminCompList() {
 
   if (!getStreakBetAddress()) {
     listEl.innerHTML = '<p style="color:#ffd740;">⚠️ StreakBetEscrow contract address not configured yet. Deploy the contract and add it to <code>contracts.js</code>.</p>';
+    renderCompStats([]);
     return;
   }
 
@@ -179,31 +241,47 @@ async function renderAdminCompList() {
 
   try {
     const comps = await fetchAllCompetitions();
-    if (comps.length === 0) {
-      listEl.innerHTML = '<p style="color:#aaa;">No competitions created yet.</p>';
+    renderCompStats(comps);
+
+    const filtered = _adminFilter === 'all'
+      ? comps
+      : comps.filter(c => c.status === Number(_adminFilter));
+
+    if (filtered.length === 0) {
+      const filterLabel = _adminFilter === 'all' ? '' : ` (${COMP_STATUS[Number(_adminFilter)] || ''})`;
+      listEl.innerHTML = `<p style="color:#aaa;">No${filterLabel} competitions found.</p>`;
       return;
     }
 
     let html = '<table class="comp-table"><thead><tr>' +
-      '<th>#</th><th>Name</th><th>Token</th><th>Stake</th><th>Weeks</th>' +
-      '<th>Entrants</th><th>Winners</th><th>Status</th><th>Actions</th>' +
+      '<th>#</th><th>Name</th><th>Source</th><th>Token</th><th>Stake</th><th>Weeks</th>' +
+      '<th>Cycle</th><th>Entrants</th><th>Winners</th><th>Pot</th><th>Dates</th><th>Status</th><th>Actions</th>' +
       '</tr></thead><tbody>';
 
-    for (const c of comps) {
+    for (const c of filtered) {
       const tokenLabel = c.stakeToken === ZERO_ADDR ? 'ETH' : shortAddr(c.stakeToken);
+      const potDisplay = fmtToken(c.potBalance, c.stakeToken);
+      const cycle = extractCycle(c.metadataCID);
+      const source = extractSource(c.metadataCID);
+      const srcLabel = source ? DATA_SOURCES.find(s => s.value === source)?.label || source : '—';
       html += `<tr>
         <td>${c.id}</td>
         <td>${escHtml(c.name)}</td>
+        <td style="font-size:0.75rem;">${escHtml(srcLabel)}</td>
         <td>${tokenLabel}</td>
         <td>${fmtToken(c.stakeAmount, c.stakeToken)}</td>
         <td>${c.totalWeeks}</td>
+        <td>${escHtml(cycle)}</td>
         <td>${c.entrantCount}</td>
         <td>${c.winnerCount}</td>
+        <td>${potDisplay}</td>
+        <td style="white-space:normal;font-size:0.75rem;">${fmtDate(c.startTime)} – ${fmtDate(c.endTime)}</td>
         <td>${statusBadge(c.status)}</td>
         <td>
           ${c.status === 0 ? `
             <button class="comp-action-btn" onclick="window._compSettle(${c.id})">✅ Settle</button>
             <button class="comp-action-btn comp-danger" onclick="window._compCancel(${c.id})">❌ Cancel</button>
+            <button class="comp-action-btn" onclick="window._compDailyReport(${c.id})">📋 Report</button>
             ${c.yieldEnabled ? `<button class="comp-action-btn" onclick="window._compDeployAave(${c.id})">🌾 Aave</button>` : ''}
           ` : '—'}
         </td>
@@ -251,6 +329,10 @@ async function renderUserCompList() {
 
     for (const c of activeComps) {
       const tokenLabel = c.stakeToken === ZERO_ADDR ? 'ETH' : shortAddr(c.stakeToken);
+      const cycle = extractCycle(c.metadataCID);
+      const source = extractSource(c.metadataCID);
+      const srcLabel = source ? DATA_SOURCES.find(s => s.value === source)?.label || source : '';
+      const ipfsCID = extractIPFSCID(c.metadataCID);
       let entrantInfo = '';
       let actionBtns = '';
 
@@ -264,14 +346,17 @@ async function renderUserCompList() {
           if (joined) {
             // Already joined
             const statusLabel = ENTRANT_STATUS[status] || 'Unknown';
-            entrantInfo = `<p class="comp-entrant-status">Your status: <strong>${statusLabel}</strong> · Reports: ${reports}/${c.totalWeeks}</p>`;
+            const autoTag = source ? ' · 🤖 Auto-verified' : '';
+            entrantInfo = `<p class="comp-entrant-status">Your status: <strong>${statusLabel}</strong> · Reports: ${reports}/${c.totalWeeks}${autoTag}</p>`;
 
             if (status === 0) {
               // Still active — can report or forfeit
-              actionBtns = `
-                <button class="comp-user-btn" onclick="window._compReport(${c.id})">📝 Submit Report</button>
-                <button class="comp-user-btn comp-danger" onclick="window._compForfeit(${c.id})">🏳️ Forfeit</button>
-              `;
+              actionBtns = source
+                ? `<button class="comp-user-btn comp-danger" onclick="window._compForfeit(${c.id})">🏳️ Forfeit</button>`
+                : `
+                  <button class="comp-user-btn" onclick="window._compReport(${c.id})">📝 Submit Report</button>
+                  <button class="comp-user-btn comp-danger" onclick="window._compForfeit(${c.id})">🏳️ Forfeit</button>
+                `;
             }
           } else {
             // Not joined yet
@@ -291,13 +376,16 @@ async function renderUserCompList() {
             ${statusBadge(c.status)}
           </div>
           <div class="comp-card-body">
+            ${srcLabel ? `<div class="comp-stat"><span>Data Source</span><strong>${escHtml(srcLabel)}</strong></div>` : ''}
             <div class="comp-stat"><span>Token</span><strong>${tokenLabel}</strong></div>
             <div class="comp-stat"><span>Stake</span><strong>${fmtToken(c.stakeAmount, c.stakeToken)}</strong></div>
             <div class="comp-stat"><span>Weeks</span><strong>${c.totalWeeks}</strong></div>
+            <div class="comp-stat"><span>Report Cycle</span><strong>${escHtml(cycle)}</strong></div>
             <div class="comp-stat"><span>Entrants</span><strong>${c.entrantCount}</strong></div>
             <div class="comp-stat"><span>Dates</span><strong>${fmtDate(c.startTime)} – ${fmtDate(c.endTime)}</strong></div>
             ${c.yieldEnabled ? '<div class="comp-stat"><span>Yield</span><strong>🌾 Aave enabled</strong></div>' : ''}
-            ${c.metadataCID ? `<div class="comp-stat"><span>Rules</span><a href="https://dweb.link/ipfs/${c.metadataCID}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">IPFS ↗</a></div>` : ''}
+            ${ipfsCID ? `<div class="comp-stat"><span>Rules</span><a href="https://dweb.link/ipfs/${ipfsCID}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">IPFS ↗</a></div>` : ''}
+            ${source ? '<div class="comp-stat comp-auto-badge"><span>🤖</span><strong>Auto-verified from your logs</strong></div>' : ''}
           </div>
           ${entrantInfo}
           <div class="comp-card-actions">${actionBtns}</div>
@@ -327,10 +415,18 @@ async function adminCreateComp() {
     const tokenSelect = document.getElementById('comp-create-token')?.value || 'ETH';
     const stakeRaw    = document.getElementById('comp-create-stake')?.value.trim();
     const weeks       = document.getElementById('comp-create-weeks')?.value.trim();
+    const cycle       = document.getElementById('comp-create-cycle')?.value || 'weekly';
+    const source      = document.getElementById('comp-create-source')?.value || '';
     const startDate   = document.getElementById('comp-create-start')?.value;
     const endDate     = document.getElementById('comp-create-end')?.value;
     const yieldOn     = document.getElementById('comp-create-yield')?.checked || false;
-    const metaCID     = document.getElementById('comp-create-cid')?.value.trim() || '';
+    const metaCIDRaw  = document.getElementById('comp-create-cid')?.value.trim() || '';
+
+    // Build metadataCID: "cycle:<cycle>;src:<source>[;<ipfsCID>]"
+    let metaParts = [`cycle:${cycle}`];
+    if (source) metaParts.push(`src:${source}`);
+    if (metaCIDRaw) metaParts.push(metaCIDRaw);
+    const metaCID = metaParts.join(';');
 
     if (!name) throw new Error('Enter a competition name.');
     if (!stakeRaw || isNaN(stakeRaw) || Number(stakeRaw) <= 0) throw new Error('Enter a valid stake amount.');
@@ -419,6 +515,122 @@ async function adminDeployAave(compId) {
   }
 }
 
+// ─── Admin: Compile & Publish Daily Report ────────────────────────────────────
+
+async function adminDailyReport(compId) {
+  const statusEl = document.getElementById('comp-report-status');
+  try {
+    if (statusEl) { statusEl.textContent = '⏳ Compiling daily report…'; statusEl.style.color = '#00e5ff'; }
+
+    const readContract = getReadContract();
+    if (!readContract) throw new Error('Contract not configured.');
+
+    const c = await readContract.getCompetition(compId);
+    const source = extractSource(c.metadataCID);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dateStr = yesterday.toLocaleDateString('en-CA');
+
+    // Build verification list from on-chain entrant data
+    const total = Number(c.entrantCount);
+    const verifications = [];
+
+    // Query WeeklyReport events for this comp to get entrant addresses
+    const provider = new ethers.JsonRpcProvider(getRpc());
+    const eventContract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, provider);
+    const joinFilter = eventContract.filters.EntrantJoined(compId);
+    const joinEvents = await eventContract.queryFilter(joinFilter);
+
+    for (const ev of joinEvents) {
+      const wallet = ev.args.entrant;
+      try {
+        const e = await readContract.getEntrant(compId, wallet);
+        const entrantStatus = Number(e.status);
+        verifications.push({
+          wallet,
+          joined: e.joined,
+          reportsSubmitted: Number(e.reportsSubmitted),
+          status: ENTRANT_STATUS[entrantStatus] || 'Unknown',
+          // Entrant is "still in" if Active (0) or Completed (1); Forfeited (2) means out
+          verified: entrantStatus === 0 || entrantStatus === 1,
+          dateChecked: dateStr,
+          dataSource: source || 'manual',
+        });
+      } catch (_) {
+        verifications.push({ wallet, verified: false, dateChecked: dateStr, dataSource: source || 'manual' });
+      }
+    }
+
+    // Get previous report CID for chaining
+    const previousCID = getLatestReportCID(compId);
+
+    const comp = {
+      id: compId,
+      name: c.name,
+      stakeToken: c.stakeToken,
+      stakeAmount: c.stakeAmount,
+      potBalance: c.potBalance,
+      totalWeeks: Number(c.totalWeeks),
+      startTime: Number(c.startTime),
+      endTime: Number(c.endTime),
+      yieldEnabled: c.yieldEnabled,
+      entrantCount: Number(c.entrantCount),
+      winnerCount: Number(c.winnerCount),
+      status: Number(c.status),
+      metadataCID: c.metadataCID,
+    };
+
+    const report = buildDailyReport(comp, verifications, previousCID);
+
+    if (statusEl) { statusEl.textContent = '⏳ Publishing to IPFS…'; }
+    const cid = await publishDailyReport(report);
+
+    if (cid) {
+      if (statusEl) {
+        statusEl.innerHTML = `✅ Daily report published! CID: <a href="https://dweb.link/ipfs/${cid}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">${cid.slice(0, 12)}…</a>`;
+        statusEl.style.color = '#00e676';
+      }
+      renderReportChain(compId);
+    } else {
+      if (statusEl) {
+        statusEl.textContent = '⚠️ Report compiled but IPFS upload unavailable. Connect Storacha first.';
+        statusEl.style.color = '#ffd740';
+      }
+      // Still store locally for reference
+      console.log('[Competitions] Daily report (not uploaded):', report);
+    }
+  } catch (err) {
+    if (statusEl) { statusEl.textContent = '❌ ' + (err.reason || err.message); statusEl.style.color = '#ff5252'; }
+    console.error('[Competitions] Daily report error:', err);
+  }
+}
+
+// ─── Admin: Render Report Chain ───────────────────────────────────────────────
+
+function renderReportChain(compId) {
+  const el = document.getElementById('comp-report-chain');
+  if (!el) return;
+
+  const chain = getReportChain(compId);
+  if (chain.length === 0) {
+    el.innerHTML = '<p style="color:#aaa; font-size:0.82rem;">No daily reports published yet for this competition.</p>';
+    return;
+  }
+
+  let html = '<div class="comp-report-chain-list">';
+  for (const r of chain) {
+    html += `
+      <div class="comp-report-entry">
+        <span class="comp-report-date">${escHtml(r.date)}</span>
+        <span class="comp-report-stats">✅ ${r.verified} · ❌ ${r.failed}</span>
+        <a class="comp-report-link" href="https://dweb.link/ipfs/${r.cid}" target="_blank" rel="noopener noreferrer">${r.cid.slice(0, 12)}…</a>
+      </div>
+    `;
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
 // ─── User Actions ─────────────────────────────────────────────────────────────
 
 async function userJoinComp(compId) {
@@ -492,12 +704,13 @@ async function userForfeitComp(compId) {
 
 // ─── Expose for inline onclick handlers ───────────────────────────────────────
 
-window._compSettle     = adminSettleComp;
-window._compCancel     = adminCancelComp;
-window._compDeployAave = adminDeployAave;
-window._compJoin       = userJoinComp;
-window._compReport     = userSubmitReport;
-window._compForfeit    = userForfeitComp;
+window._compSettle      = adminSettleComp;
+window._compCancel      = adminCancelComp;
+window._compDeployAave  = adminDeployAave;
+window._compDailyReport = adminDailyReport;
+window._compJoin        = userJoinComp;
+window._compReport      = userSubmitReport;
+window._compForfeit     = userForfeitComp;
 
 // ─── Local History ────────────────────────────────────────────────────────────
 
@@ -522,10 +735,28 @@ export function initCompetitions() {
     createBtn.addEventListener('click', adminCreateComp);
   }
 
+  // Admin: filter buttons
+  const filterBar = document.getElementById('comp-filter-bar');
+  if (filterBar) {
+    filterBar.addEventListener('click', (e) => {
+      const btn = e.target.closest('.comp-filter-btn');
+      if (!btn) return;
+      _adminFilter = btn.dataset.filter;
+      filterBar.querySelectorAll('.comp-filter-btn').forEach(b => b.classList.remove('comp-filter-active'));
+      btn.classList.add('comp-filter-active');
+      renderAdminCompList();
+    });
+  }
+
   // Expose loadCompetitionsList on window for modal open callbacks
   window.loadCompetitionsList = async function () {
     await Promise.all([renderAdminCompList(), renderUserCompList()]);
   };
+
+  // Streak bot: auto-verify user data on app load (runs once per day)
+  setTimeout(() => {
+    runAutoVerify().catch(err => console.warn('[Competitions] Auto-verify skipped:', err.message));
+  }, 3000);
 }
 
 export async function loadCompetitionsList() {
