@@ -81,6 +81,13 @@ const AAVE_V3_POOL_ADDRESS = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
  */
 const ALCHEMIST_V2_ADDRESS = '0x10294d57A419C8eb78C648372c5bAA27fD1484af';
 
+/**
+ * StreakBetEscrow — v3.1.0 competition & streak bet escrow with optional Aave yield.
+ * Deployed on Optimism Mainnet. Set after deployment; empty string means "not yet deployed".
+ * Related issue: #71
+ */
+const STREAK_BET_ESCROW_ADDRESS = '';
+
 // ─── Token Metadata ───────────────────────────────────────────────────────────
 
 /**
@@ -113,6 +120,7 @@ const CONTRACTS = {
   usdc:           USDC_ADDRESS,
   aaveV3Pool:     AAVE_V3_POOL_ADDRESS,
   alchemistV2:    ALCHEMIST_V2_ADDRESS,
+  streakBetEscrow: STREAK_BET_ESCROW_ADDRESS,
   bnutToken:      BNUT_TOKEN,
   ethPlanId:      BIGNUTEN_ETH_PLAN_ID,
   bnutPlanId:     BIGNUTEN_BNUT_PLAN_ID,
@@ -130,6 +138,7 @@ window.BIGNUTEN_ETH_PLAN_ID          = BIGNUTEN_ETH_PLAN_ID;
 window.BIGNUTEN_BNUT_PLAN_ID         = BIGNUTEN_BNUT_PLAN_ID;
 window.AAVE_V3_POOL_ADDRESS          = AAVE_V3_POOL_ADDRESS;
 window.ALCHEMIST_V2_ADDRESS          = ALCHEMIST_V2_ADDRESS;
+window.STREAK_BET_ESCROW_ADDRESS     = STREAK_BET_ESCROW_ADDRESS;
 
 // Full CONTRACTS object for use in app.js and future modules.
 window.CONTRACTS = CONTRACTS;

@@ -61,6 +61,7 @@
         <button class="aes-menu-item admin-menu-item" id="admin-contributors-btn" role="menuitem">👥 Contributors</button>
         <button class="aes-menu-item admin-menu-item" id="admin-payroll-btn"      role="menuitem">💸 Payroll</button>
         <button class="aes-menu-item admin-menu-item" id="admin-defi-btn"         role="menuitem">🌾 v3 DeFi</button>
+        <button class="aes-menu-item admin-menu-item" id="admin-comp-btn"        role="menuitem">🏆 Competitions</button>
       </div>
 
       <!-- Staff of Aesculapius Dropdown (right ⚕︎) — user-facing features -->
@@ -1316,21 +1317,41 @@
 
   <!-- ── Achievements Modal (stub) ─────────────────────────────────────── -->
   <div id="achievements-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="achievements-modal-title">
-    <div class="modal aes-stub-modal">
+    <div class="modal gov-modal">
       <button class="modal-close" id="achievements-modal-close" aria-label="Close Achievements modal">×</button>
       <div class="aes-stub-header">
         <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
-        <h2 id="achievements-modal-title">🏆 Achievements</h2>
+        <h2 id="achievements-modal-title">🏆 Achievements &amp; Competitions</h2>
       </div>
-      <p class="aes-stub-desc">Track your fitness milestones and earn $BNUT rewards for hitting goals.</p>
-      <ul class="aes-stub-list">
-        <li>🥇 First Workout Logged</li>
-        <li>💧 7-Day Hydration Streak</li>
-        <li>⚖️ Reach Goal Weight</li>
-        <li>🌙 30-Day Sleep Tracker</li>
-        <li>🏋️ 100 Workouts Completed</li>
-      </ul>
-      <p class="aes-stub-coming-soon">🚧 Full achievement tracking &amp; $BNUT rewards coming soon!</p>
+      <p class="aes-stub-desc">
+        Join streak challenges, stake tokens, self-report weekly progress, and split the pot among finishers.
+        All on-chain, verifiable, and powered by honor.
+      </p>
+
+      <!-- Milestone badges (static for now) -->
+      <details class="gov-admin-section" style="margin-bottom:0.75rem;">
+        <summary>🏅 Milestones</summary>
+        <div class="gov-admin-section-body">
+          <ul class="aes-stub-list" style="margin:0;">
+            <li>🥇 First Workout Logged</li>
+            <li>💧 7-Day Hydration Streak</li>
+            <li>⚖️ Reach Goal Weight</li>
+            <li>🌙 30-Day Sleep Tracker</li>
+            <li>🏋️ 100 Workouts Completed</li>
+          </ul>
+          <p class="aes-stub-coming-soon" style="margin-bottom:0;">🚧 Full achievement DNFT minting coming in a future release.</p>
+        </div>
+      </details>
+
+      <!-- Active Competitions (user view) -->
+      <details class="gov-admin-section" open>
+        <summary>🎯 Active Streak Competitions</summary>
+        <div class="gov-admin-section-body">
+          <div id="comp-user-list">
+            <p class="gov-loading">Loading competitions…</p>
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -2120,6 +2141,86 @@
   </div>
 
   <!-- ── Data Sharing Modal (stub) ──────────────────────────────────────── -->
+
+  <!-- ── Competition Admin Modal (v3.1.0 — StreakBets) ────────────────── -->
+  <div id="comp-admin-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="comp-admin-modal-title">
+    <div class="modal gov-modal">
+      <button class="modal-close" id="comp-admin-modal-close" aria-label="Close Competition Admin">×</button>
+
+      <div class="aes-stub-header">
+        <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
+        <h2 id="comp-admin-modal-title">🏆 Competitions Admin</h2>
+      </div>
+      <p class="aes-stub-desc">
+        Create &amp; manage streak bet competitions. Users stake tokens to join,
+        self-report weekly progress, and split the pot among finishers.
+        Optional Aave yield on the escrowed pot.
+      </p>
+
+      <div class="gov-admin-panel">
+
+        <!-- Existing Competitions -->
+        <details class="gov-admin-section" open>
+          <summary>📋 Active Competitions</summary>
+          <div class="gov-admin-section-body">
+            <div id="comp-admin-list">
+              <p class="gov-loading">Loading…</p>
+            </div>
+          </div>
+        </details>
+
+        <!-- Create Competition -->
+        <details class="gov-admin-section" style="margin-top:0.5rem;">
+          <summary>➕ Create New Competition</summary>
+          <div class="gov-admin-section-body">
+            <p class="gov-admin-hint">Define a new competition. All fields are stored on-chain.</p>
+
+            <label class="gov-label">Competition Name
+              <input id="comp-create-name" class="gov-input" type="text" placeholder="e.g. 30-Day Weight Loss Streak" />
+            </label>
+
+            <label class="gov-label">Stake Token
+              <select id="comp-create-token" class="gov-input">
+                <option value="ETH">ETH</option>
+                <option value="USDC">USDC</option>
+                <option value="BNUT">$BNUT</option>
+              </select>
+            </label>
+
+            <label class="gov-label">Stake Amount (per entrant)
+              <input id="comp-create-stake" class="gov-input gov-input-short" type="number" min="0" step="any" placeholder="0.01" />
+            </label>
+
+            <label class="gov-label">Total Weeks (streak length)
+              <input id="comp-create-weeks" class="gov-input gov-input-short" type="number" min="1" placeholder="4" />
+            </label>
+
+            <label class="gov-label">Start Date
+              <input id="comp-create-start" class="gov-input" type="date" />
+            </label>
+
+            <label class="gov-label">End Date
+              <input id="comp-create-end" class="gov-input" type="date" />
+            </label>
+
+            <label class="gov-label" style="flex-direction:row; align-items:center; gap:0.5rem; cursor:pointer;">
+              <input id="comp-create-yield" type="checkbox" style="width:16px;height:16px;cursor:pointer;" />
+              <span>🌾 Enable Aave yield on pot (ERC-20 only)</span>
+            </label>
+
+            <label class="gov-label">IPFS Metadata CID <span style="color:#aaa;font-weight:normal;">(optional — rules/DNFT metadata)</span>
+              <input id="comp-create-cid" class="gov-input" type="text" placeholder="bafy…" />
+            </label>
+
+            <button id="comp-create-btn" class="gov-admin-action-btn">🚀 Create Competition</button>
+            <p id="comp-create-status" class="gov-form-status"></p>
+          </div>
+        </details>
+
+      </div>
+    </div>
+  </div>
+
   <!-- ── Payroll Modal (treasury owner only) ────────────────────────────── -->
   <div id="payroll-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="payroll-modal-title">
     <div class="modal gov-modal">

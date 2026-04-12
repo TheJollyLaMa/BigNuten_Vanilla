@@ -8093,3 +8093,129 @@ svg text {
     bottom: 128px;  /* 64px footer + 56px toolbar + 8px gap */
   }
 }
+
+/* ─── v3.1.0 Competition / Streak Bet Styles ─────────────────────────────── */
+
+.comp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.comp-table th,
+.comp-table td {
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+  white-space: nowrap;
+}
+.comp-table th {
+  color: #aacfdd;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.comp-table td {
+  color: #e0e0e0;
+}
+.comp-action-btn {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(0, 229, 255, 0.08);
+  color: #00e5ff;
+  font-size: 0.78rem;
+  cursor: pointer;
+  margin: 0.1rem;
+  transition: background 0.2s;
+}
+.comp-action-btn:hover {
+  background: rgba(0, 229, 255, 0.2);
+}
+.comp-action-btn.comp-danger {
+  border-color: rgba(255, 82, 82, 0.4);
+  color: #ff5252;
+  background: rgba(255, 82, 82, 0.08);
+}
+.comp-action-btn.comp-danger:hover {
+  background: rgba(255, 82, 82, 0.2);
+}
+
+/* User competition card */
+.comp-card {
+  background: rgba(0, 229, 255, 0.04);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+.comp-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.comp-card-header h4 {
+  margin: 0;
+  color: #e0f7fa;
+  font-size: 1rem;
+}
+.comp-card-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 1rem;
+  margin-bottom: 0.5rem;
+}
+.comp-stat {
+  font-size: 0.82rem;
+  color: #aacfdd;
+}
+.comp-stat strong {
+  color: #e0e0e0;
+}
+.comp-stat a {
+  text-decoration: none;
+}
+.comp-entrant-status {
+  font-size: 0.85rem;
+  color: #b2dfdb;
+  margin: 0.25rem 0 0.5rem;
+}
+.comp-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+.comp-user-btn {
+  display: inline-block;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(0, 229, 255, 0.1);
+  color: #00e5ff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.comp-user-btn:hover {
+  background: rgba(0, 229, 255, 0.25);
+}
+.comp-user-btn.comp-join {
+  background: rgba(0, 230, 118, 0.12);
+  border-color: rgba(0, 230, 118, 0.3);
+  color: #00e676;
+}
+.comp-user-btn.comp-join:hover {
+  background: rgba(0, 230, 118, 0.25);
+}
+.comp-user-btn.comp-danger {
+  border-color: rgba(255, 82, 82, 0.4);
+  color: #ff5252;
+  background: rgba(255, 82, 82, 0.08);
+}
+.comp-user-btn.comp-danger:hover {
+  background: rgba(255, 82, 82, 0.2);
+}

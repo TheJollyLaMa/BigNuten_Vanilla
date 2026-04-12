@@ -7,6 +7,7 @@ import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, impo
 import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey, getHostedModelsForBackend, getGenieHostedModelName, setGenieHostedModelName, getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory, rateGenieSession, deleteGenieSession, MAX_INSIGHTS } from './genieChat.js';
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
+import { initCompetitions, loadCompetitionsList } from './competitions.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -4793,6 +4794,11 @@ document.addEventListener('DOMContentLoaded', () => {
     wireModal('admin-defi-btn', 'defi-admin-modal', 'defi-admin-modal-close', () => {
       if (typeof window.loadDeFiBalances === 'function') window.loadDeFiBalances();
     });
+
+    // 🏆 Competitions — auto-load competitions list on open
+    wireModal('admin-comp-btn', 'comp-admin-modal', 'comp-admin-modal-close', () => {
+      if (typeof window.loadCompetitionsList === 'function') window.loadCompetitionsList();
+    });
   })();
 
   // ── Settings modal (⚙️ gear in aesculapius dropdown) ─────────────────────
@@ -4935,7 +4941,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Stub modal helpers ────────────────────────────────────────────────────
 
   const stubModals = [
-    { btnId: 'aes-achieve-btn',   modalId: 'achievements-modal', closeId: 'achievements-modal-close' },
+    // aes-achieve-btn is now wired separately below to load competitions on open
     // aes-data-btn is now handled by initCommunityDashboard() (communityDashboard.js)
     { btnId: 'aes-challenge-btn', modalId: 'challenge-modal',    closeId: 'challenge-modal-close' },
   ];
@@ -4971,6 +4977,29 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   });
+
+  // ── Achievements & Competitions modal (user-facing) ───────────────────────
+  (function wireAchievementsModal() {
+    const btn   = document.getElementById('aes-achieve-btn');
+    const modal = document.getElementById('achievements-modal');
+    const close = document.getElementById('achievements-modal-close');
+    if (!modal) return;
+    function openModal() {
+      closeAesDropdown();
+      modal.classList.remove('modal-hidden');
+      document.body.classList.add('modal-active');
+      if (typeof window.loadCompetitionsList === 'function') window.loadCompetitionsList();
+    }
+    function closeModal() {
+      modal.classList.add('modal-hidden');
+      if (!document.querySelector('.modal-overlay:not(.modal-hidden)')) {
+        document.body.classList.remove('modal-active');
+      }
+    }
+    if (btn)   btn.addEventListener('click', openModal);
+    if (close) close.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  })();
 
   // ── Data & Storage button (aes-storage-btn) ──────────────────────────────
   document.getElementById('aes-storage-btn')?.addEventListener('click', () => {
@@ -7863,4 +7892,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Chakra Aura System ────────────────────────────────────────────────────
   initChakraAura();
+
+  // ── v3.1.0 Competitions (Streak Bets) ───────────────────────────────────
+  initCompetitions();
 });

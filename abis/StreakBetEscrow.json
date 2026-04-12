@@ -1,0 +1,243 @@
+[
+  {
+    "inputs": [
+      { "internalType": "address", "name": "initialOwner", "type": "address" },
+      { "internalType": "address", "name": "_aavePool", "type": "address" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "internalType": "uint256", "name": "compId",       "type": "uint256" },
+      { "indexed": false, "internalType": "string",  "name": "name",         "type": "string"  },
+      { "indexed": false, "internalType": "address", "name": "stakeToken",   "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "stakeAmount",  "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "totalWeeks",   "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "startTime",    "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "endTime",      "type": "uint256" },
+      { "indexed": false, "internalType": "bool",    "name": "yieldEnabled", "type": "bool"    },
+      { "indexed": false, "internalType": "string",  "name": "metadataCID",  "type": "string"  }
+    ],
+    "name": "CompetitionCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "internalType": "uint256", "name": "compId",         "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "winnerCount",    "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "potDistributed", "type": "uint256" },
+      { "indexed": false, "internalType": "string",  "name": "leaderboardCID", "type": "string"  }
+    ],
+    "name": "CompetitionSettled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "compId", "type": "uint256" }
+    ],
+    "name": "CompetitionCancelled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "internalType": "uint256", "name": "compId",  "type": "uint256" },
+      { "indexed": true,  "internalType": "address", "name": "entrant", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount",  "type": "uint256" }
+    ],
+    "name": "EntrantJoined",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "internalType": "uint256", "name": "compId",   "type": "uint256" },
+      { "indexed": true,  "internalType": "address", "name": "entrant",  "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "week",     "type": "uint256" },
+      { "indexed": false, "internalType": "string",  "name": "proofCID", "type": "string"  }
+    ],
+    "name": "WeeklyReport",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "compId",  "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "entrant", "type": "address" }
+    ],
+    "name": "EntrantForfeited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "compId",  "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "entrant", "type": "address" }
+    ],
+    "name": "EntrantCompleted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "internalType": "uint256", "name": "compId", "type": "uint256" },
+      { "indexed": true,  "internalType": "address", "name": "winner", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "WinningsDistributed",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "nextCompId",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "competitions",
+    "outputs": [
+      { "internalType": "string",  "name": "name",          "type": "string"  },
+      { "internalType": "address", "name": "stakeToken",    "type": "address" },
+      { "internalType": "uint256", "name": "stakeAmount",   "type": "uint256" },
+      { "internalType": "uint256", "name": "totalWeeks",    "type": "uint256" },
+      { "internalType": "uint256", "name": "startTime",     "type": "uint256" },
+      { "internalType": "uint256", "name": "endTime",       "type": "uint256" },
+      { "internalType": "bool",    "name": "yieldEnabled",  "type": "bool"    },
+      { "internalType": "string",  "name": "metadataCID",   "type": "string"  },
+      { "internalType": "uint8",   "name": "status",        "type": "uint8"   },
+      { "internalType": "uint256", "name": "potBalance",    "type": "uint256" },
+      { "internalType": "uint256", "name": "entrantCount",  "type": "uint256" },
+      { "internalType": "uint256", "name": "winnerCount",   "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "string",  "name": "name",         "type": "string"  },
+      { "internalType": "address", "name": "stakeToken",   "type": "address" },
+      { "internalType": "uint256", "name": "stakeAmount",  "type": "uint256" },
+      { "internalType": "uint256", "name": "totalWeeks",   "type": "uint256" },
+      { "internalType": "uint256", "name": "startTime",    "type": "uint256" },
+      { "internalType": "uint256", "name": "endTime",      "type": "uint256" },
+      { "internalType": "bool",    "name": "yieldEnabled", "type": "bool"    },
+      { "internalType": "string",  "name": "metadataCID",  "type": "string"  }
+    ],
+    "name": "createCompetition",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "compId", "type": "uint256" }],
+    "name": "joinCompetition",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "compId",   "type": "uint256" },
+      { "internalType": "string",  "name": "proofCID", "type": "string"  }
+    ],
+    "name": "submitReport",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "compId", "type": "uint256" }],
+    "name": "forfeit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "compId", "type": "uint256" }],
+    "name": "deployToAave",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "compId", "type": "uint256" }],
+    "name": "withdrawFromAave",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "compId",         "type": "uint256" },
+      { "internalType": "string",  "name": "leaderboardCID", "type": "string"  }
+    ],
+    "name": "settleCompetition",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "compId", "type": "uint256" }],
+    "name": "cancelCompetition",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "_aavePool", "type": "address" }],
+    "name": "setAavePool",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "compId", "type": "uint256" }],
+    "name": "getCompetition",
+    "outputs": [
+      { "internalType": "string",  "name": "name",          "type": "string"  },
+      { "internalType": "address", "name": "stakeToken",    "type": "address" },
+      { "internalType": "uint256", "name": "stakeAmount",   "type": "uint256" },
+      { "internalType": "uint256", "name": "totalWeeks",    "type": "uint256" },
+      { "internalType": "uint256", "name": "startTime",     "type": "uint256" },
+      { "internalType": "uint256", "name": "endTime",       "type": "uint256" },
+      { "internalType": "bool",    "name": "yieldEnabled",  "type": "bool"    },
+      { "internalType": "string",  "name": "metadataCID",   "type": "string"  },
+      { "internalType": "uint8",   "name": "status",        "type": "uint8"   },
+      { "internalType": "uint256", "name": "potBalance",    "type": "uint256" },
+      { "internalType": "uint256", "name": "entrantCount",  "type": "uint256" },
+      { "internalType": "uint256", "name": "winnerCount",   "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "compId", "type": "uint256" },
+      { "internalType": "address", "name": "addr",   "type": "address" }
+    ],
+    "name": "getEntrant",
+    "outputs": [
+      { "internalType": "uint256", "name": "reportsSubmitted", "type": "uint256" },
+      { "internalType": "uint8",   "name": "status",           "type": "uint8"   }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "aavePool",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "receive"
+  }
+]

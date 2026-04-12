@@ -67,12 +67,13 @@ v2.0.0 is a major upgrade that turns BigNuten from a personal tracker into a **c
 - ✅ Payroll queue validation on every push (`validate-payroll-queue.yml`)
 - ✅ Contributor accounts whitelist (`contributor-accounts.json`)
 
-### 🖥️ Admin Panel (5 modals)
+### 🖥️ Admin Panel (6 modals)
 - ✅ **$BNUT Admin** — Quick Mint (with mint-to-treasury option), view token stats
 - ✅ **Treasury Admin** — Check treasury BNUT balance, transfer tokens
 - ✅ **Escrow Admin** — Create/deactivate DecentEscrow subscription plans, view subscribers
 - ✅ **Contributors Admin** — Load/edit contributor wallets, download updated JSON
 - ✅ **Payroll** — Settle pending payouts via `batchPayContributors()` MetaMask call
+- 🆕 **Competitions** — Create/settle/cancel streak bet competitions (v3.1.0)
 
 ### 🗳️ Governance
 - ✅ On-chain governance via `BigNutenGov` contract
@@ -149,6 +150,7 @@ The entire contributor reward cycle is automated end-to-end — no private keys 
 | BigNutenTreasury | Optimism Mainnet | [`0x143cC41AC075FFA40be1993827DA6ffB4638A363`](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363) |
 | BigNutenGov | Optimism Mainnet | [`0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD`](https://optimistic.etherscan.io/address/0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD) |
 | DecentEscrow v0.1 | Optimism Mainnet | [`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) |
+| StreakBetEscrow (v3.1.0) | Optimism Mainnet | _Not yet deployed — set `STREAK_BET_ESCROW_ADDRESS` in `contracts.js` after deployment_ |
 
 Full deployment details: [`docs/DEPLOYMENTS.md`](docs/DEPLOYMENTS.md)
 
@@ -156,7 +158,7 @@ Full deployment details: [`docs/DEPLOYMENTS.md`](docs/DEPLOYMENTS.md)
 
 ## 🖥️ Admin Panel
 
-The Admin Panel is accessible to the owner wallet (`DEFAULT_ADMIN_ROLE`) via the **⚕︎ staff dropdown** in the top navigation. It opens 5 dedicated modals:
+The Admin Panel is accessible to the owner wallet (`DEFAULT_ADMIN_ROLE`) via the **⚕︎ staff dropdown** in the top navigation. It opens 6 dedicated modals:
 
 ### 1. 🪙 $BNUT Admin (`bnut-admin-modal`)
 - View total supply, current balance, and contract address
@@ -183,6 +185,13 @@ The Admin Panel is accessible to the owner wallet (`DEFAULT_ADMIN_ROLE`) via the
 - **Settle All Pending** — calls `batchPayContributors()` on BigNutenTreasury via MetaMask
   - Each pending entry maps to one `payContributor(address, issueRef, amount)` call
   - After MetaMask confirmation, the admin runs `settle-payroll.yml` to commit the settled state
+
+### 6. 🏆 Competitions (`comp-admin-modal`) — v3.1.0
+- **Active Competitions** — lists all on-chain competitions with status, entrant count, and admin actions
+- **Create New Competition** — admin defines name, stake token (ETH/USDC/BNUT), stake amount, week count, dates, Aave yield toggle, and optional IPFS metadata CID
+- **Settle** — auto-forfeits incomplete entrants, distributes pot + yield to winners, publishes leaderboard CID
+- **Cancel** — refunds all non-forfeited entrants
+- **Aave Deploy** — deploys pot to Aave V3 for yield during the comp period (ERC-20 only)
 
 > 🔐 The Admin Panel is only visible when the connected wallet matches the treasury owner address. No private keys are stored in GitHub — all on-chain actions go through MetaMask.
 
