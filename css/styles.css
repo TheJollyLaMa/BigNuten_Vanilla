@@ -8278,3 +8278,48 @@ svg text {
 .comp-user-btn.comp-danger:hover {
   background: rgba(255, 82, 82, 0.2);
 }
+
+/* Auto-verify badge in user cards */
+.comp-auto-badge {
+  grid-column: 1 / -1;
+  color: #00e676;
+  font-size: 0.78rem;
+}
+.comp-auto-badge strong {
+  color: #00e676;
+}
+
+/* Daily report chain viewer */
+.comp-report-chain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.comp-report-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(0, 229, 255, 0.04);
+  border: 1px solid rgba(0, 229, 255, 0.08);
+  font-size: 0.82rem;
+}
+.comp-report-date {
+  font-weight: 600;
+  color: #e0f7fa;
+  min-width: 6em;
+}
+.comp-report-stats {
+  color: #aacfdd;
+  min-width: 7em;
+}
+.comp-report-link {
+  color: #00e5ff;
+  text-decoration: none;
+  font-family: monospace;
+  font-size: 0.78rem;
+}
+.comp-report-link:hover {
+  text-decoration: underline;
+}
