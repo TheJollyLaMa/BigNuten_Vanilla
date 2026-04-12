@@ -102,6 +102,19 @@ function setEl(id, html) {
   if (el) el.innerHTML = html;
 }
 
+// metadataCID on-chain format: "cycle:<weekly|daily>[;<ipfsCID>]"
+function extractCycle(metadataCID) {
+  if (metadataCID && metadataCID.startsWith('cycle:'))
+    return metadataCID.split(';')[0].split(':')[1];
+  return 'weekly';
+}
+
+function extractIPFSCID(metadataCID) {
+  if (metadataCID && metadataCID.includes(';'))
+    return metadataCID.split(';').slice(1).join(';');
+  return '';
+}
+
 function statusMsg(id, msg, isErr) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -233,8 +246,7 @@ async function renderAdminCompList() {
     for (const c of filtered) {
       const tokenLabel = c.stakeToken === ZERO_ADDR ? 'ETH' : shortAddr(c.stakeToken);
       const potDisplay = fmtToken(c.potBalance, c.stakeToken);
-      const cycle = c.metadataCID && c.metadataCID.startsWith('cycle:')
-        ? c.metadataCID.split(';')[0].split(':')[1] : 'weekly';
+      const cycle = extractCycle(c.metadataCID);
       html += `<tr>
         <td>${c.id}</td>
         <td>${escHtml(c.name)}</td>
@@ -298,10 +310,8 @@ async function renderUserCompList() {
 
     for (const c of activeComps) {
       const tokenLabel = c.stakeToken === ZERO_ADDR ? 'ETH' : shortAddr(c.stakeToken);
-      const cycle = c.metadataCID && c.metadataCID.startsWith('cycle:')
-        ? c.metadataCID.split(';')[0].split(':')[1] : 'weekly';
-      const ipfsCID = c.metadataCID && c.metadataCID.includes(';')
-        ? c.metadataCID.split(';').slice(1).join(';') : '';
+      const cycle = extractCycle(c.metadataCID);
+      const ipfsCID = extractIPFSCID(c.metadataCID);
       let entrantInfo = '';
       let actionBtns = '';
 
