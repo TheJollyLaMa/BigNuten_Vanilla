@@ -40,9 +40,9 @@ const ENTRANT_STATUS = { 0: 'Joined', 1: 'Completed', 2: 'Forfeited' };
 // Minimal ABI fragments — full ABI lives in abis/StreakBetEscrow.json
 const STREAK_BET_ABI = [
   'function nextCompId() view returns (uint256)',
-  'function getCompetition(uint256 compId) view returns (string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, bool yieldEnabled, string metadataCID, uint8 status, uint256 potBalance, uint256 entrantCount, uint256 winnerCount)',
+  'function getCompetition(uint256 compId) view returns (string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, uint256 joinDeadline, bool yieldEnabled, string metadataCID, uint8 status, uint256 potBalance, uint256 entrantCount, uint256 winnerCount)',
   'function getEntrant(uint256 compId, address addr) view returns (bool joined, uint256 reportsSubmitted, uint8 status)',
-  'function createCompetition(string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, bool yieldEnabled, string metadataCID)',
+  'function createCompetition(string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, uint256 joinDeadline, bool yieldEnabled, string metadataCID)',
   'function joinCompetition(uint256 compId) payable',
   'function submitReport(uint256 compId, string proofCID)',
   'function forfeit(uint256 compId)',
@@ -50,13 +50,17 @@ const STREAK_BET_ABI = [
   'function withdrawFromAave(uint256 compId)',
   'function settleCompetition(uint256 compId, string leaderboardCID)',
   'function cancelCompetition(uint256 compId)',
-  'event CompetitionCreated(uint256 indexed compId, string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, bool yieldEnabled, string metadataCID)',
+  'function pause()',
+  'function unpause()',
+  'function paused() view returns (bool)',
+  'event CompetitionCreated(uint256 indexed compId, string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, uint256 joinDeadline, bool yieldEnabled, string metadataCID)',
   'event EntrantJoined(uint256 indexed compId, address indexed entrant, uint256 amount)',
   'event WeeklyReport(uint256 indexed compId, address indexed entrant, uint256 week, string proofCID)',
   'event EntrantCompleted(uint256 indexed compId, address indexed entrant)',
   'event EntrantForfeited(uint256 indexed compId, address indexed entrant)',
   'event WinningsDistributed(uint256 indexed compId, address indexed winner, uint256 amount)',
   'event CompetitionSettled(uint256 indexed compId, uint256 winnerCount, uint256 potDistributed, string leaderboardCID)',
+  'event AaveYieldCaptured(uint256 indexed compId, uint256 withdrawn, uint256 originalPot)',
 ];
 
 const ERC20_APPROVE_ABI = [
@@ -178,6 +182,7 @@ async function fetchAllCompetitions() {
         totalWeeks:   Number(c.totalWeeks),
         startTime:    Number(c.startTime),
         endTime:      Number(c.endTime),
+        joinDeadline: Number(c.joinDeadline),
         yieldEnabled: c.yieldEnabled,
         metadataCID:  c.metadataCID,
         status:       Number(c.status),
@@ -419,6 +424,7 @@ async function adminCreateComp() {
     const source      = document.getElementById('comp-create-source')?.value || '';
     const startDate   = document.getElementById('comp-create-start')?.value;
     const endDate     = document.getElementById('comp-create-end')?.value;
+    const joinDlDate  = document.getElementById('comp-create-join-deadline')?.value;
     const yieldOn     = document.getElementById('comp-create-yield')?.checked || false;
     const metaCIDRaw  = document.getElementById('comp-create-cid')?.value.trim() || '';
 
@@ -447,13 +453,19 @@ async function adminCreateComp() {
 
     const startTime = Math.floor(new Date(startDate).getTime() / 1000);
     const endTime   = Math.floor(new Date(endDate).getTime() / 1000);
+    // joinDeadline defaults to endTime if not specified by admin
+    const joinDeadline = joinDlDate
+      ? Math.floor(new Date(joinDlDate).getTime() / 1000)
+      : endTime;
 
     if (endTime <= startTime) throw new Error('End date must be after start date.');
+    if (joinDeadline > endTime) throw new Error('Join deadline must be on or before end date.');
+    if (joinDeadline < startTime) throw new Error('Join deadline must be on or after start date.');
 
     statusMsg(statusId, '⏳ Submitting create tx…');
     const tx = await contract.createCompetition(
       name, stakeToken, stakeAmount, Number(weeks),
-      startTime, endTime, yieldOn, metaCID
+      startTime, endTime, joinDeadline, yieldOn, metaCID
     );
     statusMsg(statusId, '⏳ Waiting for confirmation…');
     await tx.wait();

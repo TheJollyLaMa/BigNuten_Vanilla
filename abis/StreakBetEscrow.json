@@ -17,6 +17,7 @@
       { "indexed": false, "internalType": "uint256", "name": "totalWeeks",   "type": "uint256" },
       { "indexed": false, "internalType": "uint256", "name": "startTime",    "type": "uint256" },
       { "indexed": false, "internalType": "uint256", "name": "endTime",      "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "joinDeadline", "type": "uint256" },
       { "indexed": false, "internalType": "bool",    "name": "yieldEnabled", "type": "bool"    },
       { "indexed": false, "internalType": "string",  "name": "metadataCID",  "type": "string"  }
     ],
@@ -92,6 +93,16 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "internalType": "uint256", "name": "compId",      "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "withdrawn",   "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "originalPot", "type": "uint256" }
+    ],
+    "name": "AaveYieldCaptured",
+    "type": "event"
+  },
+  {
     "inputs": [],
     "name": "nextCompId",
     "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
@@ -108,7 +119,9 @@
       { "internalType": "uint256", "name": "totalWeeks",    "type": "uint256" },
       { "internalType": "uint256", "name": "startTime",     "type": "uint256" },
       { "internalType": "uint256", "name": "endTime",       "type": "uint256" },
+      { "internalType": "uint256", "name": "joinDeadline",  "type": "uint256" },
       { "internalType": "bool",    "name": "yieldEnabled",  "type": "bool"    },
+      { "internalType": "bool",    "name": "potDeployed",   "type": "bool"    },
       { "internalType": "string",  "name": "metadataCID",   "type": "string"  },
       { "internalType": "uint8",   "name": "status",        "type": "uint8"   },
       { "internalType": "uint256", "name": "potBalance",    "type": "uint256" },
@@ -126,6 +139,7 @@
       { "internalType": "uint256", "name": "totalWeeks",   "type": "uint256" },
       { "internalType": "uint256", "name": "startTime",    "type": "uint256" },
       { "internalType": "uint256", "name": "endTime",      "type": "uint256" },
+      { "internalType": "uint256", "name": "joinDeadline", "type": "uint256" },
       { "internalType": "bool",    "name": "yieldEnabled", "type": "bool"    },
       { "internalType": "string",  "name": "metadataCID",  "type": "string"  }
     ],
@@ -197,6 +211,27 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "pause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "unpause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "paused",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [{ "internalType": "uint256", "name": "compId", "type": "uint256" }],
     "name": "getCompetition",
     "outputs": [
@@ -206,6 +241,7 @@
       { "internalType": "uint256", "name": "totalWeeks",    "type": "uint256" },
       { "internalType": "uint256", "name": "startTime",     "type": "uint256" },
       { "internalType": "uint256", "name": "endTime",       "type": "uint256" },
+      { "internalType": "uint256", "name": "joinDeadline",  "type": "uint256" },
       { "internalType": "bool",    "name": "yieldEnabled",  "type": "bool"    },
       { "internalType": "string",  "name": "metadataCID",   "type": "string"  },
       { "internalType": "uint8",   "name": "status",        "type": "uint8"   },
