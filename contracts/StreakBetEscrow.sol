@@ -386,28 +386,9 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
 
     // ── View Functions ────────────────────────────────────────────────────────
 
-    /// @notice Returns competition details.
-    function getCompetition(uint256 compId) external view returns (
-        string memory name,
-        address stakeToken,
-        uint256 stakeAmount,
-        uint256 totalWeeks,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 joinDeadline,
-        bool    yieldEnabled,
-        string memory metadataCID,
-        CompStatus status,
-        uint256 potBalance,
-        uint256 entrantCount,
-        uint256 winnerCount
-    ) {
-        Competition storage c = competitions[compId];
-        return (
-            c.name, c.stakeToken, c.stakeAmount, c.totalWeeks,
-            c.startTime, c.endTime, c.joinDeadline, c.yieldEnabled, c.metadataCID,
-            c.status, c.potBalance, c.entrantCount, c.winnerCount
-        );
+    /// @notice Returns competition details as a struct (avoids stack-too-deep).
+    function getCompetition(uint256 compId) external view returns (Competition memory) {
+        return competitions[compId];
     }
 
     /// @notice Returns entrant details for a given competition and entrant address.
