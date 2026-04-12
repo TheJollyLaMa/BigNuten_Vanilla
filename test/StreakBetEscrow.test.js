@@ -65,10 +65,17 @@ describe("StreakBetEscrow — Security Hardening", function () {
   describe("joinDeadline", function () {
     it("allows join before deadline", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
-      await escrow.createCompetition(
-        "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Test",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("0.1"),
+        totalWeeks: 4,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
       // Move time to just before the joinDeadline
       await time.increaseTo(joinDeadline - 10);
       await escrow.connect(alice).joinCompetition(0, { value: ethers.parseEther("0.1") });
@@ -78,10 +85,17 @@ describe("StreakBetEscrow — Security Hardening", function () {
 
     it("reverts join after deadline", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps(120); // 2 min deadline
-      await escrow.createCompetition(
-        "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Test",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("0.1"),
+        totalWeeks: 4,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
       // Move time past the joinDeadline
       await time.increaseTo(joinDeadline + 1);
       await expect(
@@ -92,20 +106,34 @@ describe("StreakBetEscrow — Security Hardening", function () {
     it("rejects joinDeadline > endTime at creation", async function () {
       const { startTime, endTime } = await compTimestamps();
       await expect(
-        escrow.createCompetition(
-          "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-          startTime, endTime, endTime + 1, false, ""
-        )
+        escrow.createCompetition({
+          name: "Test",
+          stakeToken: ZERO_ADDR,
+          stakeAmount: ethers.parseEther("0.1"),
+          totalWeeks: 4,
+          startTime,
+          endTime,
+          joinDeadline: endTime + 1,
+          yieldEnabled: false,
+          metadataCID: ""
+        })
       ).to.be.revertedWith("Escrow: joinDeadline must be <= endTime");
     });
 
     it("rejects joinDeadline < startTime at creation", async function () {
       const { startTime, endTime } = await compTimestamps();
       await expect(
-        escrow.createCompetition(
-          "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-          startTime, endTime, startTime - 1, false, ""
-        )
+        escrow.createCompetition({
+          name: "Test",
+          stakeToken: ZERO_ADDR,
+          stakeAmount: ethers.parseEther("0.1"),
+          totalWeeks: 4,
+          startTime,
+          endTime,
+          joinDeadline: startTime - 1,
+          yieldEnabled: false,
+          metadataCID: ""
+        })
       ).to.be.revertedWith("Escrow: joinDeadline must be >= startTime");
     });
   });
@@ -115,10 +143,17 @@ describe("StreakBetEscrow — Security Hardening", function () {
   describe("Settlement time guard", function () {
     it("reverts settle before endTime", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
-      await escrow.createCompetition(
-        "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Test",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("0.1"),
+        totalWeeks: 4,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
       // Try to settle immediately (before endTime)
       await expect(
         escrow.settleCompetition(0, "")
@@ -127,10 +162,17 @@ describe("StreakBetEscrow — Security Hardening", function () {
 
     it("allows settle after endTime", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
-      await escrow.createCompetition(
-        "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Test",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("0.1"),
+        totalWeeks: 4,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
       await time.increaseTo(endTime);
       await expect(escrow.settleCompetition(0, "QmFoo")).to.not.be.reverted;
     });
@@ -154,19 +196,33 @@ describe("StreakBetEscrow — Security Hardening", function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
       await escrow.pause();
       await expect(
-        escrow.createCompetition(
-          "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-          startTime, endTime, joinDeadline, false, ""
-        )
+        escrow.createCompetition({
+          name: "Test",
+          stakeToken: ZERO_ADDR,
+          stakeAmount: ethers.parseEther("0.1"),
+          totalWeeks: 4,
+          startTime,
+          endTime,
+          joinDeadline,
+          yieldEnabled: false,
+          metadataCID: ""
+        })
       ).to.be.reverted;
     });
 
     it("joinCompetition reverts when paused", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
-      await escrow.createCompetition(
-        "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Test",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("0.1"),
+        totalWeeks: 4,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
       await escrow.pause();
       await expect(
         escrow.connect(alice).joinCompetition(0, { value: ethers.parseEther("0.1") })
@@ -175,10 +231,17 @@ describe("StreakBetEscrow — Security Hardening", function () {
 
     it("settleCompetition reverts when paused", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
-      await escrow.createCompetition(
-        "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Test",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("0.1"),
+        totalWeeks: 4,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
       await time.increaseTo(endTime);
       await escrow.pause();
       await expect(escrow.settleCompetition(0, "")).to.be.reverted;
@@ -186,20 +249,34 @@ describe("StreakBetEscrow — Security Hardening", function () {
 
     it("cancelCompetition reverts when paused", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
-      await escrow.createCompetition(
-        "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Test",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("0.1"),
+        totalWeeks: 4,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
       await escrow.pause();
       await expect(escrow.cancelCompetition(0)).to.be.reverted;
     });
 
     it("submitReport reverts when paused", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
-      await escrow.createCompetition(
-        "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Test",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("0.1"),
+        totalWeeks: 4,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
       await time.increaseTo(joinDeadline - 10);
       await escrow.connect(alice).joinCompetition(0, { value: ethers.parseEther("0.1") });
       await escrow.pause();
@@ -210,10 +287,17 @@ describe("StreakBetEscrow — Security Hardening", function () {
 
     it("forfeit reverts when paused", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
-      await escrow.createCompetition(
-        "Test", ZERO_ADDR, ethers.parseEther("0.1"), 4,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Test",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("0.1"),
+        totalWeeks: 4,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
       await time.increaseTo(joinDeadline - 10);
       await escrow.connect(alice).joinCompetition(0, { value: ethers.parseEther("0.1") });
       await escrow.pause();
@@ -226,10 +310,17 @@ describe("StreakBetEscrow — Security Hardening", function () {
   describe("ETH competitions", function () {
     it("full lifecycle: create → join → report → settle", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
-      await escrow.createCompetition(
-        "ETH Comp", ZERO_ADDR, ethers.parseEther("1"), 1,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "ETH Comp",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("1"),
+        totalWeeks: 1,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
 
       // Alice joins
       await time.increaseTo(startTime + 1);
@@ -251,10 +342,17 @@ describe("StreakBetEscrow — Security Hardening", function () {
 
     it("cancel refunds entrants", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
-      await escrow.createCompetition(
-        "Cancel Test", ZERO_ADDR, ethers.parseEther("1"), 4,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Cancel Test",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("1"),
+        totalWeeks: 4,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
       await time.increaseTo(startTime + 1);
       await escrow.connect(alice).joinCompetition(0, { value: ethers.parseEther("1") });
 
@@ -273,10 +371,17 @@ describe("StreakBetEscrow — Security Hardening", function () {
       const tokenAddr = await token.getAddress();
       const escrowAddr = await escrow.getAddress();
 
-      await escrow.createCompetition(
-        "Token Comp", tokenAddr, ethers.parseEther("100"), 2,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Token Comp",
+        stakeToken: tokenAddr,
+        stakeAmount: ethers.parseEther("100"),
+        totalWeeks: 2,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
 
       // Fund Alice and approve
       await token.transfer(alice.address, ethers.parseEther("200"));
@@ -293,10 +398,17 @@ describe("StreakBetEscrow — Security Hardening", function () {
       const tokenAddr = await token.getAddress();
       const escrowAddr = await escrow.getAddress();
 
-      await escrow.createCompetition(
-        "Token Settle", tokenAddr, ethers.parseEther("50"), 1,
-        startTime, endTime, joinDeadline, false, ""
-      );
+      await escrow.createCompetition({
+        name: "Token Settle",
+        stakeToken: tokenAddr,
+        stakeAmount: ethers.parseEther("50"),
+        totalWeeks: 1,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: ""
+      });
 
       // Fund Alice, Bob and approve
       await token.transfer(alice.address, ethers.parseEther("100"));
@@ -326,10 +438,17 @@ describe("StreakBetEscrow — Security Hardening", function () {
   describe("getCompetition", function () {
     it("returns joinDeadline field", async function () {
       const { startTime, endTime, joinDeadline } = await compTimestamps();
-      await escrow.createCompetition(
-        "View Test", ZERO_ADDR, ethers.parseEther("0.01"), 2,
-        startTime, endTime, joinDeadline, false, "QmMeta"
-      );
+      await escrow.createCompetition({
+        name: "View Test",
+        stakeToken: ZERO_ADDR,
+        stakeAmount: ethers.parseEther("0.01"),
+        totalWeeks: 2,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: false,
+        metadataCID: "QmMeta"
+      });
       const c = await escrow.getCompetition(0);
       expect(Number(c.joinDeadline)).to.equal(joinDeadline);
       expect(c.name).to.equal("View Test");
