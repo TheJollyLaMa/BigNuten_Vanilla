@@ -134,6 +134,20 @@ function extractIPFSCID(metadataCID) {
   return parts.join(';');
 }
 
+/** Parse a YYYY-MM-DD date string as local midnight (start of that day). */
+function dateToLocalStartTs(dateStr) {
+  if (!dateStr) return 0;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return Math.floor(new Date(y, m - 1, d, 0, 0, 0, 0).getTime() / 1000);
+}
+
+/** Parse a YYYY-MM-DD date string as local 23:59:59 (end of that day). */
+function dateToLocalEndTs(dateStr) {
+  if (!dateStr) return 0;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return Math.floor(new Date(y, m - 1, d, 23, 59, 59, 0).getTime() / 1000);
+}
+
 function statusMsg(id, msg, isErr) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -451,11 +465,11 @@ async function adminCreateComp() {
       stakeAmount = ethers.parseUnits(stakeRaw, 18);
     }
 
-    const startTime = Math.floor(new Date(startDate).getTime() / 1000);
-    const endTime   = Math.floor(new Date(endDate).getTime() / 1000);
+    const startTime = dateToLocalStartTs(startDate);
+    const endTime   = dateToLocalEndTs(endDate);
     // joinDeadline defaults to endTime if not specified by admin
     const joinDeadline = joinDlDate
-      ? Math.floor(new Date(joinDlDate).getTime() / 1000)
+      ? dateToLocalEndTs(joinDlDate)
       : endTime;
 
     if (endTime <= startTime) throw new Error('End date must be after start date.');
