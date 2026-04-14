@@ -15,6 +15,8 @@
  *   H – ERC-20 + Aave yield capture → winners share principal + yield
  *   I – Cancelled competition (ETH) → all entrants refunded
  *   J – Cancelled competition (ERC-20) → all entrants refunded
+ *   K – Multiple concurrent competitions → independent pot accounting
+ *   L – Zero entrants → settle empty competition cleanly
  *
  * Run locally:
  *   npx hardhat test test/StreakBetEscrow.scenarios.test.js

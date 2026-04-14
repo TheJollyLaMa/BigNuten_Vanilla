@@ -78,7 +78,7 @@ function step(msg) {
 /** Log a balance snapshot for a named wallet. */
 async function logBalance(label, addr) {
   const bal = await ethers.provider.getBalance(addr);
-  console.log(`    ${label.padEnd(10)} ${addr.slice(0, 10)}… : ${fmt(bal)}`);
+  console.log(`    ${label.padEnd(10)} ${addr.slice(0, 10)}... : ${fmt(bal)}`);
 }
 
 /** Log all wallet balances. */
@@ -96,7 +96,7 @@ async function logBalances(wallets) {
 async function ensureFunded(funder, recipient, amount, minBalance = 0n) {
   const bal = await ethers.provider.getBalance(recipient.address);
   if (bal < minBalance) {
-    step(`Funding ${recipient.address.slice(0, 10)}… with ${fmt(amount)}`);
+    step(`Funding ${recipient.address.slice(0, 10)}... with ${fmt(amount)}`);
     const tx = await funder.sendTransaction({ to: recipient.address, value: amount });
     await tx.wait();
     await sleep(TX_PAUSE_MS);
@@ -124,14 +124,14 @@ async function waitUntil(targetTimestamp, label = "endTime") {
     const { time } = require("@nomicfoundation/hardhat-network-helpers");
     await time.increaseTo(targetTimestamp);
   } else {
-    step(`Waiting for ${label} (${new Date(targetTimestamp * 1000).toISOString()})…`);
+    step(`Waiting for ${label} (${new Date(targetTimestamp * 1000).toISOString()})...`);
     // Poll with exponential back-off (max 30 s intervals).
     let interval = 5000;
     while (true) {
       const block = await ethers.provider.getBlock("latest");
       if (block.timestamp >= targetTimestamp) break;
       const remaining = targetTimestamp - block.timestamp;
-      console.log(`    ⏳ ${remaining}s remaining…`);
+      console.log(`    ⏳ ${remaining} seconds remaining...`);
       await sleep(Math.min(interval, remaining * 1000, 30000));
       interval = Math.min(interval * 2, 30000);
     }
@@ -141,7 +141,7 @@ async function waitUntil(targetTimestamp, label = "endTime") {
 // ── Deploy helpers ────────────────────────────────────────────────────────────
 
 async function deployEscrow(owner) {
-  step("Deploying StreakBetEscrow…");
+  step("Deploying StreakBetEscrow...");
   const Factory = await ethers.getContractFactory("StreakBetEscrow", owner);
   const escrow  = await Factory.deploy(owner.address, AAVE_POOL_ADDRESS);
   await escrow.waitForDeployment();
@@ -151,7 +151,7 @@ async function deployEscrow(owner) {
 }
 
 async function deployMockToken(owner, escrowAddr) {
-  step("Deploying MockERC20 token for ERC-20 scenarios…");
+  step("Deploying MockERC20 token for ERC-20 scenarios...");
   const Factory = await ethers.getContractFactory("MockERC20", owner);
   const token   = await Factory.deploy("SimToken", "SIM", ethers.parseEther("1000000"));
   await token.waitForDeployment();
