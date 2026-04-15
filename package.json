@@ -8,6 +8,7 @@
     "test": "hardhat test",
     "test:scenarios": "hardhat test test/StreakBetEscrow.scenarios.test.js",
     "sim": "hardhat run scripts/streakbot-sim.js",
+    "sim:live:estimate": "SIM_PHASE=estimate hardhat run scripts/streakbot-live.js --network optimism",
     "sim:live:setup": "SIM_PHASE=setup hardhat run scripts/streakbot-live.js --network optimism",
     "sim:live:settle": "SIM_PHASE=settle hardhat run scripts/streakbot-live.js --network optimism",
     "deploy:polygon": "hardhat run scripts/deploy.js --network polygon_mumbai",
