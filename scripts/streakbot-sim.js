@@ -1,11 +1,18 @@
 /**
  * scripts/streakbot-sim.js
  *
- * StreakBet Escrow — Live Simulation Script
- * ==========================================
- * Deploys a fresh StreakBetEscrow to the configured network, then simulates a
- * full group running through every competition scenario using small real-ETH
- * stakes (≈ "pennies").
+ * StreakBet Escrow — Instant (Local) Simulation Script
+ * ======================================================
+ * ⚠️  THIS SCRIPT IS DESIGNED FOR LOCAL HARDHAT ONLY.
+ *     It uses Hardhat's time-manipulation helpers (time.increaseTo) to skip
+ *     through competition windows in seconds.  On a live network the 90-second
+ *     endTime windows will expire before participants can act.
+ *
+ *     For a real-money live test on Optimism mainnet with 1–2 day competitions
+ *     see scripts/streakbot-live.js instead.
+ *
+ * Deploys a fresh StreakBetEscrow to the local Hardhat node, then simulates a
+ * full group running through every competition scenario.
  *
  * Scenarios run in sequence:
  *   1. All complete → equal split (ETH)
@@ -17,22 +24,9 @@
  *   7. ERC-20: single winner takes all
  *   8. Cancelled competition → full refund (ETH)
  *
- * Prerequisites
- * -------------
- *   1. Set PRIVATE_KEY in .env (deployer / admin wallet).
- *   2. Fund the deployer wallet with testnet ETH on Optimism Sepolia:
- *      https://www.alchemy.com/faucets/optimism-sepolia
- *   3. The script derives four test wallets (Alice/Bob/Carol/Dave) from the
- *      deployer mnemonic path; all gas + stakes are funded inline.
- *
  * Usage
  * -----
- *   npx hardhat run scripts/streakbot-sim.js --network optimism_sepolia
- *
- * The script logs every action, balance snapshot, and payout so you can verify
- * the money flow end-to-end.
- *
- * ⚠️  This script uses real funds on a live testnet. Keep stakes tiny.
+ *   npx hardhat run scripts/streakbot-sim.js   # local Hardhat (instant)
  */
 
 const { ethers } = require("hardhat");

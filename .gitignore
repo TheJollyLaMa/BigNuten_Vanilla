@@ -139,3 +139,6 @@ package-lock.json
 # Hardhat build artifacts
 artifacts/
 cache/
+
+# StreakBot live sim state (written by streakbot-live.js setup phase)
+streakbot-live-state.json
