@@ -40,6 +40,27 @@ const OPTIMISM_RPC_URL =
 const POLYGONSCAN_API_KEY = process.env.POLYGONSCAN_API_KEY || "";
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || "";
 
+// HD wallet mnemonic — optional. When set, Hardhat derives 5 accounts from it
+// (indices 0–4: owner, Alice, Bob, Carol, Dave) for use with streakbot-live.js.
+// streakbot-live.js uses only indices 0–3; index 4 (Dave) is reserved for future
+// scenarios requiring a 4th test participant.
+// If not set, PRIVATE_KEY is used (single-account mode for regular scripts).
+const HD_MNEMONIC = process.env.HD_MNEMONIC || null;
+
+/**
+ * Build the `accounts` field for a live network:
+ *   - If HD_MNEMONIC is set → derive 5 wallets at indices 0–4
+ *                             (index 0 = owner/admin, indices 1–3 = Alice/Bob/Carol,
+ *                              index 4 = Dave, reserved for future scenarios).
+ *   - Otherwise            → single PRIVATE_KEY (regular deployments).
+ */
+function liveAccounts() {
+  if (HD_MNEMONIC) {
+    return { mnemonic: HD_MNEMONIC, count: 5 };
+  }
+  return [PRIVATE_KEY];
+}
+
 // ─── Hardhat Configuration ────────────────────────────────────────────────────
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -79,7 +100,7 @@ module.exports = {
     // Explorer: https://optimistic.etherscan.io
     optimism: {
       url: OPTIMISM_MAINNET_RPC_URL,
-      accounts: [PRIVATE_KEY],
+      accounts: liveAccounts(),
       chainId: 10,
     },
 
@@ -87,7 +108,7 @@ module.exports = {
     // Faucet: https://faucet.polygon.technology/
     polygon_mumbai: {
       url: POLYGON_RPC_URL,
-      accounts: [PRIVATE_KEY],
+      accounts: liveAccounts(),
       chainId: 80001,
     },
 
@@ -95,7 +116,7 @@ module.exports = {
     // Faucet: https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet
     base_sepolia: {
       url: BASE_RPC_URL,
-      accounts: [PRIVATE_KEY],
+      accounts: liveAccounts(),
       chainId: 84532,
     },
 
@@ -103,7 +124,7 @@ module.exports = {
     // Faucet: https://www.alchemy.com/faucets/optimism-sepolia
     optimism_sepolia: {
       url: OPTIMISM_RPC_URL,
-      accounts: [PRIVATE_KEY],
+      accounts: liveAccounts(),
       chainId: 11155420,
     },
   },
