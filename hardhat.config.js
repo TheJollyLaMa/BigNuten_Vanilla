@@ -41,14 +41,17 @@ const POLYGONSCAN_API_KEY = process.env.POLYGONSCAN_API_KEY || "";
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || "";
 
 // HD wallet mnemonic — optional. When set, Hardhat derives 5 accounts from it
-// (owner + Alice + Bob + Carol + Dave) for use with streakbot-live.js.
+// (indices 0–4: owner, Alice, Bob, Carol, Dave) for use with streakbot-live.js.
+// streakbot-live.js uses only indices 0–3; index 4 (Dave) is reserved for future
+// scenarios requiring a 4th test participant.
 // If not set, PRIVATE_KEY is used (single-account mode for regular scripts).
 const HD_MNEMONIC = process.env.HD_MNEMONIC || null;
 
 /**
  * Build the `accounts` field for a live network:
  *   - If HD_MNEMONIC is set → derive 5 wallets at indices 0–4
- *                             (index 0 = owner/admin, indices 1–4 = Alice/Bob/Carol/Dave).
+ *                             (index 0 = owner/admin, indices 1–3 = Alice/Bob/Carol,
+ *                              index 4 = Dave, reserved for future scenarios).
  *   - Otherwise            → single PRIVATE_KEY (regular deployments).
  */
 function liveAccounts() {

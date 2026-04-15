@@ -27,7 +27,7 @@
  * Prerequisites
  * -------------
  *   1. Add to your .env:
- *        HD_MNEMONIC="word1 word2 ... word12"   <- 12-word seed phrase
+ *        HD_MNEMONIC="word1 word2 ... word12"   <- BIP39 mnemonic (12, 15, 18, 21, or 24 words)
  *        OPTIMISM_MAINNET_RPC_URL=https://mainnet.optimism.io
  *        AAVE_POOL_ADDRESS=0x794a...814aD        <- optional, for yield
  *        ETH_PRICE_USD=3000                      <- optional, for USD estimates
@@ -94,6 +94,13 @@ const STATE_FILE = path.join(__dirname, "..", "streakbot-live-state.json");
 
 /** How long after competitions open we wait before joining (start is 60s in future). */
 const START_BUFFER_MS = 65_000; // 65 seconds (start is set 60s in the future + 5s margin)
+
+/**
+ * Safety buffer multiplier for the owner wallet funding recommendation.
+ * 120n = +20% over the calculated minimum (expressed as a percentage BigInt
+ * so it can be used directly with BigInt arithmetic: total * FUNDING_BUFFER_PCT / 100n).
+ */
+const FUNDING_BUFFER_PCT = 120n;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -192,7 +199,7 @@ async function waitUntilTimestamp(targetTimestamp, label) {
     }
     const hours   = Math.floor(remaining / 3600);
     const minutes = Math.floor((remaining % 3600) / 60);
-    const etaTime = new Date((Date.now() / 1000 + remaining) * 1000).toLocaleTimeString();
+    const etaTime = new Date(Date.now() + remaining * 1000).toLocaleTimeString();
     console.log(`    [${ts()}] ⏳ ${hours}h ${minutes}m remaining (ETA ${etaTime}) -- next check in 5 min...`);
     await sleep(POLL_MS);
   }
@@ -248,8 +255,8 @@ async function runEstimate(wallets, chainId) {
   let deployGas;
   try {
     const Factory    = await ethers.getContractFactory("StreakBetEscrow", owner);
-    const deployData = Factory.getDeployTransaction(owner.address, AAVE_POOL_ADDRESS);
-    deployGas        = await ethers.provider.estimateGas({ data: deployData.data, from: owner.address });
+    const deployTx = Factory.getDeployTransaction(owner.address, AAVE_POOL_ADDRESS);
+    deployGas      = await ethers.provider.estimateGas({ data: deployTx.data, from: owner.address });
   } catch {
     deployGas = 2_500_000n;
     warn("Could not estimate deploy gas on this network -- using 2.5M gas fallback.");
@@ -330,7 +337,7 @@ async function runEstimate(wallets, chainId) {
   const ownerOwnGas  = (GAS.deploy + GAS.transfer * 3n + GAS.create * 3n + GAS.settle * 3n) * gasPrice;
   const walletFunding = aliceNeed + bobNeed + carolNeed;
   const ownerTotal   = ownerOwnGas + walletFunding;
-  const withBuffer   = (ownerTotal * 120n) / 100n; // +20% safety buffer
+  const withBuffer   = (ownerTotal * FUNDING_BUFFER_PCT) / 100n;
 
   section("💰  How much to put in the OWNER wallet before running setup");
   step(`Minimum (exact):    ${fmt(ownerTotal)}  ${fmtUsd(ownerTotal)}`);
