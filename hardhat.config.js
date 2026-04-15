@@ -47,7 +47,8 @@ const HD_MNEMONIC = process.env.HD_MNEMONIC || null;
 
 /**
  * Build the `accounts` field for a live network:
- *   - If HD_MNEMONIC is set → derive 5 wallets (owner + 4 test wallets).
+ *   - If HD_MNEMONIC is set → derive 5 wallets at indices 0–4
+ *                             (index 0 = owner/admin, indices 1–4 = Alice/Bob/Carol/Dave).
  *   - Otherwise            → single PRIVATE_KEY (regular deployments).
  */
 function liveAccounts() {

@@ -157,6 +157,9 @@ function saveState(state) {
   step(`State saved → ${STATE_FILE}`);
 }
 
+/** How long before startTime we expect all join/report transactions to complete. */
+const START_BUFFER_MS = 65_000; // 65 seconds (start is set 60s in the future + 5s margin)
+
 // ── Deploy ────────────────────────────────────────────────────────────────────
 
 async function deployEscrow(owner) {
@@ -262,8 +265,8 @@ async function runSetup(wallets) {
   await sleep(TX_PAUSE_MS);
 
   // ── Wait for start ─────────────────────────────────────────────────────────
-  step("Waiting 65 seconds for competitions to start...");
-  await sleep(65_000);
+  step(`Waiting ${START_BUFFER_MS / 1000} seconds for competitions to start...`);
+  await sleep(START_BUFFER_MS);
 
   // ── All join Comp A ────────────────────────────────────────────────────────
   section("Joining Comp A (all three entrants)");
