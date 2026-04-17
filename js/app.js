@@ -8,6 +8,7 @@ import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGen
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 import { initCompetitions, loadCompetitionsList } from './competitions.js';
+import { initYogaFlow } from './yoga.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,6 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initDnftPayPalPurchase();
   // Initialise DNFT Stripe one-time purchase button (wallet validation + redirect)
   initDnftStripePurchase();
+  // Initialise Yoga Flow mode
+  initYogaFlow();
 
   const dietButton = document.getElementById('dietButton');
   const rawFoodModal = document.getElementById('rawFoodModal');

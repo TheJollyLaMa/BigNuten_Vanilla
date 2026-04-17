@@ -1,0 +1,1361 @@
+// yoga.js — Yoga Flow Mode for BigNuten Workout Panel
+// Provides a mindful yoga session with pose visuals, Sanskrit/Devanagari names,
+// breathing animations, and automatic session logging.
+
+import { getFitnessData, saveFitnessData } from './fitnessData.js';
+import {
+  isGenieEnabled, getGenieBackend, getGenieApiKey, getGenieHostedModelName
+} from './genieChat.js';
+
+const YOGA_POSES_KEY  = 'yogaCustomPoses';
+const YOGA_FLOWS_KEY  = 'yogaSavedFlows';  // named flow persistence
+
+// ─── Starter Pose Sequence ────────────────────────────────────────────────────
+const STARTER_POSES = [
+  {
+    id: 'tadasana',
+    english: 'Mountain Pose',
+    sanskrit: 'Tadasana',
+    devanagari: 'ताडासन',
+    duration: 60,
+    breathCue: 'Stand tall • root down • rise like a mountain',
+    svgKey: 'mountain',
+    chakra: '#ffd700'
+  },
+  {
+    id: 'adho-mukha-svanasana',
+    english: 'Downward Dog',
+    sanskrit: 'Adho Mukha Svanasana',
+    devanagari: 'अधोमुखश्वानासन',
+    duration: 60,
+    breathCue: 'Exhale into the earth • lengthen your spine',
+    svgKey: 'downdog',
+    chakra: '#00e5ff'
+  },
+  {
+    id: 'phalakasana',
+    english: 'Plank Pose',
+    sanskrit: 'Phalakasana',
+    devanagari: 'फलकासन',
+    duration: 30,
+    breathCue: 'Strong and steady • breathe with purpose',
+    svgKey: 'plank',
+    chakra: '#ff6600'
+  },
+  {
+    id: 'bhujangasana',
+    english: 'Cobra',
+    sanskrit: 'Bhujangasana',
+    devanagari: 'भुजङ्गासन',
+    duration: 45,
+    breathCue: 'Rise with each inhale • open your heart',
+    svgKey: 'cobra',
+    chakra: '#00ff88'
+  },
+  {
+    id: 'balasana',
+    english: "Child's Pose",
+    sanskrit: 'Balasana',
+    devanagari: 'बालासन',
+    duration: 60,
+    breathCue: 'Surrender and rest • breathe into your back',
+    svgKey: 'child',
+    chakra: '#aa66ff'
+  },
+  {
+    id: 'virabhadrasana-i',
+    english: 'Warrior I',
+    sanskrit: 'Virabhadrasana I',
+    devanagari: 'वीरभद्रासन I',
+    duration: 45,
+    breathCue: 'Rise like a warrior • grounded and lifted',
+    svgKey: 'warrior1',
+    chakra: '#ff3d3d'
+  },
+  {
+    id: 'virabhadrasana-ii',
+    english: 'Warrior II',
+    sanskrit: 'Virabhadrasana II',
+    devanagari: 'वीरभद्रासन II',
+    duration: 45,
+    breathCue: 'Expand your wings • breathe into your power',
+    svgKey: 'warrior2',
+    chakra: '#ff9900'
+  },
+  {
+    id: 'trikonasana',
+    english: 'Triangle',
+    sanskrit: 'Trikonasana',
+    devanagari: 'त्रिकोणासन',
+    duration: 45,
+    breathCue: 'Side-body opens • breathe into space',
+    svgKey: 'triangle',
+    chakra: '#00ccff'
+  },
+  {
+    id: 'paschimottanasana',
+    english: 'Seated Forward Fold',
+    sanskrit: 'Paschimottanasana',
+    devanagari: 'पश्चिमोत्तानासन',
+    duration: 60,
+    breathCue: 'Fold inward • each exhale brings you deeper',
+    svgKey: 'forwardfold',
+    chakra: '#66ff99'
+  },
+  {
+    id: 'setu-bandhasana',
+    english: 'Bridge Pose',
+    sanskrit: 'Setu Bandhasana',
+    devanagari: 'सेतुबन्धासन',
+    duration: 45,
+    breathCue: 'Lift your heart to the sky • breathe into your chest',
+    svgKey: 'bridge',
+    chakra: '#ffcc00'
+  },
+  {
+    id: 'supta-matsyendrasana',
+    english: 'Supine Twist',
+    sanskrit: 'Supta Matsyendrasana',
+    devanagari: 'सुप्त मत्स्येन्द्रासन',
+    duration: 60,
+    breathCue: 'Wring out tension • release on each exhale',
+    svgKey: 'supinetwist',
+    chakra: '#cc44ff'
+  },
+  {
+    id: 'savasana',
+    english: 'Corpse Pose',
+    sanskrit: 'Savasana',
+    devanagari: 'शवासन',
+    duration: 120,
+    breathCue: 'Let go completely • breathe like the tide',
+    svgKey: 'savasana',
+    chakra: '#ffffff'
+  }
+];
+
+// ─── SVG Pose Illustrations ───────────────────────────────────────────────────
+// Simple evocative stick-figure art for each pose.
+// Viewbox: 160×200, colors use chakra/gold tones on a transparent background.
+// w/h defaults to the full-size 160×200 display; pass smaller values for thumbnails.
+function getPoseSVG(key, color = '#ffd700', w = 160, h = 200) {
+  const c = color;
+  const dim = `width="${w}" height="${h}" viewBox="0 0 160 200"`;
+  const head = (cx, cy, r = 12) =>
+    `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${c}" stroke-width="2.5"/>`;
+  const line = (x1, y1, x2, y2) =>
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="2.5" stroke-linecap="round"/>`;
+
+  const glowFilter = `<defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>`;
+
+  const wrap = (content) =>
+    `<svg ${dim} xmlns="http://www.w3.org/2000/svg" filter="url(#glow)">${glowFilter}<g opacity="0.95">${content}</g></svg>`;
+
+  const svgs = {
+    // Mountain Pose — standing tall, arms slightly at sides, palms forward
+    mountain: wrap(
+      head(80, 30) +
+      line(80, 42, 80, 120) +          // spine
+      line(80, 60, 50, 90) +           // L arm
+      line(80, 60, 110, 90) +          // R arm
+      line(80, 120, 55, 170) +         // L leg
+      line(80, 120, 105, 170) +        // R leg
+      line(55, 170, 50, 180) +         // L foot
+      line(105, 170, 110, 180) +       // R foot
+      // ground line
+      `<line x1="30" y1="180" x2="130" y2="180" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    ),
+
+    // Downward Dog — inverted V: hips at apex, head hangs low between arms, feet and hands on floor
+    downdog: wrap(
+      // hips at top-center (apex of the inverted V)
+      // spine goes forward-down from hips to shoulders, then arms to both hands on floor
+      // legs go back-down from hips to feet on floor
+      // head hangs forward-down below shoulders
+      head(32, 122) +                    // head hanging low, forward between arms
+      line(80, 42, 38, 108) +            // spine: hips → shoulders (diagonal forward-down)
+      line(38, 108, 20, 152) +           // left arm: shoulder → left hand on floor
+      line(38, 108, 55, 152) +           // right arm: shoulder → right hand on floor
+      line(80, 42, 130, 152) +           // right leg: hips → right foot on floor
+      line(80, 42, 112, 152) +           // left leg: hips → left foot on floor
+      `<line x1="15" y1="155" x2="145" y2="155" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    ),
+
+    // Plank — horizontal body, arms straight down from shoulders
+    plank: wrap(
+      // body horizontal at y=100
+      `<circle cx="25" cy="88" r="11" fill="none" stroke="${c}" stroke-width="2.5"/>` +
+      line(36, 88, 135, 100) +         // spine horizontal
+      line(55, 90, 50, 120) +          // L arm
+      line(90, 94, 85, 124) +          // R arm
+      line(120, 98, 115, 128) +        // L leg
+      line(135, 100, 130, 130) +       // R leg
+      `<line x1="35" y1="128" x2="145" y2="128" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    ),
+
+    // Cobra — prone side view: head & chest raised, arms push up, legs flat
+    cobra: wrap(
+      // side view: lying face-down, upper body raised to right, legs trailing left
+      head(118, 58) +                    // head raised at right
+      line(100, 65, 45, 95) +            // neck/torso curving down to floor
+      line(90, 72, 75, 105) +            // R arm pushing from floor (right)
+      line(60, 88, 45, 120) +            // L arm pushing from floor (left)
+      line(45, 95, 20, 130) +            // L leg trailing flat
+      line(45, 95, 30, 128) +            // R leg trailing flat
+      `<path d="M 15 130 Q 70 135 125 130" fill="none" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    ),
+
+    // Child's Pose — curled forward, arms extended, knees on floor
+    child: wrap(
+      // curled body: head at front low, hips at back
+      `<circle cx="55" cy="140" r="11" fill="none" stroke="${c}" stroke-width="2.5"/>` +
+      line(66, 140, 100, 115) +        // spine arching
+      line(100, 115, 120, 105) +       // hips/back
+      line(55, 148, 50, 162) +         // L arm forward (under head)
+      line(55, 138, 25, 148) +         // R arm forward
+      line(100, 115, 110, 145) +       // L knee down
+      line(120, 105, 130, 135) +       // R knee down
+      `<line x1="20" y1="162" x2="140" y2="162" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    ),
+
+    // Warrior I — lunge, front knee bent, arms raised overhead
+    warrior1: wrap(
+      `<circle cx="80" cy="30" r="12" fill="none" stroke="${c}" stroke-width="2.5"/>` +
+      line(80, 42, 80, 100) +          // torso
+      line(80, 55, 65, 25) +           // L arm up
+      line(80, 55, 95, 25) +           // R arm up
+      line(80, 100, 55, 155) +         // L leg (front, bent)
+      line(55, 155, 50, 178) +         // L shin
+      line(80, 100, 115, 165) +        // R leg (back, straight)
+      `<line x1="30" y1="178" x2="140" y2="178" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    ),
+
+    // Warrior II — wide stance, arms out at shoulders
+    warrior2: wrap(
+      `<circle cx="80" cy="42" r="12" fill="none" stroke="${c}" stroke-width="2.5"/>` +
+      line(80, 54, 80, 115) +          // torso
+      line(80, 72, 18, 72) +           // L arm straight out
+      line(80, 72, 142, 72) +          // R arm straight out
+      line(80, 115, 45, 168) +         // L leg (front, bent at knee)
+      line(45, 168, 38, 178) +         // L foot
+      line(80, 115, 125, 168) +        // R leg (back, straighter)
+      line(125, 168, 132, 178) +       // R foot
+      `<line x1="18" y1="178" x2="142" y2="178" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    ),
+
+    // Triangle — wide stance, side bend, one arm down/one up
+    triangle: wrap(
+      `<circle cx="65" cy="50" r="12" fill="none" stroke="${c}" stroke-width="2.5"/>` +
+      line(65, 62, 60, 120) +          // torso side-bent
+      line(60, 90, 15, 75) +           // L arm up overhead
+      line(60, 90, 95, 138) +          // R arm down to ground
+      line(60, 120, 30, 172) +         // L leg
+      line(60, 120, 115, 168) +        // R leg (wide)
+      line(30, 172, 22, 178) +         // L foot
+      line(115, 168, 125, 178) +       // R foot
+      `<line x1="15" y1="178" x2="140" y2="178" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    ),
+
+    // Seated Forward Fold — seated on floor, torso folded forward over extended legs, head near feet
+    forwardfold: wrap(
+      // side view: sitting at left, legs extended right, torso folds toward feet
+      head(110, 128) +                   // head down near feet (forward)
+      line(60, 148, 95, 130) +           // torso leaning far forward
+      line(95, 130, 130, 125) +          // arms reaching toward feet
+      line(60, 148, 50, 160) +           // hips/sit-bones to floor
+      line(50, 160, 130, 165) +          // legs extended flat to right
+      line(130, 165, 135, 155) +         // foot
+      `<line x1="20" y1="168" x2="145" y2="168" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    ),
+
+    // Bridge Pose — supine, hips lifted
+    bridge: wrap(
+      // head at left-low, hips elevated center
+      `<circle cx="25" cy="145" r="11" fill="none" stroke="${c}" stroke-width="2.5"/>` +
+      line(36, 145, 80, 120) +         // spine arching up
+      line(80, 120, 130, 135) +        // hips to knees
+      line(80, 120, 60, 155) +         // L arm flat on ground
+      line(80, 120, 100, 155) +        // R arm flat on ground
+      line(130, 135, 125, 160) +       // L shin down
+      line(130, 135, 140, 160) +       // R shin down
+      `<line x1="15" y1="163" x2="145" y2="163" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    ),
+
+    // Supine Twist — lying on back, arms in T, knees bent and dropped to one side
+    supinetwist: wrap(
+      // head at left, body lying horizontally, arms in T, knees stacked to right
+      head(22, 108) +                    // head at left (lying)
+      line(34, 108, 138, 112) +          // spine horizontal (torso)
+      line(75, 110, 72, 145) +           // L arm down (T)
+      line(105, 111, 108, 146) +         // R arm down (T)
+      line(138, 112, 130, 145) +         // hip to knees (knees bent to right)
+      line(130, 145, 140, 168) +         // upper leg down
+      line(130, 145, 118, 165) +         // lower leg (stacked)
+      `<line x1="15" y1="170" x2="145" y2="170" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    ),
+
+    // Corpse Pose — lying flat, arms away from body
+    savasana: wrap(
+      `<circle cx="28" cy="108" r="12" fill="none" stroke="${c}" stroke-width="2.5"/>` +
+      line(40, 108, 138, 115) +        // spine horizontal
+      line(75, 110, 70, 138) +         // L arm angled
+      line(100, 112, 105, 140) +       // R arm angled
+      line(125, 114, 118, 160) +       // L leg
+      line(138, 115, 132, 160) +       // R leg
+      line(118, 160, 112, 170) +       // L foot
+      line(132, 160, 138, 170) +       // R foot
+      // Stars/sparkles for savasana
+      `<text x="60" y="60" font-size="10" fill="${c}" opacity="0.6">✦</text>` +
+      `<text x="90" y="50" font-size="8" fill="${c}" opacity="0.5">✦</text>` +
+      `<text x="110" y="65" font-size="6" fill="${c}" opacity="0.4">✦</text>` +
+      `<line x1="15" y1="172" x2="145" y2="172" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+    )
+  };
+
+  return svgs[key] || svgs.mountain;
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let yogaSession = {
+  active: false,
+  paused: false,
+  poses: [],
+  currentIndex: 0,
+  timerInterval: null,
+  secondsLeft: 0,
+  sessionStart: null,
+  sessionId: null,
+  completedPoses: []
+};
+
+// ─── Custom Pose Storage ──────────────────────────────────────────────────────
+function loadCustomPoses() {
+  try {
+    return JSON.parse(localStorage.getItem(YOGA_POSES_KEY) || '[]');
+  } catch { return []; }
+}
+
+function saveCustomPoses(poses) {
+  localStorage.setItem(YOGA_POSES_KEY, JSON.stringify(poses));
+}
+
+function getActivePoses() {
+  return [...STARTER_POSES, ...loadCustomPoses()];
+}
+
+// ─── Named Flow Save / Load ───────────────────────────────────────────────────
+function loadSavedFlows() {
+  try { return JSON.parse(localStorage.getItem(YOGA_FLOWS_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveSavedFlows(flows) {
+  try {
+    localStorage.setItem(YOGA_FLOWS_KEY, JSON.stringify(flows));
+  } catch (e) {
+    console.warn('Yoga: could not save flows (storage quota?):', e);
+    showYogaToast('⚠️ Could not save flow — storage may be full', 4000);
+  }
+}
+
+/** Save the current yogaSession.poses as a named flow. */
+function saveCurrentFlow(name) {
+  if (!name) return false;
+  const flows = loadSavedFlows();
+  const id = 'flow-' + Date.now();
+  // Strip per-session metadata; keep only pose shape
+  const poses = yogaSession.poses.map(p => ({
+    id: p.id, english: p.english, sanskrit: p.sanskrit,
+    devanagari: p.devanagari, duration: p.duration,
+    breathCue: p.breathCue, svgKey: p.svgKey, chakra: p.chakra,
+    custom: p.custom || false
+  }));
+  flows.push({ id, name, poses, createdAt: new Date().toISOString() });
+  saveSavedFlows(flows);
+  return true;
+}
+
+/** Load a saved flow by id into yogaSession.poses. */
+function loadFlow(flowId) {
+  const flows = loadSavedFlows();
+  const flow = flows.find(f => f.id === flowId);
+  if (!flow) return false;
+  yogaSession.poses = flow.poses.map(p => ({ ...p }));
+  renderPoseSequenceList();
+  if (yogaSession.poses[0]) showPose(yogaSession.poses[0], false);
+  return true;
+}
+
+function deleteFlow(flowId) {
+  const flows = loadSavedFlows().filter(f => f.id !== flowId);
+  saveSavedFlows(flows);
+}
+
+function renderSavedFlowsList() {
+  const ul = document.getElementById('yoga-saved-flows-list');
+  if (!ul) return;
+  ul.innerHTML = '';
+  const flows = loadSavedFlows();
+  if (flows.length === 0) {
+    const li = document.createElement('li');
+    li.style.cssText = 'font-size:0.74rem;color:#64748b;padding:4px 0;';
+    li.textContent = 'No saved flows yet — save your sequence above';
+    ul.appendChild(li);
+    return;
+  }
+  flows.forEach(flow => {
+    const li = document.createElement('li');
+    li.className = 'yoga-saved-flow-item';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'yoga-saved-flow-name';
+    nameSpan.textContent = flow.name;
+
+    const countSpan = document.createElement('span');
+    countSpan.className = 'yoga-saved-flow-count';
+    countSpan.textContent = `${flow.poses.length} poses`;
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'yoga-btn-load-flow';
+    loadBtn.textContent = '▶ Load';
+    loadBtn.setAttribute('aria-label', `Load flow: ${flow.name}`);
+    loadBtn.addEventListener('click', () => {
+      loadFlow(flow.id);
+      showYogaToast(`✅ Flow "${flow.name}" loaded`);
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'yoga-btn-delete-flow';
+    delBtn.textContent = '✕';
+    delBtn.setAttribute('aria-label', `Delete flow: ${flow.name}`);
+    delBtn.addEventListener('click', () => {
+      deleteFlow(flow.id);
+      renderSavedFlowsList();
+      showYogaToast(`🗑 Flow "${flow.name}" deleted`);
+    });
+
+    li.append(nameSpan, countSpan, loadBtn, delBtn);
+    ul.appendChild(li);
+  });
+}
+
+// ─── Audio: gentle singing bowl tone ─────────────────────────────────────────
+function playBowl(freq = 432, duration = 0.8) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  } catch (e) {
+    console.warn('AudioContext:', e);
+  }
+}
+
+// ─── Toast Notification ───────────────────────────────────────────────────────
+let toastTimeout = null;
+function showYogaToast(message, duration = 3000) {
+  let toast = document.getElementById('yoga-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'yoga-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    toast.style.cssText = `
+      position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+      background:rgba(30,0,60,0.95);color:#e9d5ff;
+      border:1px solid rgba(124,58,237,0.6);border-radius:10px;
+      padding:10px 20px;font-size:0.9rem;z-index:99999;
+      box-shadow:0 0 16px rgba(124,58,237,0.5);
+      pointer-events:none;text-align:center;
+      transition:opacity 0.3s;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.opacity = '1';
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => { toast.style.opacity = '0'; }, duration);
+}
+
+// ─── Breathing Animation ──────────────────────────────────────────────────────
+let breathInterval = null;
+
+function startBreathAnimation(color = '#ffd700') {
+  const aura = document.getElementById('yoga-breath-aura');
+  const label = document.getElementById('yoga-breath-label');
+  if (!aura) return;
+  aura.style.setProperty('--aura-color', color);
+  stopBreathAnimation();
+
+  const phases = [
+    { text: 'Inhale…', class: 'inhale', duration: 4000 },
+    { text: 'Hold…',   class: 'hold',   duration: 2000 },
+    { text: 'Exhale…', class: 'exhale', duration: 6000 },
+    { text: 'Hold…',   class: 'hold',   duration: 2000 }
+  ];
+  let phaseIndex = 0;
+  function runPhase() {
+    const phase = phases[phaseIndex % phases.length];
+    if (label) label.textContent = phase.text;
+    aura.className = 'yoga-aura ' + phase.class;
+    phaseIndex++;
+    breathInterval = setTimeout(runPhase, phase.duration);
+  }
+  runPhase();
+}
+
+function stopBreathAnimation() {
+  if (breathInterval) { clearTimeout(breathInterval); breathInterval = null; }
+  const aura = document.getElementById('yoga-breath-aura');
+  if (aura) aura.className = 'yoga-aura';
+}
+
+// ─── Timer Formatting ─────────────────────────────────────────────────────────
+function fmtTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+// ─── Security helper ──────────────────────────────────────────────────────────
+// Validate that a color value is a safe CSS hex color (3, 4, 6, or 8 hex digits)
+function safeCssColor(color) {
+  if (typeof color !== 'string') return '#ffd700';
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(color)
+    ? color
+    : '#ffd700';
+}
+
+// Validate that a svgKey is one of the known safe keys
+const KNOWN_SVG_KEYS = new Set([
+  'mountain','downdog','plank','cobra','child',
+  'warrior1','warrior2','triangle','forwardfold',
+  'bridge','supinetwist','savasana'
+]);
+function safeSvgKey(key) {
+  return KNOWN_SVG_KEYS.has(key) ? key : 'mountain';
+}
+
+// ─── UI Renderers ─────────────────────────────────────────────────────────────
+function makePoseListItem(pose, i, withControls) {
+  const li = document.createElement('li');
+  li.className = 'yoga-seq-item';
+  li.dataset.index = i;
+
+  const numSpan = document.createElement('span');
+  numSpan.className = 'yoga-seq-num';
+  numSpan.textContent = String(i + 1);
+
+  // Mini SVG thumbnail — safe svgKey and chakra validated
+  const thumbWrap = document.createElement('span');
+  thumbWrap.className = 'yoga-seq-thumb';
+  thumbWrap.setAttribute('aria-hidden', 'true');
+  thumbWrap.innerHTML = getPoseSVG(safeSvgKey(pose.svgKey), safeCssColor(pose.chakra), 32, 40);
+
+  const namesSpan = document.createElement('span');
+  namesSpan.className = 'yoga-seq-names';
+
+  const engSpan = document.createElement('span');
+  engSpan.className = 'yoga-seq-english';
+  engSpan.textContent = pose.english;
+
+  const sktSpan = document.createElement('span');
+  sktSpan.className = 'yoga-seq-sanskrit';
+  sktSpan.textContent = pose.sanskrit;
+
+  const devSpan = document.createElement('span');
+  devSpan.className = 'yoga-seq-devanagari';
+  devSpan.textContent = pose.devanagari;
+
+  namesSpan.append(engSpan, sktSpan, devSpan);
+  li.append(numSpan, thumbWrap, namesSpan);
+
+  if (withControls) {
+    const poseId = pose.id;
+
+    // Show duration in the most legible unit (use minutes if ≥ 60s and divisible)
+    const initUseMins = pose.duration >= 60 && pose.duration % 60 === 0;
+    const initDisplayVal = initUseMins ? Math.round(pose.duration / 60) : pose.duration;
+
+    const durInput = document.createElement('input');
+    durInput.type = 'number';
+    durInput.min = '1';
+    durInput.max = '3600';
+    durInput.value = String(initDisplayVal);
+    durInput.className = 'yoga-dur-input';
+    durInput.setAttribute('aria-label', `Duration for ${pose.english}`);
+
+    const unitBtn = document.createElement('button');
+    unitBtn.type = 'button';
+    unitBtn.className = 'yoga-dur-unit-btn' + (initUseMins ? ' is-min' : '');
+    unitBtn.textContent = initUseMins ? 'min' : 'sec';
+    unitBtn.setAttribute('aria-label', `Toggle seconds/minutes for ${pose.english}`);
+    unitBtn.title = 'Toggle sec / min';
+
+    // Keep a local state for the unit
+    let useMins = initUseMins;
+
+    const updateDuration = () => {
+      const idx = yogaSession.poses.findIndex(p => p.id === poseId);
+      if (idx !== -1) {
+        const rawVal = parseInt(durInput.value) || 1;
+        yogaSession.poses[idx].duration = useMins ? rawVal * 60 : rawVal;
+        updateEstimatedTime();
+      }
+    };
+
+    unitBtn.addEventListener('click', () => {
+      const idx = yogaSession.poses.findIndex(p => p.id === poseId);
+      const currentSecs = idx !== -1 ? yogaSession.poses[idx].duration : (pose.duration || 60);
+      useMins = !useMins;
+      durInput.value = useMins ? Math.max(1, Math.round(currentSecs / 60)) : currentSecs;
+      unitBtn.textContent = useMins ? 'min' : 'sec';
+      unitBtn.classList.toggle('is-min', useMins);
+      durInput.setAttribute('aria-label', `Duration in ${useMins ? 'minutes' : 'seconds'} for ${pose.english}`);
+    });
+
+    durInput.addEventListener('change', updateDuration);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'yoga-remove-btn';
+    removeBtn.setAttribute('aria-label', `Remove ${pose.english} from flow`);
+    removeBtn.title = 'Remove pose';
+    removeBtn.textContent = '✕';
+    removeBtn.addEventListener('click', () => {
+      const idx = yogaSession.poses.findIndex(p => p.id === poseId);
+      if (idx !== -1) {
+        yogaSession.poses.splice(idx, 1);
+        renderPoseSequenceList();
+        updateEstimatedTime();
+      }
+    });
+
+    li.append(durInput, unitBtn, removeBtn);
+  } else {
+    const durSpan = document.createElement('span');
+    durSpan.className = 'yoga-seq-dur';
+    durSpan.textContent = `${pose.duration}s`;
+    li.appendChild(durSpan);
+  }
+
+  return li;
+}
+
+function renderPoseSequenceList() {
+  const ul = document.getElementById('yoga-pose-sequence');
+  if (!ul) return;
+  ul.innerHTML = '';
+  yogaSession.poses.forEach((pose, i) => {
+    ul.appendChild(makePoseListItem(pose, i, true));
+  });
+  updateEstimatedTime();
+}
+
+function renderActiveSequenceList() {
+  const ul = document.getElementById('yoga-active-sequence');
+  if (!ul) return;
+  ul.innerHTML = '';
+  yogaSession.poses.forEach((pose, i) => {
+    const li = makePoseListItem(pose, i, false);
+    if (i === yogaSession.currentIndex) li.classList.add('yoga-seq-active');
+    ul.appendChild(li);
+  });
+  const items = ul.querySelectorAll('.yoga-seq-item');
+  if (yogaSession.currentIndex >= 0 && yogaSession.currentIndex < items.length) {
+    items[yogaSession.currentIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+function updateEstimatedTime() {
+  const el = document.getElementById('yoga-est-time');
+  if (!el) return;
+  const total = yogaSession.poses.reduce((s, p) => s + (p.duration || 60), 0);
+  el.textContent = `⏳ Est. session time: ${(total / 60).toFixed(1)} min`;
+}
+
+function showPose(pose, animate = true) {
+  const el = (id) => document.getElementById(id);
+  if (!pose) return;
+
+  // Visual — SVG is internally generated; validate svgKey and chakra for safety
+  const svgWrap = el('yoga-pose-svg');
+  if (svgWrap) {
+    svgWrap.innerHTML = getPoseSVG(safeSvgKey(pose.svgKey), safeCssColor(pose.chakra));
+    svgWrap.setAttribute('role', 'img');
+    svgWrap.setAttribute('aria-label', `${pose.english} yoga pose illustration`);
+  }
+
+  // Names — use textContent (safe against XSS)
+  if (el('yoga-pose-english'))    el('yoga-pose-english').textContent    = pose.english;
+  if (el('yoga-pose-sanskrit'))   el('yoga-pose-sanskrit').textContent   = pose.sanskrit;
+  if (el('yoga-pose-devanagari')) el('yoga-pose-devanagari').textContent = pose.devanagari;
+  if (el('yoga-breath-cue'))      el('yoga-breath-cue').textContent      = pose.breathCue;
+
+  // Aura color
+  const aura = el('yoga-breath-aura');
+  if (aura) aura.style.setProperty('--aura-color', safeCssColor(pose.chakra));
+
+  if (animate) {
+    // Update active-sequence list highlighting
+    renderActiveSequenceList();
+    // Start breath animation with pose color
+    startBreathAnimation(safeCssColor(pose.chakra));
+  }
+}
+
+function showTransition(fromPose, toPose, seconds, onDone) {
+  const overlay = document.getElementById('yoga-transition-overlay');
+  const txt = document.getElementById('yoga-transition-text');
+  const count = document.getElementById('yoga-transition-count');
+  if (!overlay) { onDone(); return; }
+
+  if (txt) txt.textContent = toPose
+    ? `Coming: ${toPose.english} — ${toPose.sanskrit}`
+    : 'Session Complete 🙏';
+  overlay.classList.remove('hidden');
+
+  let s = seconds;
+  if (count) count.textContent = s;
+  playBowl(396, 1.5);
+
+  const iv = setInterval(() => {
+    s--;
+    if (count) count.textContent = s;
+    if (s <= 0) {
+      clearInterval(iv);
+      overlay.classList.add('hidden');
+      onDone();
+    }
+  }, 1000);
+}
+
+// ─── Session Timer ────────────────────────────────────────────────────────────
+function startPoseTimer() {
+  const pose = yogaSession.poses[yogaSession.currentIndex];
+  if (!pose) return;
+
+  yogaSession.secondsLeft = pose.duration;
+  showPose(pose);
+
+  const display = document.getElementById('yoga-timer-display');
+  const progressBar = document.getElementById('yoga-progress-bar');
+  const countEl = document.getElementById('yoga-pose-count');
+
+  if (countEl) countEl.textContent =
+    `Pose ${yogaSession.currentIndex + 1} of ${yogaSession.poses.length}`;
+
+  if (yogaSession.timerInterval) clearInterval(yogaSession.timerInterval);
+  yogaSession.timerInterval = setInterval(() => {
+    if (yogaSession.paused) return;
+    yogaSession.secondsLeft--;
+
+    if (display) display.textContent = fmtTime(yogaSession.secondsLeft);
+    if (progressBar) {
+      const pct = 100 - (yogaSession.secondsLeft / pose.duration) * 100;
+      progressBar.style.width = `${pct}%`;
+      progressBar.style.background =
+        `linear-gradient(90deg, ${safeCssColor(pose.chakra)}, #fff2)`;
+    }
+
+    if (yogaSession.secondsLeft <= 5 && yogaSession.secondsLeft > 0) {
+      playBowl(528 + yogaSession.secondsLeft * 10, 0.4);
+    }
+
+    if (yogaSession.secondsLeft <= 0) {
+      clearInterval(yogaSession.timerInterval);
+      yogaSession.timerInterval = null;
+
+      // Log this pose
+      yogaSession.completedPoses.push({
+        pose: pose.id,
+        english: pose.english,
+        sanskrit: pose.sanskrit,
+        devanagari: pose.devanagari,
+        duration: pose.duration,
+        completedAt: new Date().toISOString()
+      });
+
+      // Advance or end
+      const isLast = yogaSession.currentIndex >= yogaSession.poses.length - 1;
+      if (isLast) {
+        endYogaSession(true);
+      } else {
+        const next = yogaSession.poses[yogaSession.currentIndex + 1];
+        showTransition(pose, next, 5, () => {
+          yogaSession.currentIndex++;
+          startPoseTimer();
+        });
+      }
+    }
+  }, 1000);
+}
+
+function endYogaSession(completed = false) {
+  stopBreathAnimation();
+  if (yogaSession.timerInterval) {
+    clearInterval(yogaSession.timerInterval);
+    yogaSession.timerInterval = null;
+  }
+
+  const end = new Date().toISOString();
+  const totalSeconds = yogaSession.completedPoses.reduce((s, p) => s + (p.duration || 0), 0);
+
+  const sessionEntry = {
+    sessionId: yogaSession.sessionId,
+    type: 'yoga',
+    start: yogaSession.sessionStart,
+    end,
+    totalWorkSeconds: totalSeconds,
+    totalRestSeconds: 0,
+    totalSetsCompleted: yogaSession.completedPoses.length,
+    completed,
+    yogaPoses: yogaSession.completedPoses
+  };
+
+  try {
+    const data = getFitnessData();
+    if (!Array.isArray(data.sessionLog)) data.sessionLog = [];
+    data.sessionLog.push(sessionEntry);
+    saveFitnessData(data);
+  } catch (e) {
+    console.error('Yoga session log error:', e);
+  }
+
+  yogaSession.active = false;
+  yogaSession.paused = false;
+
+  // Show completion screen
+  const activeScreen = document.getElementById('yoga-active-screen');
+  const completeScreen = document.getElementById('yoga-complete-screen');
+  if (activeScreen) activeScreen.classList.add('hidden');
+  if (completeScreen) completeScreen.classList.remove('hidden');
+
+  const statsEl = document.getElementById('yoga-complete-stats');
+  if (statsEl) {
+    statsEl.innerHTML = '';
+
+    const makeStat = (text, strong) => {
+      const div = document.createElement('div');
+      div.className = 'yoga-stat';
+      if (strong) {
+        div.appendChild(document.createTextNode(text[0]));
+        const s = document.createElement('strong');
+        s.textContent = strong;
+        div.appendChild(s);
+        div.appendChild(document.createTextNode(text[1]));
+      } else {
+        div.textContent = text;
+      }
+      return div;
+    };
+
+    statsEl.appendChild(makeStat(['🧘 ', ` poses`], String(yogaSession.completedPoses.length)));
+    statsEl.appendChild(makeStat(['⏱️ ', ` minutes`], (totalSeconds / 60).toFixed(1)));
+    statsEl.appendChild(makeStat(completed ? '🙏 Full session complete!' : '🙏 Session ended early'));
+  }
+
+  const poseList = document.getElementById('yoga-complete-poses');
+  if (poseList) {
+    poseList.innerHTML = '';
+    yogaSession.completedPoses.forEach(p => {
+      const li = document.createElement('li');
+
+      const engSpan = document.createElement('span');
+      engSpan.className = 'yc-eng';
+      engSpan.textContent = p.english;
+
+      const sktSpan = document.createElement('span');
+      sktSpan.className = 'yc-skt';
+      sktSpan.textContent = p.sanskrit;
+
+      const devSpan = document.createElement('span');
+      devSpan.className = 'yc-dev';
+      devSpan.textContent = p.devanagari;
+
+      const durSpan = document.createElement('span');
+      durSpan.className = 'yc-dur';
+      durSpan.textContent = `${p.duration}s`;
+
+      li.append(engSpan, sktSpan, devSpan, durSpan);
+      poseList.appendChild(li);
+    });
+  }
+
+  playBowl(432, 3);
+}
+
+// ─── Start / Pause / Skip / End Controls ─────────────────────────────────────
+function startYogaSession() {
+  yogaSession.poses = getActivePoses().map(p => ({ ...p }));
+  yogaSession.currentIndex = 0;
+  yogaSession.completedPoses = [];
+  yogaSession.sessionStart = new Date().toISOString();
+  yogaSession.sessionId = `YOGA-${Date.now()}`;
+  yogaSession.active = true;
+  yogaSession.paused = false;
+
+  const setupScreen = document.getElementById('yoga-setup-screen');
+  const activeScreen = document.getElementById('yoga-active-screen');
+  const completeScreen = document.getElementById('yoga-complete-screen');
+  if (setupScreen) setupScreen.classList.add('hidden');
+  if (activeScreen) activeScreen.classList.remove('hidden');
+  if (completeScreen) completeScreen.classList.add('hidden');
+
+  renderActiveSequenceList();
+
+  // 5 second intro transition
+  const first = yogaSession.poses[0];
+  showTransition(null, first, 5, () => startPoseTimer());
+}
+
+function pauseYogaSession() {
+  if (!yogaSession.active) return;
+  yogaSession.paused = !yogaSession.paused;
+  const btn = document.getElementById('yoga-pause-btn');
+  if (btn) btn.textContent = yogaSession.paused ? '▶ Resume' : '⏸ Pause';
+  if (yogaSession.paused) stopBreathAnimation();
+  else startBreathAnimation(yogaSession.poses[yogaSession.currentIndex]?.chakra || '#ffd700');
+}
+
+function skipYogaPose() {
+  if (!yogaSession.active) return;
+  if (yogaSession.timerInterval) {
+    clearInterval(yogaSession.timerInterval);
+    yogaSession.timerInterval = null;
+  }
+  const pose = yogaSession.poses[yogaSession.currentIndex];
+  if (pose) {
+    yogaSession.completedPoses.push({
+      pose: pose.id,
+      english: pose.english,
+      sanskrit: pose.sanskrit,
+      devanagari: pose.devanagari,
+      duration: pose.duration - yogaSession.secondsLeft,
+      completedAt: new Date().toISOString(),
+      skipped: true
+    });
+  }
+
+  const isLast = yogaSession.currentIndex >= yogaSession.poses.length - 1;
+  if (isLast) {
+    endYogaSession(false);
+  } else {
+    const next = yogaSession.poses[yogaSession.currentIndex + 1];
+    yogaSession.currentIndex++;
+    showTransition(pose, next, 3, () => startPoseTimer());
+  }
+}
+
+// ─── Add Custom Pose ──────────────────────────────────────────────────────────
+function handleAddCustomPose(e) {
+  e.preventDefault();
+  const name = document.getElementById('yoga-custom-english')?.value?.trim();
+  const sanskrit = document.getElementById('yoga-custom-sanskrit')?.value?.trim();
+  const devanagari = document.getElementById('yoga-custom-devanagari')?.value?.trim();
+  const rawVal = parseInt(document.getElementById('yoga-custom-duration')?.value || '60');
+  const unit = document.getElementById('yoga-custom-dur-unit')?.value || 's';
+  const duration = unit === 'm' ? rawVal * 60 : rawVal;
+
+  if (!name) { showYogaToast('⚠️ Please enter a pose name.', 3000); return; }
+
+  const custom = loadCustomPoses();
+  const id = 'custom-' + Date.now();
+  custom.push({
+    id,
+    english: name,
+    sanskrit: sanskrit || name,
+    devanagari: devanagari || '—',
+    duration,
+    breathCue: 'Breathe fully • find your own rhythm',
+    svgKey: 'mountain',
+    chakra: '#00ffcc',
+    custom: true
+  });
+  saveCustomPoses(custom);
+
+  // Reset form
+  ['yoga-custom-english', 'yoga-custom-sanskrit', 'yoga-custom-devanagari'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const dur = document.getElementById('yoga-custom-duration');
+  if (dur) dur.value = '60';
+
+  // Refresh list
+  yogaSession.poses = getActivePoses().map(p => ({ ...p }));
+  renderPoseSequenceList();
+  showYogaToast(`✅ "${name}" added to your flow!`);
+}
+
+// ─── Yoga Genie Chat ──────────────────────────────────────────────────────────
+let genieMessages = [];  // { role: 'user'|'genie', text: string }[]
+
+function appendGenieMessage(role, text) {
+  const messages = document.getElementById('yoga-genie-messages');
+  if (!messages) return;
+  const div = document.createElement('div');
+  div.className = `yoga-genie-msg ${role}`;
+  div.textContent = text;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  genieMessages.push({ role, text });
+}
+
+function setGenieStatus(text) {
+  const el = document.getElementById('yoga-genie-status');
+  if (el) el.textContent = text;
+}
+
+async function sendGenieMessage() {
+  const input = document.getElementById('yoga-genie-input');
+  const sendBtn = document.getElementById('yoga-genie-send');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  if (input) input.disabled = true;
+  if (sendBtn) sendBtn.disabled = true;
+
+  appendGenieMessage('user', text);
+  setGenieStatus('🧞 Thinking…');
+
+  // Build context from current session and yoga data
+  const currentPose = yogaSession.poses[yogaSession.currentIndex];
+  const poseContext = currentPose
+    ? `Current pose: ${currentPose.english} (${currentPose.sanskrit} / ${currentPose.devanagari})\nBreath cue: ${currentPose.breathCue}`
+    : `Flow has ${yogaSession.poses.length} poses: ${yogaSession.poses.map(p => p.english).join(', ')}`;
+
+  const yogaData = getFitnessData();
+  const yogaSessions = (yogaData.sessionLog || [])
+    .filter(s => s.type === 'yoga').slice(-5);
+
+  const systemPrompt = `You are the Yoga Genie 🧞, a wise and compassionate yoga guide embedded in BigNuten health tracker.
+You have deep knowledge of:
+- Yoga asanas (poses), their Sanskrit names, benefits, contraindications, and modifications
+- The Yoga Sutras of Patanjali and classical yoga philosophy
+- Pranayama (breathing techniques) and their effects
+- Chakra theory and energy work
+- Mindfulness, meditation, and the mind-body connection
+- Ayurveda as it relates to yoga practice
+- Modern sports science and biomechanics of yoga
+
+${poseContext}
+
+Recent yoga sessions logged:
+${yogaSessions.length > 0 ? JSON.stringify(yogaSessions, null, 1) : 'No recent yoga sessions logged yet.'}
+
+Be warm, encouraging, and precise. Weave Sanskrit terms naturally into explanations.
+For pose questions, mention both benefits and safety cues.
+Keep responses concise — 2-4 sentences unless a detailed explanation is requested.`;
+
+  const conversationHistory = genieMessages.slice(-8).map(m => ({
+    role: m.role === 'user' ? 'user' : 'assistant',
+    content: m.text
+  }));
+  conversationHistory.push({ role: 'user', content: text });
+
+  try {
+    const backend = getGenieBackend();
+    let reply = '';
+
+    if (backend === 'webllm') {
+      setGenieStatus('🧞 (WebLLM not available in Yoga Panel — switch backend in Settings)');
+      reply = 'Please switch to GitHub Models or OpenAI backend in Settings to use the Yoga Genie.';
+    } else if (backend === 'openai' || backend === 'github-models') {
+      const apiKey = getGenieApiKey();
+      const modelName = getGenieHostedModelName();
+
+      const endpoint = backend === 'openai'
+        ? 'https://api.openai.com/v1/chat/completions'
+        : `https://models.inference.ai.azure.com/chat/completions`;
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      };
+
+      const body = JSON.stringify({
+        model: modelName,
+        messages: [{ role: 'system', content: systemPrompt }, ...conversationHistory],
+        temperature: 0.7,
+        max_tokens: 512
+      });
+
+      const res = await fetch(endpoint, { method: 'POST', headers, body });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      reply = data.choices?.[0]?.message?.content?.trim() || '(no response)';
+    } else {
+      reply = 'Please configure a Genie AI backend in Settings to use the Yoga Genie.';
+    }
+
+    appendGenieMessage('genie', reply);
+    setGenieStatus('');
+  } catch (err) {
+    console.error('Yoga Genie error:', err);
+    appendGenieMessage('genie', `⚠️ ${err.message || 'An error occurred. Check your API key in Settings.'}`);
+    setGenieStatus('');
+  } finally {
+    if (input) input.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
+    if (input) input.focus();
+  }
+}
+
+function initGenieChat() {
+  const genieBtn   = document.getElementById('yoga-genie-btn');
+  const geniePanel = document.getElementById('yoga-genie-panel');
+  const genieClose = document.getElementById('yoga-genie-chat-close');
+  const genieSend  = document.getElementById('yoga-genie-send');
+  const genieInput = document.getElementById('yoga-genie-input');
+
+  genieBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!geniePanel) return;
+    const isOpen = geniePanel.style.display !== 'none';
+    geniePanel.style.display = isOpen ? 'none' : 'flex';
+    genieBtn.classList.toggle('genie-active', !isOpen);
+    if (!isOpen && genieMessages.length === 0) {
+      appendGenieMessage('genie',
+        "Namaste 🧞🙏 I'm your Yoga Genie! Ask me about any pose in your flow, the Yoga Sutras, breathing techniques, or the meaning behind the Sanskrit names. What shall we explore?");
+    }
+    if (!isOpen) setTimeout(() => genieInput?.focus(), 50);
+  });
+
+  genieClose?.addEventListener('click', () => {
+    if (geniePanel) geniePanel.style.display = 'none';
+    document.getElementById('yoga-genie-btn')?.classList.remove('genie-active');
+  });
+
+  genieSend?.addEventListener('click', () => sendGenieMessage());
+  genieInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGenieMessage(); }
+  });
+
+  // Drag-to-resize the Genie sidebar
+  const resizeHandle = document.getElementById('yoga-genie-resize');
+  if (resizeHandle && geniePanel) {
+    let startX = 0;
+    let startW = 0;
+    const onMouseMove = (ev) => {
+      const dx = startX - ev.clientX;  // dragging left → panel grows
+      const newW = Math.max(220, Math.min(window.innerWidth * 0.7, startW + dx));
+      geniePanel.style.flex = `0 0 ${newW}px`;
+    };
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    resizeHandle.addEventListener('mousedown', (ev) => {
+      ev.preventDefault();
+      startX = ev.clientX;
+      startW = geniePanel.getBoundingClientRect().width;
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+    // Touch support
+    const onTouchMove = (ev) => {
+      const dx = startX - ev.touches[0].clientX;
+      const newW = Math.max(220, Math.min(window.innerWidth * 0.7, startW + dx));
+      geniePanel.style.flex = `0 0 ${newW}px`;
+    };
+    const onTouchEnd = () => {
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+    };
+    resizeHandle.addEventListener('touchstart', (ev) => {
+      startX = ev.touches[0].clientX;
+      startW = geniePanel.getBoundingClientRect().width;
+      document.addEventListener('touchmove', onTouchMove);
+      document.addEventListener('touchend', onTouchEnd);
+    });
+  }
+}
+
+// ─── Open/Close Modal ─────────────────────────────────────────────────────────
+export function openYogaModal() {
+  const modal = document.getElementById('yoga-flow-modal');
+  if (!modal) return;
+  modal.classList.remove('modal-hidden');
+
+  // Suppress the floating Genie icons that the main genieChat.js injects
+  // (they attach to .dashboard-panel.panel-visible — not useful during yoga)
+  document.querySelectorAll('.genie-icon-btn').forEach(el => {
+    el.dataset.yogaHidden = 'true';
+    el.style.display = 'none';
+  });
+  document.querySelectorAll('.genie-chat-window').forEach(el => {
+    el.dataset.yogaHidden = 'true';
+    el.style.display = 'none';
+  });
+
+  // Reset to setup screen
+  document.getElementById('yoga-setup-screen')?.classList.remove('hidden');
+  document.getElementById('yoga-active-screen')?.classList.add('hidden');
+  document.getElementById('yoga-complete-screen')?.classList.add('hidden');
+
+  // Load poses for this session
+  yogaSession.poses = getActivePoses().map(p => ({ ...p }));
+  yogaSession.active = false;
+  yogaSession.paused = false;
+  renderPoseSequenceList();
+  renderSavedFlowsList();
+
+  // Show static preview of first pose — no breath animation during setup
+  stopBreathAnimation();
+  if (yogaSession.poses[0]) showPose(yogaSession.poses[0], false);
+}
+
+export function closeYogaModal() {
+  const modal = document.getElementById('yoga-flow-modal');
+  if (!modal) return;
+  if (yogaSession.active) {
+    // Use toast warning and end session after a brief delay if user presses close again
+    const closeBtn = document.getElementById('yoga-close-btn');
+    if (closeBtn && closeBtn.dataset.confirmClose !== 'true') {
+      closeBtn.dataset.confirmClose = 'true';
+      showYogaToast('Press ✕ again to end session and close', 3000);
+      setTimeout(() => { if (closeBtn) closeBtn.dataset.confirmClose = ''; }, 3500);
+      return;
+    }
+    endYogaSession(false);
+  }
+  modal.classList.add('modal-hidden');
+
+  // Restore floating Genie icons that were hidden when yoga opened
+  document.querySelectorAll('.genie-icon-btn[data-yoga-hidden]').forEach(el => {
+    el.style.display = '';
+    delete el.dataset.yogaHidden;
+  });
+  document.querySelectorAll('.genie-chat-window[data-yoga-hidden]').forEach(el => {
+    el.style.display = '';
+    delete el.dataset.yogaHidden;
+  });
+
+  stopBreathAnimation();
+  if (yogaSession.timerInterval) {
+    clearInterval(yogaSession.timerInterval);
+    yogaSession.timerInterval = null;
+  }
+  // Reset confirm state
+  const closeBtn = document.getElementById('yoga-close-btn');
+  if (closeBtn) closeBtn.dataset.confirmClose = '';
+
+  // Close Genie panel
+  const geniePanel = document.getElementById('yoga-genie-panel');
+  if (geniePanel) geniePanel.style.display = 'none';
+  document.getElementById('yoga-genie-btn')?.classList.remove('genie-active');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+export function initYogaFlow() {
+  // Open modal button (in workout panel)
+  document.getElementById('yoga-flow-btn')?.addEventListener('click', openYogaModal);
+
+  // Close button
+  document.getElementById('yoga-close-btn')?.addEventListener('click', closeYogaModal);
+
+  // Click backdrop to close (if not active)
+  document.getElementById('yoga-flow-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'yoga-flow-modal') closeYogaModal();
+  });
+
+  // Start session
+  document.getElementById('yoga-start-btn')?.addEventListener('click', startYogaSession);
+
+  // Pause/Resume
+  document.getElementById('yoga-pause-btn')?.addEventListener('click', pauseYogaSession);
+
+  // Skip pose
+  document.getElementById('yoga-skip-btn')?.addEventListener('click', skipYogaPose);
+
+  // End session early
+  document.getElementById('yoga-end-btn')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    if (btn.dataset.confirm !== 'true') {
+      btn.dataset.confirm = 'true';
+      btn.textContent = '🙏 Confirm End';
+      btn.style.background = 'rgba(239,68,68,0.3)';
+      showYogaToast('Press End again to finish session early', 3000);
+      setTimeout(() => {
+        btn.dataset.confirm = '';
+        btn.textContent = '🙏 End';
+        btn.style.background = '';
+      }, 3500);
+      return;
+    }
+    endYogaSession(false);
+  });
+
+  // Return to setup from complete screen
+  document.getElementById('yoga-reset-btn')?.addEventListener('click', () => {
+    document.getElementById('yoga-setup-screen')?.classList.remove('hidden');
+    document.getElementById('yoga-complete-screen')?.classList.add('hidden');
+    yogaSession.poses = getActivePoses().map(p => ({ ...p }));
+    yogaSession.currentIndex = 0;
+    yogaSession.completedPoses = [];
+    yogaSession.active = false;
+    renderPoseSequenceList();
+    renderSavedFlowsList();
+    stopBreathAnimation();
+    if (yogaSession.poses[0]) showPose(yogaSession.poses[0], false);
+  });
+
+  // Add custom pose form
+  document.getElementById('yoga-add-pose-form')?.addEventListener('submit', handleAddCustomPose);
+
+  // Remove all custom poses
+  document.getElementById('yoga-clear-custom-btn')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    if (btn.dataset.confirm !== 'true') {
+      btn.dataset.confirm = 'true';
+      btn.textContent = '⚠️ Confirm Clear';
+      showYogaToast('Press "Confirm Clear" again to remove all custom poses', 3000);
+      setTimeout(() => {
+        btn.dataset.confirm = '';
+        btn.textContent = 'Clear Custom';
+      }, 3500);
+      return;
+    }
+    btn.dataset.confirm = '';
+    btn.textContent = 'Clear Custom';
+    saveCustomPoses([]);
+    yogaSession.poses = getActivePoses().map(p => ({ ...p }));
+    renderPoseSequenceList();
+    showYogaToast('✅ Custom poses cleared');
+  });
+
+  // ── Save current flow ────────────────────────────────────────────────────
+  document.getElementById('yoga-save-flow-btn')?.addEventListener('click', () => {
+    const nameInput = document.getElementById('yoga-flow-name-input');
+    const name = nameInput?.value?.trim();
+    if (!name) { showYogaToast('⚠️ Enter a name for this flow first', 3000); return; }
+    if (yogaSession.poses.length === 0) { showYogaToast('⚠️ No poses in current flow', 3000); return; }
+    saveCurrentFlow(name);
+    if (nameInput) nameInput.value = '';
+    renderSavedFlowsList();
+    showYogaToast(`✅ Flow "${name}" saved!`);
+  });
+
+  // ── Genie Chat ───────────────────────────────────────────────────────────
+  initGenieChat();
+
+  // Initialize pose preview
+  yogaSession.poses = getActivePoses().map(p => ({ ...p }));
+}
