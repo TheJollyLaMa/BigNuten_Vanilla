@@ -358,6 +358,32 @@ function playBowl(freq = 432, duration = 0.8) {
   }
 }
 
+// ─── Toast Notification ───────────────────────────────────────────────────────
+let toastTimeout = null;
+function showYogaToast(message, duration = 3000) {
+  let toast = document.getElementById('yoga-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'yoga-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    toast.style.cssText = `
+      position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+      background:rgba(30,0,60,0.95);color:#e9d5ff;
+      border:1px solid rgba(124,58,237,0.6);border-radius:10px;
+      padding:10px 20px;font-size:0.9rem;z-index:99999;
+      box-shadow:0 0 16px rgba(124,58,237,0.5);
+      pointer-events:none;text-align:center;
+      transition:opacity 0.3s;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.opacity = '1';
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => { toast.style.opacity = '0'; }, duration);
+}
+
 // ─── Breathing Animation ──────────────────────────────────────────────────────
 let breathInterval = null;
 
@@ -398,22 +424,59 @@ function fmtTime(s) {
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-// ─── UI Renderers ─────────────────────────────────────────────────────────────
-function renderPoseSequenceList() {
-  const ul = document.getElementById('yoga-pose-sequence');
-  if (!ul) return;
-  ul.innerHTML = '';
-  yogaSession.poses.forEach((pose, i) => {
-    const li = document.createElement('li');
-    li.className = 'yoga-seq-item';
-    li.dataset.index = i;
+// ─── Security helper ──────────────────────────────────────────────────────────
+// Validate that a color value is a safe CSS hex color or known CSS color name
+function safeCssColor(color) {
+  if (typeof color !== 'string') return '#ffd700';
+  return /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : '#ffd700';
+}
 
+// Validate that a svgKey is one of the known safe keys
+const KNOWN_SVG_KEYS = new Set([
+  'mountain','downdog','plank','cobra','child',
+  'warrior1','warrior2','triangle','forwardfold',
+  'bridge','supinetwist','savasana'
+]);
+function safeSvgKey(key) {
+  return KNOWN_SVG_KEYS.has(key) ? key : 'mountain';
+}
+
+// ─── UI Renderers ─────────────────────────────────────────────────────────────
+function makePoseListItem(pose, i, withControls) {
+  const li = document.createElement('li');
+  li.className = 'yoga-seq-item';
+  li.dataset.index = i;
+
+  const numSpan = document.createElement('span');
+  numSpan.className = 'yoga-seq-num';
+  numSpan.textContent = String(i + 1);
+
+  const namesSpan = document.createElement('span');
+  namesSpan.className = 'yoga-seq-names';
+
+  const engSpan = document.createElement('span');
+  engSpan.className = 'yoga-seq-english';
+  engSpan.textContent = pose.english;
+
+  const sktSpan = document.createElement('span');
+  sktSpan.className = 'yoga-seq-sanskrit';
+  sktSpan.textContent = pose.sanskrit;
+
+  const devSpan = document.createElement('span');
+  devSpan.className = 'yoga-seq-devanagari';
+  devSpan.textContent = pose.devanagari;
+
+  namesSpan.append(engSpan, sktSpan, devSpan);
+  li.append(numSpan, namesSpan);
+
+  if (withControls) {
     const durInput = document.createElement('input');
     durInput.type = 'number';
-    durInput.min = 5;
-    durInput.max = 600;
-    durInput.value = pose.duration;
+    durInput.min = '5';
+    durInput.max = '600';
+    durInput.value = String(pose.duration);
     durInput.className = 'yoga-dur-input';
+    durInput.setAttribute('aria-label', `Duration in seconds for ${pose.english}`);
     durInput.title = 'Seconds for this pose';
     durInput.addEventListener('change', () => {
       yogaSession.poses[i].duration = parseInt(durInput.value) || 60;
@@ -422,6 +485,7 @@ function renderPoseSequenceList() {
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'yoga-remove-btn';
+    removeBtn.setAttribute('aria-label', `Remove ${pose.english} from flow`);
     removeBtn.title = 'Remove pose';
     removeBtn.textContent = '✕';
     removeBtn.addEventListener('click', () => {
@@ -430,17 +494,23 @@ function renderPoseSequenceList() {
       updateEstimatedTime();
     });
 
-    li.innerHTML = `
-      <span class="yoga-seq-num">${i + 1}</span>
-      <span class="yoga-seq-names">
-        <span class="yoga-seq-english">${pose.english}</span>
-        <span class="yoga-seq-sanskrit">${pose.sanskrit}</span>
-        <span class="yoga-seq-devanagari">${pose.devanagari}</span>
-      </span>
-    `;
-    li.appendChild(durInput);
-    li.appendChild(removeBtn);
-    ul.appendChild(li);
+    li.append(durInput, removeBtn);
+  } else {
+    const durSpan = document.createElement('span');
+    durSpan.className = 'yoga-seq-dur';
+    durSpan.textContent = `${pose.duration}s`;
+    li.appendChild(durSpan);
+  }
+
+  return li;
+}
+
+function renderPoseSequenceList() {
+  const ul = document.getElementById('yoga-pose-sequence');
+  if (!ul) return;
+  ul.innerHTML = '';
+  yogaSession.poses.forEach((pose, i) => {
+    ul.appendChild(makePoseListItem(pose, i, true));
   });
   updateEstimatedTime();
 }
@@ -450,17 +520,8 @@ function renderActiveSequenceList() {
   if (!ul) return;
   ul.innerHTML = '';
   yogaSession.poses.forEach((pose, i) => {
-    const li = document.createElement('li');
-    li.className = 'yoga-seq-item' + (i === yogaSession.currentIndex ? ' yoga-seq-active' : '');
-    li.innerHTML = `
-      <span class="yoga-seq-num">${i + 1}</span>
-      <span class="yoga-seq-names">
-        <span class="yoga-seq-english">${pose.english}</span>
-        <span class="yoga-seq-sanskrit">${pose.sanskrit}</span>
-        <span class="yoga-seq-devanagari">${pose.devanagari}</span>
-      </span>
-      <span class="yoga-seq-dur">${pose.duration}s</span>
-    `;
+    const li = makePoseListItem(pose, i, false);
+    if (i === yogaSession.currentIndex) li.classList.add('yoga-seq-active');
     ul.appendChild(li);
   });
   ul.querySelectorAll('.yoga-seq-item')[yogaSession.currentIndex]
@@ -478,11 +539,15 @@ function showPose(pose) {
   const el = (id) => document.getElementById(id);
   if (!pose) return;
 
-  // Visual
+  // Visual — SVG is internally generated; validate svgKey and chakra for safety
   const svgWrap = el('yoga-pose-svg');
-  if (svgWrap) svgWrap.innerHTML = getPoseSVG(pose.svgKey, pose.chakra || '#ffd700');
+  if (svgWrap) {
+    svgWrap.innerHTML = getPoseSVG(safeSvgKey(pose.svgKey), safeCssColor(pose.chakra));
+    svgWrap.setAttribute('role', 'img');
+    svgWrap.setAttribute('aria-label', `${pose.english} yoga pose illustration`);
+  }
 
-  // Names
+  // Names — use textContent (safe against XSS)
   if (el('yoga-pose-english'))    el('yoga-pose-english').textContent    = pose.english;
   if (el('yoga-pose-sanskrit'))   el('yoga-pose-sanskrit').textContent   = pose.sanskrit;
   if (el('yoga-pose-devanagari')) el('yoga-pose-devanagari').textContent = pose.devanagari;
@@ -490,13 +555,13 @@ function showPose(pose) {
 
   // Aura color
   const aura = el('yoga-breath-aura');
-  if (aura) aura.style.setProperty('--aura-color', pose.chakra || '#ffd700');
+  if (aura) aura.style.setProperty('--aura-color', safeCssColor(pose.chakra));
 
   // Update active-sequence list highlighting
   renderActiveSequenceList();
 
   // Restart breath animation with pose color
-  startBreathAnimation(pose.chakra || '#ffd700');
+  startBreathAnimation(safeCssColor(pose.chakra));
 }
 
 function showTransition(fromPose, toPose, seconds, onDone) {
@@ -628,18 +693,53 @@ function endYogaSession(completed = false) {
 
   const statsEl = document.getElementById('yoga-complete-stats');
   if (statsEl) {
-    statsEl.innerHTML = `
-      <div class="yoga-stat">🧘 <strong>${yogaSession.completedPoses.length}</strong> poses</div>
-      <div class="yoga-stat">⏱️ <strong>${(totalSeconds / 60).toFixed(1)}</strong> minutes</div>
-      <div class="yoga-stat">🙏 ${completed ? 'Full session complete!' : 'Session ended early'}</div>
-    `;
+    statsEl.innerHTML = '';
+
+    const makeStat = (text, strong) => {
+      const div = document.createElement('div');
+      div.className = 'yoga-stat';
+      if (strong) {
+        div.appendChild(document.createTextNode(text[0]));
+        const s = document.createElement('strong');
+        s.textContent = strong;
+        div.appendChild(s);
+        div.appendChild(document.createTextNode(text[1]));
+      } else {
+        div.textContent = text;
+      }
+      return div;
+    };
+
+    statsEl.appendChild(makeStat(['🧘 ', ` poses`], String(yogaSession.completedPoses.length)));
+    statsEl.appendChild(makeStat(['⏱️ ', ` minutes`], (totalSeconds / 60).toFixed(1)));
+    statsEl.appendChild(makeStat(completed ? '🙏 Full session complete!' : '🙏 Session ended early'));
   }
 
   const poseList = document.getElementById('yoga-complete-poses');
   if (poseList) {
-    poseList.innerHTML = yogaSession.completedPoses.map(p =>
-      `<li><span class="yc-eng">${p.english}</span> <span class="yc-skt">${p.sanskrit}</span> <span class="yc-dev">${p.devanagari}</span> <span class="yc-dur">${p.duration}s</span></li>`
-    ).join('');
+    poseList.innerHTML = '';
+    yogaSession.completedPoses.forEach(p => {
+      const li = document.createElement('li');
+
+      const engSpan = document.createElement('span');
+      engSpan.className = 'yc-eng';
+      engSpan.textContent = p.english;
+
+      const sktSpan = document.createElement('span');
+      sktSpan.className = 'yc-skt';
+      sktSpan.textContent = p.sanskrit;
+
+      const devSpan = document.createElement('span');
+      devSpan.className = 'yc-dev';
+      devSpan.textContent = p.devanagari;
+
+      const durSpan = document.createElement('span');
+      durSpan.className = 'yc-dur';
+      durSpan.textContent = `${p.duration}s`;
+
+      li.append(engSpan, sktSpan, devSpan, durSpan);
+      poseList.appendChild(li);
+    });
   }
 
   playBowl(432, 3);
@@ -715,7 +815,7 @@ function handleAddCustomPose(e) {
   const devanagari = document.getElementById('yoga-custom-devanagari')?.value?.trim();
   const duration = parseInt(document.getElementById('yoga-custom-duration')?.value || '60');
 
-  if (!name) { alert('Please enter a pose name.'); return; }
+  if (!name) { showYogaToast('⚠️ Please enter a pose name.', 3000); return; }
 
   const custom = loadCustomPoses();
   const id = 'custom-' + Date.now();
@@ -743,7 +843,7 @@ function handleAddCustomPose(e) {
   // Refresh list
   yogaSession.poses = getActivePoses().map(p => ({ ...p }));
   renderPoseSequenceList();
-  alert(`✅ "${name}" added to your flow!`);
+  showYogaToast(`✅ "${name}" added to your flow!`);
 }
 
 // ─── Open/Close Modal ─────────────────────────────────────────────────────────
@@ -771,8 +871,14 @@ export function closeYogaModal() {
   const modal = document.getElementById('yoga-flow-modal');
   if (!modal) return;
   if (yogaSession.active) {
-    const sure = confirm('End yoga session?');
-    if (!sure) return;
+    // Use toast warning and end session after a brief delay if user presses close again
+    const closeBtn = document.getElementById('yoga-close-btn');
+    if (closeBtn && closeBtn.dataset.confirmClose !== 'true') {
+      closeBtn.dataset.confirmClose = 'true';
+      showYogaToast('Press ✕ again to end session and close', 3000);
+      setTimeout(() => { if (closeBtn) closeBtn.dataset.confirmClose = ''; }, 3500);
+      return;
+    }
     endYogaSession(false);
   }
   modal.classList.add('modal-hidden');
@@ -781,6 +887,9 @@ export function closeYogaModal() {
     clearInterval(yogaSession.timerInterval);
     yogaSession.timerInterval = null;
   }
+  // Reset confirm state
+  const closeBtn = document.getElementById('yoga-close-btn');
+  if (closeBtn) closeBtn.dataset.confirmClose = '';
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -806,8 +915,21 @@ export function initYogaFlow() {
   document.getElementById('yoga-skip-btn')?.addEventListener('click', skipYogaPose);
 
   // End session early
-  document.getElementById('yoga-end-btn')?.addEventListener('click', () => {
-    if (confirm('End yoga session now?')) endYogaSession(false);
+  document.getElementById('yoga-end-btn')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    if (btn.dataset.confirm !== 'true') {
+      btn.dataset.confirm = 'true';
+      btn.textContent = '🙏 Confirm End';
+      btn.style.background = 'rgba(239,68,68,0.3)';
+      showYogaToast('Press End again to finish session early', 3000);
+      setTimeout(() => {
+        btn.dataset.confirm = '';
+        btn.textContent = '🙏 End';
+        btn.style.background = '';
+      }, 3500);
+      return;
+    }
+    endYogaSession(false);
   });
 
   // Return to setup from complete screen
@@ -826,12 +948,24 @@ export function initYogaFlow() {
   document.getElementById('yoga-add-pose-form')?.addEventListener('submit', handleAddCustomPose);
 
   // Remove all custom poses
-  document.getElementById('yoga-clear-custom-btn')?.addEventListener('click', () => {
-    if (confirm('Remove all custom poses?')) {
-      saveCustomPoses([]);
-      yogaSession.poses = getActivePoses().map(p => ({ ...p }));
-      renderPoseSequenceList();
+  document.getElementById('yoga-clear-custom-btn')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    if (btn.dataset.confirm !== 'true') {
+      btn.dataset.confirm = 'true';
+      btn.textContent = '⚠️ Confirm Clear';
+      showYogaToast('Press "Confirm Clear" again to remove all custom poses', 3000);
+      setTimeout(() => {
+        btn.dataset.confirm = '';
+        btn.textContent = 'Clear Custom';
+      }, 3500);
+      return;
     }
+    btn.dataset.confirm = '';
+    btn.textContent = 'Clear Custom';
+    saveCustomPoses([]);
+    yogaSession.poses = getActivePoses().map(p => ({ ...p }));
+    renderPoseSequenceList();
+    showYogaToast('✅ Custom poses cleared');
   });
 
   // Initialize pose preview

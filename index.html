@@ -140,7 +140,7 @@
       <label for="rest-duration" style="color:white;font-size:0.8rem;margin-right:4px;">Rest:</label>
       <input type="number" id="rest-duration" value="120" min="0" style="width:50px;margin-right:10px;" />
       <button id="start-workout-button" class="play-all-button">▶ Start Workout</button>
-      <button id="yoga-flow-btn" class="yoga-flow-toggle-btn" title="Switch to Yoga Flow mode">🧘 Yoga Flow</button>
+      <button id="yoga-flow-btn" class="yoga-flow-toggle-btn" aria-label="Switch to Yoga Flow mode" title="Switch to Yoga Flow mode">🧘 Yoga Flow</button>
       <h4>Workout Set List</h4>
     </div>
     <div id="estimated-total-time" style="font-size: 0.9rem; margin-bottom: 0.5rem;"></div>
@@ -711,7 +711,7 @@
       <!-- Header -->
       <div class="yoga-modal-header">
         <span class="yoga-modal-title">🧘 Yoga Flow</span>
-        <button id="yoga-close-btn" class="yoga-close-btn" title="Close">✕</button>
+        <button id="yoga-close-btn" class="yoga-close-btn" aria-label="Close Yoga Flow modal" title="Close">✕</button>
       </div>
 
       <!-- ── SHARED VISUAL AREA (always visible when modal is open) ── -->
