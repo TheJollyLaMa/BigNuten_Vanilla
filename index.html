@@ -706,6 +706,8 @@
   <!-- Yoga Flow Modal                                               -->
   <!-- ══════════════════════════════════════════════════════════════ -->
   <div id="yoga-flow-modal" class="modal-overlay modal-hidden yoga-modal-overlay">
+
+    <!-- ── LEFT: Main Yoga Content ─────────────────────────────────────── -->
     <div class="modal yoga-modal">
 
       <!-- Header -->
@@ -714,19 +716,6 @@
         <div style="display:flex;align-items:center;gap:4px;">
           <button id="yoga-genie-btn" class="yoga-genie-btn" aria-label="Open Yoga Genie AI" title="Ask the Yoga Genie 🧞">🧞</button>
           <button id="yoga-close-btn" class="yoga-close-btn" aria-label="Close Yoga Flow modal" title="Close">✕</button>
-        </div>
-        <!-- Embedded Genie chat (toggled by yoga-genie-btn) -->
-        <div id="yoga-genie-chat" class="yoga-genie-chat" style="display:none;" role="dialog" aria-label="Yoga Genie AI chat">
-          <div class="yoga-genie-chat-header">
-            <span>🧞 Yoga Genie</span>
-            <button class="yoga-genie-chat-close" id="yoga-genie-chat-close" aria-label="Close Genie">✕</button>
-          </div>
-          <div id="yoga-genie-messages" class="yoga-genie-messages" aria-live="polite"></div>
-          <div id="yoga-genie-status" class="yoga-genie-status"></div>
-          <div class="yoga-genie-input-row">
-            <input id="yoga-genie-input" class="yoga-genie-input" type="text" placeholder="Ask about this pose, yoga sutras…" aria-label="Ask Yoga Genie" />
-            <button id="yoga-genie-send" class="yoga-genie-send" aria-label="Send message">Send</button>
-          </div>
         </div>
       </div>
 
@@ -831,6 +820,25 @@
       </div>
 
     </div><!-- /yoga-modal -->
+
+    <!-- ── RIGHT: Yoga Genie Chat Sidebar ──────────────────────────────── -->
+    <!-- Hidden by default; shown when genie-btn is clicked.                -->
+    <!-- The resize handle on the left border lets the user drag to resize. -->
+    <div id="yoga-genie-panel" class="yoga-genie-panel" style="display:none;" role="dialog" aria-label="Yoga Genie AI chat">
+      <!-- Drag-to-resize handle (left border) -->
+      <div id="yoga-genie-resize" class="yoga-genie-resize-handle" title="Drag to resize" aria-hidden="true"></div>
+      <div class="yoga-genie-chat-header">
+        <span>🧞 Yoga Genie</span>
+        <button class="yoga-genie-chat-close" id="yoga-genie-chat-close" aria-label="Close Genie">✕</button>
+      </div>
+      <div id="yoga-genie-messages" class="yoga-genie-messages" aria-live="polite"></div>
+      <div id="yoga-genie-status" class="yoga-genie-status"></div>
+      <div class="yoga-genie-input-row">
+        <input id="yoga-genie-input" class="yoga-genie-input" type="text" placeholder="Ask about this pose, yoga sutras…" aria-label="Ask Yoga Genie" />
+        <button id="yoga-genie-send" class="yoga-genie-send" aria-label="Send message">Send</button>
+      </div>
+    </div>
+
   </div><!-- /yoga-flow-modal -->
 
   <!-- Workout Timer Modal -->

@@ -1108,17 +1108,18 @@ Keep responses concise — 2-4 sentences unless a detailed explanation is reques
 }
 
 function initGenieChat() {
-  const genieBtn = document.getElementById('yoga-genie-btn');
-  const genieChat = document.getElementById('yoga-genie-chat');
+  const genieBtn   = document.getElementById('yoga-genie-btn');
+  const geniePanel = document.getElementById('yoga-genie-panel');
   const genieClose = document.getElementById('yoga-genie-chat-close');
-  const genieSend = document.getElementById('yoga-genie-send');
+  const genieSend  = document.getElementById('yoga-genie-send');
   const genieInput = document.getElementById('yoga-genie-input');
 
   genieBtn?.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (!genieChat) return;
-    const isOpen = genieChat.style.display !== 'none';
-    genieChat.style.display = isOpen ? 'none' : 'flex';
+    if (!geniePanel) return;
+    const isOpen = geniePanel.style.display !== 'none';
+    geniePanel.style.display = isOpen ? 'none' : 'flex';
+    genieBtn.classList.toggle('genie-active', !isOpen);
     if (!isOpen && genieMessages.length === 0) {
       appendGenieMessage('genie',
         "Namaste 🧞🙏 I'm your Yoga Genie! Ask me about any pose in your flow, the Yoga Sutras, breathing techniques, or the meaning behind the Sanskrit names. What shall we explore?");
@@ -1127,13 +1128,53 @@ function initGenieChat() {
   });
 
   genieClose?.addEventListener('click', () => {
-    if (genieChat) genieChat.style.display = 'none';
+    if (geniePanel) geniePanel.style.display = 'none';
+    document.getElementById('yoga-genie-btn')?.classList.remove('genie-active');
   });
 
   genieSend?.addEventListener('click', () => sendGenieMessage());
   genieInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGenieMessage(); }
   });
+
+  // Drag-to-resize the Genie sidebar
+  const resizeHandle = document.getElementById('yoga-genie-resize');
+  if (resizeHandle && geniePanel) {
+    let startX = 0;
+    let startW = 0;
+    const onMouseMove = (ev) => {
+      const dx = startX - ev.clientX;  // dragging left → panel grows
+      const newW = Math.max(220, Math.min(window.innerWidth * 0.7, startW + dx));
+      geniePanel.style.flex = `0 0 ${newW}px`;
+    };
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    resizeHandle.addEventListener('mousedown', (ev) => {
+      ev.preventDefault();
+      startX = ev.clientX;
+      startW = geniePanel.getBoundingClientRect().width;
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+    // Touch support
+    const onTouchMove = (ev) => {
+      const dx = startX - ev.touches[0].clientX;
+      const newW = Math.max(220, Math.min(window.innerWidth * 0.7, startW + dx));
+      geniePanel.style.flex = `0 0 ${newW}px`;
+    };
+    const onTouchEnd = () => {
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+    };
+    resizeHandle.addEventListener('touchstart', (ev) => {
+      startX = ev.touches[0].clientX;
+      startW = geniePanel.getBoundingClientRect().width;
+      document.addEventListener('touchmove', onTouchMove);
+      document.addEventListener('touchend', onTouchEnd);
+    });
+  }
 }
 
 // ─── Open/Close Modal ─────────────────────────────────────────────────────────
@@ -1141,6 +1182,17 @@ export function openYogaModal() {
   const modal = document.getElementById('yoga-flow-modal');
   if (!modal) return;
   modal.classList.remove('modal-hidden');
+
+  // Suppress the floating Genie icons that the main genieChat.js injects
+  // (they attach to .dashboard-panel.panel-visible — not useful during yoga)
+  document.querySelectorAll('.genie-icon-btn').forEach(el => {
+    el.dataset.yogaHidden = 'true';
+    el.style.display = 'none';
+  });
+  document.querySelectorAll('.genie-chat-window').forEach(el => {
+    el.dataset.yogaHidden = 'true';
+    el.style.display = 'none';
+  });
 
   // Reset to setup screen
   document.getElementById('yoga-setup-screen')?.classList.remove('hidden');
@@ -1174,6 +1226,17 @@ export function closeYogaModal() {
     endYogaSession(false);
   }
   modal.classList.add('modal-hidden');
+
+  // Restore floating Genie icons that were hidden when yoga opened
+  document.querySelectorAll('.genie-icon-btn[data-yoga-hidden]').forEach(el => {
+    el.style.display = '';
+    delete el.dataset.yogaHidden;
+  });
+  document.querySelectorAll('.genie-chat-window[data-yoga-hidden]').forEach(el => {
+    el.style.display = '';
+    delete el.dataset.yogaHidden;
+  });
+
   stopBreathAnimation();
   if (yogaSession.timerInterval) {
     clearInterval(yogaSession.timerInterval);
@@ -1182,6 +1245,11 @@ export function closeYogaModal() {
   // Reset confirm state
   const closeBtn = document.getElementById('yoga-close-btn');
   if (closeBtn) closeBtn.dataset.confirmClose = '';
+
+  // Close Genie panel
+  const geniePanel = document.getElementById('yoga-genie-panel');
+  if (geniePanel) geniePanel.style.display = 'none';
+  document.getElementById('yoga-genie-btn')?.classList.remove('genie-active');
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────

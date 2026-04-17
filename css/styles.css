@@ -8352,35 +8352,39 @@ svg text {
 
 /* ── Overlay ─────────────────────────────────────────────────────────────── */
 .yoga-modal-overlay {
-  /* Contained within center canvas — same bounds as .dashboard-panel */
+  /* Full-page — covers entire viewport including header & footer */
   position: fixed;
-  top: 165px;     /* below the fixed header */
-  bottom: 95px;   /* above the fixed footer */
-  left: 70px;     /* clear the left side-toolbar */
-  right: 70px;    /* clear the right side-toolbar */
-  width: auto;
-  height: auto;
-  background: rgba(5, 0, 20, 0.92);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 0, 20, 0.97);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  overflow-y: auto;
-  border-radius: 8px;
-  z-index: 9500;  /* above panels (1000), below header (99999) */
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: flex-start;  /* override .modal-overlay justify-content:center */
+  overflow: hidden;
+  z-index: 200000;  /* above header (99999) and all other fixed UI */
 }
 .yoga-modal-overlay.modal-hidden { display: none; }
 
-/* ── Modal Shell ─────────────────────────────────────────────────────────── */
+/* ── Modal Shell (left scrollable column) ────────────────────────────────── */
 .yoga-modal {
   background: linear-gradient(160deg, #0a0015 0%, #00001a 50%, #001022 100%);
-  border: 1px solid rgba(124, 58, 237, 0.4);
-  border-radius: 14px;
-  box-shadow: 0 0 40px rgba(124, 58, 237, 0.35), 0 0 80px rgba(0, 229, 255, 0.1);
-  width: 100%;
-  max-width: 540px;
-  min-height: 100%;
+  border: none;
+  border-right: 1px solid rgba(124, 58, 237, 0.25);
+  border-radius: 0;
+  box-shadow: none;
+  flex: 1 1 0;
+  width: 0;         /* let flex-grow handle width; overrides .modal width:90% */
+  max-width: none;  /* overrides .modal max-width:520px */
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #7c3aed #0a0015;
@@ -8394,7 +8398,7 @@ svg text {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px 10px;
+  padding: 12px 16px 10px;
   border-bottom: 1px solid rgba(124, 58, 237, 0.3);
   background: rgba(30, 0, 60, 0.6);
   position: sticky;
@@ -8626,16 +8630,20 @@ svg text {
 .yoga-seq-devanagari { font-size: 0.72rem; color: #ffd700; opacity: 0.75; }
 
 .yoga-dur-input {
-  width: 40px;
-  padding: 2px 3px;
-  font-size: 0.76rem;
+  width: 28px;
+  padding: 2px 2px;
+  font-size: 0.74rem;
   background: #0a0015;
   color: #e9d5ff;
   border: 1px solid rgba(124, 58, 237, 0.5);
   border-radius: 5px 0 0 5px;
   text-align: center;
   flex-shrink: 0;
+  /* Remove browser spinner arrows */
+  appearance: textfield;
 }
+.yoga-dur-input::-webkit-inner-spin-button,
+.yoga-dur-input::-webkit-outer-spin-button { display: none; }
 /* Unit toggle button (sec/min) */
 .yoga-dur-unit-btn {
   padding: 2px 4px;
@@ -8983,104 +8991,128 @@ svg text {
   background: rgba(124, 58, 237, 0.3);
   box-shadow: 0 0 10px #7c3aed;
 }
-/* Genie chat window anchored inside yoga modal */
-.yoga-genie-chat {
-  position: absolute;
-  top: 50px;
-  right: 8px;
-  z-index: 20;
-  width: min(300px, 85%);
-  max-height: 380px;
+.yoga-genie-btn.genie-active {
+  background: rgba(124, 58, 237, 0.35);
+  border-color: #a78bfa;
+  box-shadow: 0 0 8px #7c3aed;
+}
+
+/* ── Yoga Genie Sidebar Panel ────────────────────────────────────────────── */
+/* Flexbox sibling of .yoga-modal inside .yoga-modal-overlay                 */
+.yoga-genie-panel {
+  flex: 0 0 380px;
+  min-width: 220px;
   display: flex;
   flex-direction: column;
-  background: rgba(5, 0, 20, 0.97);
-  border: 1px solid rgba(124, 58, 237, 0.5);
-  border-radius: 10px;
-  box-shadow: 0 0 24px rgba(124, 58, 237, 0.35);
+  background: linear-gradient(160deg, #080010 0%, #000018 100%);
+  border-left: 1px solid rgba(124, 58, 237, 0.45);
   overflow: hidden;
+  position: relative;
+}
+/* Drag-to-resize handle on left border of the genie panel */
+.yoga-genie-resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 10;
+  background: transparent;
+}
+.yoga-genie-resize-handle:hover {
+  background: rgba(124, 58, 237, 0.25);
 }
 .yoga-genie-chat-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
+  padding: 10px 14px;
   background: rgba(30, 0, 60, 0.7);
   border-bottom: 1px solid rgba(124, 58, 237, 0.3);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   color: #e9d5ff;
   font-weight: 600;
+  flex-shrink: 0;
 }
 .yoga-genie-chat-close {
   background: transparent;
   border: none;
   color: #c084fc;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   padding: 0 2px;
 }
 .yoga-genie-messages {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0; /* critical for Firefox flex scrolling */
   overflow-y: auto;
-  padding: 8px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   scrollbar-width: thin;
   scrollbar-color: #7c3aed #0a0015;
 }
 .yoga-genie-msg {
-  padding: 5px 8px;
-  border-radius: 7px;
-  font-size: 0.78rem;
-  line-height: 1.4;
-  max-width: 92%;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  max-width: 95%;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 .yoga-genie-msg.user {
   background: rgba(124, 58, 237, 0.3);
   color: #e9d5ff;
   align-self: flex-end;
+  border: 1px solid rgba(124, 58, 237, 0.4);
 }
 .yoga-genie-msg.genie {
-  background: rgba(0, 10, 30, 0.8);
+  background: rgba(0, 10, 30, 0.85);
   color: #7dd3fc;
-  border: 1px solid rgba(0, 229, 255, 0.15);
+  border: 1px solid rgba(0, 229, 255, 0.18);
   align-self: flex-start;
 }
 .yoga-genie-input-row {
   display: flex;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 8px 10px;
   border-top: 1px solid rgba(124, 58, 237, 0.25);
   background: rgba(10, 0, 21, 0.8);
+  flex-shrink: 0;
 }
 .yoga-genie-input {
   flex: 1;
-  padding: 4px 8px;
+  padding: 6px 10px;
   background: rgba(20, 0, 40, 0.8);
   color: #e9d5ff;
   border: 1px solid rgba(124, 58, 237, 0.4);
-  border-radius: 6px;
-  font-size: 0.76rem;
+  border-radius: 7px;
+  font-size: 0.8rem;
   outline: none;
 }
 .yoga-genie-input:focus { border-color: #7c3aed; }
 .yoga-genie-send {
-  padding: 4px 8px;
+  padding: 6px 12px;
   background: rgba(124, 58, 237, 0.5);
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 7px;
   cursor: pointer;
-  font-size: 0.76rem;
+  font-size: 0.8rem;
+  font-weight: 600;
   transition: background 0.2s;
+  flex-shrink: 0;
 }
-.yoga-genie-send:hover { background: rgba(124, 58, 237, 0.8); }
+.yoga-genie-send:hover { background: rgba(124, 58, 237, 0.85); }
 .yoga-genie-status {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   color: #94a3b8;
-  padding: 0 8px 4px;
-  min-height: 16px;
+  padding: 0 10px 6px;
+  min-height: 18px;
+  flex-shrink: 0;
 }
 
 /* ── Named Flow Save / Load ──────────────────────────────────────────────── */
@@ -9181,13 +9213,19 @@ svg text {
 }
 .yoga-btn-delete-flow:hover { background: rgba(255, 60, 60, 0.2); }
 
-/* ── Responsive: narrow screens (< 480px) ───────────────────────────────── */
-@media (max-width: 480px) {
+/* ── Responsive: narrow screens (< 600px) ───────────────────────────────── */
+@media (max-width: 600px) {
+  /* Stack genie panel below yoga content on small screens */
   .yoga-modal-overlay {
-    left: 0;
-    right: 0;
-    top: 100px;
-    bottom: 60px;
-    border-radius: 0;
+    flex-direction: column;
+  }
+  .yoga-genie-panel {
+    flex: 0 0 280px;
+    min-width: 0;
+    border-left: none;
+    border-top: 1px solid rgba(124, 58, 237, 0.45);
+  }
+  .yoga-genie-resize-handle {
+    display: none; /* resize not meaningful when stacked vertically */
   }
 }
