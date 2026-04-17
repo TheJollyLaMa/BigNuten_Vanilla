@@ -3,8 +3,12 @@
 // breathing animations, and automatic session logging.
 
 import { getFitnessData, saveFitnessData } from './fitnessData.js';
+import {
+  isGenieEnabled, getGenieBackend, getGenieApiKey, getGenieHostedModelName
+} from './genieChat.js';
 
-const YOGA_POSES_KEY = 'yogaCustomPoses';
+const YOGA_POSES_KEY  = 'yogaCustomPoses';
+const YOGA_FLOWS_KEY  = 'yogaSavedFlows';  // named flow persistence
 
 // ─── Starter Pose Sequence ────────────────────────────────────────────────────
 const STARTER_POSES = [
@@ -339,6 +343,97 @@ function getActivePoses() {
   return [...STARTER_POSES, ...loadCustomPoses()];
 }
 
+// ─── Named Flow Save / Load ───────────────────────────────────────────────────
+function loadSavedFlows() {
+  try { return JSON.parse(localStorage.getItem(YOGA_FLOWS_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveSavedFlows(flows) {
+  localStorage.setItem(YOGA_FLOWS_KEY, JSON.stringify(flows));
+}
+
+/** Save the current yogaSession.poses as a named flow. */
+function saveCurrentFlow(name) {
+  if (!name) return false;
+  const flows = loadSavedFlows();
+  const id = 'flow-' + Date.now();
+  // Strip per-session metadata; keep only pose shape
+  const poses = yogaSession.poses.map(p => ({
+    id: p.id, english: p.english, sanskrit: p.sanskrit,
+    devanagari: p.devanagari, duration: p.duration,
+    breathCue: p.breathCue, svgKey: p.svgKey, chakra: p.chakra,
+    custom: p.custom || false
+  }));
+  flows.push({ id, name, poses, createdAt: new Date().toISOString() });
+  saveSavedFlows(flows);
+  return true;
+}
+
+/** Load a saved flow by id into yogaSession.poses. */
+function loadFlow(flowId) {
+  const flows = loadSavedFlows();
+  const flow = flows.find(f => f.id === flowId);
+  if (!flow) return false;
+  yogaSession.poses = flow.poses.map(p => ({ ...p }));
+  renderPoseSequenceList();
+  if (yogaSession.poses[0]) showPose(yogaSession.poses[0], false);
+  return true;
+}
+
+function deleteFlow(flowId) {
+  const flows = loadSavedFlows().filter(f => f.id !== flowId);
+  saveSavedFlows(flows);
+}
+
+function renderSavedFlowsList() {
+  const ul = document.getElementById('yoga-saved-flows-list');
+  if (!ul) return;
+  ul.innerHTML = '';
+  const flows = loadSavedFlows();
+  if (flows.length === 0) {
+    const li = document.createElement('li');
+    li.style.cssText = 'font-size:0.74rem;color:#64748b;padding:4px 0;';
+    li.textContent = 'No saved flows yet — save your sequence above';
+    ul.appendChild(li);
+    return;
+  }
+  flows.forEach(flow => {
+    const li = document.createElement('li');
+    li.className = 'yoga-saved-flow-item';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'yoga-saved-flow-name';
+    nameSpan.textContent = flow.name;
+
+    const countSpan = document.createElement('span');
+    countSpan.className = 'yoga-saved-flow-count';
+    countSpan.textContent = `${flow.poses.length} poses`;
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'yoga-btn-load-flow';
+    loadBtn.textContent = '▶ Load';
+    loadBtn.setAttribute('aria-label', `Load flow: ${flow.name}`);
+    loadBtn.addEventListener('click', () => {
+      loadFlow(flow.id);
+      showYogaToast(`✅ Flow "${flow.name}" loaded`);
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'yoga-btn-delete-flow';
+    delBtn.textContent = '✕';
+    delBtn.setAttribute('aria-label', `Delete flow: ${flow.name}`);
+    delBtn.addEventListener('click', () => {
+      deleteFlow(flow.id);
+      renderSavedFlowsList();
+      showYogaToast(`🗑 Flow "${flow.name}" deleted`);
+    });
+
+    li.append(nameSpan, countSpan, loadBtn, delBtn);
+    ul.appendChild(li);
+  });
+}
+
 // ─── Audio: gentle singing bowl tone ─────────────────────────────────────────
 function playBowl(freq = 432, duration = 0.8) {
   try {
@@ -474,21 +569,48 @@ function makePoseListItem(pose, i, withControls) {
   if (withControls) {
     const poseId = pose.id;
 
+    // Show duration in the most legible unit (use minutes if ≥ 60s and divisible)
+    const initUseMins = pose.duration >= 60 && pose.duration % 60 === 0;
+    const initDisplayVal = initUseMins ? Math.round(pose.duration / 60) : pose.duration;
+
     const durInput = document.createElement('input');
     durInput.type = 'number';
-    durInput.min = '5';
-    durInput.max = '600';
-    durInput.value = String(pose.duration);
+    durInput.min = '1';
+    durInput.max = '3600';
+    durInput.value = String(initDisplayVal);
     durInput.className = 'yoga-dur-input';
-    durInput.setAttribute('aria-label', `Duration in seconds for ${pose.english}`);
-    durInput.title = 'Seconds for this pose';
-    durInput.addEventListener('change', () => {
+    durInput.setAttribute('aria-label', `Duration for ${pose.english}`);
+
+    const unitBtn = document.createElement('button');
+    unitBtn.type = 'button';
+    unitBtn.className = 'yoga-dur-unit-btn' + (initUseMins ? ' is-min' : '');
+    unitBtn.textContent = initUseMins ? 'min' : 'sec';
+    unitBtn.setAttribute('aria-label', `Toggle seconds/minutes for ${pose.english}`);
+    unitBtn.title = 'Toggle sec / min';
+
+    // Keep a local state for the unit
+    let useMins = initUseMins;
+
+    const updateDuration = () => {
       const idx = yogaSession.poses.findIndex(p => p.id === poseId);
       if (idx !== -1) {
-        yogaSession.poses[idx].duration = parseInt(durInput.value) || 60;
+        const rawVal = parseInt(durInput.value) || 1;
+        yogaSession.poses[idx].duration = useMins ? rawVal * 60 : rawVal;
         updateEstimatedTime();
       }
+    };
+
+    unitBtn.addEventListener('click', () => {
+      const idx = yogaSession.poses.findIndex(p => p.id === poseId);
+      const currentSecs = idx !== -1 ? yogaSession.poses[idx].duration : (pose.duration || 60);
+      useMins = !useMins;
+      durInput.value = useMins ? Math.max(1, Math.round(currentSecs / 60)) : currentSecs;
+      unitBtn.textContent = useMins ? 'min' : 'sec';
+      unitBtn.classList.toggle('is-min', useMins);
+      durInput.setAttribute('aria-label', `Duration in ${useMins ? 'minutes' : 'seconds'} for ${pose.english}`);
     });
+
+    durInput.addEventListener('change', updateDuration);
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'yoga-remove-btn';
@@ -504,7 +626,7 @@ function makePoseListItem(pose, i, withControls) {
       }
     });
 
-    li.append(durInput, removeBtn);
+    li.append(durInput, unitBtn, removeBtn);
   } else {
     const durSpan = document.createElement('span');
     durSpan.className = 'yoga-seq-dur';
@@ -826,7 +948,9 @@ function handleAddCustomPose(e) {
   const name = document.getElementById('yoga-custom-english')?.value?.trim();
   const sanskrit = document.getElementById('yoga-custom-sanskrit')?.value?.trim();
   const devanagari = document.getElementById('yoga-custom-devanagari')?.value?.trim();
-  const duration = parseInt(document.getElementById('yoga-custom-duration')?.value || '60');
+  const rawVal = parseInt(document.getElementById('yoga-custom-duration')?.value || '60');
+  const unit = document.getElementById('yoga-custom-dur-unit')?.value || 's';
+  const duration = unit === 'm' ? rawVal * 60 : rawVal;
 
   if (!name) { showYogaToast('⚠️ Please enter a pose name.', 3000); return; }
 
@@ -859,6 +983,154 @@ function handleAddCustomPose(e) {
   showYogaToast(`✅ "${name}" added to your flow!`);
 }
 
+// ─── Yoga Genie Chat ──────────────────────────────────────────────────────────
+let genieMessages = [];  // { role: 'user'|'genie', text: string }[]
+
+function appendGenieMessage(role, text) {
+  const messages = document.getElementById('yoga-genie-messages');
+  if (!messages) return;
+  const div = document.createElement('div');
+  div.className = `yoga-genie-msg ${role}`;
+  div.textContent = text;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  genieMessages.push({ role, text });
+}
+
+function setGenieStatus(text) {
+  const el = document.getElementById('yoga-genie-status');
+  if (el) el.textContent = text;
+}
+
+async function sendGenieMessage() {
+  const input = document.getElementById('yoga-genie-input');
+  const sendBtn = document.getElementById('yoga-genie-send');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  if (input) input.disabled = true;
+  if (sendBtn) sendBtn.disabled = true;
+
+  appendGenieMessage('user', text);
+  setGenieStatus('🧞 Thinking…');
+
+  // Build context from current session and yoga data
+  const currentPose = yogaSession.poses[yogaSession.currentIndex];
+  const poseContext = currentPose
+    ? `Current pose: ${currentPose.english} (${currentPose.sanskrit} / ${currentPose.devanagari})\nBreath cue: ${currentPose.breathCue}`
+    : `Flow has ${yogaSession.poses.length} poses: ${yogaSession.poses.map(p => p.english).join(', ')}`;
+
+  const yogaData = getFitnessData();
+  const yogaSessions = (yogaData.sessionLog || [])
+    .filter(s => s.type === 'yoga').slice(-5);
+
+  const systemPrompt = `You are the Yoga Genie 🧞, a wise and compassionate yoga guide embedded in BigNuten health tracker.
+You have deep knowledge of:
+- Yoga asanas (poses), their Sanskrit names, benefits, contraindications, and modifications
+- The Yoga Sutras of Patanjali and classical yoga philosophy
+- Pranayama (breathing techniques) and their effects
+- Chakra theory and energy work
+- Mindfulness, meditation, and the mind-body connection
+- Ayurveda as it relates to yoga practice
+- Modern sports science and biomechanics of yoga
+
+${poseContext}
+
+Recent yoga sessions logged:
+${yogaSessions.length > 0 ? JSON.stringify(yogaSessions, null, 1) : 'No recent yoga sessions logged yet.'}
+
+Be warm, encouraging, and precise. Weave Sanskrit terms naturally into explanations.
+For pose questions, mention both benefits and safety cues.
+Keep responses concise — 2-4 sentences unless a detailed explanation is requested.`;
+
+  const conversationHistory = genieMessages.slice(-8).map(m => ({
+    role: m.role === 'user' ? 'user' : 'assistant',
+    content: m.text
+  }));
+  conversationHistory.push({ role: 'user', content: text });
+
+  try {
+    const backend = getGenieBackend();
+    let reply = '';
+
+    if (backend === 'webllm') {
+      setGenieStatus('🧞 (WebLLM not available in yoga panel — switch backend in Settings)');
+      reply = 'Please switch to GitHub Models or OpenAI backend in Settings to use the Yoga Genie.';
+    } else if (backend === 'openai' || backend === 'github-models') {
+      const apiKey = getGenieApiKey();
+      const modelName = getGenieHostedModelName();
+
+      const endpoint = backend === 'openai'
+        ? 'https://api.openai.com/v1/chat/completions'
+        : `https://models.inference.ai.azure.com/chat/completions`;
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      };
+
+      const body = JSON.stringify({
+        model: modelName,
+        messages: [{ role: 'system', content: systemPrompt }, ...conversationHistory],
+        temperature: 0.7,
+        max_tokens: 512
+      });
+
+      const res = await fetch(endpoint, { method: 'POST', headers, body });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      reply = data.choices?.[0]?.message?.content?.trim() || '(no response)';
+    } else {
+      reply = 'Please configure a Genie AI backend in Settings to use the Yoga Genie.';
+    }
+
+    appendGenieMessage('genie', reply);
+    setGenieStatus('');
+  } catch (err) {
+    console.error('Yoga Genie error:', err);
+    appendGenieMessage('genie', `⚠️ ${err.message || 'An error occurred. Check your API key in Settings.'}`);
+    setGenieStatus('');
+  } finally {
+    if (input) input.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
+    if (input) input.focus();
+  }
+}
+
+function initGenieChat() {
+  const genieBtn = document.getElementById('yoga-genie-btn');
+  const genieChat = document.getElementById('yoga-genie-chat');
+  const genieClose = document.getElementById('yoga-genie-chat-close');
+  const genieSend = document.getElementById('yoga-genie-send');
+  const genieInput = document.getElementById('yoga-genie-input');
+
+  genieBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!genieChat) return;
+    const isOpen = genieChat.style.display !== 'none';
+    genieChat.style.display = isOpen ? 'none' : 'flex';
+    if (!isOpen && genieMessages.length === 0) {
+      appendGenieMessage('genie',
+        "Namaste 🧞🙏 I'm your Yoga Genie! Ask me about any pose in your flow, the Yoga Sutras, breathing techniques, or the meaning behind the Sanskrit names. What shall we explore?");
+    }
+    if (!isOpen) setTimeout(() => genieInput?.focus(), 50);
+  });
+
+  genieClose?.addEventListener('click', () => {
+    if (genieChat) genieChat.style.display = 'none';
+  });
+
+  genieSend?.addEventListener('click', () => sendGenieMessage());
+  genieInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGenieMessage(); }
+  });
+}
+
 // ─── Open/Close Modal ─────────────────────────────────────────────────────────
 export function openYogaModal() {
   const modal = document.getElementById('yoga-flow-modal');
@@ -875,6 +1147,7 @@ export function openYogaModal() {
   yogaSession.active = false;
   yogaSession.paused = false;
   renderPoseSequenceList();
+  renderSavedFlowsList();
 
   // Show static preview of first pose — no breath animation during setup
   stopBreathAnimation();
@@ -955,6 +1228,7 @@ export function initYogaFlow() {
     yogaSession.completedPoses = [];
     yogaSession.active = false;
     renderPoseSequenceList();
+    renderSavedFlowsList();
     stopBreathAnimation();
     if (yogaSession.poses[0]) showPose(yogaSession.poses[0], false);
   });
@@ -982,6 +1256,21 @@ export function initYogaFlow() {
     renderPoseSequenceList();
     showYogaToast('✅ Custom poses cleared');
   });
+
+  // ── Save current flow ────────────────────────────────────────────────────
+  document.getElementById('yoga-save-flow-btn')?.addEventListener('click', () => {
+    const nameInput = document.getElementById('yoga-flow-name-input');
+    const name = nameInput?.value?.trim();
+    if (!name) { showYogaToast('⚠️ Enter a name for this flow first', 3000); return; }
+    if (yogaSession.poses.length === 0) { showYogaToast('⚠️ No poses in current flow', 3000); return; }
+    saveCurrentFlow(name);
+    if (nameInput) nameInput.value = '';
+    renderSavedFlowsList();
+    showYogaToast(`✅ Flow "${name}" saved!`);
+  });
+
+  // ── Genie Chat ───────────────────────────────────────────────────────────
+  initGenieChat();
 
   // Initialize pose preview
   yogaSession.poses = getActivePoses().map(p => ({ ...p }));

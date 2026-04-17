@@ -8352,13 +8352,23 @@ svg text {
 
 /* ── Overlay ─────────────────────────────────────────────────────────────── */
 .yoga-modal-overlay {
-  background: rgba(5, 0, 20, 0.88);
+  /* Contained within center canvas — same bounds as .dashboard-panel */
+  position: fixed;
+  top: 165px;     /* below the fixed header */
+  bottom: 95px;   /* above the fixed footer */
+  left: 70px;     /* clear the left side-toolbar */
+  right: 70px;    /* clear the right side-toolbar */
+  width: auto;
+  height: auto;
+  background: rgba(5, 0, 20, 0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  z-index: 9000;
+  overflow-y: auto;
+  border-radius: 8px;
+  z-index: 9500;  /* above panels (1000), below header (99999) */
 }
 .yoga-modal-overlay.modal-hidden { display: none; }
 
@@ -8366,10 +8376,11 @@ svg text {
 .yoga-modal {
   background: linear-gradient(160deg, #0a0015 0%, #00001a 50%, #001022 100%);
   border: 1px solid rgba(124, 58, 237, 0.4);
-  border-radius: 18px;
+  border-radius: 14px;
   box-shadow: 0 0 40px rgba(124, 58, 237, 0.35), 0 0 80px rgba(0, 229, 255, 0.1);
-  width: min(92vw, 520px);
-  max-height: 92vh;
+  width: 100%;
+  max-width: 540px;
+  min-height: 100%;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #7c3aed #0a0015;
@@ -8615,16 +8626,32 @@ svg text {
 .yoga-seq-devanagari { font-size: 0.72rem; color: #ffd700; opacity: 0.75; }
 
 .yoga-dur-input {
-  width: 44px;
-  padding: 3px 5px;
-  font-size: 0.78rem;
+  width: 40px;
+  padding: 2px 3px;
+  font-size: 0.76rem;
   background: #0a0015;
   color: #e9d5ff;
   border: 1px solid rgba(124, 58, 237, 0.5);
-  border-radius: 5px;
+  border-radius: 5px 0 0 5px;
   text-align: center;
   flex-shrink: 0;
 }
+/* Unit toggle button (sec/min) */
+.yoga-dur-unit-btn {
+  padding: 2px 4px;
+  font-size: 0.65rem;
+  background: rgba(124, 58, 237, 0.25);
+  color: #c084fc;
+  border: 1px solid rgba(124, 58, 237, 0.5);
+  border-left: none;
+  border-radius: 0 5px 5px 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.yoga-dur-unit-btn:hover { background: rgba(124, 58, 237, 0.45); color: #e9d5ff; }
+.yoga-dur-unit-btn.is-min { color: #ffd700; background: rgba(255, 215, 0, 0.15); border-color: rgba(255, 215, 0, 0.4); }
 .yoga-remove-btn {
   background: transparent;
   border: 1px solid rgba(255, 60, 60, 0.3);
@@ -8933,4 +8960,234 @@ svg text {
   color: #94a3b8;
   flex-shrink: 0;
   margin-left: auto;
+}
+
+/* ── Yoga Genie Button (in modal header) ─────────────────────────────────── */
+.yoga-genie-btn {
+  background: transparent;
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  color: #c084fc;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+.yoga-genie-btn:hover {
+  background: rgba(124, 58, 237, 0.3);
+  box-shadow: 0 0 10px #7c3aed;
+}
+/* Genie chat window anchored inside yoga modal */
+.yoga-genie-chat {
+  position: absolute;
+  top: 50px;
+  right: 8px;
+  z-index: 20;
+  width: min(300px, 85%);
+  max-height: 380px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(5, 0, 20, 0.97);
+  border: 1px solid rgba(124, 58, 237, 0.5);
+  border-radius: 10px;
+  box-shadow: 0 0 24px rgba(124, 58, 237, 0.35);
+  overflow: hidden;
+}
+.yoga-genie-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(30, 0, 60, 0.7);
+  border-bottom: 1px solid rgba(124, 58, 237, 0.3);
+  font-size: 0.78rem;
+  color: #e9d5ff;
+  font-weight: 600;
+}
+.yoga-genie-chat-close {
+  background: transparent;
+  border: none;
+  color: #c084fc;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 2px;
+}
+.yoga-genie-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #7c3aed #0a0015;
+}
+.yoga-genie-msg {
+  padding: 5px 8px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  max-width: 92%;
+  word-break: break-word;
+}
+.yoga-genie-msg.user {
+  background: rgba(124, 58, 237, 0.3);
+  color: #e9d5ff;
+  align-self: flex-end;
+}
+.yoga-genie-msg.genie {
+  background: rgba(0, 10, 30, 0.8);
+  color: #7dd3fc;
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  align-self: flex-start;
+}
+.yoga-genie-input-row {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-top: 1px solid rgba(124, 58, 237, 0.25);
+  background: rgba(10, 0, 21, 0.8);
+}
+.yoga-genie-input {
+  flex: 1;
+  padding: 4px 8px;
+  background: rgba(20, 0, 40, 0.8);
+  color: #e9d5ff;
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  border-radius: 6px;
+  font-size: 0.76rem;
+  outline: none;
+}
+.yoga-genie-input:focus { border-color: #7c3aed; }
+.yoga-genie-send {
+  padding: 4px 8px;
+  background: rgba(124, 58, 237, 0.5);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  transition: background 0.2s;
+}
+.yoga-genie-send:hover { background: rgba(124, 58, 237, 0.8); }
+.yoga-genie-status {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  padding: 0 8px 4px;
+  min-height: 16px;
+}
+
+/* ── Named Flow Save / Load ──────────────────────────────────────────────── */
+.yoga-flows-section {
+  margin-bottom: 12px;
+}
+.yoga-flows-heading {
+  font-size: 0.8rem;
+  color: #7dd3fc;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.yoga-flows-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.yoga-flow-name-input {
+  flex: 1;
+  min-width: 100px;
+  padding: 4px 8px;
+  background: #0a0015;
+  color: #e2e8f0;
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  outline: none;
+}
+.yoga-flow-name-input:focus { border-color: #7c3aed; }
+.yoga-btn-save-flow {
+  padding: 4px 10px;
+  background: rgba(124, 58, 237, 0.4);
+  color: #e9d5ff;
+  border: 1px solid rgba(124, 58, 237, 0.5);
+  border-radius: 6px;
+  font-size: 0.76rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.yoga-btn-save-flow:hover { background: rgba(124, 58, 237, 0.7); }
+.yoga-saved-flows-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 140px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #7c3aed #0a0015;
+}
+.yoga-saved-flow-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(0, 5, 20, 0.6);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  border-radius: 6px;
+}
+.yoga-saved-flow-name {
+  flex: 1;
+  font-size: 0.78rem;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.yoga-saved-flow-count {
+  font-size: 0.68rem;
+  color: #7c3aed;
+  flex-shrink: 0;
+}
+.yoga-btn-load-flow {
+  padding: 2px 8px;
+  background: rgba(0, 229, 255, 0.15);
+  color: #00e5ff;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 5px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.yoga-btn-load-flow:hover { background: rgba(0, 229, 255, 0.3); }
+.yoga-btn-delete-flow {
+  padding: 2px 6px;
+  background: transparent;
+  color: #f87171;
+  border: 1px solid rgba(255, 60, 60, 0.25);
+  border-radius: 5px;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.yoga-btn-delete-flow:hover { background: rgba(255, 60, 60, 0.2); }
+
+/* ── Responsive: narrow screens (< 480px) ───────────────────────────────── */
+@media (max-width: 480px) {
+  .yoga-modal-overlay {
+    left: 0;
+    right: 0;
+    top: 100px;
+    bottom: 60px;
+    border-radius: 0;
+  }
 }
