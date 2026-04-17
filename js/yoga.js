@@ -350,7 +350,12 @@ function loadSavedFlows() {
 }
 
 function saveSavedFlows(flows) {
-  localStorage.setItem(YOGA_FLOWS_KEY, JSON.stringify(flows));
+  try {
+    localStorage.setItem(YOGA_FLOWS_KEY, JSON.stringify(flows));
+  } catch (e) {
+    console.warn('Yoga: could not save flows (storage quota?):', e);
+    showYogaToast('⚠️ Could not save flow — storage may be full', 4000);
+  }
 }
 
 /** Save the current yogaSession.poses as a named flow. */
@@ -1056,7 +1061,7 @@ Keep responses concise — 2-4 sentences unless a detailed explanation is reques
     let reply = '';
 
     if (backend === 'webllm') {
-      setGenieStatus('🧞 (WebLLM not available in yoga panel — switch backend in Settings)');
+      setGenieStatus('🧞 (WebLLM not available in Yoga Panel — switch backend in Settings)');
       reply = 'Please switch to GitHub Models or OpenAI backend in Settings to use the Yoga Genie.';
     } else if (backend === 'openai' || backend === 'github-models') {
       const apiKey = getGenieApiKey();
