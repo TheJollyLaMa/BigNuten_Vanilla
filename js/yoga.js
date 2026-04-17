@@ -171,19 +171,21 @@ function getPoseSVG(key, color = '#ffd700', w = 160, h = 200) {
       `<line x1="30" y1="180" x2="130" y2="180" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
     ),
 
-    // Downward Dog — inverted V, hips up
+    // Downward Dog — inverted V: hips at apex, head hangs low between arms, feet and hands on floor
     downdog: wrap(
-      // hips up at 80,60; hands at 20,140; feet at 140,140
-      `<circle cx="80" cy="50" r="12" fill="none" stroke="${c}" stroke-width="2.5"/>` +
-      line(80, 62, 80, 100) +          // torso (diagonal spine)
-      line(80, 100, 25, 145) +         // L arm to ground
-      line(80, 100, 135, 145) +        // R arm to ground
-      line(80, 100, 55, 150) +         // L leg
-      line(80, 100, 105, 150) +        // R leg
+      // hips at top-center (apex of the inverted V)
+      // spine goes forward-down from hips to shoulders, then arms to hands on floor
+      // legs go back-down from hips to feet on floor
+      // head hangs forward-down below shoulders
+      head(32, 122) +                    // head hanging low, forward between arms
+      line(80, 42, 38, 108) +            // spine: hips → shoulders (diagonal forward-down)
+      line(38, 108, 20, 152) +           // arm: shoulder → left hand on floor
+      line(80, 42, 130, 152) +           // right leg: hips → right foot on floor
+      line(80, 42, 112, 152) +           // left leg: hips → left foot on floor
       `<line x1="15" y1="155" x2="145" y2="155" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
     ),
 
-    // Plank — horizontal body, arms straight down
+    // Plank — horizontal body, arms straight down from shoulders
     plank: wrap(
       // body horizontal at y=100
       `<circle cx="25" cy="88" r="11" fill="none" stroke="${c}" stroke-width="2.5"/>` +
@@ -195,16 +197,16 @@ function getPoseSVG(key, color = '#ffd700', w = 160, h = 200) {
       `<line x1="35" y1="128" x2="145" y2="128" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
     ),
 
-    // Cobra — prone, upper body raised
+    // Cobra — prone side view: head & chest raised, arms push up, legs flat
     cobra: wrap(
-      `<circle cx="80" cy="55" r="12" fill="none" stroke="${c}" stroke-width="2.5"/>` +
-      line(80, 67, 80, 105) +          // spine curved up
-      line(80, 80, 40, 105) +          // L arm
-      line(80, 80, 120, 105) +         // R arm
-      line(80, 105, 60, 155) +         // L leg (flat)
-      line(80, 105, 100, 155) +        // R leg (flat)
-      // curved ground hint
-      `<path d="M 30 155 Q 80 160 130 155" fill="none" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+      // side view: lying face-down, upper body raised to right, legs trailing left
+      head(118, 58) +                    // head raised at right
+      line(100, 65, 45, 95) +            // neck/torso curving down to floor
+      line(90, 72, 75, 105) +            // R arm pushing from floor (right)
+      line(60, 88, 45, 120) +            // L arm pushing from floor (left)
+      line(45, 95, 20, 130) +            // L leg trailing flat
+      line(45, 95, 30, 128) +            // R leg trailing flat
+      `<path d="M 15 130 Q 70 135 125 130" fill="none" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
     ),
 
     // Child's Pose — curled forward, arms extended, knees on floor
@@ -258,17 +260,16 @@ function getPoseSVG(key, color = '#ffd700', w = 160, h = 200) {
       `<line x1="15" y1="178" x2="140" y2="178" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
     ),
 
-    // Seated Forward Fold — seated, folding over legs
+    // Seated Forward Fold — seated on floor, torso folded forward over extended legs, head near feet
     forwardfold: wrap(
-      `<circle cx="65" cy="100" r="12" fill="none" stroke="${c}" stroke-width="2.5"/>` +
-      line(65, 112, 90, 130) +         // torso folding
-      line(90, 120, 55, 108) +         // L arm along leg
-      line(90, 120, 125, 135) +        // R arm along leg
-      line(90, 130, 50, 145) +         // L leg extended
-      line(90, 130, 128, 145) +        // R leg extended
-      line(50, 145, 45, 158) +         // L foot
-      line(128, 145, 132, 158) +       // R foot
-      `<line x1="25" y1="158" x2="145" y2="158" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+      // side view: sitting at left, legs extended right, torso folds toward feet
+      head(110, 128) +                   // head down near feet (forward)
+      line(60, 148, 95, 130) +           // torso leaning far forward
+      line(95, 130, 130, 125) +          // arms reaching toward feet
+      line(60, 148, 50, 160) +           // hips/sit-bones to floor
+      line(50, 160, 130, 165) +          // legs extended flat to right
+      line(130, 165, 135, 155) +         // foot
+      `<line x1="20" y1="168" x2="145" y2="168" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
     ),
 
     // Bridge Pose — supine, hips lifted
@@ -284,15 +285,17 @@ function getPoseSVG(key, color = '#ffd700', w = 160, h = 200) {
       `<line x1="15" y1="163" x2="145" y2="163" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
     ),
 
-    // Supine Twist — lying, knees to one side
+    // Supine Twist — lying on back, arms in T, knees bent and dropped to one side
     supinetwist: wrap(
-      `<circle cx="80" cy="70" r="12" fill="none" stroke="${c}" stroke-width="2.5"/>` +
-      line(80, 82, 80, 128) +          // spine horizontal
-      line(80, 100, 35, 100) +         // L arm out (T)
-      line(80, 100, 125, 100) +        // R arm out (T) — rotated
-      line(80, 128, 60, 155) +         // knees dropped left
-      line(80, 128, 75, 160) +
-      `<line x1="20" y1="165" x2="140" y2="165" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
+      // head at left, body lying horizontally, arms in T, knees stacked to right
+      head(22, 108) +                    // head at left (lying)
+      line(34, 108, 138, 112) +          // spine horizontal (torso)
+      line(75, 110, 72, 145) +           // L arm down (T)
+      line(105, 111, 108, 146) +         // R arm down (T)
+      line(138, 112, 130, 145) +         // hip to knees (knees bent to right)
+      line(130, 145, 140, 168) +         // upper leg down
+      line(130, 145, 118, 165) +         // lower leg (stacked)
+      `<line x1="15" y1="170" x2="145" y2="170" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
     ),
 
     // Corpse Pose — lying flat, arms away from body

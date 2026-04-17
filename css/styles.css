@@ -8673,10 +8673,10 @@ svg text {
 .yoga-seq-devanagari { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .yoga-dur-input {
-  width: 28px;
-  min-width: 28px;
-  max-width: 28px;
-  padding: 2px 2px;
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  padding: 2px 3px;
   font-size: 0.74rem;
   background: #0a0015;
   color: #e9d5ff;
