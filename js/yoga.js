@@ -425,10 +425,12 @@ function fmtTime(s) {
 }
 
 // ─── Security helper ──────────────────────────────────────────────────────────
-// Validate that a color value is a safe CSS hex color or known CSS color name
+// Validate that a color value is a safe CSS hex color (3, 4, 6, or 8 hex digits)
 function safeCssColor(color) {
   if (typeof color !== 'string') return '#ffd700';
-  return /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : '#ffd700';
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(color)
+    ? color
+    : '#ffd700';
 }
 
 // Validate that a svgKey is one of the known safe keys
@@ -470,6 +472,8 @@ function makePoseListItem(pose, i, withControls) {
   li.append(numSpan, namesSpan);
 
   if (withControls) {
+    const poseId = pose.id;
+
     const durInput = document.createElement('input');
     durInput.type = 'number';
     durInput.min = '5';
@@ -479,8 +483,11 @@ function makePoseListItem(pose, i, withControls) {
     durInput.setAttribute('aria-label', `Duration in seconds for ${pose.english}`);
     durInput.title = 'Seconds for this pose';
     durInput.addEventListener('change', () => {
-      yogaSession.poses[i].duration = parseInt(durInput.value) || 60;
-      updateEstimatedTime();
+      const idx = yogaSession.poses.findIndex(p => p.id === poseId);
+      if (idx !== -1) {
+        yogaSession.poses[idx].duration = parseInt(durInput.value) || 60;
+        updateEstimatedTime();
+      }
     });
 
     const removeBtn = document.createElement('button');
@@ -489,9 +496,12 @@ function makePoseListItem(pose, i, withControls) {
     removeBtn.title = 'Remove pose';
     removeBtn.textContent = '✕';
     removeBtn.addEventListener('click', () => {
-      yogaSession.poses.splice(i, 1);
-      renderPoseSequenceList();
-      updateEstimatedTime();
+      const idx = yogaSession.poses.findIndex(p => p.id === poseId);
+      if (idx !== -1) {
+        yogaSession.poses.splice(idx, 1);
+        renderPoseSequenceList();
+        updateEstimatedTime();
+      }
     });
 
     li.append(durInput, removeBtn);
@@ -524,8 +534,10 @@ function renderActiveSequenceList() {
     if (i === yogaSession.currentIndex) li.classList.add('yoga-seq-active');
     ul.appendChild(li);
   });
-  ul.querySelectorAll('.yoga-seq-item')[yogaSession.currentIndex]
-    ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  const items = ul.querySelectorAll('.yoga-seq-item');
+  if (yogaSession.currentIndex >= 0 && yogaSession.currentIndex < items.length) {
+    items[yogaSession.currentIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
 }
 
 function updateEstimatedTime() {
@@ -535,7 +547,7 @@ function updateEstimatedTime() {
   el.textContent = `⏳ Est. session time: ${(total / 60).toFixed(1)} min`;
 }
 
-function showPose(pose) {
+function showPose(pose, animate = true) {
   const el = (id) => document.getElementById(id);
   if (!pose) return;
 
@@ -557,11 +569,12 @@ function showPose(pose) {
   const aura = el('yoga-breath-aura');
   if (aura) aura.style.setProperty('--aura-color', safeCssColor(pose.chakra));
 
-  // Update active-sequence list highlighting
-  renderActiveSequenceList();
-
-  // Restart breath animation with pose color
-  startBreathAnimation(safeCssColor(pose.chakra));
+  if (animate) {
+    // Update active-sequence list highlighting
+    renderActiveSequenceList();
+    // Start breath animation with pose color
+    startBreathAnimation(safeCssColor(pose.chakra));
+  }
 }
 
 function showTransition(fromPose, toPose, seconds, onDone) {
@@ -615,7 +628,7 @@ function startPoseTimer() {
       const pct = 100 - (yogaSession.secondsLeft / pose.duration) * 100;
       progressBar.style.width = `${pct}%`;
       progressBar.style.background =
-        `linear-gradient(90deg, ${pose.chakra || '#ffd700'}, #fff2)`;
+        `linear-gradient(90deg, ${safeCssColor(pose.chakra)}, #fff2)`;
     }
 
     if (yogaSession.secondsLeft <= 5 && yogaSession.secondsLeft > 0) {
@@ -863,8 +876,9 @@ export function openYogaModal() {
   yogaSession.paused = false;
   renderPoseSequenceList();
 
-  // Show preview of first pose (breath animation starts gently)
-  if (yogaSession.poses[0]) showPose(yogaSession.poses[0]);
+  // Show static preview of first pose — no breath animation during setup
+  stopBreathAnimation();
+  if (yogaSession.poses[0]) showPose(yogaSession.poses[0], false);
 }
 
 export function closeYogaModal() {
@@ -941,7 +955,8 @@ export function initYogaFlow() {
     yogaSession.completedPoses = [];
     yogaSession.active = false;
     renderPoseSequenceList();
-    if (yogaSession.poses[0]) showPose(yogaSession.poses[0]);
+    stopBreathAnimation();
+    if (yogaSession.poses[0]) showPose(yogaSession.poses[0], false);
   });
 
   // Add custom pose form
