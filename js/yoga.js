@@ -802,7 +802,7 @@ function startPoseTimer() {
   }, 1000);
 }
 
-function endYogaSession(completed = false) {
+async function endYogaSession(completed = false) {
   stopBreathAnimation();
   if (yogaSession.timerInterval) {
     clearInterval(yogaSession.timerInterval);
@@ -825,7 +825,7 @@ function endYogaSession(completed = false) {
   };
 
   try {
-    const data = getFitnessData();
+    const data = await getFitnessData();
     if (!Array.isArray(data.sessionLog)) data.sessionLog = [];
     data.sessionLog.push(sessionEntry);
     saveFitnessData(data);
@@ -1038,7 +1038,7 @@ async function sendGenieMessage() {
     ? `Current pose: ${currentPose.english} (${currentPose.sanskrit} / ${currentPose.devanagari})\nBreath cue: ${currentPose.breathCue}`
     : `Flow has ${yogaSession.poses.length} poses: ${yogaSession.poses.map(p => p.english).join(', ')}`;
 
-  const yogaData = getFitnessData();
+  const yogaData = await getFitnessData();
   const yogaSessions = (yogaData.sessionLog || [])
     .filter(s => s.type === 'yoga').slice(-5);
 
