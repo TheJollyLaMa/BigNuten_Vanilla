@@ -140,6 +140,7 @@
       <label for="rest-duration" style="color:white;font-size:0.8rem;margin-right:4px;">Rest:</label>
       <input type="number" id="rest-duration" value="120" min="0" style="width:50px;margin-right:10px;" />
       <button id="start-workout-button" class="play-all-button">▶ Start Workout</button>
+      <button id="yoga-flow-btn" class="yoga-flow-toggle-btn" title="Switch to Yoga Flow mode">🧘 Yoga Flow</button>
       <h4>Workout Set List</h4>
     </div>
     <div id="estimated-total-time" style="font-size: 0.9rem; margin-bottom: 0.5rem;"></div>
@@ -700,6 +701,107 @@
   </div>
 
 </main>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- Yoga Flow Modal                                               -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div id="yoga-flow-modal" class="modal-overlay modal-hidden yoga-modal-overlay">
+    <div class="modal yoga-modal">
+
+      <!-- Header -->
+      <div class="yoga-modal-header">
+        <span class="yoga-modal-title">🧘 Yoga Flow</span>
+        <button id="yoga-close-btn" class="yoga-close-btn" title="Close">✕</button>
+      </div>
+
+      <!-- ── SHARED VISUAL AREA (always visible when modal is open) ── -->
+      <div class="yoga-visual-area">
+        <div id="yoga-breath-aura" class="yoga-aura"></div>
+        <div id="yoga-pose-svg" class="yoga-pose-svg"></div>
+        <div class="yoga-pose-names">
+          <div id="yoga-pose-devanagari" class="yoga-devanagari">ताडासन</div>
+          <div id="yoga-pose-sanskrit"   class="yoga-sanskrit">Tadasana</div>
+          <div id="yoga-pose-english"    class="yoga-english">Mountain Pose</div>
+        </div>
+        <div id="yoga-breath-cue"   class="yoga-breath-cue">Stand tall • root down • rise like a mountain</div>
+        <div id="yoga-breath-label" class="yoga-breath-label">Inhale…</div>
+      </div>
+
+      <!-- ── SETUP PANEL ── -->
+      <div id="yoga-setup-screen" class="yoga-screen">
+        <div id="yoga-est-time" class="yoga-est-time">⏳ Est. session time: —</div>
+
+        <!-- Pose Sequence List -->
+        <div class="yoga-seq-container">
+          <h3 class="yoga-seq-heading">Flow Sequence
+            <span style="font-weight:400;font-size:0.72rem;color:#aaa;">(edit seconds per pose ↓)</span>
+          </h3>
+          <ul id="yoga-pose-sequence" class="yoga-seq-list"></ul>
+        </div>
+
+        <!-- Add Custom Pose Form -->
+        <details class="yoga-add-pose-details">
+          <summary class="yoga-add-pose-summary">➕ Add Custom Pose</summary>
+          <form id="yoga-add-pose-form" class="yoga-add-pose-form">
+            <input id="yoga-custom-english"    type="text"   placeholder="English name *"       class="yoga-input" required />
+            <input id="yoga-custom-sanskrit"   type="text"   placeholder="Sanskrit (romanized)" class="yoga-input" />
+            <input id="yoga-custom-devanagari" type="text"   placeholder="Devanagari script"    class="yoga-input" />
+            <label class="yoga-dur-label">
+              Duration (sec):
+              <input id="yoga-custom-duration" type="number" value="60" min="5" max="600" class="yoga-input yoga-input-num" />
+            </label>
+            <div class="yoga-form-btns">
+              <button type="submit" class="yoga-btn yoga-btn-add">Add to Flow</button>
+              <button type="button" id="yoga-clear-custom-btn" class="yoga-btn yoga-btn-remove">Clear Custom</button>
+            </div>
+          </form>
+        </details>
+
+        <button id="yoga-start-btn" class="yoga-btn yoga-btn-start">🌿 Begin Yoga Flow</button>
+      </div><!-- /setup-screen -->
+
+      <!-- ── ACTIVE SESSION PANEL ── -->
+      <div id="yoga-active-screen" class="yoga-screen hidden">
+        <div class="yoga-timer-area">
+          <div id="yoga-timer-display" class="yoga-timer">01:00</div>
+          <div id="yoga-pose-count"    class="yoga-pose-count">Pose 1 of 12</div>
+          <div class="yoga-progress-track">
+            <div id="yoga-progress-bar" class="yoga-progress-bar"></div>
+          </div>
+        </div>
+
+        <div class="yoga-controls">
+          <button id="yoga-pause-btn" class="yoga-btn yoga-btn-pause">⏸ Pause</button>
+          <button id="yoga-skip-btn"  class="yoga-btn yoga-btn-skip">⏭ Skip</button>
+          <button id="yoga-end-btn"   class="yoga-btn yoga-btn-end">🙏 End</button>
+        </div>
+
+        <ul id="yoga-active-sequence" class="yoga-seq-list yoga-seq-list-active"></ul>
+      </div><!-- /active-screen -->
+
+      <!-- ── COMPLETE PANEL ── -->
+      <div id="yoga-complete-screen" class="yoga-screen hidden">
+        <div class="yoga-complete-header">
+          <div class="yoga-complete-mandala">☸</div>
+          <h2 class="yoga-complete-title">Namaste 🙏</h2>
+          <p class="yoga-complete-sub">Your session has been logged</p>
+        </div>
+        <div id="yoga-complete-stats" class="yoga-complete-stats"></div>
+        <ul id="yoga-complete-poses" class="yoga-complete-poses"></ul>
+        <button id="yoga-reset-btn" class="yoga-btn yoga-btn-start">🔄 Flow Again</button>
+      </div><!-- /complete-screen -->
+
+      <!-- Transition Overlay -->
+      <div id="yoga-transition-overlay" class="yoga-transition-overlay hidden">
+        <div class="yoga-transition-inner">
+          <div class="yoga-transition-bowl">🎵</div>
+          <div id="yoga-transition-text"  class="yoga-transition-text">Coming: Mountain Pose</div>
+          <div id="yoga-transition-count" class="yoga-transition-count">5</div>
+        </div>
+      </div>
+
+    </div><!-- /yoga-modal -->
+  </div><!-- /yoga-flow-modal -->
 
   <!-- Workout Timer Modal -->
   <div id="workout-timer-modal" class="modal-overlay modal-hidden">

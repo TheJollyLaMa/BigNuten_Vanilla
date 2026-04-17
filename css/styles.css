@@ -8323,3 +8323,614 @@ svg text {
 .comp-report-link:hover {
   text-decoration: underline;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   YOGA FLOW MODE — Styles
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Toggle button in workout panel */
+.yoga-flow-toggle-btn {
+  background: linear-gradient(135deg, #2d004d, #003344);
+  color: #c084fc;
+  border: 1px solid #7c3aed;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 4px;
+  box-shadow: 0 0 10px rgba(124, 58, 237, 0.5);
+  transition: all 0.25s ease;
+  letter-spacing: 0.03em;
+}
+.yoga-flow-toggle-btn:hover {
+  background: linear-gradient(135deg, #4c0080, #005566);
+  color: #e9d5ff;
+  box-shadow: 0 0 18px rgba(192, 132, 252, 0.7), 0 0 6px #00e5ff44;
+  transform: translateY(-1px);
+}
+
+/* ── Overlay ─────────────────────────────────────────────────────────────── */
+.yoga-modal-overlay {
+  background: rgba(5, 0, 20, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+.yoga-modal-overlay.modal-hidden { display: none; }
+
+/* ── Modal Shell ─────────────────────────────────────────────────────────── */
+.yoga-modal {
+  background: linear-gradient(160deg, #0a0015 0%, #00001a 50%, #001022 100%);
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  border-radius: 18px;
+  box-shadow: 0 0 40px rgba(124, 58, 237, 0.35), 0 0 80px rgba(0, 229, 255, 0.1);
+  width: min(92vw, 520px);
+  max-height: 92vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #7c3aed #0a0015;
+  position: relative;
+  padding: 0;
+  text-align: left;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.yoga-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(124, 58, 237, 0.3);
+  background: rgba(30, 0, 60, 0.6);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-radius: 18px 18px 0 0;
+}
+.yoga-modal-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #e9d5ff;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 12px #7c3aed, 0 0 30px rgba(124, 58, 237, 0.4);
+}
+.yoga-close-btn {
+  background: transparent;
+  border: 1px solid rgba(124, 58, 237, 0.5);
+  color: #c084fc;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.yoga-close-btn:hover {
+  background: rgba(124, 58, 237, 0.3);
+  color: #fff;
+  box-shadow: 0 0 8px #7c3aed;
+}
+
+/* ── Screen System ───────────────────────────────────────────────────────── */
+.yoga-screen { padding: 16px 18px 20px; }
+.yoga-screen.hidden { display: none; }
+
+/* ── Breathing Aura ─────────────────────────────────────────────────────── */
+.yoga-aura {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180px;
+  height: 180px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  --aura-color: #ffd700;
+  background: radial-gradient(circle, transparent 30%, var(--aura-color) 60%, transparent 75%);
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+/* Inhale — aura expands outward */
+.yoga-aura.inhale {
+  animation: yogaAuraExpand 4s ease-in-out forwards;
+}
+/* Exhale — aura contracts */
+.yoga-aura.exhale {
+  animation: yogaAuraContract 6s ease-in-out forwards;
+}
+/* Hold — subtle gentle pulse */
+.yoga-aura.hold {
+  animation: yogaAuraHold 2s ease-in-out infinite;
+}
+
+@keyframes yogaAuraExpand {
+  0%   { opacity: 0;    transform: translate(-50%, -50%) scale(0.6); }
+  50%  { opacity: 0.22; transform: translate(-50%, -50%) scale(1.1); }
+  100% { opacity: 0.28; transform: translate(-50%, -50%) scale(1.3); }
+}
+@keyframes yogaAuraContract {
+  0%   { opacity: 0.28; transform: translate(-50%, -50%) scale(1.3); }
+  50%  { opacity: 0.18; transform: translate(-50%, -50%) scale(0.9); }
+  100% { opacity: 0.08; transform: translate(-50%, -50%) scale(0.6); }
+}
+@keyframes yogaAuraHold {
+  0%, 100% { opacity: 0.14; transform: translate(-50%, -50%) scale(1.0); }
+  50%      { opacity: 0.20; transform: translate(-50%, -50%) scale(1.05); }
+}
+
+/* ── Pose Preview Area ──────────────────────────────────────────────────── */
+.yoga-preview-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 220px;
+  margin-bottom: 10px;
+}
+
+.yoga-pose-svg {
+  position: relative;
+  z-index: 1;
+  width: 160px;
+  height: 200px;
+  margin: 0 auto;
+  filter: drop-shadow(0 0 8px currentColor);
+}
+.yoga-pose-svg-active {
+  width: 130px;
+  height: 165px;
+}
+
+/* ── Name Display ───────────────────────────────────────────────────────── */
+.yoga-preview-names {
+  text-align: center;
+  margin-top: 6px;
+  z-index: 1;
+  position: relative;
+}
+.yoga-devanagari {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffd700;
+  text-shadow: 0 0 14px rgba(255, 215, 0, 0.7), 0 0 30px rgba(255, 215, 0, 0.3);
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+}
+.yoga-devanagari-lg { font-size: 1.8rem; }
+
+.yoga-sanskrit {
+  font-size: 0.95rem;
+  font-style: italic;
+  color: #c084fc;
+  text-shadow: 0 0 10px rgba(192, 132, 252, 0.6);
+  margin-top: 2px;
+}
+.yoga-sanskrit-lg { font-size: 1.1rem; }
+
+.yoga-english {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 2px;
+  letter-spacing: 0.05em;
+}
+.yoga-english-lg { font-size: 1rem; }
+
+/* ── Breath Cue & Label ─────────────────────────────────────────────────── */
+.yoga-breath-cue {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #7dd3fc;
+  font-style: italic;
+  padding: 4px 10px;
+  line-height: 1.4;
+  opacity: 0.85;
+}
+.yoga-breath-cue-active { font-size: 0.85rem; }
+
+.yoga-breath-label {
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #86efac;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 10px rgba(134, 239, 172, 0.6);
+  min-height: 1.4em;
+}
+.yoga-breath-label-active { font-size: 1rem; }
+
+/* ── Estimated Time ─────────────────────────────────────────────────────── */
+.yoga-est-time {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-bottom: 10px;
+}
+
+/* ── Pose Sequence List ─────────────────────────────────────────────────── */
+.yoga-seq-heading {
+  font-size: 0.9rem;
+  color: #c084fc;
+  margin-bottom: 8px;
+  margin-top: 0;
+  font-weight: 600;
+}
+.yoga-seq-container {
+  margin-bottom: 14px;
+}
+.yoga-seq-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #7c3aed #0a0015;
+}
+.yoga-seq-list-active {
+  max-height: 160px;
+  margin-top: 10px;
+}
+
+.yoga-seq-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  margin-bottom: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  background: rgba(30, 0, 60, 0.3);
+  transition: all 0.2s;
+}
+.yoga-seq-item.yoga-seq-active {
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.08);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+}
+.yoga-seq-num {
+  font-size: 0.7rem;
+  color: #7c3aed;
+  width: 18px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.yoga-seq-names {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.yoga-seq-english    { font-size: 0.8rem; color: #e2e8f0; font-weight: 500; }
+.yoga-seq-sanskrit   { font-size: 0.7rem; color: #c084fc; font-style: italic; }
+.yoga-seq-devanagari { font-size: 0.72rem; color: #ffd700; opacity: 0.75; }
+
+.yoga-dur-input {
+  width: 44px;
+  padding: 3px 5px;
+  font-size: 0.78rem;
+  background: #0a0015;
+  color: #e9d5ff;
+  border: 1px solid rgba(124, 58, 237, 0.5);
+  border-radius: 5px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.yoga-remove-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 60, 60, 0.3);
+  color: #f87171;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 2px 5px;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.yoga-remove-btn:hover {
+  background: rgba(255, 60, 60, 0.2);
+  box-shadow: 0 0 6px #f87171;
+}
+
+/* ── Add Custom Pose ────────────────────────────────────────────────────── */
+.yoga-add-pose-details {
+  margin-bottom: 14px;
+}
+.yoga-add-pose-summary {
+  font-size: 0.82rem;
+  color: #7dd3fc;
+  cursor: pointer;
+  padding: 6px 0;
+  user-select: none;
+}
+.yoga-add-pose-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  background: rgba(0, 10, 30, 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(0, 229, 255, 0.15);
+}
+.yoga-input {
+  padding: 6px 10px;
+  background: #0a0015;
+  color: #e2e8f0;
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.yoga-input:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 6px rgba(124, 58, 237, 0.4);
+}
+.yoga-input-num { width: 60px; text-align: center; }
+.yoga-dur-label {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.yoga-form-btns {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.yoga-btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.22s;
+  letter-spacing: 0.03em;
+}
+.yoga-btn-start {
+  width: 100%;
+  background: linear-gradient(135deg, #4c0080, #005566);
+  color: #e9d5ff;
+  border: 1px solid #7c3aed;
+  padding: 12px;
+  font-size: 0.95rem;
+  box-shadow: 0 0 16px rgba(124, 58, 237, 0.4);
+  margin-top: 4px;
+}
+.yoga-btn-start:hover {
+  background: linear-gradient(135deg, #6b00b0, #007788);
+  box-shadow: 0 0 24px rgba(124, 58, 237, 0.7), 0 0 10px rgba(0, 229, 255, 0.3);
+  transform: translateY(-1px);
+}
+.yoga-btn-add {
+  background: rgba(124, 58, 237, 0.25);
+  color: #c084fc;
+  border: 1px solid rgba(124, 58, 237, 0.5);
+  flex: 1;
+}
+.yoga-btn-add:hover { background: rgba(124, 58, 237, 0.45); }
+.yoga-btn-remove {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.yoga-btn-remove:hover { background: rgba(239, 68, 68, 0.2); }
+.yoga-btn-pause {
+  background: rgba(0, 229, 255, 0.15);
+  color: #00e5ff;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+}
+.yoga-btn-pause:hover { background: rgba(0, 229, 255, 0.3); }
+.yoga-btn-skip {
+  background: rgba(255, 166, 0, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+.yoga-btn-skip:hover { background: rgba(255, 166, 0, 0.25); }
+.yoga-btn-end {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.yoga-btn-end:hover { background: rgba(239, 68, 68, 0.2); }
+
+/* ── Active Session Screen ───────────────────────────────────────────────── */
+.yoga-active-visual {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  min-height: 180px;
+  margin-bottom: 8px;
+}
+.yoga-active-names {
+  text-align: center;
+  margin-bottom: 6px;
+}
+.yoga-timer-area {
+  text-align: center;
+  margin: 10px 0;
+}
+.yoga-timer {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 0 20px #c084fc, 0 0 40px rgba(192, 132, 252, 0.4);
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+.yoga-pose-count {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 4px;
+  letter-spacing: 0.06em;
+}
+.yoga-progress-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(124, 58, 237, 0.15);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.yoga-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ffd700, #c084fc);
+  border-radius: 2px;
+  transition: width 1s linear, background 2s ease;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+}
+.yoga-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+/* ── Transition Overlay ─────────────────────────────────────────────────── */
+.yoga-transition-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 0, 20, 0.92);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(6px);
+}
+.yoga-transition-overlay.hidden { display: none; }
+.yoga-transition-inner {
+  text-align: center;
+}
+.yoga-transition-bowl {
+  font-size: 2.5rem;
+  animation: bowlSpin 2s ease-in-out infinite;
+  display: block;
+  margin-bottom: 10px;
+}
+@keyframes bowlSpin {
+  0%,100% { transform: scale(1) rotate(-5deg); }
+  50%     { transform: scale(1.1) rotate(5deg); }
+}
+.yoga-transition-text {
+  font-size: 1rem;
+  color: #c084fc;
+  margin-bottom: 8px;
+  font-style: italic;
+}
+.yoga-transition-count {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #ffd700;
+  text-shadow: 0 0 20px #ffd700;
+  animation: countPulse 1s ease-in-out infinite;
+}
+@keyframes countPulse {
+  0%,100% { transform: scale(1); opacity: 1; }
+  50%     { transform: scale(1.15); opacity: 0.8; }
+}
+
+/* ── Complete Screen ─────────────────────────────────────────────────────── */
+.yoga-complete-header {
+  text-align: center;
+  padding: 10px 0 16px;
+}
+.yoga-complete-mandala {
+  font-size: 3rem;
+  animation: mandalaRotate 8s linear infinite;
+  color: #ffd700;
+  display: block;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+}
+@keyframes mandalaRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.yoga-complete-title {
+  font-size: 1.6rem;
+  color: #e9d5ff;
+  margin: 8px 0 4px;
+  text-shadow: 0 0 16px #7c3aed;
+}
+.yoga-complete-sub {
+  font-size: 0.8rem;
+  color: #86efac;
+  margin: 0;
+}
+.yoga-complete-stats {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-top: 1px solid rgba(124, 58, 237, 0.2);
+  border-bottom: 1px solid rgba(124, 58, 237, 0.2);
+  margin-bottom: 12px;
+}
+.yoga-stat {
+  font-size: 0.85rem;
+  color: #c084fc;
+  text-align: center;
+}
+.yoga-complete-poses {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #7c3aed #0a0015;
+}
+.yoga-complete-poses li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(124, 58, 237, 0.1);
+  font-size: 0.78rem;
+}
+.yc-eng  { color: #e2e8f0; font-weight: 500; flex: 1; }
+.yc-skt  { color: #c084fc; font-style: italic; }
+.yc-dev  { color: #ffd700; opacity: 0.75; }
+.yc-dur  { color: #94a3b8; margin-left: auto; flex-shrink: 0; }
+
+/* ── Yoga Visual Area (shared, always visible) ──────────────────────────── */
+.yoga-visual-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 18px 10px;
+  min-height: 230px;
+  border-bottom: 1px solid rgba(124, 58, 237, 0.2);
+  background: linear-gradient(180deg, rgba(30,0,60,0.5) 0%, transparent 100%);
+}
+
+.yoga-pose-names {
+  text-align: center;
+  margin-top: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Active sequence extra column */
+.yoga-seq-dur {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  flex-shrink: 0;
+  margin-left: auto;
+}
