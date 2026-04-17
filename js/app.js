@@ -1686,21 +1686,22 @@ function displayRecentFoods() {
     li.addEventListener('mouseleave', hideFoodNutrPopup);
 
     li.addEventListener('click', () => {
-      const entries = getFitnessData().foods.filter(f => f.name === food.name);
+      const data = getFitnessData();
+      const entries = data.foods.filter(f => f.name === food.name);
       const last = entries.at(-1);
       const confirmSame = confirm(`Log same intake: "${last.amount}${last.unit ? ' ' + last.unit : ''}" for ${last.name}? Click cancel to change.`);
       const now = new Date();
       const date = now.toISOString().split('T')[0];
       const time = now.toTimeString().slice(0, 5);
       if (confirmSame) {
-        getFitnessData().foods.push({ ...last, date: now.toISOString(), time });
+        data.foods.push({ ...last, date: now.toISOString(), time });
       } else {
         const newAmount = prompt(`Enter new amount for ${last.name}:`, last.amount);
         if (newAmount) {
-          getFitnessData().foods.push({ name: last.name, amount: parseFloat(newAmount) || newAmount, unit: last.unit, nutr: last.nutr, date: now.toISOString(), time });
+          data.foods.push({ name: last.name, amount: parseFloat(newAmount) || newAmount, unit: last.unit, nutr: last.nutr, date: now.toISOString(), time });
         }
       }
-      saveFitnessData(getFitnessData());
+      saveFitnessData(data);
       displayRecentFoods();
     });
 

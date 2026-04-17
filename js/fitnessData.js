@@ -120,17 +120,13 @@ export async function getFitnessData() {
 
   if (snapshot && current) {
     const currentData = normalizeFitnessData(JSON.parse(current));
-    const latestCurrent = currentData.weightLogs?.at(-1)?.timestamp || '';
-    const latestSnapshot = snapshot.data.weightLogs?.at(-1)?.timestamp || '';
-
-    if (latestSnapshot > latestCurrent) {
-      const normalized = normalizeFitnessData(snapshot.data);
-      saveFitnessData(normalized);
-      return normalized;
-    } else {
-      saveFitnessData(currentData);
-      return currentData;
-    }
+    const snapshotData = normalizeFitnessData(snapshot.data);
+    // Merge both sources so no entries are lost regardless of which has the
+    // newer weight log.  mergeSnapshotData deduplicates by timestamp, so
+    // re-merging on every load is safe.
+    const merged = mergeSnapshotData(currentData, snapshotData);
+    saveFitnessData(merged);
+    return merged;
   }
 
   // fallback: no data found — return default
@@ -220,8 +216,8 @@ export function patchAllSnapshotHistory() {
 
 // Optionally auto-run on file load
 retrofitOldSnapshots();
-export function logWeight(weight) {
-  const data = getFitnessData();
+export async function logWeight(weight) {
+  const data = await getFitnessData();
   data.weightLogs.push({
     weight,
     timestamp: new Date().toISOString()
