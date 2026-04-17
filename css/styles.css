@@ -8352,7 +8352,7 @@ svg text {
 
 /* ── Overlay ─────────────────────────────────────────────────────────────── */
 .yoga-modal-overlay {
-  /* Full-page — covers entire viewport including header & footer */
+  /* Full-screen backdrop — blurs the app behind the yoga panel */
   position: fixed;
   top: 0;
   left: 0;
@@ -8360,19 +8360,36 @@ svg text {
   bottom: 0;
   width: 100%;
   height: 100%;
-  background: rgba(5, 0, 20, 0.97);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(5, 0, 20, 0.72);    /* semi-transparent so app shows through */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   flex-direction: row;
-  align-items: stretch;
-  justify-content: flex-start;  /* override .modal-overlay justify-content:center */
+  align-items: center;
+  justify-content: center;             /* center the panel */
+  padding: 32px;                       /* margin all around — click backdrop to close */
+  box-sizing: border-box;
   overflow: hidden;
   z-index: 200000;  /* above header (99999) and all other fixed UI */
 }
 .yoga-modal-overlay.modal-hidden { display: none; }
 
-/* ── Modal Shell (left scrollable column) ────────────────────────────────── */
+/* ── Modal Shell ─────────────────────────────────────────────────────────── */
+/* Two-column flex container: yoga content + optional genie sidebar           */
+.yoga-modal-inner {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  max-width: 1400px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 0 60px rgba(124, 58, 237, 0.5), 0 30px 80px rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(124, 58, 237, 0.4);
+}
+
+/* ── Left scrollable column ─────────────────────────────────────────────── */
 .yoga-modal {
   background: linear-gradient(160deg, #0a0015 0%, #00001a 50%, #001022 100%);
   border: none;
@@ -8404,7 +8421,7 @@ svg text {
   position: sticky;
   top: 0;
   z-index: 10;
-  border-radius: 18px 18px 0 0;
+  border-radius: 0;
 }
 .yoga-modal-title {
   font-size: 1.15rem;
@@ -8587,6 +8604,7 @@ svg text {
   margin: 0;
   max-height: 260px;
   overflow-y: auto;
+  overflow-x: hidden;  /* never scroll horizontally */
   scrollbar-width: thin;
   scrollbar-color: #7c3aed #0a0015;
 }
@@ -8597,40 +8615,67 @@ svg text {
 
 .yoga-seq-item {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+  gap: 6px;
+  padding: 5px 8px;
   margin-bottom: 4px;
   border-radius: 8px;
   border: 1px solid rgba(124, 58, 237, 0.2);
   background: rgba(30, 0, 60, 0.3);
   transition: all 0.2s;
+  overflow: hidden;  /* no horizontal bleed */
+  min-width: 0;
 }
 .yoga-seq-item.yoga-seq-active {
   border-color: #ffd700;
   background: rgba(255, 215, 0, 0.08);
   box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
 }
+
+/* Thumbnail SVG in each list card */
+.yoga-seq-thumb {
+  flex-shrink: 0;
+  width: 32px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+}
+.yoga-seq-thumb svg {
+  width: 32px;
+  height: 40px;
+  display: block;
+}
+
 .yoga-seq-num {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: #7c3aed;
-  width: 18px;
+  width: 14px;
   text-align: right;
   flex-shrink: 0;
 }
 .yoga-seq-names {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
-.yoga-seq-english    { font-size: 0.8rem; color: #e2e8f0; font-weight: 500; }
-.yoga-seq-sanskrit   { font-size: 0.7rem; color: #c084fc; font-style: italic; }
-.yoga-seq-devanagari { font-size: 0.72rem; color: #ffd700; opacity: 0.75; }
+.yoga-seq-english    { font-size: 0.78rem; color: #e2e8f0; font-weight: 500; }
+.yoga-seq-sanskrit   { font-size: 0.68rem; color: #c084fc; font-style: italic; }
+.yoga-seq-devanagari { font-size: 0.7rem;  color: #ffd700; opacity: 0.75; }
+/* Prevent long names from causing horizontal overflow */
+.yoga-seq-english,
+.yoga-seq-sanskrit,
+.yoga-seq-devanagari { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .yoga-dur-input {
   width: 28px;
+  min-width: 28px;
+  max-width: 28px;
   padding: 2px 2px;
   font-size: 0.74rem;
   background: #0a0015;
@@ -8639,6 +8684,8 @@ svg text {
   border-radius: 5px 0 0 5px;
   text-align: center;
   flex-shrink: 0;
+  flex-grow: 0;      /* never expand */
+  box-sizing: content-box;
   /* Remove browser spinner arrows */
   appearance: textfield;
 }
@@ -8998,7 +9045,7 @@ svg text {
 }
 
 /* ── Yoga Genie Sidebar Panel ────────────────────────────────────────────── */
-/* Flexbox sibling of .yoga-modal inside .yoga-modal-overlay                 */
+/* Flexbox sibling of .yoga-modal inside .yoga-modal-inner                   */
 .yoga-genie-panel {
   flex: 0 0 380px;
   min-width: 220px;
@@ -9215,8 +9262,11 @@ svg text {
 
 /* ── Responsive: narrow screens (< 600px) ───────────────────────────────── */
 @media (max-width: 600px) {
-  /* Stack genie panel below yoga content on small screens */
   .yoga-modal-overlay {
+    padding: 8px;  /* smaller margin on phones */
+  }
+  /* Stack genie panel below yoga content on small screens */
+  .yoga-modal-inner {
     flex-direction: column;
   }
   .yoga-genie-panel {

@@ -707,6 +707,10 @@
   <!-- ══════════════════════════════════════════════════════════════ -->
   <div id="yoga-flow-modal" class="modal-overlay modal-hidden yoga-modal-overlay">
 
+    <!-- Clicking the backdrop (outside the inner panel) closes the modal -->
+    <!-- The inner wrapper contains both the yoga content and genie sidebar -->
+    <div class="yoga-modal-inner">
+
     <!-- ── LEFT: Main Yoga Content ─────────────────────────────────────── -->
     <div class="modal yoga-modal">
 
@@ -837,7 +841,9 @@
         <input id="yoga-genie-input" class="yoga-genie-input" type="text" placeholder="Ask about this pose, yoga sutras…" aria-label="Ask Yoga Genie" />
         <button id="yoga-genie-send" class="yoga-genie-send" aria-label="Send message">Send</button>
       </div>
-    </div>
+    </div><!-- /yoga-genie-panel -->
+
+    </div><!-- /yoga-modal-inner -->
 
   </div><!-- /yoga-flow-modal -->
 

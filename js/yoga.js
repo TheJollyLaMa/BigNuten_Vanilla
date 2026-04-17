@@ -137,9 +137,10 @@ const STARTER_POSES = [
 // ─── SVG Pose Illustrations ───────────────────────────────────────────────────
 // Simple evocative stick-figure art for each pose.
 // Viewbox: 160×200, colors use chakra/gold tones on a transparent background.
-function getPoseSVG(key, color = '#ffd700') {
+// w/h defaults to the full-size 160×200 display; pass smaller values for thumbnails.
+function getPoseSVG(key, color = '#ffd700', w = 160, h = 200) {
   const c = color;
-  const dim = 'width="160" height="200" viewBox="0 0 160 200"';
+  const dim = `width="${w}" height="${h}" viewBox="0 0 160 200"`;
   const head = (cx, cy, r = 12) =>
     `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${c}" stroke-width="2.5"/>`;
   const line = (x1, y1, x2, y2) =>
@@ -553,6 +554,12 @@ function makePoseListItem(pose, i, withControls) {
   numSpan.className = 'yoga-seq-num';
   numSpan.textContent = String(i + 1);
 
+  // Mini SVG thumbnail — safe svgKey and chakra validated
+  const thumbWrap = document.createElement('span');
+  thumbWrap.className = 'yoga-seq-thumb';
+  thumbWrap.setAttribute('aria-hidden', 'true');
+  thumbWrap.innerHTML = getPoseSVG(safeSvgKey(pose.svgKey), safeCssColor(pose.chakra), 32, 40);
+
   const namesSpan = document.createElement('span');
   namesSpan.className = 'yoga-seq-names';
 
@@ -569,7 +576,7 @@ function makePoseListItem(pose, i, withControls) {
   devSpan.textContent = pose.devanagari;
 
   namesSpan.append(engSpan, sktSpan, devSpan);
-  li.append(numSpan, namesSpan);
+  li.append(numSpan, thumbWrap, namesSpan);
 
   if (withControls) {
     const poseId = pose.id;
