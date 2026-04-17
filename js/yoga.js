@@ -174,12 +174,13 @@ function getPoseSVG(key, color = '#ffd700', w = 160, h = 200) {
     // Downward Dog — inverted V: hips at apex, head hangs low between arms, feet and hands on floor
     downdog: wrap(
       // hips at top-center (apex of the inverted V)
-      // spine goes forward-down from hips to shoulders, then arms to hands on floor
+      // spine goes forward-down from hips to shoulders, then arms to both hands on floor
       // legs go back-down from hips to feet on floor
       // head hangs forward-down below shoulders
       head(32, 122) +                    // head hanging low, forward between arms
       line(80, 42, 38, 108) +            // spine: hips → shoulders (diagonal forward-down)
-      line(38, 108, 20, 152) +           // arm: shoulder → left hand on floor
+      line(38, 108, 20, 152) +           // left arm: shoulder → left hand on floor
+      line(38, 108, 55, 152) +           // right arm: shoulder → right hand on floor
       line(80, 42, 130, 152) +           // right leg: hips → right foot on floor
       line(80, 42, 112, 152) +           // left leg: hips → left foot on floor
       `<line x1="15" y1="155" x2="145" y2="155" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.4"/>`
