@@ -1,11 +1,12 @@
 # ⚕︎ BigNuten ⚕︎
-### (Another Decent Frankenstein)
+### Wellness and Wealth — Open Source
 
-> An open-source, privacy-first fitness tracker with IPFS-backed data, Web3 wallet integration, on-chain $BNUT bounties, and a fully automated contributor payroll system.
+> **BigNuten is a privacy-first, Web3-powered wellness platform** that lets you log every dimension of your health — nutrition, workouts, supplements, emotions, breathwork, yoga, and more — while earning $BNUT tokens, participating in on-chain StreakBet competitions with real stakes, and governing the future of the platform as a DAO member. Built with zero backend, zero build steps, and open to every kind of contributor.
 
-![Version](https://img.shields.io/badge/version-v2.0.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/version-v3.1.0-blue?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 ![Built With](https://img.shields.io/badge/built%20with-Vanilla%20JS-yellow?style=flat-square)
+![Solidity](https://img.shields.io/badge/contracts-Solidity%200.8.20-363636?style=flat-square&logo=ethereum)
 ![Storage](https://img.shields.io/badge/storage-IPFS%20via%20web3.storage%20w3up-blueviolet?style=flat-square)
 ![Wallet](https://img.shields.io/badge/wallet-MetaMask-orange?style=flat-square)
 [![Early Supporter DNFT](https://img.shields.io/badge/Early%20Access-100%20DNFTs-8b00ff?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
@@ -14,43 +15,286 @@
 
 ---
 
+## 🗺️ Platform at a Glance
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                        ⚕︎  B I G N U T E N  ⚕︎                              ║
+║               "Wellness and Wealth — Open Source"                            ║
+╠══════════════════════╦══════════════════════╦═══════════════════════════════╣
+║  🏋️ APP LAYER        ║  🤖 AUTOMATION LAYER ║  🏛️ GOVERNANCE / DAO LAYER   ║
+║                      ║                      ║                               ║
+║  • Nutrition logger  ║  • Bounty Bot        ║  • BigNutenGov on-chain       ║
+║  • Workout tracker   ║  • Payroll queue     ║  • $BNUT holder voting        ║
+║  • Supplement log    ║  • GitHub Actions    ║  • DNFT proposer role         ║
+║  • Emotions / Mood   ║  • settle-payroll    ║  • On-chain enact / veto      ║
+║  • Pain tracker      ║  • validate-queue    ║  • Treasury-controlled fund   ║
+║  • Breathwork        ║  • DecentEscrow      ║                               ║
+║  • Yoga flow         ║  • StreakBetEscrow   ║  🏦 TREASURY LAYER            ║
+║  • Chakra tracker    ║  • Aave V3 yield     ║                               ║
+║  • StreakBet comps   ║  • Smart contracts   ║  • BigNutenTreasury           ║
+║  • Genie AI chat     ║  • IPFS report chain ║  • $BNUT ERC-20 token         ║
+║  • Community dash    ║  • DeFi dashboard    ║  • DecentEscrow subs          ║
+║  • Sun/Moon tracker  ║  • Streak verifier   ║  • DNFT (ERC-1155)            ║
+╠══════════════════════╩══════════════════════╩═══════════════════════════════╣
+║                           DATA FLOW                                          ║
+║                                                                              ║
+║  User logs data ──► localStorage + IPFS snapshot ──► Streak verifier        ║
+║         │                                                  │                 ║
+║         └────────► StreakBetEscrow (on-chain) ◄────────────┘                ║
+║                           │                                                  ║
+║                    Aave V3 yield pool                                        ║
+║                           │                                                  ║
+║             Winners paid out ──► BigNutenTreasury                           ║
+║                                          │                                   ║
+║              GitHub PR merged ──► Bounty Bot ──► payroll-queue.json         ║
+║                                          │                                   ║
+║                    Admin settles ──► batchPayContributors() on Optimism      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+---
+
 ## Table of Contents
 
-1. [What is BigNuten?](#-what-is-bignuten)
-2. [v2.0.0 — What's Shipped](#-v200--whats-shipped)
-3. [Bounty & Treasury Flow](#-bounty--treasury-flow)
-4. [Admin Panel](#-admin-panel)
-5. [Payroll Queue](#-payroll-queue)
-6. [Workflow Security & Policy](#-workflow-security--policy)
-7. [Early Supporter DNFT](#-become-an-early-supporter)
-8. [v2.0.0 Monetization Stack DNFT](#️-v200-monetization-stack-dnft)
-9. [$BNUT Token](#-bnut-token)
-10. [Contributing](#-contributing)
-11. [How to Clone BigNuten](#-how-to-clone-bignuten-for-new-projects)
-12. [Tech Stack](#-tech-stack)
-13. [Getting Started](#-getting-started)
-14. [License](#-license)
+1. [Project Vision](#-project-vision)
+2. [What is BigNuten?](#️-what-is-bignuten)
+3. [The App Layer](#-the-app-layer)
+4. [Automation / Payroll Layer](#-automation--payroll-layer)
+5. [Governance & Treasury Layer](#️-governance--treasury-layer)
+6. [StreakBet Competitions](#-streakbet-competitions)
+7. [Quickstart — Pick Your Role](#-quickstart--pick-your-role)
+8. [What's Shipped (v3.1.0)](#-v310--whats-shipped)
+9. [Bounty & Treasury Flow](#-bounty--treasury-flow)
+10. [Admin Panel](#️-admin-panel)
+11. [Payroll Queue](#-payroll-queue)
+12. [Workflow Security & Policy](#-workflow-security--policy)
+13. [Early Supporter DNFT](#-become-an-early-supporter)
+14. [v2.0.0 Monetization Stack DNFT](#️-v200-monetization-stack-dnft)
+15. [$BNUT Token](#-bnut-token)
+16. [Contributing](#-contributing)
+17. [How to Clone BigNuten](#-how-to-clone-bignuten-for-new-projects)
+18. [Tech Stack](#-tech-stack)
+19. [Getting Started](#-getting-started)
+20. [License](#-license)
+
+---
+
+## 🌟 Project Vision
+
+> *"Wellness and Wealth — Open Source."*
+
+BigNuten exists because tracking your health shouldn't require surrendering your data to a corporation, and building open-source software shouldn't be unpaid labour. We are building a platform that:
+
+- **Gives you ownership** of your wellness data — stored locally, backed up to IPFS, never sold
+- **Rewards builders** who improve it — every merged PR earns on-chain $BNUT tokens automatically
+- **Lets the community govern** its direction — DAO voting, on-chain proposals, transparent treasury
+- **Puts real stakes on your habits** — bet on your own consistency with StreakBet escrow competitions that earn Aave yield while you sleep
+
+This isn't a toy. Whether you come to track your macros, contribute a feature, or vote on the roadmap, BigNuten is a fully functioning platform with a live token economy, working smart contracts, and a community that has skin in the game. Come build. Come track. Come earn. 🎉
 
 ---
 
 ## 🏋️ What is BigNuten?
 
-BigNuten is a **fully client-side, privacy-first fitness tracker** built with zero backend and zero build steps. It runs directly in the browser and gives you ownership of your health data — stored locally and backed up to IPFS via web3.storage.
+BigNuten is a **fully client-side, privacy-first wellness platform** built with zero backend and zero build steps. It runs directly in the browser and gives you complete ownership of your health data.
 
-- 📈 **Weight tracking** over time with a beautiful time-series chart (Chart.js)
-- 💊 **Supplement logging** — track your vitamins, minerals, and stack
-- 🥗 **Raw food intake logging** — with a dietary guidance modal
-- 🏃 **Exercise session & workout set logging**
-- 🌐 **IPFS backup & restore** via web3.storage w3up client — your data, your nodes
-- 🦊 **MetaMask wallet connection** for Web3 identity
-- 🌙 **Moon & Sun tracker** with Vedic Tithi and Ekadasi calendar
-- 🚫 **No backend** — fully client-side, runs in any modern browser
+**Who should use it?**
+- 🧘 **Health users** — anyone who wants a comprehensive, private, and beautiful tracker for every dimension of their wellness
+- 🛠️ **Builders** — open-source developers who want to earn $BNUT bounties while building something real
+- 🗳️ **DAO participants** — $BNUT/$DNFT holders who want to shape the roadmap and control the treasury
 
 ---
 
-## ✅ v2.0.0 — What's Shipped
+## 🏃 The App Layer
 
-v2.0.0 is a major upgrade that turns BigNuten from a personal tracker into a **community-funded, contributor-rewarded open-source project** with an on-chain economy.
+Everything accessible to every user in the browser — no wallet required to start:
+
+### Daily Data Logging
+
+| Module | What it tracks |
+|--------|---------------|
+| 🥗 **Nutrition** | Food intake, macros, dietary guidance, raw food logger |
+| 💊 **Supplements** | Full supplement stack — vitamins, minerals, custom additions |
+| 🏋️ **Workouts** | Exercise sessions, sets/reps/weights, activity types |
+| ⚖️ **Weight** | Time-series weight chart with trend lines (Chart.js) |
+| 😊 **Emotions / Mood** | Feelings wheel with granular emotion selection |
+| 🌀 **Chakra** | Chakra energy tracker with visualization |
+| 🤕 **Pain** | Body pain location and intensity logging |
+| 🌬️ **Breathwork** | Guided breathing exercises and session logging |
+| 🧘 **Yoga Flow** | 12 pose library with custom sequences, SVG animations, session log |
+| 💧 **Hydration** | Daily water intake tracking (used by StreakBet verifier) |
+| 🌙 **Astronomy** | Moon phase, Vedic Tithi, Ekadasi calendar, Sun position |
+
+### Intelligence & Insights
+
+- 🧞 **Genie AI** — on-device or cloud-hosted LLM chat assistant (WebLLM / GitHub Models / OpenAI) with 3-tier memory (session → summaries → pinned insights), context-aware of your logged data across 10 categories
+- 📊 **Correlation Graph** — visualize relationships between any two data streams (e.g. sleep vs. mood, water vs. energy)
+- 🌐 **Community Dashboard** — opt-in aggregated wellness data, leaderboards, community trends
+
+### Data Ownership
+
+- **IPFS backup & restore** via web3.storage w3up — your data, your nodes, your CID
+- **MetaMask wallet connection** for Web3 identity (Optimism Mainnet)
+- **No backend** — fully client-side; if the servers go dark, your browser still works
+
+---
+
+## 🤖 Automation / Payroll Layer
+
+This is the "repo side" of BigNuten — the machinery that pays builders and keeps the project funded:
+
+### GitHub Actions Bots
+
+| Bot | Trigger | What it does |
+|-----|---------|-------------|
+| **Bounty Label** | Manual dispatch | Creates `bounty: N BNUT` label, posts announcement on issue |
+| **Bounty Bot** | PR merged | Auto-queues contributor payout in `payroll-queue.json` |
+| **Testing Bounty** | Issue comments | `/test-complete` claims QA bounty; `/test-approved` queues tester payout |
+| **Bounty Payout** | Manual dispatch | Fallback manual payout queue entry |
+| **Settle Payroll** | Manual dispatch | Moves `pending[]` → `settled[]` after on-chain tx |
+| **Validate Queue** | Push / PR | Blocks merges with invalid entries |
+| **Idea Label** | Manual dispatch | Credits idea originators with 80/20 split on merge |
+
+### Smart Contract Integrations
+
+- **BigNutenTreasury** — `batchPayContributors()` pays multiple contributors in one MetaMask tx
+- **StreakBetEscrow** — handles StreakBet competition staking, forfeits, Aave yield, and winner payouts
+- **DecentEscrow** — subscription plan management (ETH and $BNUT plans)
+- **Aave V3** — idle competition pots earn yield during the competition window
+
+### DeFi Dashboard
+
+- Movement history with on-chain event scraping (Aave V3 + Alchemix V2)
+- CSV export and clipboard copy
+- 10k block range scraping with 10-minute cooldown
+
+---
+
+## 🏛️ Governance & Treasury Layer
+
+### On-Chain (Optimism Mainnet)
+
+| Contract | Role | Address |
+|----------|------|---------|
+| **$BNUT** (ERC-20) | Governance token, rewards currency, subscription discount | [`0x733c…8823`](https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823) |
+| **BigNutenTreasury** | Holds $BNUT reserve, pays contributors | [`0x143c…363`](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363) |
+| **BigNutenGov** | On-chain proposals and voting | [`0x58c2…E2cD`](https://optimistic.etherscan.io/address/0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD) |
+| **DecentEscrow** | Subscription plans (ETH + $BNUT) | [`0x23A4…350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) |
+| **DecentNFT** | Early Supporter DNFT (ERC-1155) | [`0xe870…958`](https://optimistic.etherscan.io/address/0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958) |
+| **StreakBetEscrow** | Competition staking, Aave yield, payouts | _Deploy from `contracts/StreakBetEscrow.sol`_ |
+
+### Governance Rules
+
+- **1 $BNUT = 1 vote** (1 wallet = 1 vote; no whale capture)
+- **DNFT holders** get `PROPOSER_ROLE` — can create on-chain proposals
+- **Admin** can enact or veto proposals via the governance modal
+- Full governance module: `js/governance.js`
+
+### Off-Chain (GitHub / IPFS)
+
+- `payroll-queue.json` — authoritative ledger of pending and settled payouts
+- `contributor-accounts.json` — whitelisted contributor wallet registry
+- IPFS report chain for competition records and settlement history
+- All sensitive state changes require a CODEOWNER review before merge
+
+### Treasury Flow
+
+```
+DNFT sales / Subscriptions
+          │
+          ▼
+  DecentEscrow (on-chain)
+          │
+          ▼
+  BigNutenTreasury ──► batchPayContributors() ──► Contributor wallets (Optimism)
+          │
+          ▼
+  $BNUT minted / distributed ──► Data sharing rewards ──► Governance staking
+```
+
+---
+
+## 🏆 StreakBet Competitions
+
+StreakBet is BigNuten's flagship community feature: put real stakes on your health habits.
+
+### How It Works
+
+1. **Admin creates a competition** — sets name, data source (water / weight / exercise / nutrition / supplements), stake token (ETH/USDC/BNUT), stake amount, duration, self-report cycle (daily/weekly), and optional Aave yield toggle
+2. **Users enter** — stake their tokens into `StreakBetEscrow` on-chain
+3. **Track your streak** — the Streak Verifier bot (`js/streakVerify.js`) auto-checks your local data on every app load and submits on-chain reports — **no double-logging**
+4. **Idle pot earns yield** — if enabled, the staked pot is deployed to Aave V3 during the competition window
+5. **Settlement** — admin settles; forfeited entrants lose their stake to the winners; pot + Aave yield distributed to winners
+6. **IPFS Daily Reports** — an immutable daily chain of competition records published to IPFS
+
+### StreakBetEscrow Contract
+
+- `createCompetition(CreateParams)` — single-struct competition creation
+- `joinCompetition(id)` — stake tokens, enter the competition
+- `selfReport(id, metadataCID)` — submit daily/weekly progress proof
+- `settleCompetition(id, winners[])` — distribute pot + yield to winners
+- `forfeit(id)` — early exit (stake goes to pot)
+- Powered by OpenZeppelin v5 `ReentrancyGuard`, `SafeERC20`, `Pausable`
+
+---
+
+## 🚀 Quickstart — Pick Your Role
+
+### 🧘 I'm a Health User
+
+```bash
+# No installation needed — just open the app in your browser
+# 1. Clone or download
+git clone https://github.com/TheJollyLaMa/BigNuten_Vanilla.git
+cd BigNuten_Vanilla
+
+# 2. Open index.html in any modern browser
+open index.html   # macOS
+# or just drag index.html into your browser
+```
+
+- Start logging weight, supplements, food, and exercise — no wallet needed
+- Connect **MetaMask** (Optimism) to unlock StreakBet competitions and on-chain identity
+- Connect **IPFS** (web3.storage) to back up and restore your data across devices
+- Join a StreakBet competition and put real money on your health goals 💪
+
+### 🛠️ I'm a Builder
+
+```bash
+# 1. Fork & clone
+git clone https://github.com/TheJollyLaMa/BigNuten_Vanilla.git
+cd BigNuten_Vanilla
+
+# 2. Install Hardhat toolchain (for contract work only)
+npm install
+
+# 3. Compile contracts
+npx hardhat compile
+
+# 4. Run contract tests
+npx hardhat test
+```
+
+- Browse **[open issues with `bounty:` labels](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues?q=label%3Abounty)** — each has a $BNUT reward
+- Read [`CONTRIBUTING.md`](CONTRIBUTING.md) — all contributors must be personally onboarded before payout
+- Open a PR with `Closes #N` in the body — the Bounty Bot queues your $BNUT automatically on merge
+- Frontend is Vanilla JS (no framework, no bundler) — `js/` for modules, `css/styles.css`, `index.html`
+- Smart contracts are in `contracts/` — Solidity 0.8.20, tested with Hardhat + OZ 5.x
+
+### 🗳️ I'm a DAO / Governance Participant
+
+- **Hold $BNUT** — buy on Optimism or earn as a contributor
+- **Get a DNFT** — purchase an [Early Supporter DNFT](https://thejollylama.github.io/DecentMarket/) to gain `PROPOSER_ROLE`
+- **Create proposals** via the Governance modal in the app (DNFT required)
+- **Vote** on proposals — 1 wallet = 1 vote, minimum 1 $BNUT to participate
+- **Track treasury** — all movements visible on [Optimistic Etherscan](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363)
+
+---
+
+## ✅ v3.1.0 — What's Shipped
+
+v3.1.0 builds on the full monetization stack of v2.0.0, adding StreakBet competitions, Yoga Flow, Chakra tracking, Genie AI, DeFi dashboard, Community Dashboard, and the complete admin competition layer. BigNuten is now a **fully layered wellness platform** with an on-chain economy.
 
 ### 🪙 Token Economy
 - ✅ $BNUT ERC-20 token deployed on Optimism Mainnet
@@ -511,20 +755,62 @@ npx hardhat run scripts/deploy.js --network optimism
 
 ## 🛠 Tech Stack
 
+### Language Composition
+
+| Language | % | Role |
+|----------|---|------|
+| JavaScript (ES Modules) | ~62% | All app logic — tracking modules, Web3 integrations, AI chat, admin panel |
+| CSS3 | ~25% | Full custom design system, responsive layouts, animations |
+| HTML5 | ~10% | Single-page app shell (`index.html`) |
+| Solidity | ~3% | Smart contracts — $BNUT, Treasury, Governance, StreakBetEscrow |
+
+### Key Libraries & Tools
+
 | Layer | Technology |
-|---|---|
-| Frontend | HTML5, CSS3, Vanilla JavaScript (ES Modules) |
-| Charts | Chart.js + chartjs-adapter-date-fns |
-| Storage | web3.storage w3up client (IPFS) |
-| Wallet | MetaMask / EIP-1193 |
-| Smart Contracts | Solidity ^0.8.20, OpenZeppelin v5, Hardhat |
-| Blockchain | Optimism Mainnet (Chain ID: 10) |
-| Subscriptions | DecentEscrow v0.1 (external) |
-| Fonts | Bungee (Google Fonts) |
+|-------|-----------|
+| **Frontend** | HTML5, CSS3, Vanilla JavaScript (ES Modules) — no framework, no bundler |
+| **Charts** | Chart.js + chartjs-adapter-date-fns |
+| **Storage** | web3.storage w3up client (IPFS) |
+| **Wallet** | MetaMask / EIP-1193 |
+| **Smart Contracts** | Solidity ^0.8.20, OpenZeppelin v5, Hardhat |
+| **Contract Testing** | Hardhat + @nomicfoundation/hardhat-network-helpers |
+| **Blockchain** | Optimism Mainnet (Chain ID: 10) |
+| **DeFi** | Aave V3 Pool (yield on competition pots), Alchemix V2 |
+| **Subscriptions** | DecentEscrow v0.1 (external) |
+| **AI / LLM** | WebLLM (local), GitHub Models (Azure), OpenAI GPT-4o |
+| **Fonts** | Bungee (Google Fonts) |
+| **Payments** | Stripe, PayPal (fiat on-ramp for DNFTs) |
+
+### JS Module Map
+
+```
+js/
+├── app.js               — Main app bootstrap, Admin Panel wiring, all IIFE init
+├── fitnessData.js       — Central data schema, normalize, merge, IPFS snapshot
+├── genieChat.js         — Genie AI: 3-backend LLM, 10 context categories, model picker
+├── genieMemory.js       — 3-tier AI memory (session / summaries / pinned insights)
+├── competitions.js      — StreakBet frontend: create/settle/cancel, IPFS report chain
+├── streakVerify.js      — Auto-verifier: checks local logs, submits on-chain reports
+├── governance.js        — BigNutenGov proposal + voting UI
+├── treasury.js          — BigNutenTreasury balance + transfer UI
+├── defi.js              — DeFi dashboard: Aave + Alchemix event scraping, history
+├── yoga.js              — Yoga Flow modal: 12 poses, SVG animations, custom sequences
+├── chakra.js            — Chakra energy tracker + visualization
+├── feelingsWheel.js     — Granular emotion wheel
+├── communityDashboard.js— Opt-in aggregated data, leaderboards
+├── correlationGraph.js  — Cross-stream correlation visualizer
+├── dataSharing.js       — Opt-in data sharing rewards
+├── contracts.js         — Contract addresses + ABI imports
+├── subscription.js      — DecentEscrow subscription management
+├── uploadToIPFS.js      — web3.storage w3up upload helper
+└── admin.js             — Admin panel helpers
+```
 
 ---
 
 ## 🚀 Getting Started
+
+> **No build step, no backend, no npm required to run the app.** Just open `index.html`.
 
 ```bash
 git clone https://github.com/TheJollyLaMa/BigNuten_Vanilla.git
@@ -536,7 +822,25 @@ cd BigNuten_Vanilla
 3. Connect **IPFS** via the IPFS icon (requires a [web3.storage](https://web3.storage) account)
 4. Start logging your weight, supplements, food, and exercise!
 
-> Owner wallets automatically see the **Admin Panel** in the top navigation. See [Admin Panel](#-admin-panel) above.
+> Owner wallets automatically see the **Admin Panel** in the top navigation. See [Admin Panel](#️-admin-panel) above.
+
+### For Contract Development
+
+```bash
+npm install                              # Install Hardhat + OZ dependencies
+npx hardhat compile                      # Compile Solidity contracts
+npx hardhat test                         # Run contract test suite
+npx hardhat run scripts/deploy.js --network optimism   # Deploy to Optimism
+```
+
+### Environment Setup
+
+```bash
+cp .env.example .env
+# Fill in: PRIVATE_KEY, OPTIMISM_RPC_URL, ETHERSCAN_API_KEY
+```
+
+Full deployment guide: [`docs/DEPLOYMENTS.md`](docs/DEPLOYMENTS.md)
 
 ---
 
@@ -548,5 +852,5 @@ cd BigNuten_Vanilla
 
 <p align="center">
   Made with 💪 by <a href="https://github.com/TheJollyLaMa">TheJollyLaMa</a><br/>
-  <em>"Another Decent Frankenstein" — built in the open, one issue at a time.</em>
+  <em>"Wellness and Wealth — Open Source" · Another Decent Frankenstein · built in the open, one issue at a time.</em>
 </p>
