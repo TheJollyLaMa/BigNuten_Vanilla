@@ -335,16 +335,11 @@ function updateMoonStatus(tithiDay) {
   }
 }
 
-if (navigator.geolocation) {
-  navigator.geolocation.getCurrentPosition(pos => {
-    updateMoonStatus(calculateTithi().tithi);
-  }, err => {
-    console.warn("Location access denied. Using default values.");
-    updateMoonStatus(calculateTithi().tithi);
-  });
-} else {
-  updateMoonStatus(calculateTithi().tithi);
-}
+// Moon status does not require geolocation — only the moon/sun modal uses coordinates.
+// Do NOT call getCurrentPosition at startup; it triggers a browser violation warning
+// ("Only request geolocation information in response to a user gesture").
+// requestLocation() is already called when the user explicitly opens the moon modal.
+updateMoonStatus(calculateTithi().tithi);
 // Refresh the moon icon status every hour to stay current throughout the day
 setInterval(() => updateMoonStatus(calculateTithi().tithi), 3600000);
 
@@ -2781,6 +2776,9 @@ function markSnapshotTakenToday() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  console.time('[startup] DOMContentLoaded → interactive');
+  console.timeStamp?.('[startup] DOMContentLoaded');
+
   // --- Correlation Graph Modal (🧠 Third Eye) — handled by correlationGraph.js ---
   initCorrelationGraph();
 
@@ -3610,13 +3608,19 @@ if (measurementForm) {
   // Auto-connect wallet on page load if the user already authorized MetaMask previously.
   // Uses eth_accounts (no prompt) — only eth_requestAccounts prompts the user.
   if (typeof window.ethereum !== 'undefined') {
+    console.timeStamp?.('[startup] wallet auto-connect attempt');
+    console.time('[startup] wallet auto-connect');
     window.ethereum.request({ method: 'eth_accounts' })
       .then(async accounts => {
         if (accounts && accounts.length > 0) {
           await connectWallet(accounts[0]);
         }
+        console.timeEnd('[startup] wallet auto-connect');
       })
-      .catch(err => console.warn('Wallet auto-connect check failed:', err));
+      .catch(err => {
+        console.warn('Wallet auto-connect check failed:', err);
+        console.timeEnd('[startup] wallet auto-connect');
+      });
   }
 
   // Modal logic
@@ -7921,4 +7925,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── v3.1.0 Competitions (Streak Bets) ───────────────────────────────────
   initCompetitions();
+
+  console.timeEnd('[startup] DOMContentLoaded → interactive');
+  console.timeStamp?.('[startup] interactive');
 });

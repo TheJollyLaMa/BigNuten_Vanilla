@@ -222,6 +222,8 @@ async function _handleIpfsIconClick() {
         if (cid) {
           _setSnapshotPanelStatus(`✅ Pushed — CID: <a href="https://${cid}.ipfs.w3s.link/" target="_blank" rel="noopener noreferrer">${cid.slice(0,8)}…${cid.slice(-4)}</a>`, 'success');
           _renderSnapshotHistory();
+          // Refresh About section last-backup timestamp
+          _applyIpfsIndicator(getStorageMode());
         } else {
           _setSnapshotPanelStatus('⚠️ Upload returned no CID.', 'warning');
         }
@@ -508,6 +510,29 @@ function _applyIpfsIndicator(mode) {
   if (badge) {
     badge.textContent  = STORAGE_MODE_LABELS[mode] || mode;
     badge.dataset.mode = mode;
+  }
+
+  // Refresh last-backup timestamp in About section
+  const lastBackupEl = document.getElementById('dc-about-last-backup');
+  if (lastBackupEl) {
+    if (mode === 'own-w3s') {
+      const latestKey = Object.keys(localStorage)
+        .filter(k => k.startsWith('fitnessTrackerSnapshot-'))
+        .sort()
+        .reverse()[0];
+      if (latestKey) {
+        const ts = latestKey.split('fitnessTrackerSnapshot-')[1];
+        try {
+          lastBackupEl.textContent = new Date(ts).toLocaleString();
+        } catch {
+          lastBackupEl.textContent = ts;
+        }
+      } else {
+        lastBackupEl.textContent = 'No snapshots yet';
+      }
+    } else {
+      lastBackupEl.textContent = '—';
+    }
   }
 }
 

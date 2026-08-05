@@ -1184,7 +1184,7 @@ function initGenieChat() {
       startW = geniePanel.getBoundingClientRect().width;
       document.addEventListener('touchmove', onTouchMove);
       document.addEventListener('touchend', onTouchEnd);
-    });
+    }, { passive: true });
   }
 }
 
