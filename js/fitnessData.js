@@ -224,8 +224,12 @@ export async function logWeight(weight) {
   });
   saveFitnessData(data);
 }
-// Run once manually after launch
-patchAllSnapshotHistory(); // Uncomment this line to execute the patch
+// Run once at idle — deferred off the critical path to avoid blocking first paint.
+if (typeof requestIdleCallback === 'function') {
+  requestIdleCallback(() => patchAllSnapshotHistory(), { timeout: 5000 });
+} else {
+  setTimeout(() => patchAllSnapshotHistory(), 3000);
+}
 
 /**
  * Merges two fitness data objects, deduplicating array entries by timestamp.
