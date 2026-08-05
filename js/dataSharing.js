@@ -154,8 +154,20 @@ export function getNextMilestone() {
 // ─── On-Chain Reward History ──────────────────────────────────────────────────
 
 /**
+ * Maximum block range to query in a single eth_getLogs request.
+ * Many RPC providers (e.g. Infura, Alchemy, public Optimism nodes) reject
+ * queries that span more than 100 000 blocks ("Block range is too large").
+ */
+const MAX_LOG_RANGE_BLOCKS = 100_000;
+
+/**
  * Read all DataSharingRewarded events emitted for a given wallet address
  * from the BigNutenTreasury contract.
+ *
+ * Queries only the most recent MAX_LOG_RANGE_BLOCKS blocks to avoid
+ * "Block range is too large" errors from RPC providers.  If the query
+ * still fails (e.g. a provider that enforces a smaller limit), the range
+ * is halved and retried up to three times before returning an empty array.
  *
  * Returns an empty array if the treasury is not yet deployed or ethers is unavailable.
  *
@@ -177,6 +189,7 @@ export async function getOnChainDataSharingHistory(walletAddress) {
     return [];
   }
 
+  console.time('[dataSharing] history fetch');
   try {
     const provider = new ethers.JsonRpcProvider(
       window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
@@ -185,9 +198,49 @@ export async function getOnChainDataSharingHistory(walletAddress) {
     if (!res.ok) return [];
     const abi = await res.json();
 
-    const treasury  = new ethers.Contract(treasuryAddress, abi, provider);
-    const filter    = treasury.filters.DataSharingRewarded(walletAddress);
-    const logs      = await treasury.queryFilter(filter, 0, 'latest');
+    const treasury = new ethers.Contract(treasuryAddress, abi, provider);
+    const filter   = treasury.filters.DataSharingRewarded(walletAddress);
+
+    // Determine a bounded recent range to avoid "Block range is too large" errors.
+    let latestBlock;
+    try {
+      latestBlock = await provider.getBlockNumber();
+    } catch (_) {
+      latestBlock = null;
+    }
+
+    let range = MAX_LOG_RANGE_BLOCKS;
+    let logs  = null;
+    const maxRetries = 3;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const fromBlock = latestBlock !== null
+        ? Math.max(0, latestBlock - range)
+        : 0;
+      try {
+        logs = await treasury.queryFilter(filter, fromBlock, 'latest');
+        break; // success
+      } catch (queryErr) {
+        const msg = String(queryErr?.message || queryErr).toLowerCase();
+        const isRangeError =
+          msg.includes('block range') ||
+          msg.includes('too large') ||
+          msg.includes('query returned more than') ||
+          msg.includes('exceed') ||
+          msg.includes('limit');
+
+        if (isRangeError && attempt < maxRetries - 1) {
+          range = Math.floor(range / 2);
+          console.warn(
+            `[dataSharing] RPC range error — retrying with range ${range} blocks (attempt ${attempt + 2}/${maxRetries})`
+          );
+        } else {
+          throw queryErr;
+        }
+      }
+    }
+
+    if (!logs) return [];
 
     return logs.map(log => ({
       amount:  Number(ethers.formatEther(log.args.amount)),
@@ -197,6 +250,8 @@ export async function getOnChainDataSharingHistory(walletAddress) {
   } catch (err) {
     console.warn('[dataSharing] Could not fetch on-chain history:', err);
     return [];
+  } finally {
+    console.timeEnd('[dataSharing] history fetch');
   }
 }
 
