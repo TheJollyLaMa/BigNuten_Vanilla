@@ -3323,7 +3323,25 @@ if (measurementForm) {
     ${suffix}`;
   }
 
+  // Reentrancy guard: prevent concurrent connect attempts.
+  let _walletConnectInFlight = false;
+
   async function connectWallet(preAuthorizedAccount = null) {
+    if (_walletConnectInFlight) {
+      console.info('[wallet] connect already in progress — ignoring duplicate call');
+      return;
+    }
+    _walletConnectInFlight = true;
+    console.time('[wallet] connect');
+    try {
+      await _doConnectWallet(preAuthorizedAccount);
+    } finally {
+      _walletConnectInFlight = false;
+      console.timeEnd('[wallet] connect');
+    }
+  }
+
+  async function _doConnectWallet(preAuthorizedAccount = null) {
     if (typeof window.ethereum !== 'undefined') {
       try {
         let account;
@@ -3410,9 +3428,13 @@ if (measurementForm) {
 
         // On auto-connect (page reload), attempt silent restore only.
         // On user-initiated connect, allow full email login flow.
+        // Pass silent:true on the auto path to avoid noisy "not available" warnings
+        // when the IPFS bundle hasn't loaded yet.
+        console.time('[w3up] restore/connect');
         const result = preAuthorizedAccount
-          ? await tryAutoRestoreW3upClient()
+          ? await tryAutoRestoreW3upClient({ silent: true })
           : await connectW3upClient();
+        console.timeEnd('[w3up] restore/connect');
         
         if (result) {
            console.log("Web3.Storage space DID:", result.spaceDid);

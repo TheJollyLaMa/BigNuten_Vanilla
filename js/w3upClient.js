@@ -8,10 +8,14 @@ function getCreate() {
 
 // Attempt to restore an existing W3UP session without prompting the user.
 // Returns { client, spaceDid } if a previously-authorized space is found, otherwise null.
-export async function tryAutoRestoreW3upClient() {
+// The `silent` parameter suppresses the "not available" log when called during
+// automatic startup checks where the IPFS bundle may simply not have loaded yet.
+export async function tryAutoRestoreW3upClient({ silent = false } = {}) {
   const create = getCreate();
   if (!create) {
-    console.warn("W3UP auto-restore: window.w3up not available.");
+    if (!silent) {
+      console.warn("W3UP auto-restore: window.w3up not available.");
+    }
     return null;
   }
   try {
