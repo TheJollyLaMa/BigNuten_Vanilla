@@ -969,21 +969,21 @@
         <h3>🔑 Your Data &amp; IPFS Storage</h3>
 
         <p class="about-payment-desc">
-          Your data lives in your browser. Connect your own Storacha space to enable automatic IPFS backup — or export a JSON file anytime.
+          Your data lives in your browser. Connect a backup provider (e.g. Storacha/IPFS) to enable automatic content-addressed snapshots — or export a JSON file anytime.
           <strong>Data is not encrypted</strong> — only share what you're comfortable with.
           <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="dc-notice-link">📚 Learn about IPFS →</a>
         </p>
 
         <div class="dc-about-actions">
           <button id="about-ipfs-connect-btn" class="dc-about-open-btn" type="button">
-            🔗 Connect Storacha Account
+            🔗 Connect Backup Provider
           </button>
           <button id="about-json-download-btn" class="dc-about-json-btn" type="button">
             ⬇️ Download JSON Backup
           </button>
         </div>
         <div class="dc-about-mode-row">
-          Storage: <span id="dc-about-mode-badge" class="dc-mode-badge" data-mode="json-only">📁 JSON File (local)</span>
+          Active provider: <span id="dc-about-provider-name" class="dc-mode-badge" data-mode="json-only">📁 JSON File (local)</span>
         </div>
         <div class="dc-about-mode-row" id="dc-about-last-backup-row" style="font-size:0.78rem;color:#aaa;margin-top:0.2rem;">
           Last backup: <span id="dc-about-last-backup">—</span>
@@ -1242,8 +1242,9 @@
         Nobody can sell it, lose it, or lock you out of it. Not even us.
       </p>
       <p class="edu-body">
-        To enable automatic cloud backup, you'll need a free <strong>Storacha</strong> account.
-        Storacha gives you a globally unique Space DID — your own cryptographic key to your data, forever.
+        To enable automatic cloud backup, connect a <strong>backup provider</strong>.
+        Currently supported: <strong>Storacha</strong> (free IPFS storage, user-owned Space DID).
+        More providers can be added without changing any of your data.
         <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="edu-link">📚 Learn about IPFS &amp; Storacha →</a>
       </p>
 
@@ -1261,20 +1262,20 @@
         </div>
         <div class="edu-step">
           <span class="edu-step-num">3</span>
-          <div>Click <strong>"Connect my Storacha account"</strong> below</div>
+          <div>Click <strong>"Connect backup provider"</strong> below</div>
         </div>
       </div>
 
       <!-- Mobile notice - shown only on small screens / touch devices -->
       <div id="ipfs-edu-mobile-notice" class="edu-mobile-notice" hidden>
-        📱 <strong>Mobile users:</strong> IPFS backup requires a desktop browser for the initial connection — this is a limitation of Storacha's email confirmation flow.
+        📱 <strong>Mobile users:</strong> Cloud backup requires a desktop browser for the initial connection.
         Your data is safe in your browser and can always be exported as a JSON file.
         Come back on desktop to enable cloud sync.
       </div>
 
       <div class="edu-actions">
         <button id="ipfs-edu-connect-btn" class="edu-connect-btn" type="button">
-          🔗 Connect my Storacha account
+          🔗 Connect backup provider
         </button>
         <p id="ipfs-edu-connect-status" class="dc-status" aria-live="polite" style="display:none;"></p>
         <button id="ipfs-edu-skip-btn" class="edu-skip-btn" type="button">
@@ -1289,14 +1290,14 @@
   <div id="ipfs-connect-dialog" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="ipfs-dialog-title">
     <div class="modal dc-modal">
       <button class="modal-close" id="ipfs-dialog-close-btn" aria-label="Close">×</button>
-      <h3 id="ipfs-dialog-title" style="color:#00e5ff;margin-top:0;">🔗 Connect Your Storacha Space</h3>
+      <h3 id="ipfs-dialog-title" style="color:#00e5ff;margin-top:0;">🔗 Connect a Backup Provider</h3>
       <p style="color:#8ab0c4;font-size:0.85rem;">
-        Connect your own Storacha/web3.storage space to enable automatic IPFS snapshots.
+        Connect a backup provider (e.g. Storacha/IPFS) to enable automatic content-addressed snapshots.
         Your data lives in <em>your</em> space — BigNuten cannot access it.
-        <a href="https://storacha.network" target="_blank" rel="noopener noreferrer" class="dc-notice-link">Sign up free →</a>
+        <a href="https://storacha.network" target="_blank" rel="noopener noreferrer" class="dc-notice-link">Sign up free at Storacha →</a>
       </p>
       <button id="ipfs-dialog-connect-btn" class="dc-action-btn dc-btn-w3s" type="button" style="width:100%;margin-bottom:0.6rem;">
-        🔗 Connect my Storacha account
+        🔗 Connect backup provider
       </button>
       <p id="ipfs-dialog-status" class="dc-status" aria-live="polite" style="display:none;"></p>
       <div style="margin-top:0.75rem;border-top:1px solid rgba(0,229,255,0.1);padding-top:0.75rem;">
@@ -1315,13 +1316,13 @@
   <!-- ── Snapshot Panel (anchored below IPFS icon) ────────────────────────── -->
   <div id="ipfs-snapshot-panel" class="snapshot-panel" hidden>
     <button class="snapshot-panel-close" id="snapshot-panel-close" aria-label="Close snapshot panel">×</button>
-    <div class="sp-header">📋 IPFS Snapshots</div>
+    <div class="sp-header">📋 Data Snapshots</div>
 
     <p id="snapshot-panel-status" class="sp-status" aria-live="polite"></p>
 
     <!-- Mobile notice -->
     <div id="snapshot-panel-mobile-msg" class="sp-mobile-msg" hidden>
-      📱 <strong>IPFS sync requires desktop</strong> for the initial Storacha connection.
+      📱 <strong>Cloud sync requires desktop</strong> for the initial provider connection.
       You can still import a past snapshot by CID below, or export/import a JSON backup.
     </div>
 
@@ -1370,7 +1371,7 @@
       <p id="mobile-sheet-status" class="dc-status" aria-live="polite" style="display:none;"></p>
 
       <p class="mobile-sheet-hint">
-        Want cloud sync? Open on desktop to connect your Storacha IPFS account.
+        Want cloud sync? Open on desktop to connect a backup provider (e.g. Storacha/IPFS).
       </p>
     </div>
   </div>

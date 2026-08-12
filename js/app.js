@@ -894,6 +894,8 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 import { connectW3upClient, tryAutoRestoreW3upClient } from './w3upClient.js';
 import { uploadDataToIPFS } from './uploadToIPFS.js';
+import { providerRegistry } from './storageProvider.js';
+import { W3upProvider } from './providers/w3upProvider.js';
 import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
 import { initCommunityDashboard } from './communityDashboard.js';
 import { initCorrelationGraph } from './correlationGraph.js';
@@ -3426,13 +3428,16 @@ if (measurementForm) {
 
         // On auto-connect (page reload), attempt silent restore only.
         // On user-initiated connect, allow full email login flow.
-        // Pass silent:true on the auto path to avoid noisy "not available" warnings
-        // when the IPFS bundle hasn't loaded yet.
-        console.time('[w3up] restore/connect');
-        const result = preAuthorizedAccount
-          ? await tryAutoRestoreW3upClient({ silent: true })
-          : await connectW3upClient();
-        console.timeEnd('[w3up] restore/connect');
+        // Route through the W3up provider adapter — no direct w3up SDK calls here.
+        console.time('[provider] restore/connect');
+        const _w3up = providerRegistry.get('w3up');
+        const providerResult = _w3up
+          ? (preAuthorizedAccount ? await _w3up.restore() : await _w3up.connect())
+          : null;
+        const result = providerResult?.connected
+          ? { spaceDid: providerResult.identity, client: _w3up?.client }
+          : null;
+        console.timeEnd('[provider] restore/connect');
         
         if (result) {
            console.log("Web3.Storage space DID:", result.spaceDid);
@@ -3524,30 +3529,31 @@ if (measurementForm) {
            }
            animateTicker();
           
-           // After w3up connects: update mode to own-w3s, store client ref for uploads
+           // After provider connects: update mode to 'w3up', store client ref for uploads
            const ipfsIcon = document.getElementById("ipfsIcon");
            if (ipfsIcon) {
              // Update the icon to reflect connected state
-             ipfsIcon.dataset.storageMode = 'own-w3s';
+             ipfsIcon.dataset.storageMode = 'w3up';
              const statusRingEl = document.getElementById('ipfs-status');
-             if (statusRingEl) statusRingEl.dataset.storageMode = 'own-w3s';
+             if (statusRingEl) statusRingEl.dataset.storageMode = 'w3up';
            }
-           // Store client reference so icon click can trigger manual upload
+           // Store client reference so icon click can trigger manual upload (legacy path)
            window._w3upClientRef = result.client;
            // Mark education seen and update mode
            localStorage.setItem('ipfsEducationSeen', '1');
-           if (typeof setStorageMode === 'function') setStorageMode('own-w3s');
+           if (typeof setStorageMode === 'function') setStorageMode('w3up');
 
            // --- Snapshot catch-up logic: check if we missed today's snapshot
            if (result?.client) {
-             // Skip IPFS upload if user explicitly chose JSON-only mode
+             // Skip upload if user explicitly chose JSON-only mode
              if (getStorageMode() !== 'json-only' && shouldTakeSnapshotToday()) {
                const data = getFitnessData();
-               const cid = await uploadDataToIPFS(data, result.client);
-               if (cid) {
-                 console.log("📦 Catch-up snapshot uploaded:", cid);
-                 markSnapshotTakenToday();
-               }
+               _w3up.put(data).then(r => {
+                 if (r?.cid) {
+                   console.log("📦 Catch-up snapshot uploaded:", r.cid);
+                   markSnapshotTakenToday();
+                 }
+               }).catch(() => { /* non-fatal */ });
              }
            }
 
@@ -3565,17 +3571,17 @@ if (measurementForm) {
              const timeUntilMidnight = nextMidnight - now;
 
              setTimeout(() => {
-               // Skip IPFS upload if user explicitly chose JSON-only mode
+               // Skip upload if user explicitly chose JSON-only mode
                if (getStorageMode() !== 'json-only') {
                  const data = getFitnessData();
-                 uploadDataToIPFS(data, client).then(cid => {
-                   if (cid) {
-                     console.log("🕛 Midnight snapshot uploaded:", cid);
+                 _w3up.put(data).then(r => {
+                   if (r?.cid) {
+                     console.log("🕛 Midnight snapshot uploaded:", r.cid);
                      markSnapshotTakenToday();
                    } else {
                      console.warn("❌ Midnight snapshot failed.");
                    }
-                 });
+                 }).catch(() => { /* non-fatal */ });
                }
 
                // Reschedule for next day
@@ -3583,7 +3589,7 @@ if (measurementForm) {
              }, timeUntilMidnight);
            }
 
-           // After connectW3upClient returns a result, schedule it
+           // After provider connects, schedule midnight snapshots
            if (result && result.client) {
              scheduleMidnightSnapshot(result.client);
            }
@@ -5039,7 +5045,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mode     = getStorageMode();
     if (!educSeen) {
       import('./dataControl.js').then(m => m._openOverlay());
-    } else if (mode !== 'own-w3s') {
+    } else if (mode !== 'w3up' && mode !== 'own-w3s') {
       const dialog = document.getElementById('ipfs-connect-dialog');
       if (dialog) {
         dialog.classList.remove('modal-hidden');
@@ -7547,7 +7553,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initCommunityDashboard();
 
   // ── Data Control (educational overlay + snapshot panel) ──────────────────
-  initDataControl({ connectW3upClient, tryAutoRestoreW3upClient, uploadDataToIPFS });
+  // Register providers and pass the W3up adapter to initDataControl.
+  const w3upProvider = new W3upProvider();
+  providerRegistry.register(w3upProvider);
+  initDataControl({ provider: w3upProvider });
 
   // ── Apply initial IPFS glow state ─────────────────────────────────────────
   {

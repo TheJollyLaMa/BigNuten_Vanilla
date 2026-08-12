@@ -1284,13 +1284,15 @@ header {
 }
 
 /* own-w3s — green glow (user holds the keys) */
-#ipfsIcon[data-storage-mode="own-w3s"] {
+#ipfsIcon[data-storage-mode="own-w3s"],
+#ipfsIcon[data-storage-mode="w3up"] {
   filter: drop-shadow(0 0 10px #00e676) drop-shadow(0 0 22px rgba(0, 220, 100, 0.55));
   opacity: 1;
 }
 
 /* Corresponding border on the status ring */
-#ipfs-status[data-storage-mode="own-w3s"] {
+#ipfs-status[data-storage-mode="own-w3s"],
+#ipfs-status[data-storage-mode="w3up"] {
   border-color: #00e676;
   box-shadow: 0 0 12px #00e676;
 }
@@ -1300,7 +1302,8 @@ header {
 }
 
 /* Ticker letter colour per mode */
-.ticker-letter[data-storage-mode="own-w3s"] { color: #00e676; text-shadow: 0 0 4px #00e676; }
+.ticker-letter[data-storage-mode="own-w3s"],
+.ticker-letter[data-storage-mode="w3up"] { color: #00e676; text-shadow: 0 0 4px #00e676; }
 
 
 
@@ -6294,7 +6297,8 @@ svg text {
   color: #00e5ff;
 }
 
-.dc-mode-badge[data-mode="own-w3s"] {
+.dc-mode-badge[data-mode="own-w3s"],
+.dc-mode-badge[data-mode="w3up"] {
   background: rgba(0, 230, 118, 0.12);
   border-color: rgba(0, 230, 118, 0.45);
   color: #00e676;
@@ -6684,6 +6688,15 @@ svg text {
 .sp-today-badge {
   font-size: 0.68rem;
   color: #00e676;
+  white-space: nowrap;
+}
+
+.sp-provider-badge {
+  font-size: 0.65rem;
+  color: #8ab0c4;
+  background: rgba(0, 229, 255, 0.08);
+  border-radius: 3px;
+  padding: 0 4px;
   white-space: nowrap;
 }
 

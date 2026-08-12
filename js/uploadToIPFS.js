@@ -1,4 +1,7 @@
-// uploadToIPFS.js — browser-compatible version using window.w3up
+// uploadToIPFS.js — W3up/Storacha upload implementation.
+// Used exclusively by js/providers/w3upProvider.js — do not call directly from business logic.
+
+import { computeSnapshotHash } from './storageProvider.js';
 
 export async function uploadDataToIPFS(data, client) {
   try {
@@ -10,24 +13,28 @@ export async function uploadDataToIPFS(data, client) {
     const historyKey = 'snapshotHistory';
     // Retrieve existing snapshot history from localStorage
     const storedHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
-    // Get previous snapshot's CID (the most recent in history, if any)
-    const previousCid = storedHistory.length > 0 ? storedHistory[0].cid : null;
-    // Add snapshotHistory to the data (array of {cid, timestamp}, most recent first)
-    data.snapshotHistory = storedHistory.map(entry => ({ cid: entry.cid, timestamp: entry.timestamp }));
+    // Embed snapshot chain so each snapshot is self-describing
+    const payload = {
+      ...data,
+      snapshotHistory: storedHistory.map(entry => ({ cid: entry.cid, timestamp: entry.timestamp })),
+    };
 
-    // Create the blob after modifying the data
-    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    // Content-address the canonical payload before uploading
+    const hash = await computeSnapshotHash(payload);
+
+    // Create the blob and upload
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
     const cid = await client.uploadFile(blob);
 
     const now = new Date().toISOString();
     const snapshotEntry = {
       cid: cid.toString(),
-      data,
-      snapshotHistory: [...storedHistory.map(h => ({ cid: h.cid, timestamp: h.timestamp }))]
+      hash,
+      data: payload,
     };
     localStorage.setItem(`fitnessTrackerSnapshot-${now}`, JSON.stringify(snapshotEntry));
 
-    const newEntry = { timestamp: now, cid: cid.toString() };
+    const newEntry = { timestamp: now, cid: cid.toString(), hash };
     storedHistory.unshift(newEntry);
     localStorage.setItem(historyKey, JSON.stringify(storedHistory));
 

@@ -1,11 +1,13 @@
 // js/dataControl.js
-// BigNuten Data Control — IPFS education, connection state, snapshot panel, JSON backup/restore.
+// BigNuten Data Control — provider-agnostic backup, snapshot panel, JSON backup/restore.
 //
 // Storage modes (saved to localStorage key 'storageMode'):
-//   'own-w3s'   — User has connected their own Storacha/web3.storage space (IPFS enabled)
-//   'json-only' — No IPFS connected; local browser only (DEFAULT for new users)
+//   'w3up'      — User has connected their own Storacha/web3.storage space (IPFS enabled)
+//   'own-w3s'   — Legacy alias for 'w3up' (kept for backwards compatibility)
+//   'json-only' — No remote storage; local browser only (DEFAULT for new users)
 
 import { normalizeFitnessData, mergeSnapshotData, importAndMergeFromCID } from './fitnessData.js';
+import { providerRegistry, loadSnapshotMeta } from './storageProvider.js';
 
 const STORAGE_KEY        = 'fitnessTrackerData';
 const STORAGE_MODE_KEY   = 'storageMode';
@@ -13,6 +15,7 @@ const EDUC_SEEN_KEY      = 'ipfsEducationSeen';
 
 /** Human-readable labels for each storage mode. */
 export const STORAGE_MODE_LABELS = {
+  'w3up':      '🔗 Your Own Storacha Space',
   'own-w3s':   '🔗 Your Own Storacha Space',
   'json-only': '📁 JSON File (local)',
 };
@@ -23,8 +26,15 @@ export function getStorageMode() {
   return localStorage.getItem(STORAGE_MODE_KEY) || 'json-only';
 }
 
+/** Map legacy 'own-w3s' to 'w3up' for the provider registry. */
+function _modeToProviderId(mode) {
+  return mode === 'own-w3s' ? 'w3up' : mode;
+}
+
 export function setStorageMode(mode) {
   localStorage.setItem(STORAGE_MODE_KEY, mode);
+  const providerId = _modeToProviderId(mode);
+  try { providerRegistry.setActive(providerId); } catch { /* provider not registered yet — no-op */ }
   _applyIpfsIndicator(mode);
 }
 
@@ -75,15 +85,42 @@ export function importDataFromJSONFile(file) {
 // ── Main init ─────────────────────────────────────────────────────────────────
 
 /**
- * initDataControl({ connectW3upClient, tryAutoRestoreW3upClient, uploadDataToIPFS })
+ * initDataControl(options)
  *
  * Call once after DOMContentLoaded.
+ *
+ * Preferred usage (provider-agnostic):
+ *   initDataControl({ provider: providerRegistry.get('w3up') })
+ *
+ * Legacy usage still accepted for backwards compatibility:
+ *   initDataControl({ connectW3upClient, tryAutoRestoreW3upClient, uploadDataToIPFS })
  */
 export function initDataControl({
+  provider: providerArg,
   connectW3upClient: connectFn,
   tryAutoRestoreW3upClient: restoreFn,
   uploadDataToIPFS: uploadFn,
 } = {}) {
+
+  // If a provider is passed, expose its methods as legacy callbacks so the
+  // rest of this function works unchanged.
+  const activeProvider = providerArg ?? null;
+
+  if (activeProvider && !connectFn) {
+    connectFn = () => activeProvider.connect().then(r => {
+      if (r.connected) return { spaceDid: r.identity, client: activeProvider.client ?? null };
+      return null;
+    });
+  }
+  if (activeProvider && !restoreFn) {
+    restoreFn = () => activeProvider.restore().then(r => {
+      if (r?.connected) return { spaceDid: r.identity };
+      return null;
+    });
+  }
+  if (activeProvider && !uploadFn) {
+    uploadFn = (data) => activeProvider.put(data).then(r => r.cid);
+  }
 
   // Expose upload reference for icon click handler
   window._ipfsUploadFn = uploadFn;
@@ -187,7 +224,7 @@ export function initDataControl({
         } else {
           // Session restored — mark as seen and apply mode
           localStorage.setItem(EDUC_SEEN_KEY, '1');
-          setStorageMode('own-w3s');
+          setStorageMode('w3up');
         }
       }).catch(() => {
         requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -207,8 +244,9 @@ export function initDataControl({
 async function _handleIpfsIconClick() {
   const isMobile = _isMobile();
   const mode = getStorageMode();
+  const isConnected = mode === 'w3up' || mode === 'own-w3s';
 
-  if (mode === 'own-w3s') {
+  if (isConnected) {
     // Connected — push a snapshot then show the panel
     _openSnapshotPanel();
     const uploadFn = window._ipfsUploadFn;
@@ -220,7 +258,12 @@ async function _handleIpfsIconClick() {
         const client = window._w3upClientRef;
         const cid = await uploadFn(data, client);
         if (cid) {
-          _setSnapshotPanelStatus(`✅ Pushed — CID: <a href="https://${cid}.ipfs.w3s.link/" target="_blank" rel="noopener noreferrer">${cid.slice(0,8)}…${cid.slice(-4)}</a>`, 'success');
+          const short = `${cid.slice(0,8)}…${cid.slice(-4)}`;
+          const isHash = !cid.startsWith('bafy');
+          const link = isHash
+            ? `<code>${short}</code>`
+            : `<a href="https://${cid}.ipfs.w3s.link/" target="_blank" rel="noopener noreferrer">${short}</a>`;
+          _setSnapshotPanelStatus(`✅ Pushed — ${link}`, 'success');
           _renderSnapshotHistory();
           // Refresh About section last-backup timestamp
           _applyIpfsIndicator(getStorageMode());
@@ -303,18 +346,18 @@ async function _doConnect(connectFn) {
   _showEl(statusEl, '⏳ Connecting — check your email for a login link…', 'info');
 
   if (typeof connectFn !== 'function') {
-    _showEl(statusEl, '⚠️ Storacha client not available. Please reload and try again.', 'error');
+    _showEl(statusEl, '⚠️ Storage provider not available. Please reload and try again.', 'error');
     return;
   }
 
   try {
     const result = await connectFn();
     if (result?.spaceDid) {
-      setStorageMode('own-w3s');
+      setStorageMode('w3up');
       localStorage.setItem(EDUC_SEEN_KEY, '1');
-      // Store client ref for uploads
+      // Store client ref for legacy upload path
       if (result.client) window._w3upClientRef = result.client;
-      _showEl(statusEl, `✅ Connected! Your space: ${result.spaceDid.slice(0, 20)}…`, 'success');
+      _showEl(statusEl, `✅ Connected! Space: ${result.spaceDid.slice(0, 20)}…`, 'success');
       setTimeout(() => {
         _closeOverlay();
         _closeConnectDialog();
@@ -416,24 +459,35 @@ function _renderSnapshotHistory() {
   const container = document.getElementById('snapshot-history-list');
   if (!container) return;
 
-  const latestKey = Object.keys(localStorage)
-    .filter(k => k.startsWith('fitnessTrackerSnapshot-'))
-    .sort()
-    .reverse()[0];
+  // Prefer unified snapshot metadata (provider-agnostic)
+  const metas = loadSnapshotMeta();
+  let history = metas.slice(0, 7).map(m => ({
+    cid: m.cid || m.hash || '',
+    hash: m.hash,
+    timestamp: m.timestamp,
+    provider: m.provider,
+    status: m.status,
+  }));
 
-  let history = [];
-  if (latestKey) {
-    const latestSnapshot = (() => {
-      try { return JSON.parse(localStorage.getItem(latestKey)); } catch { return null; }
-    })();
-    if (latestSnapshot?.data?.snapshotHistory) {
-      history = latestSnapshot.data.snapshotHistory.map(e =>
-        typeof e === 'string' ? { cid: e, timestamp: '' } : e
-      );
-    }
-    if (latestSnapshot?.cid) {
-      const ts = latestKey.split('fitnessTrackerSnapshot-')[1] || '';
-      history.unshift({ cid: latestSnapshot.cid, timestamp: ts });
+  // Fall back to legacy snapshot history if no unified metadata yet
+  if (!history.length) {
+    const latestKey = Object.keys(localStorage)
+      .filter(k => k.startsWith('fitnessTrackerSnapshot-'))
+      .sort()
+      .reverse()[0];
+    if (latestKey) {
+      const latestSnapshot = (() => {
+        try { return JSON.parse(localStorage.getItem(latestKey)); } catch { return null; }
+      })();
+      if (latestSnapshot?.data?.snapshotHistory) {
+        history = latestSnapshot.data.snapshotHistory.map(e =>
+          typeof e === 'string' ? { cid: e, timestamp: '' } : e
+        );
+      }
+      if (latestSnapshot?.cid) {
+        const ts = latestKey.split('fitnessTrackerSnapshot-')[1] || '';
+        history.unshift({ cid: latestSnapshot.cid, timestamp: ts });
+      }
     }
   }
 
@@ -450,10 +504,17 @@ function _renderSnapshotHistory() {
     const dateStr = h.timestamp
       ? new Date(h.timestamp).toLocaleString()
       : '(No timestamp)';
-    const short = `${h.cid.slice(0, 8)}…${h.cid.slice(-4)}`;
+    const ref = h.cid || h.hash || '';
+    const short = ref.length > 12 ? `${ref.slice(0, 8)}…${ref.slice(-4)}` : ref;
+    const isIpfsCid = ref.startsWith('bafy') || ref.startsWith('Qm');
+    const refLink = isIpfsCid
+      ? `<a class="sp-history-cid" href="https://${ref}.ipfs.w3s.link/" target="_blank" rel="noopener noreferrer">${short}</a>`
+      : `<code class="sp-history-cid">${short}</code>`;
+    const providerBadge = h.provider ? `<span class="sp-provider-badge">${h.provider}</span>` : '';
     return `<div class="sp-history-row${isToday ? ' sp-today' : ''}">
       <span class="sp-history-date">${dateStr}</span>
-      <a class="sp-history-cid" href="https://${h.cid}.ipfs.w3s.link/" target="_blank" rel="noopener noreferrer">${short}</a>
+      ${refLink}
+      ${providerBadge}
       ${isToday ? '<span class="sp-today-badge">✅ today</span>' : ''}
     </div>`;
   }).join('');
@@ -499,40 +560,61 @@ function _applyIpfsIndicator(mode) {
     el.dataset.storageMode = mode;
   });
 
+  const isConnected = mode === 'w3up' || mode === 'own-w3s';
+  const activeLabel = STORAGE_MODE_LABELS[mode] || providerRegistry.active?.label || 'Storage';
   const tipMap = {
-    'own-w3s':   '🔗 Your Storacha space — green glow. Click to push snapshot.',
-    'json-only': '📁 JSON-only — dimmed (no IPFS). Click to connect Storacha.',
+    'w3up':      `🔗 ${activeLabel} — connected. Click to push snapshot.`,
+    'own-w3s':   `🔗 ${activeLabel} — connected. Click to push snapshot.`,
+    'json-only': '📁 Local only — no remote backup. Click to connect a provider.',
   };
-  icon.title = tipMap[mode] || 'IPFS Storage';
+  icon.title = tipMap[mode] || 'Data Storage';
 
-  // Refresh about-modal badge if visible
-  const badge = document.getElementById('dc-about-mode-badge');
+  // Refresh about-modal badge if visible (supports both old and new element IDs)
+  const badge = document.getElementById('dc-about-mode-badge')
+             || document.getElementById('dc-about-provider-name');
   if (badge) {
-    badge.textContent  = STORAGE_MODE_LABELS[mode] || mode;
+    badge.textContent  = activeLabel;
     badge.dataset.mode = mode;
   }
 
   // Refresh last-backup timestamp in About section
   const lastBackupEl = document.getElementById('dc-about-last-backup');
   if (lastBackupEl) {
-    if (mode === 'own-w3s') {
-      const latestKey = Object.keys(localStorage)
-        .filter(k => k.startsWith('fitnessTrackerSnapshot-'))
-        .sort()
-        .reverse()[0];
-      if (latestKey) {
-        const ts = latestKey.split('fitnessTrackerSnapshot-')[1];
+    if (isConnected) {
+      const metas = loadSnapshotMeta();
+      const last = metas[0];
+      if (last) {
         try {
-          lastBackupEl.textContent = new Date(ts).toLocaleString();
+          lastBackupEl.textContent = new Date(last.timestamp).toLocaleString();
         } catch {
-          lastBackupEl.textContent = ts;
+          lastBackupEl.textContent = last.timestamp;
         }
       } else {
-        lastBackupEl.textContent = 'No snapshots yet';
+        // Fall back to legacy snapshot keys
+        const latestKey = Object.keys(localStorage)
+          .filter(k => k.startsWith('fitnessTrackerSnapshot-'))
+          .sort()
+          .reverse()[0];
+        if (latestKey) {
+          const ts = latestKey.split('fitnessTrackerSnapshot-')[1];
+          try {
+            lastBackupEl.textContent = new Date(ts).toLocaleString();
+          } catch {
+            lastBackupEl.textContent = ts;
+          }
+        } else {
+          lastBackupEl.textContent = 'No snapshots yet';
+        }
       }
     } else {
       lastBackupEl.textContent = '—';
     }
+  }
+
+  // Show active provider name in about section
+  const providerNameEl = document.getElementById('dc-about-provider-name');
+  if (providerNameEl) {
+    providerNameEl.textContent = activeLabel;
   }
 }
 
