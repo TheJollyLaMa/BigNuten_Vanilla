@@ -1,5 +1,3 @@
-const SESSION_KEY = 'lighthouseSession';
-
 function getEthers() {
   if (!window.ethers) throw new Error('ethers is not available.');
   return window.ethers;
@@ -11,24 +9,16 @@ function getLighthouse() {
 }
 
 function readSession() {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed?.apiKey || !parsed?.publicKey || !parsed?.signedMessage) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+  return window._lighthouseSessionRef || null;
 }
 
 function saveSession(session) {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+  window._lighthouseSessionRef = {
     apiKey: session.apiKey,
     publicKey: session.publicKey,
     signedMessage: session.signedMessage,
     createdAt: new Date().toISOString(),
-  }));
+  };
 }
 
 async function requestSignedSession() {
@@ -93,7 +83,7 @@ export async function restoreLighthouseSession() {
 }
 
 export function clearLighthouseSession() {
-  sessionStorage.removeItem(SESSION_KEY);
+  delete window._lighthouseSessionRef;
 }
 
 export function lighthouseGatewayUrl(cid) {
