@@ -3447,7 +3447,7 @@ if (measurementForm) {
         displayCurrentWeight();
 
         // On auto-connect (page reload), attempt silent restore only.
-        // On user-initiated connect, allow full email login flow.
+        // On user-initiated connect, allow the full wallet-sign-in flow.
         // Route through the Lighthouse provider adapter — no direct SDK calls here.
         console.time('[provider] restore/connect');
         const _w3up = providerRegistry.get('w3up');
@@ -3462,9 +3462,9 @@ if (measurementForm) {
         if (result) {
            console.log("Lighthouse session:", result.spaceDid);
            const status = document.getElementById("ipfs-status");
-           status.style.display = "block";
+           status.style.display = "flex";
            const ipfsIconEl = document.getElementById("ipfsIcon");
-           if (ipfsIconEl) ipfsIconEl.style.display = "inline-block";
+           if (ipfsIconEl) ipfsIconEl.style.display = "inline-flex";
 
            // Dynamic DID key animation characters (new ticker circle)
            const did = result.spaceDid;
@@ -3615,7 +3615,7 @@ if (measurementForm) {
            }
         } else {
            if (preAuthorizedAccount) {
-             console.info("Lighthouse session not restored on auto-connect — click the wallet button to connect IPFS.");
+             console.info("Lighthouse session not restored on auto-connect — click the wallet button to connect Lighthouse.");
            } else {
              console.error("Failed to connect to Lighthouse.");
            }

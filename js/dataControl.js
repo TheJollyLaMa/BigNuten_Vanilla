@@ -345,7 +345,7 @@ function _closeConnectDialog() {
 async function _doConnect(connectFn) {
   const statusEl = document.getElementById('ipfs-edu-connect-status')
                 || document.getElementById('ipfs-dialog-status');
-  _showEl(statusEl, '⏳ Connecting — check your email for a login link…', 'info');
+  _showEl(statusEl, '⏳ Signing in — approve the wallet prompt to unlock Lighthouse…', 'info');
 
   if (typeof connectFn !== 'function') {
     _showEl(statusEl, '⚠️ Storage provider not available. Please reload and try again.', 'error');
@@ -360,7 +360,7 @@ async function _doConnect(connectFn) {
       localStorage.setItem(EDUC_SEEN_KEY, '1');
       // Store client ref for legacy upload path
       if (result.client) window._w3upClientRef = result.client;
-      _showEl(statusEl, identity ? `✅ Connected! Space: ${identity.slice(0, 20)}…` : '✅ Connected!', 'success');
+      _showEl(statusEl, identity ? `✅ Signed in! Space: ${identity.slice(0, 20)}…` : '✅ Signed in to Lighthouse!', 'success');
       setTimeout(() => {
         _closeOverlay();
         _closeConnectDialog();
@@ -553,11 +553,25 @@ function _isMobile() {
 function _applyIpfsIndicator(mode) {
   const icon       = document.getElementById('ipfsIcon');
   const statusRing = document.getElementById('ipfs-status');
+  const stateText  = document.getElementById('ipfsConnectionState');
 
-  if (!icon) return;
-
-  icon.dataset.storageMode = mode;
+  if (icon) {
+    icon.dataset.storageMode = mode;
+    icon.setAttribute(
+      'aria-label',
+      mode === 'w3up' || mode === 'own-w3s'
+        ? 'Lighthouse storage — connected'
+        : 'Lighthouse storage — local only'
+    );
+    icon.title = mode === 'w3up' || mode === 'own-w3s'
+      ? '🔆 Lighthouse — connected and ready to push snapshots.'
+      : '🔆 Local only — click to connect Lighthouse.';
+  }
   if (statusRing) statusRing.dataset.storageMode = mode;
+  if (stateText) {
+    stateText.dataset.storageMode = mode;
+    stateText.textContent = mode === 'w3up' || mode === 'own-w3s' ? 'Connected' : 'Local only';
+  }
 
   document.querySelectorAll('.ticker-letter').forEach(el => {
     el.dataset.storageMode = mode;
@@ -566,11 +580,13 @@ function _applyIpfsIndicator(mode) {
   const isConnected = mode === 'w3up' || mode === 'own-w3s';
   const activeLabel = STORAGE_MODE_LABELS[mode] || providerRegistry.active?.label || 'Storage';
   const tipMap = {
-    'w3up':      `🔐 ${activeLabel} — connected. Click to push snapshot.`,
-    'own-w3s':   `🔐 ${activeLabel} — connected. Click to push snapshot.`,
-    'json-only': '📁 Local only — no remote backup. Click to connect a provider.',
+    'w3up':      `🔆 ${activeLabel} — connected. Click to push snapshot.`,
+    'own-w3s':   `🔆 ${activeLabel} — connected. Click to push snapshot.`,
+    'json-only': '🔆 Local only — no remote backup. Click to connect Lighthouse.',
   };
-  icon.title = tipMap[mode] || 'Data Storage';
+  if (icon) {
+    icon.title = tipMap[mode] || '🔆 Lighthouse storage';
+  }
 
   // Refresh about-modal badge if visible (supports both old and new element IDs)
   const badge = document.getElementById('dc-about-mode-badge')

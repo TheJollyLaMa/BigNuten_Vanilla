@@ -24,7 +24,8 @@
           <div class="ticker-circle-ipfs" id="ticker-circle"></div>
         </div>
         <div id="ipfsIconWrapper">
-          <img id="ipfsIcon" src="img/IPFS_Logo.png" alt="IPFS Storage" data-storage-mode="json-only" />
+          <button id="ipfsIcon" type="button" data-storage-mode="json-only" aria-label="Lighthouse storage — local only" title="Lighthouse storage — local only">🔆</button>
+          <div id="ipfsConnectionState" class="ipfs-connection-state" aria-live="polite">Local only</div>
           <div id="ipfsHoverPopup" class="hover-popup"></div>
         </div>
       </div>
@@ -974,7 +975,7 @@
 
         <div class="dc-about-actions">
           <button id="about-ipfs-connect-btn" class="dc-about-open-btn" type="button">
-            🔗 Connect Lighthouse
+            🔆 Connect Lighthouse
           </button>
           <button id="about-json-download-btn" class="dc-about-json-btn" type="button">
             ⬇️ Download JSON Backup
@@ -1255,7 +1256,7 @@
         </div>
         <div class="edu-step">
           <span class="edu-step-num">2</span>
-          <div><strong>Confirm your email</strong> in the desktop browser where BigNuten is open</div>
+          <div><strong>Approve the wallet prompt</strong> in the desktop browser where BigNuten is open</div>
         </div>
         <div class="edu-step">
           <span class="edu-step-num">3</span>
@@ -1272,7 +1273,7 @@
 
       <div class="edu-actions">
         <button id="ipfs-edu-connect-btn" class="edu-connect-btn" type="button">
-          🔗 Connect Lighthouse
+          🔆 Connect Lighthouse
         </button>
         <p id="ipfs-edu-connect-status" class="dc-status" aria-live="polite" style="display:none;"></p>
         <button id="ipfs-edu-skip-btn" class="edu-skip-btn" type="button">
@@ -1287,14 +1288,14 @@
   <div id="ipfs-connect-dialog" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="ipfs-dialog-title">
     <div class="modal dc-modal">
       <button class="modal-close" id="ipfs-dialog-close-btn" aria-label="Close">×</button>
-      <h3 id="ipfs-dialog-title" style="color:#00e5ff;margin-top:0;">🔗 Connect Lighthouse</h3>
+      <h3 id="ipfs-dialog-title" style="color:#00e5ff;margin-top:0;">🔆 Connect Lighthouse</h3>
       <p style="color:#8ab0c4;font-size:0.85rem;">
         Connect Lighthouse to enable automatic content-addressed snapshots.
         Your data lives in <em>your</em> space — BigNuten cannot access it.
         <a href="https://docs.lighthouse.storage/" target="_blank" rel="noopener noreferrer" class="dc-notice-link">Learn Lighthouse →</a>
       </p>
       <button id="ipfs-dialog-connect-btn" class="dc-action-btn dc-btn-w3s" type="button" style="width:100%;margin-bottom:0.6rem;">
-        🔗 Connect Lighthouse
+        🔆 Connect Lighthouse
       </button>
       <p id="ipfs-dialog-status" class="dc-status" aria-live="polite" style="display:none;"></p>
       <div style="margin-top:0.75rem;border-top:1px solid rgba(0,229,255,0.1);padding-top:0.75rem;">

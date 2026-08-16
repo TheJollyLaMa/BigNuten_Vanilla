@@ -1255,24 +1255,42 @@ header {
   position: absolute;
   top: 20px;
   left: 50px;
-  text-align: center;
-  display: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   width: 60px;
   height: 60px;
   border: 2px solid #00e5ff;
   border-radius: 50%;
   box-shadow: 0 0 10px #00e5ff;
+  overflow: visible;
+}
+#ipfsIconWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 /* Default (always shown now — mode indicator even without wallet) */
 #ipfsIcon {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 50px;
   height: 50px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 2rem;
+  line-height: 1;
   opacity: 0.9;
   animation: shimmer-spin 8s linear infinite;
   filter: drop-shadow(0 0 10px #00e5ff);
   cursor: pointer;
   transition: filter 0.5s ease, opacity 0.5s ease;
+  appearance: none;
 }
 
 /* ── Storage-mode glow states for the IPFS icon ─────────────────────────────── */
@@ -1288,6 +1306,24 @@ header {
 #ipfsIcon[data-storage-mode="w3up"] {
   filter: drop-shadow(0 0 10px #00e676) drop-shadow(0 0 22px rgba(0, 220, 100, 0.55));
   opacity: 1;
+}
+#ipfsConnectionState {
+  font-size: 0.62rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8ab0c4;
+  text-shadow: 0 0 4px rgba(0, 229, 255, 0.35);
+  white-space: nowrap;
+  pointer-events: none;
+}
+#ipfsConnectionState[data-storage-mode="w3up"],
+#ipfsConnectionState[data-storage-mode="own-w3s"] {
+  color: #00e676;
+  text-shadow: 0 0 6px rgba(0, 230, 118, 0.65);
+}
+#ipfsConnectionState[data-storage-mode="json-only"] {
+  color: rgba(138, 176, 196, 0.8);
 }
 
 /* Corresponding border on the status ring */
