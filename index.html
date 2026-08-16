@@ -13,6 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@lighthouse-web3/sdk/dist/index.umd.js"></script>
 </head>
 <body>
   
@@ -859,9 +860,6 @@
     </div>
   </div>
   
-  <!-- @web3-storage browser.min.js hosted in JollySimSiddhi space on web3.Storage -->
-  <script src="https://bafybeicqxq54ncvkxvwdbov6ljgtyyrcpmek3ic2fxrwwsigmh4ud4s2mu.ipfs.w3s.link/browser.min.js"></script>
-
   <!-- Contract addresses & token metadata — must load before ES modules -->
   <script src="js/contracts.js"></script>
   <!-- Stripe Payment Links & Customer Portal URL — must load before ES modules (Issue #41) -->
@@ -969,7 +967,7 @@
         <h3>🔑 Your Data &amp; IPFS Storage</h3>
 
         <p class="about-payment-desc">
-          Your data lives in your browser. Connect a backup provider (e.g. Storacha/IPFS) to enable automatic content-addressed snapshots — or export a JSON file anytime.
+          Your data lives in your browser. Connect a backup provider (e.g. Lighthouse/IPFS) to enable automatic content-addressed snapshots — or export a JSON file anytime.
           <strong>Data is not encrypted</strong> — only share what you're comfortable with.
           <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="dc-notice-link">📚 Learn about IPFS →</a>
         </p>
@@ -1243,16 +1241,16 @@
       </p>
       <p class="edu-body">
         To enable automatic cloud backup, connect a <strong>backup provider</strong>.
-        Currently supported: <strong>Storacha</strong> (free IPFS storage, user-owned Space DID).
+        Currently supported: <strong>Lighthouse</strong> (free IPFS storage, wallet-signed encryption).
         More providers can be added without changing any of your data.
-        <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="edu-link">📚 Learn about IPFS &amp; Storacha →</a>
+        <a href="https://docs.lighthouse.storage/" target="_blank" rel="noopener noreferrer" class="edu-link">📚 Learn about IPFS &amp; Lighthouse →</a>
       </p>
 
       <div class="edu-steps">
         <div class="edu-step">
           <span class="edu-step-num">1</span>
           <div>
-            <strong>Sign up at Storacha</strong> (free) —
+            <strong>Connect Lighthouse</strong> (wallet-signed) —
             <a href="https://storacha.network" target="_blank" rel="noopener noreferrer" class="edu-link">open storacha.network ↗</a>
           </div>
         </div>
@@ -1292,9 +1290,9 @@
       <button class="modal-close" id="ipfs-dialog-close-btn" aria-label="Close">×</button>
       <h3 id="ipfs-dialog-title" style="color:#00e5ff;margin-top:0;">🔗 Connect a Backup Provider</h3>
       <p style="color:#8ab0c4;font-size:0.85rem;">
-        Connect a backup provider (e.g. Storacha/IPFS) to enable automatic content-addressed snapshots.
+        Connect a backup provider (e.g. Lighthouse/IPFS) to enable automatic content-addressed snapshots.
         Your data lives in <em>your</em> space — BigNuten cannot access it.
-        <a href="https://storacha.network" target="_blank" rel="noopener noreferrer" class="dc-notice-link">Sign up free at Storacha →</a>
+        <a href="https://docs.lighthouse.storage/" target="_blank" rel="noopener noreferrer" class="dc-notice-link">Learn Lighthouse →</a>
       </p>
       <button id="ipfs-dialog-connect-btn" class="dc-action-btn dc-btn-w3s" type="button" style="width:100%;margin-bottom:0.6rem;">
         🔗 Connect backup provider
@@ -1371,7 +1369,7 @@
       <p id="mobile-sheet-status" class="dc-status" aria-live="polite" style="display:none;"></p>
 
       <p class="mobile-sheet-hint">
-        Want cloud sync? Open on desktop to connect a backup provider (e.g. Storacha/IPFS).
+        Want cloud sync? Open on desktop to connect a backup provider (e.g. Lighthouse/IPFS).
       </p>
     </div>
   </div>

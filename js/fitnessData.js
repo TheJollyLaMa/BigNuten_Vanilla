@@ -1,5 +1,7 @@
 // fitnessData.js
 
+import { fetchSnapshotData } from './lighthouseStorage.js';
+
 const STORAGE_KEY = 'fitnessTrackerData';
 const DATA_VERSION = 1;
 const DEFAULT_EXERCISE_TYPES = ['Sit-ups', 'Push-ups', 'Pull-ups'];
@@ -91,21 +93,18 @@ export async function getFitnessData() {
     const cid = prompt("No local history found. Enter CID to restore from an IPFS snapshot, or cancel to start fresh:");
     if (cid) {
       try {
-        const response = await fetch(`https://${cid}.ipfs.w3s.link/`);
-        if (!response.ok) throw new Error("Failed to fetch from IPFS.");
-
-        const data = await response.json();
+        const data = await fetchSnapshotData(cid);
         if (data.weightLogs || data.supplements || data.exercises) {
           const normalized = normalizeFitnessData(data);
           saveFitnessData(normalized);
-          alert("Snapshot restored from IPFS.");
+          alert("Snapshot restored from Lighthouse.");
           return normalized;
         } else {
           alert("Invalid snapshot structure.");
         }
       } catch (err) {
         console.error("CID restore failed:", err);
-        alert("Restore from IPFS CID failed.");
+        alert("Restore from Lighthouse CID failed.");
       }
     } else {
       alert("No historical data restored. Starting fresh from this session.");
@@ -289,7 +288,7 @@ export function mergeSnapshotData(current, imported) {
 }
 
 /**
- * Fetches a fitness snapshot from IPFS by CID and merges it into the current local data.
+ * Fetches a fitness snapshot from Lighthouse/IPFS by CID and merges it into the current local data.
  * Deduplicates entries so re-importing the same CID is safe.
  * @param {string} cid - The IPFS CID to fetch
  * @returns {Promise<{merged: Object, added: {weightLogs: number, exercises: number, sessionLog: number}}>}
@@ -298,11 +297,7 @@ export async function importAndMergeFromCID(cid) {
   const trimmedCid = cid.trim();
   if (!trimmedCid) throw new Error('No CID provided.');
 
-  const url = `https://${trimmedCid}.ipfs.w3s.link/`;
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Failed to fetch from IPFS (HTTP ${response.status}).`);
-
-  const imported = await response.json();
+  const imported = await fetchSnapshotData(trimmedCid);
 
   if (!imported.weightLogs && !imported.supplements && !imported.exercises) {
     throw new Error('Invalid snapshot structure: missing expected data fields.');

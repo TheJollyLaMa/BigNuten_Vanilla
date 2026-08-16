@@ -892,8 +892,6 @@ window.addEventListener('DOMContentLoaded', () => {
     connectBtn.addEventListener('click', connectToBluetoothScale);
   }
 });
-import { connectW3upClient, tryAutoRestoreW3upClient } from './w3upClient.js';
-import { uploadDataToIPFS } from './uploadToIPFS.js';
 import { providerRegistry } from './storageProvider.js';
 import { W3upProvider } from './providers/w3upProvider.js';
 import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
@@ -2824,7 +2822,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       const shortCid = `${prefix}${ipfsIcons}${suffix}`;
       return `<div class="${colorClass}">
         <strong>${date}</strong><br>
-        <a href="https://${h.cid}.ipfs.w3s.link/" target="_blank" style="text-decoration:none;color:inherit;">
+        <a href="https://gateway.lighthouse.storage/ipfs/${h.cid}" target="_blank" style="text-decoration:none;color:inherit;">
           ${shortCid}
         </a>
       </div>`;
@@ -2903,7 +2901,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         div.className = 'snapshot-item';
         const date = h.timestamp ? formatInUserTz(h.timestamp) : '(No timestamp)';
         const shortCid = `${h.cid.slice(0, 6)}...${h.cid.slice(-4)}`;
-        div.innerHTML = `<strong>${date}</strong><br><a href="https://${h.cid}.ipfs.w3s.link/" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
+        div.innerHTML = `<strong>${date}</strong><br><a href="https://gateway.lighthouse.storage/ipfs/${h.cid}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
         div.style.margin = '8px 0';
         content.appendChild(div);
       });
@@ -2961,7 +2959,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.style.cssText = 'margin:4px 0;font-size:0.75rem;';
         const date = entry.importedAt ? formatInUserTz(entry.importedAt) : '';
         const short = `${entry.cid.slice(0, 6)}...${entry.cid.slice(-4)}`;
-        row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://${entry.cid}.ipfs.w3s.link/" target="_blank" style="color:#ff00cc;">${short}</a>`;
+        row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://gateway.lighthouse.storage/ipfs/${entry.cid}" target="_blank" style="color:#ff00cc;">${short}</a>`;
         importedSection.appendChild(row);
       });
       content.appendChild(importedSection);
@@ -3034,7 +3032,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.style.cssText = 'margin:4px 0;font-size:0.75rem;';
         const date = entry.importedAt ? formatInUserTz(entry.importedAt) : '';
         const short = `${entry.cid.slice(0, 6)}...${entry.cid.slice(-4)}`;
-        row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://${entry.cid}.ipfs.w3s.link/" target="_blank" style="color:#00e5ff;">${short}</a>`;
+        row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://gateway.lighthouse.storage/ipfs/${entry.cid}" target="_blank" style="color:#00e5ff;">${short}</a>`;
         historyDiv.appendChild(row);
       });
       content.appendChild(historyDiv);
@@ -3428,7 +3426,7 @@ if (measurementForm) {
 
         // On auto-connect (page reload), attempt silent restore only.
         // On user-initiated connect, allow full email login flow.
-        // Route through the W3up provider adapter — no direct w3up SDK calls here.
+        // Route through the Lighthouse provider adapter — no direct SDK calls here.
         console.time('[provider] restore/connect');
         const _w3up = providerRegistry.get('w3up');
         const providerResult = _w3up
@@ -3440,7 +3438,7 @@ if (measurementForm) {
         console.timeEnd('[provider] restore/connect');
         
         if (result) {
-           console.log("Web3.Storage space DID:", result.spaceDid);
+           console.log("Lighthouse session:", result.spaceDid);
            const status = document.getElementById("ipfs-status");
            status.style.display = "block";
            const ipfsIconEl = document.getElementById("ipfsIcon");
@@ -3529,7 +3527,7 @@ if (measurementForm) {
            }
            animateTicker();
           
-           // After provider connects: update mode to 'w3up', store client ref for uploads
+           // After provider connects: update mode to 'w3up', store session ref for uploads
            const ipfsIcon = document.getElementById("ipfsIcon");
            if (ipfsIcon) {
              // Update the icon to reflect connected state
@@ -3537,7 +3535,7 @@ if (measurementForm) {
              const statusRingEl = document.getElementById('ipfs-status');
              if (statusRingEl) statusRingEl.dataset.storageMode = 'w3up';
            }
-           // Store client reference so icon click can trigger manual upload (legacy path)
+           // Store session reference so icon click can trigger manual upload (legacy path)
            window._w3upClientRef = result.client;
            // Mark education seen and update mode
            localStorage.setItem('ipfsEducationSeen', '1');
@@ -3595,9 +3593,9 @@ if (measurementForm) {
            }
         } else {
            if (preAuthorizedAccount) {
-             console.info("W3UP session not restored on auto-connect — click the wallet button to connect IPFS.");
+             console.info("Lighthouse session not restored on auto-connect — click the wallet button to connect IPFS.");
            } else {
-             console.error("Failed to connect to Web3.Storage.");
+             console.error("Failed to connect to Lighthouse.");
            }
         }
 
@@ -7554,9 +7552,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Data Control (educational overlay + snapshot panel) ──────────────────
   // Register providers and pass the W3up adapter to initDataControl.
-  const w3upProvider = new W3upProvider();
-  providerRegistry.register(w3upProvider);
-  initDataControl({ provider: w3upProvider });
+  const lighthouseProvider = new W3upProvider();
+  providerRegistry.register(lighthouseProvider);
+  initDataControl({ provider: lighthouseProvider });
 
   // ── Apply initial IPFS glow state ─────────────────────────────────────────
   {
@@ -7566,7 +7564,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusRing = document.getElementById('ipfs-status');
     if (statusRing) statusRing.dataset.storageMode = initMode;
 
-    // Wire About-modal "Connect Storacha" button
+    // Wire About-modal "Connect Lighthouse" button
     document.getElementById('about-ipfs-connect-btn')?.addEventListener('click', async () => {
       const { _openOverlay } = await import('./dataControl.js');
       _openOverlay();

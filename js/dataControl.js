@@ -2,7 +2,7 @@
 // BigNuten Data Control — provider-agnostic backup, snapshot panel, JSON backup/restore.
 //
 // Storage modes (saved to localStorage key 'storageMode'):
-//   'w3up'      — User has connected their own Storacha/web3.storage space (IPFS enabled)
+//   'w3up'      — User has connected Lighthouse IPFS storage (encrypted snapshots)
 //   'own-w3s'   — Legacy alias for 'w3up' (kept for backwards compatibility)
 //   'json-only' — No remote storage; local browser only (DEFAULT for new users)
 
@@ -15,8 +15,8 @@ const EDUC_SEEN_KEY      = 'ipfsEducationSeen';
 
 /** Human-readable labels for each storage mode. */
 export const STORAGE_MODE_LABELS = {
-  'w3up':      '🔗 Your Own Storacha Space',
-  'own-w3s':   '🔗 Your Own Storacha Space',
+  'w3up':      '🔐 Lighthouse IPFS',
+  'own-w3s':   '🔐 Lighthouse IPFS',
   'json-only': '📁 JSON File (local)',
 };
 
@@ -262,7 +262,7 @@ async function _handleIpfsIconClick() {
           const isHash = !cid.startsWith('bafy');
           const link = isHash
             ? `<code>${short}</code>`
-            : `<a href="https://${cid}.ipfs.w3s.link/" target="_blank" rel="noopener noreferrer">${short}</a>`;
+            : `<a href="https://gateway.lighthouse.storage/ipfs/${cid}" target="_blank" rel="noopener noreferrer">${short}</a>`;
           _setSnapshotPanelStatus(`✅ Pushed — ${link}`, 'success');
           _renderSnapshotHistory();
           // Refresh About section last-backup timestamp
@@ -508,7 +508,7 @@ function _renderSnapshotHistory() {
     const short = ref.length > 12 ? `${ref.slice(0, 8)}…${ref.slice(-4)}` : ref;
     const isIpfsCid = ref.startsWith('bafy') || ref.startsWith('Qm');
     const refLink = isIpfsCid
-      ? `<a class="sp-history-cid" href="https://${ref}.ipfs.w3s.link/" target="_blank" rel="noopener noreferrer">${short}</a>`
+      ? `<a class="sp-history-cid" href="https://gateway.lighthouse.storage/ipfs/${ref}" target="_blank" rel="noopener noreferrer">${short}</a>`
       : `<code class="sp-history-cid">${short}</code>`;
     const providerBadge = h.provider ? `<span class="sp-provider-badge">${h.provider}</span>` : '';
     return `<div class="sp-history-row${isToday ? ' sp-today' : ''}">
@@ -563,8 +563,8 @@ function _applyIpfsIndicator(mode) {
   const isConnected = mode === 'w3up' || mode === 'own-w3s';
   const activeLabel = STORAGE_MODE_LABELS[mode] || providerRegistry.active?.label || 'Storage';
   const tipMap = {
-    'w3up':      `🔗 ${activeLabel} — connected. Click to push snapshot.`,
-    'own-w3s':   `🔗 ${activeLabel} — connected. Click to push snapshot.`,
+    'w3up':      `🔐 ${activeLabel} — connected. Click to push snapshot.`,
+    'own-w3s':   `🔐 ${activeLabel} — connected. Click to push snapshot.`,
     'json-only': '📁 Local only — no remote backup. Click to connect a provider.',
   };
   icon.title = tipMap[mode] || 'Data Storage';
