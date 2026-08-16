@@ -32,13 +32,28 @@ function getLighthouse({ strict = true } = {}) {
   return lighthouse;
 }
 
+const LIGHTHOUSE_AUTH_BASE = 'https://encryption.lighthouse.storage';
+const LIGHTHOUSE_OLD_AUTH_BASE = 'https://api.lighthouse.storage';
+
 function readSession() {
-  return window._lighthouseSessionRef || null;
+  const session = window._lighthouseSessionRef || null;
+  if (!session) return null;
+  const token = session.jwt || session.apiKey || session.authToken || null;
+  if (!token) return null;
+  return {
+    ...session,
+    jwt: session.jwt || token,
+    apiKey: session.apiKey || token,
+    authToken: token,
+  };
 }
 
 function saveSession(session) {
+  const token = session.jwt || session.apiKey || session.authToken || null;
   window._lighthouseSessionRef = {
-    apiKey: session.apiKey,
+    jwt: token,
+    apiKey: token,
+    authToken: token,
     publicKey: session.publicKey,
     signedMessage: session.signedMessage,
     createdAt: new Date().toISOString(),
@@ -59,23 +74,85 @@ function extractAuthMessage(payload) {
   const value = parseMaybeJson(payload);
   if (!value) return null;
   if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return first?.message || first?.data?.message || first?.data || first?.result || null;
+  }
   return value?.data?.message || value?.message || value?.data || value?.result || null;
 }
 
-function extractApiKey(payload) {
+function extractJwtToken(payload) {
   const value = parseMaybeJson(payload);
   if (!value) return null;
   if (typeof value === 'string') return value;
-  const nested = value?.data?.apiKey
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return first?.token || first?.JWT || first?.jwt || first?.data?.token || first?.data?.JWT || first?.data?.jwt || null;
+  }
+  const nested = value?.data?.token
     ?? value?.data?.JWT
     ?? value?.data?.jwt
-    ?? value?.data?.token
-    ?? value?.apiKey
+    ?? value?.token
     ?? value?.JWT
     ?? value?.jwt
-    ?? value?.token
     ?? null;
-  return nested && nested !== value ? extractApiKey(nested) : nested;
+  return nested && nested !== value ? extractJwtToken(nested) : nested;
+}
+
+async function requestAuthMessage(publicKey, lighthouse) {
+  if (lighthouse && typeof lighthouse.getAuthMessage === 'function') {
+    const authResponse = await lighthouse.getAuthMessage(publicKey);
+    const message = extractAuthMessage(authResponse);
+    if (message) return message;
+  }
+
+  const endpoints = [
+    `${LIGHTHOUSE_AUTH_BASE}/api/message/${encodeURIComponent(publicKey)}`,
+    `${LIGHTHOUSE_OLD_AUTH_BASE}/api/auth/get_message?publicKey=${encodeURIComponent(publicKey)}`,
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint);
+      if (!response.ok) continue;
+      const body = await response.text();
+      const message = extractAuthMessage(body);
+      if (message) return message;
+    } catch (err) {
+      console.warn('[Lighthouse] Auth message fetch failed:', endpoint, err);
+    }
+  }
+
+  return null;
+}
+
+async function requestJwt(publicKey, signedMessage, lighthouse) {
+  if (lighthouse && typeof lighthouse.getJWT === 'function') {
+    const jwtResponse = await lighthouse.getJWT(publicKey, signedMessage);
+    const token = extractJwtToken(jwtResponse);
+    if (token) return token;
+  }
+
+  const response = await fetch(`${LIGHTHOUSE_AUTH_BASE}/api/message/get-jwt`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      address: publicKey,
+      signature: signedMessage,
+      chain: 'ALL',
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Lighthouse JWT request failed with HTTP ${response.status}.`);
+  }
+
+  const body = await response.text();
+  const token = extractJwtToken(body);
+  if (token) return token;
+  throw new Error('Lighthouse did not return a JWT.');
 }
 
 async function requestSignedSession() {
@@ -93,37 +170,20 @@ async function requestSignedSession() {
   console.info('[Lighthouse] Starting wallet-signed session', {
     address: publicKey,
     hasGetAuthMessage: typeof lighthouse.getAuthMessage === 'function',
-    hasGetApiKey: typeof lighthouse.getApiKey === 'function',
     hasGetJWT: typeof lighthouse.getJWT === 'function',
-    hasGetJwt: typeof lighthouse.getJwt === 'function',
   });
-  let authPayload = null;
-  if (typeof lighthouse.getAuthMessage === 'function') {
-    const authResponse = await lighthouse.getAuthMessage(publicKey);
-    authPayload = extractAuthMessage(authResponse);
-  }
-  if (!authPayload) {
-    const messageResponse = await fetch(`https://api.lighthouse.storage/api/auth/get_message?publicKey=${encodeURIComponent(publicKey)}`);
-    if (messageResponse.ok) {
-      authPayload = extractAuthMessage(await messageResponse.text());
-    }
-  }
-  const message = authPayload;
+  const message = await requestAuthMessage(publicKey, lighthouse);
   if (!message) throw new Error('Lighthouse did not return an auth message.');
 
   const signedMessage = await signer.signMessage(message);
-  if (typeof lighthouse.getApiKey !== 'function') {
-    throw new Error('Lighthouse SDK does not expose getApiKey(). Please reload the page.');
-  }
-  const apiKeyResponse = await lighthouse.getApiKey(publicKey, signedMessage);
-  const apiKey = extractApiKey(apiKeyResponse?.data?.apiKey ?? apiKeyResponse);
+  const jwt = await requestJwt(publicKey, signedMessage, lighthouse);
 
-  if (!apiKey) throw new Error('Lighthouse did not return an upload token.');
+  if (!jwt) throw new Error('Lighthouse did not return an upload token.');
 
-  const session = saveSession({ apiKey, publicKey, signedMessage });
+  const session = saveSession({ jwt, publicKey, signedMessage });
   console.info('[Lighthouse] Session ready', {
     address: publicKey,
-    hasApiKey: !!apiKey,
+    hasJwt: !!jwt,
     sessionCreatedAt: session.createdAt,
   });
   return session;
@@ -152,7 +212,7 @@ export async function restoreLighthouseSession() {
 }
 
 export function clearLighthouseSession() {
-  delete window._lighthouseSessionRef;
+  window._lighthouseSessionRef = null;
 }
 
 export function lighthouseGatewayUrl(cid) {
@@ -166,12 +226,13 @@ export async function uploadEncryptedSnapshot(data, { fileName = 'bignuten-snaps
   if (!lighthouse) {
     throw new Error('Lighthouse SDK is not loaded. Use JSON backup or reload the page.');
   }
+  const authToken = session.jwt || session.apiKey;
   console.info('[Lighthouse] Uploading encrypted snapshot', {
     fileName,
     address: session.publicKey,
     hasUploadEncrypted: typeof lighthouse.uploadEncrypted === 'function',
   });
-  const upload = await lighthouse.uploadEncrypted(file, session.apiKey, session.publicKey, session.signedMessage);
+  const upload = await lighthouse.uploadEncrypted(file, authToken, session.publicKey, authToken);
   const cid = upload?.data?.[0]?.Hash
     ?? upload?.data?.Hash
     ?? upload?.data?.hash
