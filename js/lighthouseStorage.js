@@ -3,7 +3,7 @@ function getEthers() {
   return window.ethers;
 }
 
-function getLighthouse() {
+function getLighthouse({ strict = true } = {}) {
   const lighthouse =
     window.lighthouse ||
     window.Lighthouse ||
@@ -16,13 +16,17 @@ function getLighthouse() {
   }
 
   if (!lighthouse) {
-    console.error('[Lighthouse] SDK not available', {
+    const message = '[Lighthouse] SDK not available';
+    console.warn(message, {
       hasLower: !!window.lighthouse,
       hasUpper: !!window.Lighthouse,
       hasUpperWeb3: !!window.LighthouseWeb3,
       hasLowerWeb3: !!window.lighthouseWeb3,
     });
-    throw new Error('Lighthouse SDK is not available. Check the console diagnostics.');
+    if (strict) {
+      throw new Error('Lighthouse SDK is not available. Use JSON backup or reload the page.');
+    }
+    return null;
   }
 
   return lighthouse;
@@ -44,14 +48,16 @@ function saveSession(session) {
 
 async function requestSignedSession() {
   if (!window.ethereum) throw new Error('MetaMask is not installed.');
+  const lighthouse = getLighthouse({ strict: false });
+  if (!lighthouse) {
+    throw new Error('Lighthouse SDK is not loaded. Use JSON backup or reload the page.');
+  }
 
   const { BrowserProvider } = getEthers();
   const provider = new BrowserProvider(window.ethereum);
   await provider.send('eth_requestAccounts', []);
   const signer = await provider.getSigner();
   const publicKey = await signer.getAddress();
-
-  const lighthouse = getLighthouse();
   console.info('[Lighthouse] Starting wallet-signed session', {
     address: publicKey,
     hasGetAuthMessage: typeof lighthouse.getAuthMessage === 'function',
@@ -125,7 +131,10 @@ export function lighthouseGatewayUrl(cid) {
 export async function uploadEncryptedSnapshot(data, { fileName = 'bignuten-snapshot.json' } = {}) {
   const session = await ensureSession({ promptIfMissing: true });
   const file = new File([JSON.stringify(data, null, 2)], fileName, { type: 'application/json' });
-  const lighthouse = getLighthouse();
+  const lighthouse = getLighthouse({ strict: false });
+  if (!lighthouse) {
+    throw new Error('Lighthouse SDK is not loaded. Use JSON backup or reload the page.');
+  }
   console.info('[Lighthouse] Uploading encrypted snapshot', {
     fileName,
     address: session.publicKey,
@@ -148,8 +157,8 @@ export async function fetchSnapshotData(cid) {
   if (!trimmedCid) throw new Error('No CID provided.');
 
   const session = await ensureSession({ promptIfMissing: false });
-  const lighthouse = getLighthouse();
-  if (session && typeof lighthouse.fetchEncryptionKey === 'function' && typeof lighthouse.decryptFile === 'function') {
+  const lighthouse = session ? getLighthouse({ strict: false }) : null;
+  if (session && lighthouse && typeof lighthouse.fetchEncryptionKey === 'function' && typeof lighthouse.decryptFile === 'function') {
     try {
       console.info('[Lighthouse] Attempting encrypted snapshot decrypt', {
         cid: trimmedCid,
