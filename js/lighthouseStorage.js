@@ -46,6 +46,38 @@ function saveSession(session) {
   return window._lighthouseSessionRef;
 }
 
+function parseMaybeJson(payload) {
+  if (typeof payload !== 'string') return payload;
+  try {
+    return JSON.parse(payload);
+  } catch {
+    return payload;
+  }
+}
+
+function extractAuthMessage(payload) {
+  const value = parseMaybeJson(payload);
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  return value?.data?.message || value?.message || value?.data || value?.result || null;
+}
+
+function extractApiKey(payload) {
+  const value = parseMaybeJson(payload);
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  const nested = value?.data?.apiKey
+    ?? value?.data?.JWT
+    ?? value?.data?.jwt
+    ?? value?.data?.token
+    ?? value?.apiKey
+    ?? value?.JWT
+    ?? value?.jwt
+    ?? value?.token
+    ?? null;
+  return nested && nested !== value ? extractApiKey(nested) : nested;
+}
+
 async function requestSignedSession() {
   if (!window.ethereum) throw new Error('MetaMask is not installed.');
   const lighthouse = getLighthouse({ strict: false });
@@ -66,62 +98,25 @@ async function requestSignedSession() {
     hasGetJwt: typeof lighthouse.getJwt === 'function',
   });
   let authPayload = null;
-  const messageResponse = await fetch(`https://api.lighthouse.storage/api/auth/get_message?publicKey=${encodeURIComponent(publicKey)}`);
-  if (messageResponse.ok) {
-    authPayload = await messageResponse.text();
-  } else if (typeof lighthouse.getAuthMessage === 'function') {
-    const fallbackAuth = await lighthouse.getAuthMessage(publicKey);
-    authPayload = fallbackAuth?.data?.message || fallbackAuth?.message || fallbackAuth?.data || fallbackAuth?.result || null;
+  if (typeof lighthouse.getAuthMessage === 'function') {
+    const authResponse = await lighthouse.getAuthMessage(publicKey);
+    authPayload = extractAuthMessage(authResponse);
   }
-  const message = authPayload
-    ? (() => {
-        try {
-          const parsed = JSON.parse(authPayload);
-          return parsed?.data?.message || parsed?.message || parsed?.data || parsed?.result || authPayload;
-        } catch {
-          return authPayload;
-        }
-      })()
-    : null;
+  if (!authPayload) {
+    const messageResponse = await fetch(`https://api.lighthouse.storage/api/auth/get_message?publicKey=${encodeURIComponent(publicKey)}`);
+    if (messageResponse.ok) {
+      authPayload = extractAuthMessage(await messageResponse.text());
+    }
+  }
+  const message = authPayload;
   if (!message) throw new Error('Lighthouse did not return an auth message.');
 
   const signedMessage = await signer.signMessage(message);
-  const apiKeyName = `bignuten-${publicKey.slice(-6)}-${Date.now()}`;
-  const authBody = JSON.stringify({
-    publicKey,
-    signedMessage,
-    keyName: apiKeyName,
-  });
-  const apiKeyResponse = await fetch('https://api.lighthouse.storage/api/auth/create_api_key', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: authBody,
-  });
-
-  const authResultText = await apiKeyResponse.text();
-  if (!apiKeyResponse.ok) {
-    throw new Error(`Lighthouse auth failed (HTTP ${apiKeyResponse.status}).`);
+  if (typeof lighthouse.getApiKey !== 'function') {
+    throw new Error('Lighthouse SDK does not expose getApiKey(). Please reload the page.');
   }
-
-  let apiKeyPayload;
-  try {
-    apiKeyPayload = JSON.parse(authResultText);
-  } catch {
-    apiKeyPayload = authResultText;
-  }
-
-  const apiKey = typeof apiKeyPayload === 'string'
-    ? apiKeyPayload
-    : apiKeyPayload?.data?.apiKey
-      ?? apiKeyPayload?.data?.JWT
-      ?? apiKeyPayload?.data?.jwt
-      ?? apiKeyPayload?.data?.token
-      ?? apiKeyPayload?.apiKey
-      ?? apiKeyPayload?.JWT
-      ?? apiKeyPayload?.jwt
-      ?? apiKeyPayload?.token;
+  const apiKeyResponse = await lighthouse.getApiKey(publicKey, signedMessage);
+  const apiKey = extractApiKey(apiKeyResponse?.data?.apiKey ?? apiKeyResponse);
 
   if (!apiKey) throw new Error('Lighthouse did not return an upload token.');
 
