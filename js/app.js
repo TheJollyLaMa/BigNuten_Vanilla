@@ -7594,10 +7594,8 @@ document.addEventListener('DOMContentLoaded', () => {
         import('./dataControl.js').then(m => m._openSnapshotPanel());
         return;
       }
-      _openConnectDialog();
-      requestAnimationFrame(() => {
-        document.getElementById('ipfs-dialog-connect-btn')?.click();
-      });
+      document.getElementById('about-modal')?.classList.add('modal-hidden');
+      document.getElementById('ipfs-dialog-connect-btn')?.click();
     });
 
     // Wire condensed dialog JSON buttons

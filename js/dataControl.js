@@ -149,10 +149,7 @@ export function initDataControl({
   // ── Educational overlay buttons ────────────────────────────────────────────
   document.getElementById('ipfs-edu-connect-btn')?.addEventListener('click', async () => {
     _closeOverlay();
-    _openConnectDialog();
-    requestAnimationFrame(() => {
-      document.getElementById('ipfs-dialog-connect-btn')?.click();
-    });
+    document.getElementById('ipfs-dialog-connect-btn')?.click();
   });
 
   document.getElementById('ipfs-edu-skip-btn')?.addEventListener('click', () => {

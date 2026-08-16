@@ -65,39 +65,63 @@ async function requestSignedSession() {
     hasGetJWT: typeof lighthouse.getJWT === 'function',
     hasGetJwt: typeof lighthouse.getJwt === 'function',
   });
-  const authMessage = await lighthouse.getAuthMessage(publicKey);
-  const message = authMessage?.data?.message || authMessage?.message;
+  let authPayload = null;
+  const messageResponse = await fetch(`https://api.lighthouse.storage/api/auth/get_message?publicKey=${encodeURIComponent(publicKey)}`);
+  if (messageResponse.ok) {
+    authPayload = await messageResponse.text();
+  } else if (typeof lighthouse.getAuthMessage === 'function') {
+    const fallbackAuth = await lighthouse.getAuthMessage(publicKey);
+    authPayload = fallbackAuth?.data?.message || fallbackAuth?.message || fallbackAuth?.data || fallbackAuth?.result || null;
+  }
+  const message = authPayload
+    ? (() => {
+        try {
+          const parsed = JSON.parse(authPayload);
+          return parsed?.data?.message || parsed?.message || parsed?.data || parsed?.result || authPayload;
+        } catch {
+          return authPayload;
+        }
+      })()
+    : null;
   if (!message) throw new Error('Lighthouse did not return an auth message.');
 
   const signedMessage = await signer.signMessage(message);
-  const authBody = new URLSearchParams({
+  const apiKeyName = `bignuten-${publicKey.slice(-6)}-${Date.now()}`;
+  const authBody = JSON.stringify({
     publicKey,
     signedMessage,
+    keyName: apiKeyName,
   });
-  const authResponse = await fetch('https://api.lighthouse.storage/api/auth/create_api_key', {
+  const apiKeyResponse = await fetch('https://api.lighthouse.storage/api/auth/create_api_key', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      'Content-Type': 'application/json',
     },
     body: authBody,
   });
 
-  if (!authResponse.ok) {
-    throw new Error(`Lighthouse auth failed (HTTP ${authResponse.status}).`);
+  const authResultText = await apiKeyResponse.text();
+  if (!apiKeyResponse.ok) {
+    throw new Error(`Lighthouse auth failed (HTTP ${apiKeyResponse.status}).`);
   }
 
-  const apiKeyResponse = await authResponse.json();
+  let apiKeyPayload;
+  try {
+    apiKeyPayload = JSON.parse(authResultText);
+  } catch {
+    apiKeyPayload = authResultText;
+  }
 
-  const apiKey = typeof apiKeyResponse === 'string'
-    ? apiKeyResponse
-    : apiKeyResponse?.data?.apiKey
-      ?? apiKeyResponse?.data?.JWT
-      ?? apiKeyResponse?.data?.jwt
-      ?? apiKeyResponse?.data?.token
-      ?? apiKeyResponse?.apiKey
-      ?? apiKeyResponse?.JWT
-      ?? apiKeyResponse?.jwt
-      ?? apiKeyResponse?.token;
+  const apiKey = typeof apiKeyPayload === 'string'
+    ? apiKeyPayload
+    : apiKeyPayload?.data?.apiKey
+      ?? apiKeyPayload?.data?.JWT
+      ?? apiKeyPayload?.data?.jwt
+      ?? apiKeyPayload?.data?.token
+      ?? apiKeyPayload?.apiKey
+      ?? apiKeyPayload?.JWT
+      ?? apiKeyPayload?.jwt
+      ?? apiKeyPayload?.token;
 
   if (!apiKey) throw new Error('Lighthouse did not return an upload token.');
 
