@@ -2821,6 +2821,8 @@ function scheduleHourlySnapshot(client, uploadFn) {
   }, timeUntilNextHour);
 }
 
+window._bignutenScheduleHourlySnapshot = scheduleHourlySnapshot;
+
 window.addEventListener('DOMContentLoaded', async () => {
   console.time('[startup] DOMContentLoaded → interactive');
   console.timeStamp?.('[startup] DOMContentLoaded');

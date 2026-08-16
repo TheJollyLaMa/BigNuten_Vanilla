@@ -237,6 +237,32 @@ function toText(blob) {
   return Promise.resolve(String(blob ?? ''));
 }
 
+function wrapSnapshotPayload(data, snapshotMeta = {}) {
+  const lineage = Array.isArray(snapshotMeta.lineage) ? snapshotMeta.lineage.slice(0, 25) : [];
+  if (!snapshotMeta || (!snapshotMeta.sessionAddress && !snapshotMeta.previousSnapshot && !lineage.length && !snapshotMeta.sourceHash)) {
+    return data;
+  }
+
+  return {
+    __bignutenSnapshot: true,
+    version: 1,
+    createdAt: snapshotMeta.createdAt || new Date().toISOString(),
+    sessionAddress: snapshotMeta.sessionAddress || '',
+    sourceHash: snapshotMeta.sourceHash || '',
+    previousSnapshot: snapshotMeta.previousSnapshot || null,
+    lineage,
+    data,
+  };
+}
+
+function unwrapSnapshotPayload(payload) {
+  if (!payload || typeof payload !== 'object') return payload;
+  if (payload.__bignutenSnapshot && Object.prototype.hasOwnProperty.call(payload, 'data')) {
+    return payload.data;
+  }
+  return payload;
+}
+
 export async function connectLighthouseSession() {
   return ensureSession({ promptIfMissing: true });
 }
@@ -253,9 +279,10 @@ export function lighthouseGatewayUrl(cid) {
   return `https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(cid || '').trim())}`;
 }
 
-export async function uploadEncryptedSnapshot(data, { fileName = 'bignuten-snapshot.json' } = {}) {
+export async function uploadEncryptedSnapshot(data, { fileName = 'bignuten-snapshot.json', snapshotMeta = null } = {}) {
   const session = await ensureSession({ promptIfMissing: true });
-  const file = new File([JSON.stringify(data, null, 2)], fileName, { type: 'application/json' });
+  const payload = wrapSnapshotPayload(data, snapshotMeta || {});
+  const file = new File([JSON.stringify(payload, null, 2)], fileName, { type: 'application/json' });
   const lighthouse = getLighthouse({ strict: false });
   if (!lighthouse) {
     throw new Error('Lighthouse SDK is not loaded. Use JSON backup or reload the page.');
@@ -294,7 +321,7 @@ export async function fetchSnapshotData(cid) {
       const keyObject = await lighthouse.fetchEncryptionKey(trimmedCid, session.publicKey, authToken);
       const decrypted = await lighthouse.decryptFile(trimmedCid, keyObject?.data?.key, 'application/json');
       const text = await toText(decrypted);
-      return JSON.parse(text);
+      return unwrapSnapshotPayload(JSON.parse(text));
     } catch (err) {
       console.warn('[Lighthouse] Decrypt failed, falling back to raw fetch:', err);
     }
@@ -309,7 +336,7 @@ export async function fetchSnapshotData(cid) {
   }
   const text = await response.text();
   try {
-    return JSON.parse(text);
+    return unwrapSnapshotPayload(JSON.parse(text));
   } catch {
     throw new Error('Snapshot is encrypted or not valid JSON. Connect Lighthouse to decrypt it.');
   }

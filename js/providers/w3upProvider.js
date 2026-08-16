@@ -15,11 +15,34 @@ export class W3upProvider extends StorageProvider {
   get id() { return 'w3up'; }
   get label() { return '🔐 Lighthouse'; }
 
+  _syncSessionSnapshotContext(manifest = loadSnapshotManifest()) {
+    if (!this._session) return;
+    const current = manifest.current || null;
+    const linkedSnapshotCid = current?.cid || '';
+    this._session.linkedSnapshotCid = linkedSnapshotCid;
+    this._session.linkedSnapshotHash = current?.hash || '';
+    this._session.snapshotContext = {
+      currentCid: linkedSnapshotCid,
+      currentHash: current?.hash || '',
+      currentTimestamp: current?.timestamp || '',
+      currentSessionAddress: current?.sessionAddress || '',
+      previousSnapshots: manifest.snapshots.slice(0, 25).map(snapshot => ({
+        cid: snapshot.cid,
+        hash: snapshot.hash,
+        timestamp: snapshot.timestamp,
+        provider: snapshot.provider,
+        sessionAddress: snapshot.sessionAddress || '',
+        fileName: snapshot.fileName || '',
+      })),
+    };
+  }
+
   async connect() {
     try {
       const session = await connectLighthouseSession();
       if (session?.publicKey) {
         this._session = session;
+        this._syncSessionSnapshotContext();
         window._w3upClientRef = session;
         window._w3upClient = session;
         window._lighthouseSessionRef = session;
@@ -48,8 +71,32 @@ export class W3upProvider extends StorageProvider {
     if (!this._session) throw new Error('Lighthouse provider not connected. Call connect() first.');
     const hash = await computeSnapshotHash(data);
     const now = new Date().toISOString();
+    const manifest = loadSnapshotManifest();
+    const previousSnapshot = manifest.current ? {
+      cid: manifest.current.cid,
+      hash: manifest.current.hash,
+      timestamp: manifest.current.timestamp,
+      provider: manifest.current.provider,
+      sessionAddress: manifest.current.sessionAddress || '',
+      fileName: manifest.current.fileName || '',
+    } : null;
     try {
-      const { cid } = await uploadEncryptedSnapshot(data);
+      const { cid } = await uploadEncryptedSnapshot(data, {
+        snapshotMeta: {
+          createdAt: now,
+          sessionAddress: this._session.publicKey,
+          sourceHash: hash,
+          previousSnapshot,
+          lineage: manifest.snapshots.slice(0, 25).map(snapshot => ({
+            cid: snapshot.cid,
+            hash: snapshot.hash,
+            timestamp: snapshot.timestamp,
+            provider: snapshot.provider,
+            sessionAddress: snapshot.sessionAddress || '',
+            fileName: snapshot.fileName || '',
+          })),
+        },
+      });
       let verified = false;
       try {
         const remoteData = await fetchSnapshotData(cid);
@@ -77,6 +124,9 @@ export class W3upProvider extends StorageProvider {
       } catch (lifecycleErr) {
         console.warn('[Lighthouse] Snapshot manifest update failed:', lifecycleErr);
       }
+      this._syncSessionSnapshotContext();
+      this._session.linkedSnapshotCid = cid;
+      this._session.linkedSnapshotHash = hash;
       const meta = { hash, cid, timestamp: now, provider: this.id, status: 'ok' };
       saveSnapshotMeta(meta);
       return { cid, hash };
@@ -101,6 +151,7 @@ export class W3upProvider extends StorageProvider {
       const session = await restoreLighthouseSession();
       if (session?.publicKey) {
         this._session = session;
+        this._syncSessionSnapshotContext();
         window._w3upClientRef = session;
         window._w3upClient = session;
         window._lighthouseSessionRef = session;

@@ -227,6 +227,13 @@ export function initDataControl({
           // Session restored — mark as seen and apply mode
           localStorage.setItem(EDUC_SEEN_KEY, '1');
           setStorageMode('w3up');
+          if (activeProvider?.client && typeof window._bignutenScheduleHourlySnapshot === 'function') {
+            try {
+              window._bignutenScheduleHourlySnapshot(activeProvider.client, activeProvider.put.bind(activeProvider));
+            } catch (err) {
+              console.warn('[DataControl] Failed to start hourly Lighthouse snapshots after restore:', err);
+            }
+          }
         }
       }).catch(() => {
         requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -362,6 +369,13 @@ async function _doConnect(connectFn) {
       localStorage.setItem(EDUC_SEEN_KEY, '1');
       // Store client ref for legacy upload path
       if (result.client) window._w3upClientRef = result.client;
+      if (result.client && typeof window._bignutenScheduleHourlySnapshot === 'function' && activeProvider?.put) {
+        try {
+          window._bignutenScheduleHourlySnapshot(result.client, activeProvider.put.bind(activeProvider));
+        } catch (err) {
+          console.warn('[DataControl] Failed to start hourly Lighthouse snapshots after connect:', err);
+        }
+      }
       _showEl(statusEl, identity ? `✅ Signed in! Space: ${identity.slice(0, 20)}…` : '✅ Signed in to Lighthouse!', 'success');
       document.getElementById('about-modal')?.classList.add('modal-hidden');
       setTimeout(() => {
