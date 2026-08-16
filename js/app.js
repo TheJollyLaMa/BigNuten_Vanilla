@@ -3,7 +3,7 @@ import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, 
 import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
-import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
+import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS, _openConnectDialog } from './dataControl.js';
 import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey, getHostedModelsForBackend, getGenieHostedModelName, setGenieHostedModelName, getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory, rateGenieSession, deleteGenieSession, MAX_INSIGHTS } from './genieChat.js';
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
@@ -7588,8 +7588,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Wire About-modal "Connect Lighthouse" button
     document.getElementById('about-ipfs-connect-btn')?.addEventListener('click', async () => {
-      const { _openOverlay } = await import('./dataControl.js');
-      _openOverlay();
+      _openConnectDialog();
     });
 
     // Wire condensed dialog JSON buttons

@@ -15,8 +15,8 @@ const EDUC_SEEN_KEY      = 'ipfsEducationSeen';
 
 /** Human-readable labels for each storage mode. */
 export const STORAGE_MODE_LABELS = {
-  'w3up':      '🔐 Lighthouse IPFS',
-  'own-w3s':   '🔐 Lighthouse IPFS',
+  'w3up':      '🔐 Lighthouse',
+  'own-w3s':   '🔐 Lighthouse',
   'json-only': '📁 JSON File (local)',
 };
 
@@ -148,7 +148,8 @@ export function initDataControl({
 
   // ── Educational overlay buttons ────────────────────────────────────────────
   document.getElementById('ipfs-edu-connect-btn')?.addEventListener('click', async () => {
-    await _doConnect(connectFn);
+    _closeOverlay();
+    _openConnectDialog();
   });
 
   document.getElementById('ipfs-edu-skip-btn')?.addEventListener('click', () => {
@@ -322,11 +323,12 @@ function _closeOverlay() {
 
 // ── Condensed connect dialog ──────────────────────────────────────────────────
 
-function _openConnectDialog() {
+export function _openConnectDialog() {
   const dialog = document.getElementById('ipfs-connect-dialog');
   if (!dialog) return;
   dialog.classList.remove('modal-hidden');
   document.body.classList.add('modal-active');
+  dialog.style.zIndex = '200010';
 }
 
 function _closeConnectDialog() {
@@ -352,18 +354,19 @@ async function _doConnect(connectFn) {
 
   try {
     const result = await connectFn();
-    if (result?.spaceDid) {
+    const identity = result?.spaceDid || result?.identity || null;
+    if (identity || result?.connected) {
       setStorageMode('w3up');
       localStorage.setItem(EDUC_SEEN_KEY, '1');
       // Store client ref for legacy upload path
       if (result.client) window._w3upClientRef = result.client;
-      _showEl(statusEl, `✅ Connected! Space: ${result.spaceDid.slice(0, 20)}…`, 'success');
+      _showEl(statusEl, identity ? `✅ Connected! Space: ${identity.slice(0, 20)}…` : '✅ Connected!', 'success');
       setTimeout(() => {
         _closeOverlay();
         _closeConnectDialog();
       }, 1500);
     } else {
-      _showEl(statusEl, '❌ Connection cancelled or failed. Try again.', 'error');
+      _showEl(statusEl, `❌ ${result?.error || 'Connection cancelled or failed. Try again.'}`, 'error');
     }
   } catch (err) {
     _showEl(statusEl, `❌ ${err.message}`, 'error');

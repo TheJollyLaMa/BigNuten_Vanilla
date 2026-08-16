@@ -12,7 +12,7 @@ export class W3upProvider extends StorageProvider {
   }
 
   get id() { return 'w3up'; }
-  get label() { return '🔐 Lighthouse IPFS'; }
+  get label() { return '🔐 Lighthouse'; }
 
   async connect() {
     try {

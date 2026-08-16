@@ -6259,6 +6259,14 @@ svg text {
   max-width: 560px;
 }
 
+#ipfs-connect-dialog {
+  z-index: 200010;
+}
+
+#ipfs-connect-dialog .modal {
+  z-index: 200011;
+}
+
 /* ── Header ──────────────────────────────────────────────────────────────────── */
 .dc-modal-title {
   margin: 0 0 0.3rem;
@@ -6302,7 +6310,6 @@ svg text {
   background: rgba(0, 230, 118, 0.12);
   border-color: rgba(0, 230, 118, 0.45);
   color: #00e676;
-}
 }
 
 /* ── Buttons (kept for condensed dialog) ────────────────────────────────────── */
@@ -6446,7 +6453,7 @@ svg text {
 .edu-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 200000;
   background: rgba(0, 0, 20, 0.95);
   display: flex;
   align-items: center;
