@@ -9,6 +9,7 @@ import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 import { initCompetitions, loadCompetitionsList } from './competitions.js';
 import { initYogaFlow } from './yoga.js';
+import { getManualLighthouseToken, setManualLighthouseToken, clearManualLighthouseToken } from './lighthouseStorage.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -4866,6 +4867,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const cycleInput    = document.getElementById('settings-day-cycle-input');
     const cycleSaveBtn  = document.getElementById('settings-day-cycle-save');
     const cycleStatus   = document.getElementById('settings-day-cycle-status');
+    const lighthouseKeyInput  = document.getElementById('lighthouse-key-input');
+    const lighthouseKeyStatus  = document.getElementById('lighthouse-key-status');
+    const lighthouseKeySaveBtn = document.getElementById('lighthouse-key-save');
+    const lighthouseKeyClearBtn = document.getElementById('lighthouse-key-clear');
 
     if (!settingsModal) return;
 
@@ -4873,6 +4878,13 @@ document.addEventListener('DOMContentLoaded', () => {
       closeAesDropdown();
       if (cycleInput) cycleInput.value = getDayCycleStart();
       if (cycleStatus) cycleStatus.textContent = '';
+      if (lighthouseKeyInput) lighthouseKeyInput.value = getManualLighthouseToken();
+      if (lighthouseKeyStatus) {
+        lighthouseKeyStatus.textContent = getManualLighthouseToken() ? '✅ Key saved' : '';
+        lighthouseKeyStatus.className = getManualLighthouseToken()
+          ? 'genie-apikey-status saved'
+          : 'genie-apikey-status';
+      }
       settingsModal.classList.remove('modal-hidden');
       document.body.classList.add('modal-active');
     }
@@ -4902,6 +4914,48 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cycleStatus) {
           cycleStatus.textContent = '✅ Saved! Day boundary updated.';
           cycleStatus.className = 'settings-status settings-status-success';
+        }
+      });
+    }
+
+    if (lighthouseKeySaveBtn) {
+      lighthouseKeySaveBtn.addEventListener('click', () => {
+        const val = lighthouseKeyInput?.value?.trim() || '';
+        setManualLighthouseToken(val);
+        if (window._lighthouseSessionRef) {
+          window._lighthouseSessionRef.authToken = val;
+          window._lighthouseSessionRef.jwt = val;
+          window._lighthouseSessionRef.apiKey = val;
+          window._lighthouseSessionRef.manualToken = true;
+          if (!window._lighthouseSessionRef.signedMessage) {
+            window._lighthouseSessionRef.signedMessage = val;
+          }
+        }
+        if (lighthouseKeyInput) lighthouseKeyInput.value = val;
+        if (lighthouseKeyStatus) {
+          lighthouseKeyStatus.textContent = val ? '✅ Key saved' : '🗑 Key cleared';
+          lighthouseKeyStatus.className = val
+            ? 'genie-apikey-status saved'
+            : 'genie-apikey-status cleared';
+        }
+      });
+    }
+
+    if (lighthouseKeyClearBtn) {
+      lighthouseKeyClearBtn.addEventListener('click', () => {
+        clearManualLighthouseToken();
+        if (window._lighthouseSessionRef?.manualToken) {
+          window._lighthouseSessionRef.authToken = '';
+          window._lighthouseSessionRef.jwt = '';
+          window._lighthouseSessionRef.apiKey = '';
+          window._lighthouseSessionRef.signedMessage = '';
+          window._lighthouseSessionRef.manualToken = false;
+        }
+        if (lighthouseKeyInput) lighthouseKeyInput.value = '';
+        if (lighthouseKeyStatus) {
+          lighthouseKeyStatus.textContent = '🗑 Key cleared';
+          lighthouseKeyStatus.className = 'genie-apikey-status cleared';
+          setTimeout(() => { lighthouseKeyStatus.textContent = ''; }, 2500);
         }
       });
     }

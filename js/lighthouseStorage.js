@@ -34,6 +34,25 @@ function getLighthouse({ strict = true } = {}) {
 
 const LIGHTHOUSE_AUTH_BASE = 'https://encryption.lighthouse.storage';
 const LIGHTHOUSE_OLD_AUTH_BASE = 'https://api.lighthouse.storage';
+const LIGHTHOUSE_MANUAL_TOKEN_KEY = 'user_lighthouse_key';
+
+export function getManualLighthouseToken() {
+  return localStorage.getItem(LIGHTHOUSE_MANUAL_TOKEN_KEY) || '';
+}
+
+export function setManualLighthouseToken(token) {
+  const value = String(token || '').trim();
+  if (value) {
+    localStorage.setItem(LIGHTHOUSE_MANUAL_TOKEN_KEY, value);
+  } else {
+    localStorage.removeItem(LIGHTHOUSE_MANUAL_TOKEN_KEY);
+  }
+  return value;
+}
+
+export function clearManualLighthouseToken() {
+  localStorage.removeItem(LIGHTHOUSE_MANUAL_TOKEN_KEY);
+}
 
 function readSession() {
   const session = window._lighthouseSessionRef || null;
@@ -45,17 +64,20 @@ function readSession() {
     jwt: session.jwt || token,
     apiKey: session.apiKey || token,
     authToken: token,
+    manualToken: !!session.manualToken,
   };
 }
 
 function saveSession(session) {
   const token = session.jwt || session.apiKey || session.authToken || null;
+  const manualToken = !!session.manualToken || !!session.authToken && !session.signedMessage && !session.jwt;
   window._lighthouseSessionRef = {
     jwt: token,
     apiKey: token,
     authToken: token,
     publicKey: session.publicKey,
     signedMessage: session.signedMessage,
+    manualToken,
     createdAt: new Date().toISOString(),
   };
   return window._lighthouseSessionRef;
@@ -157,16 +179,28 @@ async function requestJwt(publicKey, signedMessage, lighthouse) {
 
 async function requestSignedSession() {
   if (!window.ethereum) throw new Error('MetaMask is not installed.');
-  const lighthouse = getLighthouse({ strict: false });
-  if (!lighthouse) {
-    throw new Error('Lighthouse SDK is not loaded. Use JSON backup or reload the page.');
-  }
 
   const { BrowserProvider } = getEthers();
   const provider = new BrowserProvider(window.ethereum);
   await provider.send('eth_requestAccounts', []);
   const signer = await provider.getSigner();
   const publicKey = await signer.getAddress();
+  const manualToken = getManualLighthouseToken();
+  if (manualToken) {
+    const session = saveSession({ authToken: manualToken, publicKey, signedMessage: manualToken, manualToken: true });
+    console.info('[Lighthouse] Manual token session ready', {
+      address: publicKey,
+      hasToken: !!manualToken,
+      sessionCreatedAt: session.createdAt,
+    });
+    return session;
+  }
+
+  const lighthouse = getLighthouse({ strict: false });
+  if (!lighthouse) {
+    throw new Error('Lighthouse SDK is not loaded. Use JSON backup or reload the page.');
+  }
+
   console.info('[Lighthouse] Starting wallet-signed session', {
     address: publicKey,
     hasGetAuthMessage: typeof lighthouse.getAuthMessage === 'function',
@@ -226,13 +260,13 @@ export async function uploadEncryptedSnapshot(data, { fileName = 'bignuten-snaps
   if (!lighthouse) {
     throw new Error('Lighthouse SDK is not loaded. Use JSON backup or reload the page.');
   }
-  const authToken = session.jwt || session.apiKey;
+  const authToken = session.authToken || session.jwt || session.apiKey;
   console.info('[Lighthouse] Uploading encrypted snapshot', {
     fileName,
     address: session.publicKey,
     hasUploadEncrypted: typeof lighthouse.uploadEncrypted === 'function',
   });
-  const upload = await lighthouse.uploadEncrypted(file, authToken, session.publicKey, authToken);
+  const upload = await lighthouse.uploadEncrypted(file, authToken, session.publicKey, session.signedMessage || authToken);
   const cid = upload?.data?.[0]?.Hash
     ?? upload?.data?.Hash
     ?? upload?.data?.hash
@@ -256,7 +290,8 @@ export async function fetchSnapshotData(cid) {
         cid: trimmedCid,
         address: session.publicKey,
       });
-      const keyObject = await lighthouse.fetchEncryptionKey(trimmedCid, session.publicKey, session.signedMessage);
+      const authToken = session.authToken || session.signedMessage;
+      const keyObject = await lighthouse.fetchEncryptionKey(trimmedCid, session.publicKey, authToken);
       const decrypted = await lighthouse.decryptFile(trimmedCid, keyObject?.data?.key, 'application/json');
       const text = await toText(decrypted);
       return JSON.parse(text);

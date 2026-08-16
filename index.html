@@ -1562,6 +1562,38 @@
         </p>
       </section>
 
+      <!-- Lighthouse Access Key Section -->
+      <section class="settings-section">
+        <h3>🔐 Lighthouse Personal Key</h3>
+        <p class="settings-desc">
+          Optional fallback for encrypted IPFS uploads. Paste the personal key you copy from
+          Lighthouse Files, and BigNuten will keep it only in your browser.
+        </p>
+        <div class="genie-apikey-section" id="lighthouse-key-section">
+          <label class="genie-settings-label" for="lighthouse-key-input">
+            Lighthouse key
+            <span id="lighthouse-key-status" class="genie-apikey-status"></span>
+          </label>
+          <div class="genie-apikey-input-row">
+            <input
+              type="password"
+              id="lighthouse-key-input"
+              class="genie-api-key-input"
+              placeholder="Paste your Lighthouse personal key…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="lighthouse-key-save" class="genie-key-btn" type="button">Save</button>
+            <button id="lighthouse-key-clear" class="genie-key-btn genie-key-btn--clear" type="button">Clear</button>
+          </div>
+          <p class="settings-hint">
+            🔒 Stored only in localStorage on this device.
+            <a href="https://files.lighthouse.storage/" target="_blank" rel="noopener noreferrer">Open Lighthouse Files</a>
+            to copy your key.
+          </p>
+        </div>
+      </section>
+
       <!-- Chakra Aura Mode Section -->
       <section class="settings-section">
         <h3>🌈 Chakra Aura Mode</h3>
