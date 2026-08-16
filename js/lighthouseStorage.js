@@ -4,8 +4,28 @@ function getEthers() {
 }
 
 function getLighthouse() {
-  if (!window.lighthouse) throw new Error('Lighthouse SDK is not available.');
-  return window.lighthouse;
+  const lighthouse =
+    window.lighthouse ||
+    window.Lighthouse ||
+    window.LighthouseWeb3 ||
+    window.lighthouseWeb3 ||
+    null;
+
+  if (lighthouse && !window.lighthouse) {
+    window.lighthouse = lighthouse;
+  }
+
+  if (!lighthouse) {
+    console.error('[Lighthouse] SDK not available', {
+      hasLower: !!window.lighthouse,
+      hasUpper: !!window.Lighthouse,
+      hasUpperWeb3: !!window.LighthouseWeb3,
+      hasLowerWeb3: !!window.lighthouseWeb3,
+    });
+    throw new Error('Lighthouse SDK is not available. Check the console diagnostics.');
+  }
+
+  return lighthouse;
 }
 
 function readSession() {
@@ -19,6 +39,7 @@ function saveSession(session) {
     signedMessage: session.signedMessage,
     createdAt: new Date().toISOString(),
   };
+  return window._lighthouseSessionRef;
 }
 
 async function requestSignedSession() {
@@ -31,6 +52,13 @@ async function requestSignedSession() {
   const publicKey = await signer.getAddress();
 
   const lighthouse = getLighthouse();
+  console.info('[Lighthouse] Starting wallet-signed session', {
+    address: publicKey,
+    hasGetAuthMessage: typeof lighthouse.getAuthMessage === 'function',
+    hasGetApiKey: typeof lighthouse.getApiKey === 'function',
+    hasGetJWT: typeof lighthouse.getJWT === 'function',
+    hasGetJwt: typeof lighthouse.getJwt === 'function',
+  });
   const authMessage = await lighthouse.getAuthMessage(publicKey);
   const message = authMessage?.data?.message || authMessage?.message;
   if (!message) throw new Error('Lighthouse did not return an auth message.');
@@ -55,8 +83,12 @@ async function requestSignedSession() {
 
   if (!apiKey) throw new Error('Lighthouse did not return an upload token.');
 
-  const session = { apiKey, publicKey, signedMessage };
-  saveSession(session);
+  const session = saveSession({ apiKey, publicKey, signedMessage });
+  console.info('[Lighthouse] Session ready', {
+    address: publicKey,
+    hasApiKey: !!apiKey,
+    sessionCreatedAt: session.createdAt,
+  });
   return session;
 }
 
@@ -94,6 +126,11 @@ export async function uploadEncryptedSnapshot(data, { fileName = 'bignuten-snaps
   const session = await ensureSession({ promptIfMissing: true });
   const file = new File([JSON.stringify(data, null, 2)], fileName, { type: 'application/json' });
   const lighthouse = getLighthouse();
+  console.info('[Lighthouse] Uploading encrypted snapshot', {
+    fileName,
+    address: session.publicKey,
+    hasUploadEncrypted: typeof lighthouse.uploadEncrypted === 'function',
+  });
   const upload = await lighthouse.uploadEncrypted(file, session.apiKey, session.publicKey, session.signedMessage);
   const cid = upload?.data?.[0]?.Hash
     ?? upload?.data?.Hash
@@ -114,6 +151,10 @@ export async function fetchSnapshotData(cid) {
   const lighthouse = getLighthouse();
   if (session && typeof lighthouse.fetchEncryptionKey === 'function' && typeof lighthouse.decryptFile === 'function') {
     try {
+      console.info('[Lighthouse] Attempting encrypted snapshot decrypt', {
+        cid: trimmedCid,
+        address: session.publicKey,
+      });
       const keyObject = await lighthouse.fetchEncryptionKey(trimmedCid, session.publicKey, session.signedMessage);
       const decrypted = await lighthouse.decryptFile(trimmedCid, keyObject?.data?.key, 'application/json');
       const text = await toText(decrypted);
