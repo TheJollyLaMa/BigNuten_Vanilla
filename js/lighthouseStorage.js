@@ -301,7 +301,12 @@ export async function fetchSnapshotData(cid) {
   }
 
   const response = await fetch(lighthouseGatewayUrl(trimmedCid));
-  if (!response.ok) throw new Error(`Failed to fetch from Lighthouse gateway (HTTP ${response.status}).`);
+  if (!response.ok) {
+    if (response.status === 402) {
+      throw new Error('Lighthouse gateway returned 402 Payment Required. This snapshot is encrypted or private. Connect Lighthouse or restore your personal key, then try again.');
+    }
+    throw new Error(`Failed to fetch from Lighthouse gateway (HTTP ${response.status}).`);
+  }
   const text = await response.text();
   try {
     return JSON.parse(text);
