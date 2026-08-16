@@ -7588,7 +7588,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Wire About-modal "Connect Lighthouse" button
     document.getElementById('about-ipfs-connect-btn')?.addEventListener('click', async () => {
+      const mode = getStorageMode();
+      if (mode === 'w3up' || mode === 'own-w3s') {
+        document.getElementById('about-modal')?.classList.add('modal-hidden');
+        import('./dataControl.js').then(m => m._openSnapshotPanel());
+        return;
+      }
       _openConnectDialog();
+      requestAnimationFrame(() => {
+        document.getElementById('ipfs-dialog-connect-btn')?.click();
+      });
     });
 
     // Wire condensed dialog JSON buttons

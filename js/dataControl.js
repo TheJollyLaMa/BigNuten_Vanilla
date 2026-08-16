@@ -150,6 +150,9 @@ export function initDataControl({
   document.getElementById('ipfs-edu-connect-btn')?.addEventListener('click', async () => {
     _closeOverlay();
     _openConnectDialog();
+    requestAnimationFrame(() => {
+      document.getElementById('ipfs-dialog-connect-btn')?.click();
+    });
   });
 
   document.getElementById('ipfs-edu-skip-btn')?.addEventListener('click', () => {
@@ -361,6 +364,7 @@ async function _doConnect(connectFn) {
       // Store client ref for legacy upload path
       if (result.client) window._w3upClientRef = result.client;
       _showEl(statusEl, identity ? `✅ Signed in! Space: ${identity.slice(0, 20)}…` : '✅ Signed in to Lighthouse!', 'success');
+      document.getElementById('about-modal')?.classList.add('modal-hidden');
       setTimeout(() => {
         _closeOverlay();
         _closeConnectDialog();
@@ -550,27 +554,128 @@ function _isMobile() {
   );
 }
 
+function _shortRef(ref) {
+  const value = String(ref || '').trim();
+  if (!value) return '';
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 6)}…${value.slice(-4)}`;
+}
+
+function _syncIpfsTicker(mode) {
+  const ticker = document.getElementById('ticker-circle');
+  if (!ticker) return;
+
+  const isConnected = mode === 'w3up' || mode === 'own-w3s';
+  if (!isConnected) {
+    ticker.innerHTML = '';
+    ticker.style.transform = '';
+    if (ticker._rotationFrame) {
+      cancelAnimationFrame(ticker._rotationFrame);
+      ticker._rotationFrame = null;
+    }
+    return;
+  }
+
+  const metas = loadSnapshotMeta();
+  const lastMeta = metas.find(m => m.provider === 'w3up' || m.provider === 'own-w3s') || metas[0] || null;
+  const ref = lastMeta?.cid || lastMeta?.hash || window._w3upClientRef?.publicKey || window._w3upClientRef?.identity || '';
+  const shortRef = _shortRef(ref);
+  if (!shortRef) {
+    ticker.innerHTML = '';
+    ticker.style.transform = '';
+    return;
+  }
+
+  ticker.innerHTML = '';
+  const prefix = shortRef.slice(0, 6);
+  const suffix = shortRef.slice(-4);
+  const ipfsIcons = Array.from({ length: 4 }, () => {
+    const img = document.createElement('img');
+    img.classList.add('ticker-letter');
+    img.src = 'img/IPFS_Logo.png';
+    img.alt = '';
+    img.setAttribute('aria-hidden', 'true');
+    img.style.width = '12px';
+    img.style.height = '12px';
+    return img;
+  });
+
+  [...prefix].forEach(char => {
+    const span = document.createElement('span');
+    span.classList.add('ticker-letter');
+    span.textContent = char;
+    span.dataset.storageMode = mode;
+    ticker.appendChild(span);
+  });
+  ipfsIcons.forEach(img => {
+    img.dataset.storageMode = mode;
+    ticker.appendChild(img);
+  });
+  [...suffix].forEach(char => {
+    const span = document.createElement('span');
+    span.classList.add('ticker-letter');
+    span.textContent = char;
+    span.dataset.storageMode = mode;
+    ticker.appendChild(span);
+  });
+
+  const letters = ticker.querySelectorAll('.ticker-letter');
+  const centerX = 65;
+  const centerY = 65;
+  const radius = 54;
+  const angleStep = (2 * Math.PI) / letters.length;
+  letters.forEach((letter, index) => {
+    const angle = index * angleStep;
+    const x = centerX + radius * Math.cos(angle);
+    const y = centerY + radius * Math.sin(angle);
+    letter.style.left = `${x}px`;
+    letter.style.top = `${y}px`;
+  });
+
+  if (ticker._rotationFrame) {
+    cancelAnimationFrame(ticker._rotationFrame);
+  }
+  let angle = 0;
+  const rotate = () => {
+    ticker.style.transform = `rotate(${angle}deg)`;
+    angle += 0.2;
+    ticker._rotationFrame = requestAnimationFrame(rotate);
+  };
+  rotate();
+}
+
 function _applyIpfsIndicator(mode) {
   const icon       = document.getElementById('ipfsIcon');
   const statusRing = document.getElementById('ipfs-status');
   const stateText  = document.getElementById('ipfsConnectionState');
+  const metas = loadSnapshotMeta();
+  const activeMeta = metas.find(m => m.provider === 'w3up' || m.provider === 'own-w3s') || metas[0] || null;
+  const shortRef = _shortRef(
+    activeMeta?.cid
+    || activeMeta?.hash
+    || window._w3upClientRef?.publicKey
+    || window._w3upClientRef?.identity
+  );
 
   if (icon) {
     icon.dataset.storageMode = mode;
     icon.setAttribute(
       'aria-label',
       mode === 'w3up' || mode === 'own-w3s'
-        ? 'Lighthouse storage — connected'
+        ? `Lighthouse storage — connected${shortRef ? ` (${shortRef})` : ''}`
         : 'Lighthouse storage — local only'
     );
     icon.title = mode === 'w3up' || mode === 'own-w3s'
-      ? '🔆 Lighthouse — connected and ready to push snapshots.'
+      ? `🔆 Lighthouse — connected and ready to push snapshots${shortRef ? ` (${shortRef})` : ''}.`
       : '🔆 Local only — click to connect Lighthouse.';
   }
   if (statusRing) statusRing.dataset.storageMode = mode;
   if (stateText) {
     stateText.dataset.storageMode = mode;
-    stateText.textContent = mode === 'w3up' || mode === 'own-w3s' ? 'Connected' : 'Local only';
+    stateText.textContent = mode === 'w3up' || mode === 'own-w3s'
+      ? (shortRef || 'Connected')
+      : 'Local only';
+    stateText.title = shortRef || '';
   }
 
   document.querySelectorAll('.ticker-letter').forEach(el => {
@@ -635,6 +740,8 @@ function _applyIpfsIndicator(mode) {
   if (providerNameEl) {
     providerNameEl.textContent = activeLabel;
   }
+
+  _syncIpfsTicker(mode);
 }
 
 function _showEl(el, msg, type) {
