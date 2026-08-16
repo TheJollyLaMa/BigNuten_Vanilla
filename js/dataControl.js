@@ -8,6 +8,7 @@
 
 import { normalizeFitnessData, mergeSnapshotData, importAndMergeFromCID } from './fitnessData.js';
 import { providerRegistry, loadSnapshotMeta } from './storageProvider.js';
+import { getCurrentSnapshotPointer, getSnapshotLifecycleSummary, loadSnapshotManifest } from './snapshotLifecycle.js';
 
 const STORAGE_KEY        = 'fitnessTrackerData';
 const STORAGE_MODE_KEY   = 'storageMode';
@@ -265,6 +266,7 @@ async function _handleIpfsIconClick() {
             ? `<code>${short}</code>`
             : `<a href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(cid || '').trim())}" target="_blank" rel="noopener noreferrer">${short}</a>`;
           _setSnapshotPanelStatus(`✅ Pushed — ${link}`, 'success');
+          localStorage.setItem('lastAutoSnapshotTimestamp', String(Date.now()));
           _renderSnapshotHistory();
           // Refresh About section last-backup timestamp
           _applyIpfsIndicator(getStorageMode());
@@ -463,43 +465,36 @@ function _renderSnapshotHistory() {
   const container = document.getElementById('snapshot-history-list');
   if (!container) return;
 
-  // Prefer unified snapshot metadata (provider-agnostic)
-  const metas = loadSnapshotMeta();
-  let history = metas.slice(0, 7).map(m => ({
+  const manifest = loadSnapshotManifest();
+  const lifecycle = getSnapshotLifecycleSummary();
+  let history = manifest.snapshots.slice(0, 7).map(m => ({
     cid: m.cid || m.hash || '',
     hash: m.hash,
     timestamp: m.timestamp,
     provider: m.provider,
+    tier: m.archiveTier || m.tier || 'hourly',
+    verified: m.verified,
     status: m.status,
   }));
 
-  // Fall back to legacy snapshot history if no unified metadata yet
   if (!history.length) {
-    const latestKey = Object.keys(localStorage)
-      .filter(k => k.startsWith('fitnessTrackerSnapshot-'))
-      .sort()
-      .reverse()[0];
-    if (latestKey) {
-      const latestSnapshot = (() => {
-        try { return JSON.parse(localStorage.getItem(latestKey)); } catch { return null; }
-      })();
-      if (latestSnapshot?.data?.snapshotHistory) {
-        history = latestSnapshot.data.snapshotHistory.map(e =>
-          typeof e === 'string' ? { cid: e, timestamp: '' } : e
-        );
-      }
-      if (latestSnapshot?.cid) {
-        const ts = latestKey.split('fitnessTrackerSnapshot-')[1] || '';
-        history.unshift({ cid: latestSnapshot.cid, timestamp: ts });
-      }
-    }
+    const metas = loadSnapshotMeta();
+    history = metas.slice(0, 7).map(m => ({
+      cid: m.cid || m.hash || '',
+      hash: m.hash,
+      timestamp: m.timestamp,
+      provider: m.provider,
+      tier: m.archiveTier || m.tier || 'hourly',
+      verified: true,
+      status: m.status,
+    }));
   }
 
   const today = new Date().toISOString().slice(0, 10);
   const items = history.slice(0, 7);
 
   if (items.length === 0) {
-    container.innerHTML = '<div class="sp-history-empty">No snapshots yet.</div>';
+    container.innerHTML = `<div class="sp-history-empty">No snapshots yet. Retention: ${lifecycle.retention.hourlyKeep} hourly / ${lifecycle.retention.monthlyKeepMonths} monthly / ${lifecycle.retention.annualKeepYears} annual.</div>`;
     return;
   }
 
@@ -515,10 +510,16 @@ function _renderSnapshotHistory() {
       ? `<a class="sp-history-cid" href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(ref || '').trim())}" target="_blank" rel="noopener noreferrer">${short}</a>`
       : `<code class="sp-history-cid">${short}</code>`;
     const providerBadge = h.provider ? `<span class="sp-provider-badge">${h.provider}</span>` : '';
+    const tierBadge = h.tier ? `<span class="sp-provider-badge">${h.tier}</span>` : '';
+    const pointerBadge = manifest.current?.cid === h.cid ? '<span class="sp-today-badge">📌 pointer</span>' : '';
+    const verifiedBadge = h.verified === false ? '<span class="sp-today-badge">⚠️ unverified</span>' : '';
     return `<div class="sp-history-row${isToday ? ' sp-today' : ''}">
       <span class="sp-history-date">${dateStr}</span>
       ${refLink}
       ${providerBadge}
+      ${tierBadge}
+      ${pointerBadge}
+      ${verifiedBadge}
       ${isToday ? '<span class="sp-today-badge">✅ today</span>' : ''}
     </div>`;
   }).join('');
@@ -573,8 +574,11 @@ function _syncIpfsTicker(mode) {
     return;
   }
 
-  const metas = loadSnapshotMeta();
-  const lastMeta = metas.find(m => m.provider === 'w3up' || m.provider === 'own-w3s') || metas[0] || null;
+  const manifest = loadSnapshotManifest();
+  const lastMeta = manifest.current
+    || manifest.snapshots.find(m => m.provider === 'w3up' || m.provider === 'own-w3s')
+    || loadSnapshotMeta()[0]
+    || null;
   const ref = lastMeta?.cid || lastMeta?.hash || window._w3upClientRef?.publicKey || window._w3upClientRef?.identity || '';
   const shortRef = _shortRef(ref);
   if (!shortRef) {
@@ -645,8 +649,11 @@ function _applyIpfsIndicator(mode) {
   const icon       = document.getElementById('ipfsIcon');
   const statusRing = document.getElementById('ipfs-status');
   const stateText  = document.getElementById('ipfsConnectionState');
-  const metas = loadSnapshotMeta();
-  const activeMeta = metas.find(m => m.provider === 'w3up' || m.provider === 'own-w3s') || metas[0] || null;
+  const manifest = loadSnapshotManifest();
+  const activeMeta = manifest.current
+    || manifest.snapshots.find(m => m.provider === 'w3up' || m.provider === 'own-w3s')
+    || loadSnapshotMeta()[0]
+    || null;
   const shortRef = _shortRef(
     activeMeta?.cid
     || activeMeta?.hash
@@ -702,8 +709,7 @@ function _applyIpfsIndicator(mode) {
   const lastBackupEl = document.getElementById('dc-about-last-backup');
   if (lastBackupEl) {
     if (isConnected) {
-      const metas = loadSnapshotMeta();
-      const last = metas[0];
+      const last = getSnapshotLifecycleSummary().current || loadSnapshotManifest().snapshots[0] || loadSnapshotMeta()[0];
       if (last) {
         try {
           lastBackupEl.textContent = new Date(last.timestamp).toLocaleString();
@@ -730,6 +736,30 @@ function _applyIpfsIndicator(mode) {
     } else {
       lastBackupEl.textContent = '—';
     }
+  }
+
+  const currentPointerEl = document.getElementById('dc-about-current-pointer');
+  if (currentPointerEl) {
+    const pointer = getCurrentSnapshotPointer();
+    if (pointer?.cid) {
+      const short = pointer.cid.length > 12 ? `${pointer.cid.slice(0, 8)}…${pointer.cid.slice(-4)}` : pointer.cid;
+      currentPointerEl.textContent = short;
+      currentPointerEl.title = `${pointer.cid}${pointer.archiveTier ? ` • ${pointer.archiveTier}` : ''}`;
+    } else {
+      currentPointerEl.textContent = '—';
+    }
+  }
+
+  const retentionEl = document.getElementById('dc-about-retention');
+  if (retentionEl) {
+    const lifecycle = getSnapshotLifecycleSummary();
+    const { hourlyKeep, monthlyKeepMonths, annualKeepYears } = lifecycle.retention || {};
+    retentionEl.textContent = `${hourlyKeep || 0} hourly / ${monthlyKeepMonths || 0} monthly / ${annualKeepYears || 0} annual`;
+  }
+
+  const cleanupEl = document.getElementById('dc-about-cleanup');
+  if (cleanupEl) {
+    cleanupEl.textContent = String(getSnapshotLifecycleSummary().counts?.cleanup || 0);
   }
 
   // Show active provider name in about section

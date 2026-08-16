@@ -10,6 +10,7 @@ import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEn
 import { initCompetitions, loadCompetitionsList } from './competitions.js';
 import { initYogaFlow } from './yoga.js';
 import { getManualLighthouseToken, setManualLighthouseToken, clearManualLighthouseToken } from './lighthouseStorage.js';
+import { loadSnapshotManifest } from './snapshotLifecycle.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -2763,17 +2764,61 @@ const WALLET_WHITELIST = [
 ];
 
 // --- Snapshot helper functions ---
-const LAST_SNAPSHOT_KEY = 'lastAutoSnapshotDate';
+const LAST_SNAPSHOT_KEY = 'lastAutoSnapshotTimestamp';
+const HOURLY_SNAPSHOT_INTERVAL_MS = 60 * 60 * 1000;
 
-function shouldTakeSnapshotToday() {
-  const lastDate = localStorage.getItem(LAST_SNAPSHOT_KEY);
-  const today = new Date().toISOString().split('T')[0];
-  return lastDate !== today;
+function shouldTakeHourlySnapshot() {
+  const lastTimestamp = Number(localStorage.getItem(LAST_SNAPSHOT_KEY) || 0);
+  return !lastTimestamp || (Date.now() - lastTimestamp) >= HOURLY_SNAPSHOT_INTERVAL_MS;
 }
 
-function markSnapshotTakenToday() {
-  const today = new Date().toISOString().split('T')[0];
-  localStorage.setItem(LAST_SNAPSHOT_KEY, today);
+function markHourlySnapshotTaken() {
+  localStorage.setItem(LAST_SNAPSHOT_KEY, String(Date.now()));
+}
+
+function scheduleHourlySnapshot(client, uploadFn) {
+  if (!client) return;
+
+  if (window._bignutenHourlySnapshotTimeout) {
+    clearTimeout(window._bignutenHourlySnapshotTimeout);
+    window._bignutenHourlySnapshotTimeout = null;
+  }
+  if (window._bignutenHourlySnapshotInterval) {
+    clearInterval(window._bignutenHourlySnapshotInterval);
+    window._bignutenHourlySnapshotInterval = null;
+  }
+
+  const runSnapshot = async (label) => {
+    if (getStorageMode() === 'json-only') return;
+    if (!shouldTakeHourlySnapshot()) return;
+
+    const data = getFitnessData();
+    try {
+      if (typeof uploadFn !== 'function') return;
+      const result = await uploadFn(data);
+      if (result?.cid) {
+        console.log(`🕒 ${label} snapshot uploaded:`, result.cid);
+        markHourlySnapshotTaken();
+      } else {
+        console.warn(`❌ ${label} snapshot failed.`);
+      }
+    } catch (err) {
+      console.warn(`❌ ${label} snapshot failed:`, err);
+    }
+  };
+
+  const now = new Date();
+  const nextHour = new Date(now);
+  nextHour.setMinutes(0, 0, 0);
+  nextHour.setHours(nextHour.getHours() + 1);
+  const timeUntilNextHour = Math.max(1000, nextHour - now);
+
+  window._bignutenHourlySnapshotTimeout = setTimeout(() => {
+    runSnapshot('Hourly catch-up');
+    window._bignutenHourlySnapshotInterval = setInterval(() => {
+      runSnapshot('Hourly');
+    }, HOURLY_SNAPSHOT_INTERVAL_MS);
+  }, timeUntilNextHour);
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -2789,25 +2834,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Snapshot popup: show all snapshots (no pagination)
   function renderSnapshotPopup() {
-    // Load snapshot history from latest snapshot's embedded snapshotHistory
-    const latestKey = Object.keys(localStorage)
-      .filter(k => k.startsWith('fitnessTrackerSnapshot-'))
-      .sort()
-      .reverse()[0];
-    let history = [];
-    if (latestKey) {
-      const latestSnapshot = JSON.parse(localStorage.getItem(latestKey));
-      history = (latestSnapshot?.data?.snapshotHistory || []).map(entry => {
-        if (typeof entry === 'string') {
-          return { cid: entry, timestamp: '' };
-        }
-        return entry;
-      });
-      // Include current snapshot CID
-      if (latestSnapshot?.cid) {
-        history.unshift({ cid: latestSnapshot.cid, timestamp: latestKey.split('fitnessTrackerSnapshot-')[1] });
-      }
-    }
+    const manifest = loadSnapshotManifest();
+    let history = manifest.snapshots.length
+      ? manifest.snapshots
+      : (JSON.parse(localStorage.getItem('snapshotHistory') || '[]') || []);
     const today = getTodayInUserTz();
 
     // Show only the latest 7 snapshots
@@ -2817,13 +2847,14 @@ window.addEventListener('DOMContentLoaded', async () => {
         : '(No timestamp)';
       const isToday = h.timestamp && h.timestamp.startsWith(today);
       const colorClass = isToday ? 'snapshot-today' : 'snapshot-old';
-      const prefix = h.cid.slice(0, 6);
-      const suffix = h.cid.slice(-4);
+      const cid = String(h.cid || h.hash || '').trim();
+      const prefix = cid.slice(0, 6);
+      const suffix = cid.slice(-4);
       const ipfsIcons = `<img src="img/IPFS_Logo.png" style="width:10px;height:10px;">`.repeat(4);
       const shortCid = `${prefix}${ipfsIcons}${suffix}`;
       return `<div class="${colorClass}">
         <strong>${date}</strong><br>
-        <a href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(h.cid || '').trim())}" target="_blank" style="text-decoration:none;color:inherit;">
+        <a href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(cid)}" target="_blank" style="text-decoration:none;color:inherit;">
           ${shortCid}
         </a>
       </div>`;
@@ -3564,55 +3595,23 @@ if (measurementForm) {
            localStorage.setItem('ipfsEducationSeen', '1');
            if (typeof setStorageMode === 'function') setStorageMode('w3up');
 
-           // --- Snapshot catch-up logic: check if we missed today's snapshot
+           // --- Snapshot catch-up logic: check if we missed the current hourly snapshot
            if (result?.client) {
              // Skip upload if user explicitly chose JSON-only mode
-             if (getStorageMode() !== 'json-only' && shouldTakeSnapshotToday()) {
+             if (getStorageMode() !== 'json-only' && shouldTakeHourlySnapshot()) {
                const data = getFitnessData();
                _w3up.put(data).then(r => {
                  if (r?.cid) {
                    console.log("📦 Catch-up snapshot uploaded:", r.cid);
-                   markSnapshotTakenToday();
+                   markHourlySnapshotTaken();
                  }
                }).catch(() => { /* non-fatal */ });
              }
            }
 
-           // Auto snapshot at midnight
-           function scheduleMidnightSnapshot(client) {
-             if (!client) return;
-
-             const now = new Date();
-             const nextMidnight = new Date(
-               now.getFullYear(),
-               now.getMonth(),
-               now.getDate() + 1,
-               0, 0, 0, 0
-             );
-             const timeUntilMidnight = nextMidnight - now;
-
-             setTimeout(() => {
-               // Skip upload if user explicitly chose JSON-only mode
-               if (getStorageMode() !== 'json-only') {
-                 const data = getFitnessData();
-                 _w3up.put(data).then(r => {
-                   if (r?.cid) {
-                     console.log("🕛 Midnight snapshot uploaded:", r.cid);
-                     markSnapshotTakenToday();
-                   } else {
-                     console.warn("❌ Midnight snapshot failed.");
-                   }
-                 }).catch(() => { /* non-fatal */ });
-               }
-
-               // Reschedule for next day
-               scheduleMidnightSnapshot(client);
-             }, timeUntilMidnight);
-           }
-
-           // After provider connects, schedule midnight snapshots
+           // After provider connects, schedule hourly snapshots
            if (result && result.client) {
-             scheduleMidnightSnapshot(result.client);
+             scheduleHourlySnapshot(result.client, _w3up.put.bind(_w3up));
            }
         } else {
            if (preAuthorizedAccount) {

@@ -4,6 +4,7 @@
 
 import { StorageProvider, computeSnapshotHash, saveSnapshotMeta, loadSnapshotMeta } from '../storageProvider.js';
 import { connectLighthouseSession, restoreLighthouseSession, uploadEncryptedSnapshot, fetchSnapshotData } from '../lighthouseStorage.js';
+import { loadSnapshotManifest, recordSnapshotUpload } from '../snapshotLifecycle.js';
 
 export class W3upProvider extends StorageProvider {
   constructor() {
@@ -32,8 +33,12 @@ export class W3upProvider extends StorageProvider {
 
   async status() {
     if (this._session?.publicKey) {
+      const manifest = loadSnapshotManifest();
+      const pointer = manifest.current?.provider === this.id
+        ? manifest.current
+        : manifest.snapshots.find(m => m.provider === this.id) || null;
       const metas = loadSnapshotMeta().filter(m => m.provider === this.id);
-      const lastBackup = metas[0]?.timestamp ?? null;
+      const lastBackup = pointer?.timestamp ?? metas[0]?.timestamp ?? null;
       return { connected: true, identity: this._session.publicKey, lastBackup };
     }
     return { connected: false };
@@ -45,6 +50,33 @@ export class W3upProvider extends StorageProvider {
     const now = new Date().toISOString();
     try {
       const { cid } = await uploadEncryptedSnapshot(data);
+      let verified = false;
+      try {
+        const remoteData = await fetchSnapshotData(cid);
+        const remoteHash = await computeSnapshotHash(remoteData);
+        verified = remoteHash === hash;
+        if (!verified) {
+          console.warn('[Lighthouse] CID verification mismatch:', { cid, expected: hash, actual: remoteHash });
+        }
+      } catch (verifyErr) {
+        console.warn('[Lighthouse] Snapshot verification failed:', verifyErr);
+      }
+      try {
+        const lifecycle = recordSnapshotUpload({
+          cid,
+          hash,
+          timestamp: now,
+          provider: this.id,
+          source: 'lighthouse-upload',
+          sessionAddress: this._session.publicKey,
+          verified,
+        });
+        if (lifecycle.cleanupCandidates.length) {
+          console.info('[Lighthouse] Cleanup queue updated:', lifecycle.cleanupCandidates.length);
+        }
+      } catch (lifecycleErr) {
+        console.warn('[Lighthouse] Snapshot manifest update failed:', lifecycleErr);
+      }
       const meta = { hash, cid, timestamp: now, provider: this.id, status: 'ok' };
       saveSnapshotMeta(meta);
       return { cid, hash };
@@ -60,7 +92,8 @@ export class W3upProvider extends StorageProvider {
   }
 
   async list() {
-    return loadSnapshotMeta().filter(m => m.provider === this.id);
+    const manifest = loadSnapshotManifest();
+    return (manifest.snapshots.length ? manifest.snapshots : loadSnapshotMeta()).filter(m => m.provider === this.id);
   }
 
   async restore() {

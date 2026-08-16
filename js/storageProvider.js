@@ -4,6 +4,8 @@
 // All backup/restore operations go through a StorageProvider.
 // Business logic never calls vendor SDKs directly — it calls provider methods.
 
+import { loadSnapshotManifest, recordSnapshotUpload } from './snapshotLifecycle.js';
+
 // ── Snapshot content-addressing ───────────────────────────────────────────────
 
 /**
@@ -123,12 +125,35 @@ export class JsonOnlyProvider extends StorageProvider {
   async put(data) {
     const hash = await computeSnapshotHash(data);
     const now = new Date().toISOString();
-    const entry = { hash, data };
     localStorage.setItem(`fitnessTrackerSnapshot-${now}`, JSON.stringify({ cid: hash, hash, data }));
     const meta = { hash, cid: hash, timestamp: now, provider: this.id, status: 'ok' };
     saveSnapshotMeta(meta);
-    // Also maintain legacy snapshotHistory list for backwards compatibility
-    _updateLegacySnapshotHistory(hash, now);
+    try {
+      const lifecycle = recordSnapshotUpload({
+        cid: hash,
+        hash,
+        timestamp: now,
+        provider: this.id,
+        source: 'local-json',
+      });
+
+      lifecycle.cleanupCandidates.forEach(candidate => {
+        Object.keys(localStorage)
+          .filter(key => key.startsWith('fitnessTrackerSnapshot-'))
+          .forEach(key => {
+            try {
+              const snapshot = JSON.parse(localStorage.getItem(key));
+              if (snapshot?.cid === candidate.cid) {
+                localStorage.removeItem(key);
+              }
+            } catch {
+              /* ignore malformed legacy entries */
+            }
+          });
+      });
+    } catch (err) {
+      console.warn('[Storage] Snapshot manifest update failed:', err);
+    }
     return { cid: hash, hash };
   }
 
@@ -145,7 +170,8 @@ export class JsonOnlyProvider extends StorageProvider {
   }
 
   async list() {
-    return loadSnapshotMeta().filter(m => m.provider === this.id);
+    const manifest = loadSnapshotManifest();
+    return (manifest.snapshots.length ? manifest.snapshots : loadSnapshotMeta()).filter(m => m.provider === this.id);
   }
 
   async restore() { return { connected: true }; }
