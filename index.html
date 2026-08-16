@@ -13,9 +13,15 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@lighthouse-web3/sdk/dist/index.umd.js"></script>
-    <script>
-      window.lighthouse = window.lighthouse || window.Lighthouse || window.LighthouseWeb3 || window.lighthouseWeb3 || null;
+    <script type="module">
+      import Lighthouse, * as LighthouseSdk from 'https://cdn.jsdelivr.net/npm/@lighthouse-web3/sdk@0.4.7/+esm';
+
+      const lighthouse = Lighthouse?.default || Lighthouse || LighthouseSdk?.default || LighthouseSdk;
+      window.lighthouse = window.lighthouse || lighthouse;
+      window.Lighthouse = window.Lighthouse || lighthouse;
+      window.LighthouseWeb3 = window.LighthouseWeb3 || lighthouse;
+      window.lighthouseWeb3 = window.lighthouseWeb3 || lighthouse;
+
       console.info('[BigNuten] Lighthouse SDK globals', {
         hasLower: !!window.lighthouse,
         hasUpper: !!window.Lighthouse,
