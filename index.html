@@ -1575,8 +1575,9 @@
       <section class="settings-section">
         <h3>🔐 Lighthouse Personal Key</h3>
         <p class="settings-desc">
-          Optional fallback for encrypted IPFS uploads. Paste the personal key you copy from
-          Lighthouse Files, and BigNuten will keep it only in your browser.
+          Optional fallback for encrypted IPFS uploads and restores. Enter the personal key
+          from Lighthouse Files when prompted; BigNuten keeps it only for the current tab and
+          clears it after use.
         </p>
         <div class="genie-apikey-section" id="lighthouse-key-section">
           <label class="genie-settings-label" for="lighthouse-key-input">
@@ -1596,7 +1597,7 @@
             <button id="lighthouse-key-clear" class="genie-key-btn genie-key-btn--clear" type="button">Clear</button>
           </div>
           <p class="settings-hint">
-            🔒 Stored only in localStorage on this device.
+            🔒 Not synced anywhere; it stays in memory for this tab only.
             <a href="https://files.lighthouse.storage/" target="_blank" rel="noopener noreferrer">Open Lighthouse Files</a>
             to copy your key.
           </p>
@@ -1689,7 +1690,7 @@
             <button id="genie-api-key-clear" class="genie-key-btn genie-key-btn--clear">Clear</button>
           </div>
           <p class="settings-hint">
-            🔒 Stored only in your browser's localStorage. Never sent to BigNuten.
+            🔒 Kept only in memory for this tab. Never sent to BigNuten.
             Sent directly and only to the AI provider you select.
             <br />
             <strong>GitHub PAT:</strong>

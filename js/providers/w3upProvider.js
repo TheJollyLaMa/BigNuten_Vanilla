@@ -99,7 +99,7 @@ export class W3upProvider extends StorageProvider {
       });
       let verified = false;
       try {
-        const remoteData = await fetchSnapshotData(cid);
+        const remoteData = await fetchSnapshotData(cid, { session });
         const remoteHash = await computeSnapshotHash(remoteData);
         verified = remoteHash === hash;
         if (!verified) {

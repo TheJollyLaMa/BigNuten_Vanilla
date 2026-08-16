@@ -34,24 +34,24 @@ function getLighthouse({ strict = true } = {}) {
 
 const LIGHTHOUSE_AUTH_BASE = 'https://encryption.lighthouse.storage';
 const LIGHTHOUSE_OLD_AUTH_BASE = 'https://api.lighthouse.storage';
-const LIGHTHOUSE_MANUAL_TOKEN_KEY = 'user_lighthouse_key';
+let manualLighthouseTokenRef = '';
 
 export function getManualLighthouseToken() {
-  return localStorage.getItem(LIGHTHOUSE_MANUAL_TOKEN_KEY) || '';
+  return manualLighthouseTokenRef;
 }
 
 export function setManualLighthouseToken(token) {
   const value = String(token || '').trim();
   if (value) {
-    localStorage.setItem(LIGHTHOUSE_MANUAL_TOKEN_KEY, value);
+    manualLighthouseTokenRef = value;
   } else {
-    localStorage.removeItem(LIGHTHOUSE_MANUAL_TOKEN_KEY);
+    manualLighthouseTokenRef = '';
   }
   return value;
 }
 
 export function clearManualLighthouseToken() {
-  localStorage.removeItem(LIGHTHOUSE_MANUAL_TOKEN_KEY);
+  manualLighthouseTokenRef = '';
 }
 
 function readSession() {
@@ -81,6 +81,12 @@ function saveSession(session) {
     createdAt: new Date().toISOString(),
   };
   return window._lighthouseSessionRef;
+}
+
+function promptForLighthouseToken(purpose) {
+  if (typeof window.prompt !== 'function') return '';
+  const value = window.prompt(`Enter your Lighthouse API key to ${purpose}:`, '');
+  return String(value || '').trim();
 }
 
 function parseMaybeJson(payload) {
@@ -185,8 +191,9 @@ async function requestSignedSession() {
   await provider.send('eth_requestAccounts', []);
   const signer = await provider.getSigner();
   const publicKey = await signer.getAddress();
-  const manualToken = getManualLighthouseToken();
+  const manualToken = getManualLighthouseToken() || promptForLighthouseToken('upload or download a snapshot');
   if (manualToken) {
+    setManualLighthouseToken(manualToken);
     const session = saveSession({ authToken: manualToken, publicKey, signedMessage: manualToken, manualToken: true });
     console.info('[Lighthouse] Manual token session ready', {
       address: publicKey,
@@ -280,7 +287,7 @@ export function lighthouseGatewayUrl(cid) {
 }
 
 export async function uploadEncryptedSnapshot(data, { fileName = 'bignuten-snapshot.json', snapshotMeta = null } = {}) {
-  const session = await ensureSession({ promptIfMissing: true });
+  const session = await requestSignedSession();
   const payload = wrapSnapshotPayload(data, snapshotMeta || {});
   const file = new File([JSON.stringify(payload, null, 2)], fileName, { type: 'application/json' });
   const lighthouse = getLighthouse({ strict: false });
@@ -302,42 +309,99 @@ export async function uploadEncryptedSnapshot(data, { fileName = 'bignuten-snaps
     ?? upload?.hash
     ?? upload?.cid;
   if (!cid) throw new Error('Lighthouse upload did not return a CID.');
+  if (session.manualToken) {
+    clearLighthouseSession();
+    clearManualLighthouseToken();
+  }
   return { cid: String(cid), session };
 }
 
-export async function fetchSnapshotData(cid) {
-  const trimmedCid = String(cid || '').trim();
-  if (!trimmedCid) throw new Error('No CID provided.');
+async function fetchSnapshotViaNode(cid, apiKey) {
+  const response = await fetch(`https://node.lighthouse.storage/api/v0/cat?arg=${encodeURIComponent(String(cid || '').trim())}`, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + apiKey,
+    },
+  });
 
-  const session = await ensureSession({ promptIfMissing: false });
-  const lighthouse = session ? getLighthouse({ strict: false }) : null;
-  if (session && lighthouse && typeof lighthouse.fetchEncryptionKey === 'function' && typeof lighthouse.decryptFile === 'function') {
-    try {
-      console.info('[Lighthouse] Attempting encrypted snapshot decrypt', {
-        cid: trimmedCid,
-        address: session.publicKey,
-      });
-      const authToken = session.authToken || session.signedMessage;
-      const keyObject = await lighthouse.fetchEncryptionKey(trimmedCid, session.publicKey, authToken);
-      const decrypted = await lighthouse.decryptFile(trimmedCid, keyObject?.data?.key, 'application/json');
-      const text = await toText(decrypted);
-      return unwrapSnapshotPayload(JSON.parse(text));
-    } catch (err) {
-      console.warn('[Lighthouse] Decrypt failed, falling back to raw fetch:', err);
-    }
-  }
-
-  const response = await fetch(lighthouseGatewayUrl(trimmedCid));
   if (!response.ok) {
-    if (response.status === 402) {
-      throw new Error('Lighthouse gateway returned 402 Payment Required. This snapshot is encrypted or private. Connect Lighthouse or restore your personal key, then try again.');
-    }
-    throw new Error(`Failed to fetch from Lighthouse gateway (HTTP ${response.status}).`);
+    throw new Error(`Lighthouse fetch failed: ${response.statusText}`);
   }
+
   const text = await response.text();
   try {
     return unwrapSnapshotPayload(JSON.parse(text));
   } catch {
-    throw new Error('Snapshot is encrypted or not valid JSON. Connect Lighthouse to decrypt it.');
+    return unwrapSnapshotPayload(text);
+  }
+}
+
+export async function fetchSnapshotData(cid, { session: providedSession = null } = {}) {
+  const trimmedCid = String(cid || '').trim();
+  if (!trimmedCid) throw new Error('No CID provided.');
+
+  let session = providedSession || null;
+
+  const fetchWithSession = async (currentSession) => {
+    const lighthouse = currentSession ? getLighthouse({ strict: false }) : null;
+    if (currentSession && lighthouse && typeof lighthouse.fetchEncryptionKey === 'function' && typeof lighthouse.decryptFile === 'function') {
+      try {
+        console.info('[Lighthouse] Attempting encrypted snapshot decrypt', {
+          cid: trimmedCid,
+          address: currentSession.publicKey,
+        });
+        const authToken = currentSession.authToken || currentSession.signedMessage;
+        const keyObject = await lighthouse.fetchEncryptionKey(trimmedCid, currentSession.publicKey, authToken);
+        const decrypted = await lighthouse.decryptFile(trimmedCid, keyObject?.data?.key, 'application/json');
+        const text = await toText(decrypted);
+        return unwrapSnapshotPayload(JSON.parse(text));
+      } catch (err) {
+        console.warn('[Lighthouse] Decrypt failed, trying authenticated fetch:', err);
+      }
+    }
+
+    if (currentSession?.authToken || currentSession?.jwt || currentSession?.apiKey) {
+      try {
+        return await fetchSnapshotViaNode(trimmedCid, currentSession.authToken || currentSession.jwt || currentSession.apiKey);
+      } catch (err) {
+        console.warn('[Lighthouse] Authenticated snapshot fetch failed:', err);
+      }
+    }
+
+    return null;
+  };
+
+  try {
+    const authenticated = await fetchWithSession(session);
+    if (authenticated !== null) return authenticated;
+
+    const response = await fetch(lighthouseGatewayUrl(trimmedCid));
+    if (response.ok) {
+      const text = await response.text();
+      try {
+        return unwrapSnapshotPayload(JSON.parse(text));
+      } catch {
+        if (!providedSession) {
+          const apiKey = promptForLighthouseToken('download this snapshot');
+          if (apiKey) return await fetchSnapshotViaNode(trimmedCid, apiKey);
+        }
+        throw new Error('Snapshot is encrypted or not valid JSON. Enter your Lighthouse API key when prompted.');
+      }
+    }
+
+    if (response.status === 401 || response.status === 402) {
+      if (!providedSession) {
+        const apiKey = promptForLighthouseToken('download this snapshot');
+        if (apiKey) return await fetchSnapshotViaNode(trimmedCid, apiKey);
+      }
+      throw new Error('This snapshot is private or encrypted. Enter your Lighthouse API key when prompted, then try again.');
+    }
+
+    throw new Error(`Failed to fetch from Lighthouse gateway (HTTP ${response.status}).`);
+  } finally {
+    if (!providedSession && session?.manualToken) {
+      clearLighthouseSession();
+      clearManualLighthouseToken();
+    }
   }
 }

@@ -4881,7 +4881,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (cycleStatus) cycleStatus.textContent = '';
       if (lighthouseKeyInput) lighthouseKeyInput.value = getManualLighthouseToken();
       if (lighthouseKeyStatus) {
-        lighthouseKeyStatus.textContent = getManualLighthouseToken() ? '✅ Key saved' : '';
+        lighthouseKeyStatus.textContent = getManualLighthouseToken() ? '✅ Key ready' : '';
         lighthouseKeyStatus.className = getManualLighthouseToken()
           ? 'genie-apikey-status saved'
           : 'genie-apikey-status';
@@ -4934,7 +4934,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (lighthouseKeyInput) lighthouseKeyInput.value = val;
         if (lighthouseKeyStatus) {
-          lighthouseKeyStatus.textContent = val ? '✅ Key saved' : '🗑 Key cleared';
+          lighthouseKeyStatus.textContent = val ? '✅ Key ready' : '🗑 Key cleared';
           lighthouseKeyStatus.className = val
             ? 'genie-apikey-status saved'
             : 'genie-apikey-status cleared';

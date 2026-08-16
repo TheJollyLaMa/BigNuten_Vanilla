@@ -135,7 +135,7 @@ Everything accessible to every user in the browser — no wallet required to sta
 ### Data Ownership
 
 - **IPFS backup & restore** via Lighthouse — your data, your wallet, your CID
-- **Optional personal key fallback** in Settings — paste a Lighthouse Files key to avoid session-based key generation
+- **Optional personal key fallback** in Settings — enter a Lighthouse Files key on demand for encrypted snapshot uploads/restores
 - **MetaMask wallet connection** for Web3 identity (Optimism Mainnet)
 - **No backend** — fully client-side; if the servers go dark, your browser still works
 
