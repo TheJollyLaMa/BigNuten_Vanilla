@@ -2822,7 +2822,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       const shortCid = `${prefix}${ipfsIcons}${suffix}`;
       return `<div class="${colorClass}">
         <strong>${date}</strong><br>
-        <a href="https://gateway.lighthouse.storage/ipfs/${h.cid}" target="_blank" style="text-decoration:none;color:inherit;">
+        <a href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(h.cid || '').trim())}" target="_blank" style="text-decoration:none;color:inherit;">
           ${shortCid}
         </a>
       </div>`;
@@ -2901,7 +2901,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         div.className = 'snapshot-item';
         const date = h.timestamp ? formatInUserTz(h.timestamp) : '(No timestamp)';
         const shortCid = `${h.cid.slice(0, 6)}...${h.cid.slice(-4)}`;
-        div.innerHTML = `<strong>${date}</strong><br><a href="https://gateway.lighthouse.storage/ipfs/${h.cid}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
+        div.innerHTML = `<strong>${date}</strong><br><a href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(h.cid || '').trim())}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
         div.style.margin = '8px 0';
         content.appendChild(div);
       });
@@ -2965,7 +2965,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.appendChild(dateSpan);
         row.appendChild(document.createTextNode(' — '));
         const link = document.createElement('a');
-        link.href = `https://gateway.lighthouse.storage/ipfs/${entry.cid}`;
+        link.href = `https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(entry.cid || '').trim())}`;
         link.target = '_blank';
         link.rel = 'noopener';
         link.style.color = '#ff00cc';
@@ -3049,7 +3049,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.appendChild(dateSpan);
         row.appendChild(document.createTextNode(' — '));
         const link = document.createElement('a');
-        link.href = `https://gateway.lighthouse.storage/ipfs/${entry.cid}`;
+        link.href = `https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(entry.cid || '').trim())}`;
         link.target = '_blank';
         link.rel = 'noopener';
         link.style.color = '#00e5ff';

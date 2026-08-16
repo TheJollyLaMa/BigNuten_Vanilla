@@ -87,7 +87,7 @@ export function clearLighthouseSession() {
 }
 
 export function lighthouseGatewayUrl(cid) {
-  return `https://gateway.lighthouse.storage/ipfs/${cid}`;
+  return `https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(cid || '').trim())}`;
 }
 
 export async function uploadEncryptedSnapshot(data, { fileName = 'bignuten-snapshot.json' } = {}) {

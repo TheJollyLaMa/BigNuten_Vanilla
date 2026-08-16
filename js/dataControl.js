@@ -262,7 +262,7 @@ async function _handleIpfsIconClick() {
           const isHash = !cid.startsWith('bafy');
           const link = isHash
             ? `<code>${short}</code>`
-            : `<a href="https://gateway.lighthouse.storage/ipfs/${cid}" target="_blank" rel="noopener noreferrer">${short}</a>`;
+            : `<a href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(cid || '').trim())}" target="_blank" rel="noopener noreferrer">${short}</a>`;
           _setSnapshotPanelStatus(`✅ Pushed — ${link}`, 'success');
           _renderSnapshotHistory();
           // Refresh About section last-backup timestamp
@@ -508,7 +508,7 @@ function _renderSnapshotHistory() {
     const short = ref.length > 12 ? `${ref.slice(0, 8)}…${ref.slice(-4)}` : ref;
     const isIpfsCid = ref.startsWith('bafy') || ref.startsWith('Qm');
     const refLink = isIpfsCid
-      ? `<a class="sp-history-cid" href="https://gateway.lighthouse.storage/ipfs/${ref}" target="_blank" rel="noopener noreferrer">${short}</a>`
+      ? `<a class="sp-history-cid" href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(ref || '').trim())}" target="_blank" rel="noopener noreferrer">${short}</a>`
       : `<code class="sp-history-cid">${short}</code>`;
     const providerBadge = h.provider ? `<span class="sp-provider-badge">${h.provider}</span>` : '';
     return `<div class="sp-history-row${isToday ? ' sp-today' : ''}">
