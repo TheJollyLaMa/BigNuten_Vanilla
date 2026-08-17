@@ -6,6 +6,17 @@ const STORAGE_KEY = 'fitnessTrackerData';
 const DATA_VERSION = 1;
 const DEFAULT_EXERCISE_TYPES = ['Sit-ups', 'Push-ups', 'Pull-ups'];
 
+const LEGACY_DATA_KEYS = [
+  'data',
+  'fitnessData',
+  'fitnessTrackerData',
+  'bignutenData',
+  'BigNutenData',
+  'payload',
+  'backup',
+  'snapshot',
+];
+
 const defaultData = {
   dataVersion: DATA_VERSION,
   timeZone: '',
@@ -24,6 +35,72 @@ const defaultData = {
   genieInsights: []
 };
 
+function cloneDefaultData() {
+  return JSON.parse(JSON.stringify(defaultData));
+}
+
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function unwrapFitnessDataPayload(raw) {
+  let current = raw;
+  const seen = new Set();
+
+  while (isPlainObject(current) && !seen.has(current)) {
+    seen.add(current);
+    if (current.__bignutenSnapshot && isPlainObject(current.data)) {
+      current = current.data;
+      continue;
+    }
+
+    const wrapped = LEGACY_DATA_KEYS.map(key => current[key]).find(isPlainObject);
+    if (wrapped) {
+      current = wrapped;
+      continue;
+    }
+
+    break;
+  }
+
+  return current;
+}
+
+function coerceArray(source, keys) {
+  for (const key of keys) {
+    if (Array.isArray(source?.[key])) return source[key];
+  }
+  return [];
+}
+
+function normalizeExerciseBlock(source) {
+  const block = unwrapFitnessDataPayload(source);
+
+  if (Array.isArray(block)) {
+    return {
+      types: [...DEFAULT_EXERCISE_TYPES],
+      entries: block
+    };
+  }
+
+  if (!isPlainObject(block)) {
+    return {
+      types: [...DEFAULT_EXERCISE_TYPES],
+      entries: []
+    };
+  }
+
+  const rawTypes = coerceArray(block, ['types', 'exerciseTypes']);
+  const rawEntries = coerceArray(block, ['entries', 'logs', 'items', 'history']);
+
+  return {
+    types: rawTypes.length
+      ? [...new Set(rawTypes.map(type => String(type).trim()).filter(Boolean))]
+      : [...DEFAULT_EXERCISE_TYPES],
+    entries: rawEntries
+  };
+}
+
 /**
  * Normalizes a fitness data object to the current schema.
  * Guarantees all required arrays/objects exist with sensible defaults,
@@ -34,44 +111,28 @@ const defaultData = {
  * @returns {object} Normalized data with dataVersion set
  */
 export function normalizeFitnessData(data) {
-  if (!data || typeof data !== 'object') {
-    return JSON.parse(JSON.stringify(defaultData));
+  const source = unwrapFitnessDataPayload(data);
+  if (!isPlainObject(source)) {
+    return cloneDefaultData();
   }
 
-  // Migrate exercises from old array shape to object shape
-  if (Array.isArray(data.exercises)) {
-    data.exercises = {
-      types: DEFAULT_EXERCISE_TYPES,
-      entries: data.exercises
-    };
-  } else if (!data.exercises || typeof data.exercises !== 'object') {
-    data.exercises = {
-      types: DEFAULT_EXERCISE_TYPES,
-      entries: []
-    };
-  } else {
-    if (!Array.isArray(data.exercises.types)) {
-      data.exercises.types = DEFAULT_EXERCISE_TYPES;
-    }
-    if (!Array.isArray(data.exercises.entries)) {
-      data.exercises.entries = [];
-    }
-  }
+  const normalized = cloneDefaultData();
 
-  if (!Array.isArray(data.weightLogs)) data.weightLogs = [];
-  if (!Array.isArray(data.supplements)) data.supplements = [];
-  if (!Array.isArray(data.foods)) data.foods = [];
-  if (!Array.isArray(data.measurements)) data.measurements = [];
-  if (!Array.isArray(data.sessionLog)) data.sessionLog = [];
-  if (!Array.isArray(data.painLogs)) data.painLogs = [];
-  if (!Array.isArray(data.emotions)) data.emotions = [];
-  if (!Array.isArray(data.genieSessions)) data.genieSessions = [];
-  if (!Array.isArray(data.genieInsights)) data.genieInsights = [];
-  if (typeof data.timeZone !== 'string') data.timeZone = '';
+  normalized.timeZone = typeof source.timeZone === 'string' ? source.timeZone : '';
+  normalized.weightLogs = coerceArray(source, ['weightLogs', 'weightHistory', 'weights']);
+  normalized.supplements = coerceArray(source, ['supplements', 'supplementLogs', 'supplementHistory']);
+  normalized.foods = coerceArray(source, ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods']);
+  normalized.measurements = coerceArray(source, ['measurements', 'measurementLogs', 'bodyMeasurements']);
+  normalized.sessionLog = coerceArray(source, ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog']);
+  normalized.painLogs = coerceArray(source, ['painLogs', 'painLog']);
+  normalized.emotions = coerceArray(source, ['emotions', 'emotionLogs', 'feelings']);
+  normalized.genieSessions = coerceArray(source, ['genieSessions']);
+  normalized.genieInsights = coerceArray(source, ['genieInsights']);
+  normalized.exercises = normalizeExerciseBlock(source.exercises ?? source.exerciseLogs ?? source.workoutExercises);
 
-  data.dataVersion = DATA_VERSION;
+  normalized.dataVersion = DATA_VERSION;
 
-  return data;
+  return normalized;
 }
 
 
@@ -214,7 +275,9 @@ export function patchAllSnapshotHistory() {
 }
 
 // Optionally auto-run on file load
-retrofitOldSnapshots();
+if (typeof localStorage !== 'undefined') {
+  retrofitOldSnapshots();
+}
 export async function logWeight(weight) {
   const data = await getFitnessData();
   data.weightLogs.push({
@@ -224,9 +287,9 @@ export async function logWeight(weight) {
   saveFitnessData(data);
 }
 // Run once at idle — deferred off the critical path to avoid blocking first paint.
-if (typeof requestIdleCallback === 'function') {
+if (typeof localStorage !== 'undefined' && typeof requestIdleCallback === 'function') {
   requestIdleCallback(() => patchAllSnapshotHistory(), { timeout: 5000 });
-} else {
+} else if (typeof localStorage !== 'undefined') {
   setTimeout(() => patchAllSnapshotHistory(), 3000);
 }
 
