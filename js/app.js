@@ -3500,89 +3500,6 @@ if (measurementForm) {
            const ipfsIconEl = document.getElementById("ipfsIcon");
            if (ipfsIconEl) ipfsIconEl.style.display = "inline-flex";
 
-           // Dynamic DID key animation characters (new ticker circle)
-           const did = result.spaceDid;
-           const prefix = did.slice(8, 14);
-           const suffix = did.slice(-4);
-           const tickerCircle = document.getElementById('ticker-circle');
-           tickerCircle.innerHTML = '';
-
-           const currentMode = getStorageMode();
-           [...prefix].forEach(char => {
-             const span = document.createElement('span');
-             span.classList.add('ticker-letter');
-             span.textContent = char;
-             span.dataset.storageMode = currentMode;
-             tickerCircle.appendChild(span);
-           });
-           for (let i = 0; i < 4; i++) {
-             const img = document.createElement('img');
-             img.classList.add('ticker-letter');
-             img.src = 'img/IPFS_Logo.png';
-             img.style.width = '12px';
-             img.style.height = '12px';
-             img.dataset.storageMode = currentMode;
-             tickerCircle.appendChild(img);
-           }
-           [...suffix].forEach(char => {
-             const span = document.createElement('span');
-             span.classList.add('ticker-letter');
-             span.textContent = char;
-             span.dataset.storageMode = currentMode;
-             tickerCircle.appendChild(span);
-           });
-
-           // Add "* ⚸ *" to the end of the ticker
-           const star1 = document.createElement('span');
-           star1.classList.add('ticker-letter');
-           star1.textContent = '*';
-           star1.dataset.storageMode = currentMode;
-           tickerCircle.appendChild(star1);
-
-           const shakti = document.createElement('span');
-           shakti.classList.add('ticker-letter');
-           shakti.textContent = '⚸';
-           shakti.dataset.storageMode = currentMode;
-           tickerCircle.appendChild(shakti);
-
-           const star2 = document.createElement('span');
-           star2.classList.add('ticker-letter');
-           star2.textContent = '*';
-           star2.dataset.storageMode = currentMode;
-           tickerCircle.appendChild(star2);
-
-           // Position letters (recentered snake on IPFS icon with logo-aligned origin)
-           function positionLetters() {
-             const letters = document.querySelectorAll('.ticker-letter');
-             const tickerWrapper = document.querySelector('.ticker-wrapper');
-             const wrapperRect = tickerWrapper.getBoundingClientRect();
-             const centerX = wrapperRect.width / 2;  // small X offset tweak
-             const centerY = wrapperRect.height / 2; // small Y offset tweak
-             const radius = 54;
-             const angleStep = (2 * Math.PI) / letters.length;
-
-             letters.forEach((letter, index) => {
-               const angle = index * angleStep;
-               const x = centerX + radius * Math.cos(angle);
-               const y = centerY + radius * Math.sin(angle);
-               letter.style.left = `${x}px`;
-               letter.style.top = `${y}px`;
-             });
-           }
-           positionLetters();
-
-           // Animate circle
-           function animateTicker() {
-             let angle = 0;
-             function rotate() {
-               tickerCircle.style.transform = `rotate(${angle}deg)`;
-               angle += 0.2;
-               requestAnimationFrame(rotate);
-             }
-             rotate();
-           }
-           animateTicker();
-          
            // After provider connects: update mode to 'w3up', store session ref for uploads
            const ipfsIcon = document.getElementById("ipfsIcon");
            if (ipfsIcon) {
@@ -3606,6 +3523,7 @@ if (measurementForm) {
                  if (r?.cid) {
                    console.log("📦 Catch-up snapshot uploaded:", r.cid);
                    markHourlySnapshotTaken();
+                   if (typeof setStorageMode === 'function') setStorageMode('w3up');
                  }
                }).catch(() => { /* non-fatal */ });
              }

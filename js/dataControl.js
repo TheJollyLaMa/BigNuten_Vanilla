@@ -594,7 +594,13 @@ function _syncIpfsTicker(mode) {
     || manifest.snapshots.find(m => m.provider === 'w3up' || m.provider === 'own-w3s')
     || loadSnapshotMeta()[0]
     || null;
-  const ref = lastMeta?.cid || lastMeta?.hash || window._w3upClientRef?.publicKey || window._w3upClientRef?.identity || '';
+  const ref = lastMeta?.cid
+    || lastMeta?.hash
+    || window._w3upClientRef?.linkedSnapshotCid
+    || window._w3upClientRef?.snapshotContext?.currentCid
+    || window._w3upClientRef?.publicKey
+    || window._w3upClientRef?.identity
+    || '';
   const shortRef = _shortRef(ref);
   if (!shortRef) {
     ticker.innerHTML = '';
@@ -671,6 +677,8 @@ function _applyIpfsIndicator(mode) {
   const shortRef = _shortRef(
     activeMeta?.cid
     || activeMeta?.hash
+    || window._w3upClientRef?.linkedSnapshotCid
+    || window._w3upClientRef?.snapshotContext?.currentCid
     || window._w3upClientRef?.publicKey
     || window._w3upClientRef?.identity
   );
