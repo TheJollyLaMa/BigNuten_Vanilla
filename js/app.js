@@ -3,12 +3,14 @@ import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, 
 import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
-import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS } from './dataControl.js';
+import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS, _openConnectDialog } from './dataControl.js';
 import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey, getHostedModelsForBackend, getGenieHostedModelName, setGenieHostedModelName, getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory, rateGenieSession, deleteGenieSession, MAX_INSIGHTS } from './genieChat.js';
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 import { initCompetitions, loadCompetitionsList } from './competitions.js';
 import { initYogaFlow } from './yoga.js';
+import { getManualLighthouseToken, setManualLighthouseToken, clearManualLighthouseToken, lighthouseGatewayUrl } from './lighthouseStorage.js';
+import { loadSnapshotManifest } from './snapshotLifecycle.js';
 
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -892,8 +894,8 @@ window.addEventListener('DOMContentLoaded', () => {
     connectBtn.addEventListener('click', connectToBluetoothScale);
   }
 });
-import { connectW3upClient, tryAutoRestoreW3upClient } from './w3upClient.js';
-import { uploadDataToIPFS } from './uploadToIPFS.js';
+import { providerRegistry } from './storageProvider.js';
+import { W3upProvider } from './providers/w3upProvider.js';
 import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
 import { initCommunityDashboard } from './communityDashboard.js';
 import { initCorrelationGraph } from './correlationGraph.js';
@@ -2762,18 +2764,64 @@ const WALLET_WHITELIST = [
 ];
 
 // --- Snapshot helper functions ---
-const LAST_SNAPSHOT_KEY = 'lastAutoSnapshotDate';
+const LAST_SNAPSHOT_KEY = 'lastAutoSnapshotTimestamp';
+const HOURLY_SNAPSHOT_INTERVAL_MS = 60 * 60 * 1000;
 
-function shouldTakeSnapshotToday() {
-  const lastDate = localStorage.getItem(LAST_SNAPSHOT_KEY);
-  const today = new Date().toISOString().split('T')[0];
-  return lastDate !== today;
+function shouldTakeHourlySnapshot() {
+  const lastTimestamp = Number(localStorage.getItem(LAST_SNAPSHOT_KEY) || 0);
+  return !lastTimestamp || (Date.now() - lastTimestamp) >= HOURLY_SNAPSHOT_INTERVAL_MS;
 }
 
-function markSnapshotTakenToday() {
-  const today = new Date().toISOString().split('T')[0];
-  localStorage.setItem(LAST_SNAPSHOT_KEY, today);
+function markHourlySnapshotTaken() {
+  localStorage.setItem(LAST_SNAPSHOT_KEY, String(Date.now()));
 }
+
+function scheduleHourlySnapshot(client, uploadFn) {
+  if (!client) return;
+
+  if (window._bignutenHourlySnapshotTimeout) {
+    clearTimeout(window._bignutenHourlySnapshotTimeout);
+    window._bignutenHourlySnapshotTimeout = null;
+  }
+  if (window._bignutenHourlySnapshotInterval) {
+    clearInterval(window._bignutenHourlySnapshotInterval);
+    window._bignutenHourlySnapshotInterval = null;
+  }
+
+  const runSnapshot = async (label) => {
+    if (getStorageMode() === 'json-only') return;
+    if (!shouldTakeHourlySnapshot()) return;
+
+    const data = getFitnessData();
+    try {
+      if (typeof uploadFn !== 'function') return;
+      const result = await uploadFn(data);
+      if (result?.cid) {
+        console.log(`🕒 ${label} snapshot uploaded:`, result.cid);
+        markHourlySnapshotTaken();
+      } else {
+        console.warn(`❌ ${label} snapshot failed.`);
+      }
+    } catch (err) {
+      console.warn(`❌ ${label} snapshot failed:`, err);
+    }
+  };
+
+  const now = new Date();
+  const nextHour = new Date(now);
+  nextHour.setMinutes(0, 0, 0);
+  nextHour.setHours(nextHour.getHours() + 1);
+  const timeUntilNextHour = Math.max(1000, nextHour - now);
+
+  window._bignutenHourlySnapshotTimeout = setTimeout(() => {
+    runSnapshot('Hourly catch-up');
+    window._bignutenHourlySnapshotInterval = setInterval(() => {
+      runSnapshot('Hourly');
+    }, HOURLY_SNAPSHOT_INTERVAL_MS);
+  }, timeUntilNextHour);
+}
+
+window._bignutenScheduleHourlySnapshot = scheduleHourlySnapshot;
 
 window.addEventListener('DOMContentLoaded', async () => {
   console.time('[startup] DOMContentLoaded → interactive');
@@ -2788,25 +2836,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Snapshot popup: show all snapshots (no pagination)
   function renderSnapshotPopup() {
-    // Load snapshot history from latest snapshot's embedded snapshotHistory
-    const latestKey = Object.keys(localStorage)
-      .filter(k => k.startsWith('fitnessTrackerSnapshot-'))
-      .sort()
-      .reverse()[0];
-    let history = [];
-    if (latestKey) {
-      const latestSnapshot = JSON.parse(localStorage.getItem(latestKey));
-      history = (latestSnapshot?.data?.snapshotHistory || []).map(entry => {
-        if (typeof entry === 'string') {
-          return { cid: entry, timestamp: '' };
-        }
-        return entry;
-      });
-      // Include current snapshot CID
-      if (latestSnapshot?.cid) {
-        history.unshift({ cid: latestSnapshot.cid, timestamp: latestKey.split('fitnessTrackerSnapshot-')[1] });
-      }
-    }
+    const manifest = loadSnapshotManifest();
+    let history = manifest.snapshots.length
+      ? manifest.snapshots
+      : (JSON.parse(localStorage.getItem('snapshotHistory') || '[]') || []);
     const today = getTodayInUserTz();
 
     // Show only the latest 7 snapshots
@@ -2816,13 +2849,14 @@ window.addEventListener('DOMContentLoaded', async () => {
         : '(No timestamp)';
       const isToday = h.timestamp && h.timestamp.startsWith(today);
       const colorClass = isToday ? 'snapshot-today' : 'snapshot-old';
-      const prefix = h.cid.slice(0, 6);
-      const suffix = h.cid.slice(-4);
+      const cid = String(h.cid || h.hash || '').trim();
+      const prefix = cid.slice(0, 6);
+      const suffix = cid.slice(-4);
       const ipfsIcons = `<img src="img/IPFS_Logo.png" style="width:10px;height:10px;">`.repeat(4);
       const shortCid = `${prefix}${ipfsIcons}${suffix}`;
       return `<div class="${colorClass}">
         <strong>${date}</strong><br>
-        <a href="https://${h.cid}.ipfs.w3s.link/" target="_blank" style="text-decoration:none;color:inherit;">
+        <a href="${lighthouseGatewayUrl(cid)}" target="_blank" style="text-decoration:none;color:inherit;">
           ${shortCid}
         </a>
       </div>`;
@@ -2901,7 +2935,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         div.className = 'snapshot-item';
         const date = h.timestamp ? formatInUserTz(h.timestamp) : '(No timestamp)';
         const shortCid = `${h.cid.slice(0, 6)}...${h.cid.slice(-4)}`;
-        div.innerHTML = `<strong>${date}</strong><br><a href="https://${h.cid}.ipfs.w3s.link/" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
+        div.innerHTML = `<strong>${date}</strong><br><a href="${lighthouseGatewayUrl(h.cid)}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
         div.style.margin = '8px 0';
         content.appendChild(div);
       });
@@ -2959,7 +2993,18 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.style.cssText = 'margin:4px 0;font-size:0.75rem;';
         const date = entry.importedAt ? formatInUserTz(entry.importedAt) : '';
         const short = `${entry.cid.slice(0, 6)}...${entry.cid.slice(-4)}`;
-        row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://${entry.cid}.ipfs.w3s.link/" target="_blank" style="color:#ff00cc;">${short}</a>`;
+        const dateSpan = document.createElement('span');
+        dateSpan.style.color = '#aaa';
+        dateSpan.textContent = date;
+        row.appendChild(dateSpan);
+        row.appendChild(document.createTextNode(' — '));
+        const link = document.createElement('a');
+        link.href = lighthouseGatewayUrl(entry.cid);
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.style.color = '#ff00cc';
+        link.textContent = short;
+        row.appendChild(link);
         importedSection.appendChild(row);
       });
       content.appendChild(importedSection);
@@ -3032,7 +3077,18 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.style.cssText = 'margin:4px 0;font-size:0.75rem;';
         const date = entry.importedAt ? formatInUserTz(entry.importedAt) : '';
         const short = `${entry.cid.slice(0, 6)}...${entry.cid.slice(-4)}`;
-        row.innerHTML = `<span style="color:#aaa;">${date}</span> — <a href="https://${entry.cid}.ipfs.w3s.link/" target="_blank" style="color:#00e5ff;">${short}</a>`;
+        const dateSpan = document.createElement('span');
+        dateSpan.style.color = '#aaa';
+        dateSpan.textContent = date;
+        row.appendChild(dateSpan);
+        row.appendChild(document.createTextNode(' — '));
+        const link = document.createElement('a');
+        link.href = lighthouseGatewayUrl(entry.cid);
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.style.color = '#00e5ff';
+        link.textContent = short;
+        row.appendChild(link);
         historyDiv.appendChild(row);
       });
       content.appendChild(historyDiv);
@@ -3425,173 +3481,63 @@ if (measurementForm) {
         displayCurrentWeight();
 
         // On auto-connect (page reload), attempt silent restore only.
-        // On user-initiated connect, allow full email login flow.
-        // Pass silent:true on the auto path to avoid noisy "not available" warnings
-        // when the IPFS bundle hasn't loaded yet.
-        console.time('[w3up] restore/connect');
-        const result = preAuthorizedAccount
-          ? await tryAutoRestoreW3upClient({ silent: true })
-          : await connectW3upClient();
-        console.timeEnd('[w3up] restore/connect');
+        // On user-initiated connect, allow the full wallet-sign-in flow.
+        // Route through the Lighthouse provider adapter — no direct SDK calls here.
+        console.time('[provider] restore/connect');
+        const _w3up = providerRegistry.get('w3up');
+        const providerResult = _w3up
+          ? (preAuthorizedAccount ? await _w3up.restore() : await _w3up.connect())
+          : null;
+        const result = providerResult?.connected
+          ? { spaceDid: providerResult.identity, client: _w3up?.client }
+          : null;
+        console.timeEnd('[provider] restore/connect');
         
         if (result) {
-           console.log("Web3.Storage space DID:", result.spaceDid);
+           console.log("Lighthouse session:", result.spaceDid);
            const status = document.getElementById("ipfs-status");
-           status.style.display = "block";
+           status.style.display = "flex";
            const ipfsIconEl = document.getElementById("ipfsIcon");
-           if (ipfsIconEl) ipfsIconEl.style.display = "inline-block";
+           if (ipfsIconEl) ipfsIconEl.style.display = "inline-flex";
 
-           // Dynamic DID key animation characters (new ticker circle)
-           const did = result.spaceDid;
-           const prefix = did.slice(8, 14);
-           const suffix = did.slice(-4);
-           const tickerCircle = document.getElementById('ticker-circle');
-           tickerCircle.innerHTML = '';
-
-           const currentMode = getStorageMode();
-           [...prefix].forEach(char => {
-             const span = document.createElement('span');
-             span.classList.add('ticker-letter');
-             span.textContent = char;
-             span.dataset.storageMode = currentMode;
-             tickerCircle.appendChild(span);
-           });
-           for (let i = 0; i < 4; i++) {
-             const img = document.createElement('img');
-             img.classList.add('ticker-letter');
-             img.src = 'img/IPFS_Logo.png';
-             img.style.width = '12px';
-             img.style.height = '12px';
-             img.dataset.storageMode = currentMode;
-             tickerCircle.appendChild(img);
-           }
-           [...suffix].forEach(char => {
-             const span = document.createElement('span');
-             span.classList.add('ticker-letter');
-             span.textContent = char;
-             span.dataset.storageMode = currentMode;
-             tickerCircle.appendChild(span);
-           });
-
-           // Add "* ⚸ *" to the end of the ticker
-           const star1 = document.createElement('span');
-           star1.classList.add('ticker-letter');
-           star1.textContent = '*';
-           star1.dataset.storageMode = currentMode;
-           tickerCircle.appendChild(star1);
-
-           const shakti = document.createElement('span');
-           shakti.classList.add('ticker-letter');
-           shakti.textContent = '⚸';
-           shakti.dataset.storageMode = currentMode;
-           tickerCircle.appendChild(shakti);
-
-           const star2 = document.createElement('span');
-           star2.classList.add('ticker-letter');
-           star2.textContent = '*';
-           star2.dataset.storageMode = currentMode;
-           tickerCircle.appendChild(star2);
-
-           // Position letters (recentered snake on IPFS icon with logo-aligned origin)
-           function positionLetters() {
-             const letters = document.querySelectorAll('.ticker-letter');
-             const tickerWrapper = document.querySelector('.ticker-wrapper');
-             const wrapperRect = tickerWrapper.getBoundingClientRect();
-             const centerX = wrapperRect.width / 2;  // small X offset tweak
-             const centerY = wrapperRect.height / 2; // small Y offset tweak
-             const radius = 54;
-             const angleStep = (2 * Math.PI) / letters.length;
-
-             letters.forEach((letter, index) => {
-               const angle = index * angleStep;
-               const x = centerX + radius * Math.cos(angle);
-               const y = centerY + radius * Math.sin(angle);
-               letter.style.left = `${x}px`;
-               letter.style.top = `${y}px`;
-             });
-           }
-           positionLetters();
-
-           // Animate circle
-           function animateTicker() {
-             let angle = 0;
-             function rotate() {
-               tickerCircle.style.transform = `rotate(${angle}deg)`;
-               angle += 0.2;
-               requestAnimationFrame(rotate);
-             }
-             rotate();
-           }
-           animateTicker();
-          
-           // After w3up connects: update mode to own-w3s, store client ref for uploads
+           // After provider connects: update mode to 'w3up', store session ref for uploads
            const ipfsIcon = document.getElementById("ipfsIcon");
            if (ipfsIcon) {
              // Update the icon to reflect connected state
-             ipfsIcon.dataset.storageMode = 'own-w3s';
+             ipfsIcon.dataset.storageMode = 'w3up';
              const statusRingEl = document.getElementById('ipfs-status');
-             if (statusRingEl) statusRingEl.dataset.storageMode = 'own-w3s';
+             if (statusRingEl) statusRingEl.dataset.storageMode = 'w3up';
            }
-           // Store client reference so icon click can trigger manual upload
+           // Store session reference so icon click can trigger manual upload (legacy path)
            window._w3upClientRef = result.client;
            // Mark education seen and update mode
            localStorage.setItem('ipfsEducationSeen', '1');
-           if (typeof setStorageMode === 'function') setStorageMode('own-w3s');
+           if (typeof setStorageMode === 'function') setStorageMode('w3up');
 
-           // --- Snapshot catch-up logic: check if we missed today's snapshot
+           // --- Snapshot catch-up logic: check if we missed the current hourly snapshot
            if (result?.client) {
-             // Skip IPFS upload if user explicitly chose JSON-only mode
-             if (getStorageMode() !== 'json-only' && shouldTakeSnapshotToday()) {
+             // Skip upload if user explicitly chose JSON-only mode
+             if (getStorageMode() !== 'json-only' && shouldTakeHourlySnapshot()) {
                const data = getFitnessData();
-               const cid = await uploadDataToIPFS(data, result.client);
-               if (cid) {
-                 console.log("📦 Catch-up snapshot uploaded:", cid);
-                 markSnapshotTakenToday();
-               }
+               _w3up.put(data).then(r => {
+                 if (r?.cid) {
+                   console.log("📦 Catch-up snapshot uploaded:", r.cid);
+                   markHourlySnapshotTaken();
+                   if (typeof setStorageMode === 'function') setStorageMode('w3up');
+                 }
+               }).catch(() => { /* non-fatal */ });
              }
            }
 
-           // Auto snapshot at midnight
-           function scheduleMidnightSnapshot(client) {
-             if (!client) return;
-
-             const now = new Date();
-             const nextMidnight = new Date(
-               now.getFullYear(),
-               now.getMonth(),
-               now.getDate() + 1,
-               0, 0, 0, 0
-             );
-             const timeUntilMidnight = nextMidnight - now;
-
-             setTimeout(() => {
-               // Skip IPFS upload if user explicitly chose JSON-only mode
-               if (getStorageMode() !== 'json-only') {
-                 const data = getFitnessData();
-                 uploadDataToIPFS(data, client).then(cid => {
-                   if (cid) {
-                     console.log("🕛 Midnight snapshot uploaded:", cid);
-                     markSnapshotTakenToday();
-                   } else {
-                     console.warn("❌ Midnight snapshot failed.");
-                   }
-                 });
-               }
-
-               // Reschedule for next day
-               scheduleMidnightSnapshot(client);
-             }, timeUntilMidnight);
-           }
-
-           // After connectW3upClient returns a result, schedule it
+           // After provider connects, schedule hourly snapshots
            if (result && result.client) {
-             scheduleMidnightSnapshot(result.client);
+             scheduleHourlySnapshot(result.client, _w3up.put.bind(_w3up));
            }
         } else {
            if (preAuthorizedAccount) {
-             console.info("W3UP session not restored on auto-connect — click the wallet button to connect IPFS.");
+             console.info("Lighthouse session not restored on auto-connect — click the wallet button to connect Lighthouse.");
            } else {
-             console.error("Failed to connect to Web3.Storage.");
+             console.error("Failed to connect to Lighthouse.");
            }
         }
 
@@ -4840,6 +4786,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const cycleInput    = document.getElementById('settings-day-cycle-input');
     const cycleSaveBtn  = document.getElementById('settings-day-cycle-save');
     const cycleStatus   = document.getElementById('settings-day-cycle-status');
+    const lighthouseKeyInput  = document.getElementById('lighthouse-key-input');
+    const lighthouseKeyStatus  = document.getElementById('lighthouse-key-status');
+    const lighthouseKeySaveBtn = document.getElementById('lighthouse-key-save');
+    const lighthouseKeyClearBtn = document.getElementById('lighthouse-key-clear');
 
     if (!settingsModal) return;
 
@@ -4847,6 +4797,13 @@ document.addEventListener('DOMContentLoaded', () => {
       closeAesDropdown();
       if (cycleInput) cycleInput.value = getDayCycleStart();
       if (cycleStatus) cycleStatus.textContent = '';
+      if (lighthouseKeyInput) lighthouseKeyInput.value = getManualLighthouseToken();
+      if (lighthouseKeyStatus) {
+        lighthouseKeyStatus.textContent = getManualLighthouseToken() ? '✅ Key ready' : '';
+        lighthouseKeyStatus.className = getManualLighthouseToken()
+          ? 'genie-apikey-status saved'
+          : 'genie-apikey-status';
+      }
       settingsModal.classList.remove('modal-hidden');
       document.body.classList.add('modal-active');
     }
@@ -4876,6 +4833,48 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cycleStatus) {
           cycleStatus.textContent = '✅ Saved! Day boundary updated.';
           cycleStatus.className = 'settings-status settings-status-success';
+        }
+      });
+    }
+
+    if (lighthouseKeySaveBtn) {
+      lighthouseKeySaveBtn.addEventListener('click', () => {
+        const val = lighthouseKeyInput?.value?.trim() || '';
+        setManualLighthouseToken(val);
+        if (window._lighthouseSessionRef) {
+          window._lighthouseSessionRef.authToken = val;
+          window._lighthouseSessionRef.jwt = val;
+          window._lighthouseSessionRef.apiKey = val;
+          window._lighthouseSessionRef.manualToken = true;
+          if (!window._lighthouseSessionRef.signedMessage) {
+            window._lighthouseSessionRef.signedMessage = val;
+          }
+        }
+        if (lighthouseKeyInput) lighthouseKeyInput.value = val;
+        if (lighthouseKeyStatus) {
+          lighthouseKeyStatus.textContent = val ? '✅ Key ready' : '🗑 Key cleared';
+          lighthouseKeyStatus.className = val
+            ? 'genie-apikey-status saved'
+            : 'genie-apikey-status cleared';
+        }
+      });
+    }
+
+    if (lighthouseKeyClearBtn) {
+      lighthouseKeyClearBtn.addEventListener('click', () => {
+        clearManualLighthouseToken();
+        if (window._lighthouseSessionRef?.manualToken) {
+          window._lighthouseSessionRef.authToken = '';
+          window._lighthouseSessionRef.jwt = '';
+          window._lighthouseSessionRef.apiKey = '';
+          window._lighthouseSessionRef.signedMessage = '';
+          window._lighthouseSessionRef.manualToken = false;
+        }
+        if (lighthouseKeyInput) lighthouseKeyInput.value = '';
+        if (lighthouseKeyStatus) {
+          lighthouseKeyStatus.textContent = '🗑 Key cleared';
+          lighthouseKeyStatus.className = 'genie-apikey-status cleared';
+          setTimeout(() => { lighthouseKeyStatus.textContent = ''; }, 2500);
         }
       });
     }
@@ -5039,7 +5038,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mode     = getStorageMode();
     if (!educSeen) {
       import('./dataControl.js').then(m => m._openOverlay());
-    } else if (mode !== 'own-w3s') {
+    } else if (mode !== 'w3up' && mode !== 'own-w3s') {
       const dialog = document.getElementById('ipfs-connect-dialog');
       if (dialog) {
         dialog.classList.remove('modal-hidden');
@@ -7547,7 +7546,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initCommunityDashboard();
 
   // ── Data Control (educational overlay + snapshot panel) ──────────────────
-  initDataControl({ connectW3upClient, tryAutoRestoreW3upClient, uploadDataToIPFS });
+  // Register providers and pass the W3up adapter to initDataControl.
+  const lighthouseProvider = new W3upProvider();
+  providerRegistry.register(lighthouseProvider);
+  initDataControl({ provider: lighthouseProvider });
 
   // ── Apply initial IPFS glow state ─────────────────────────────────────────
   {
@@ -7557,10 +7559,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusRing = document.getElementById('ipfs-status');
     if (statusRing) statusRing.dataset.storageMode = initMode;
 
-    // Wire About-modal "Connect Storacha" button
+    // Wire About-modal "Connect Lighthouse" button
     document.getElementById('about-ipfs-connect-btn')?.addEventListener('click', async () => {
-      const { _openOverlay } = await import('./dataControl.js');
-      _openOverlay();
+      const mode = getStorageMode();
+      if (mode === 'w3up' || mode === 'own-w3s') {
+        document.getElementById('about-modal')?.classList.add('modal-hidden');
+        import('./dataControl.js').then(m => m._openSnapshotPanel());
+        return;
+      }
+      document.getElementById('about-modal')?.classList.add('modal-hidden');
+      document.getElementById('ipfs-dialog-connect-btn')?.click();
     });
 
     // Wire condensed dialog JSON buttons

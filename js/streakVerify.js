@@ -5,7 +5,7 @@
  * Provides:
  *  - checkDataForDate(source, dateStr) — check if user logged data for a given day
  *  - buildDailyReport(comp, verifications, previousCID) — build chained IPFS report
- *  - publishDailyReport(report) — upload report to IPFS via w3up
+ *  - publishDailyReport(report) — upload report to Lighthouse IPFS
  *  - runAutoVerify() — on app load, auto-check & submit reports for active comps
  *
  * Data source mapping:
@@ -20,6 +20,8 @@
  *
  * Related issue: #71 (v3.1.0 Epic).
  */
+
+import { uploadEncryptedSnapshot } from './lighthouseStorage.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -163,22 +165,14 @@ export function buildDailyReport(comp, verifications, previousCID) {
 // ─── IPFS Publishing ──────────────────────────────────────────────────────────
 
 /**
- * Publish a daily report to IPFS via the w3up client.
+ * Publish a daily report to Lighthouse IPFS.
  * Returns the CID string or null on failure.
  * @param {object} report — built by buildDailyReport()
  * @returns {Promise<string|null>}
  */
 export async function publishDailyReport(report) {
   try {
-    // Use existing w3up client if available
-    const client = window._w3upClient;
-    if (!client) {
-      console.warn('[StreakVerify] No w3up client available for IPFS upload.');
-      return null;
-    }
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-    const cid = await client.uploadFile(blob);
-    const cidStr = cid.toString();
+    const { cid: cidStr } = await uploadEncryptedSnapshot(report, { fileName: 'bignuten-daily-report.json' });
 
     // Update local report chain
     _saveToChain(report.compId, cidStr, report);
