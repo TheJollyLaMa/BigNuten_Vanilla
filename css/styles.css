@@ -1301,6 +1301,7 @@ header {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: center 58%;
   border-radius: 50%;
   display: block;
 }
