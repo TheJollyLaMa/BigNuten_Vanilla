@@ -27,6 +27,7 @@ import {
   getReportChain,
   runAutoVerify,
 } from './streakVerify.js';
+import { lighthouseGatewayUrl } from './lighthouseStorage.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -613,7 +614,7 @@ async function adminDailyReport(compId) {
 
     if (cid) {
       if (statusEl) {
-        statusEl.innerHTML = `✅ Daily report published! CID: <a href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(cid || '').trim())}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">${cid.slice(0, 12)}…</a>`;
+        statusEl.innerHTML = `✅ Daily report published! CID: <a href="${lighthouseGatewayUrl(cid)}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">${cid.slice(0, 12)}…</a>`;
         statusEl.style.color = '#00e676';
       }
       renderReportChain(compId);
@@ -649,7 +650,7 @@ function renderReportChain(compId) {
       <div class="comp-report-entry">
         <span class="comp-report-date">${escHtml(r.date)}</span>
         <span class="comp-report-stats">✅ ${r.verified} · ❌ ${r.failed}</span>
-        <a class="comp-report-link" href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(r.cid || '').trim())}" target="_blank" rel="noopener noreferrer">${r.cid.slice(0, 12)}…</a>
+        <a class="comp-report-link" href="${lighthouseGatewayUrl(r.cid)}" target="_blank" rel="noopener noreferrer">${r.cid.slice(0, 12)}…</a>
       </div>
     `;
   }

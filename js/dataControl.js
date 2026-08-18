@@ -9,6 +9,7 @@
 import { normalizeFitnessData, mergeSnapshotData, importAndMergeFromCID } from './fitnessData.js';
 import { providerRegistry, loadSnapshotMeta } from './storageProvider.js';
 import { getCurrentSnapshotPointer, getSnapshotLifecycleSummary, loadSnapshotManifest } from './snapshotLifecycle.js';
+import { lighthouseGatewayUrl } from './lighthouseStorage.js';
 
 const STORAGE_KEY        = 'fitnessTrackerData';
 const STORAGE_MODE_KEY   = 'storageMode';
@@ -271,7 +272,7 @@ async function _handleIpfsIconClick() {
           const isHash = !cid.startsWith('bafy');
           const link = isHash
             ? `<code>${short}</code>`
-            : `<a href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(cid || '').trim())}" target="_blank" rel="noopener noreferrer">${short}</a>`;
+            : `<a href="${lighthouseGatewayUrl(cid)}" target="_blank" rel="noopener noreferrer">${short}</a>`;
           _setSnapshotPanelStatus(`✅ Pushed — ${link}`, 'success');
           localStorage.setItem('lastAutoSnapshotTimestamp', String(Date.now()));
           _renderSnapshotHistory();
@@ -521,7 +522,7 @@ function _renderSnapshotHistory() {
     const short = ref.length > 12 ? `${ref.slice(0, 8)}…${ref.slice(-4)}` : ref;
     const isIpfsCid = ref.startsWith('bafy') || ref.startsWith('Qm');
     const refLink = isIpfsCid
-      ? `<a class="sp-history-cid" href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(ref || '').trim())}" target="_blank" rel="noopener noreferrer">${short}</a>`
+      ? `<a class="sp-history-cid" href="${lighthouseGatewayUrl(ref)}" target="_blank" rel="noopener noreferrer">${short}</a>`
       : `<code class="sp-history-cid">${short}</code>`;
     const providerBadge = h.provider ? `<span class="sp-provider-badge">${h.provider}</span>` : '';
     const tierBadge = h.tier ? `<span class="sp-provider-badge">${h.tier}</span>` : '';

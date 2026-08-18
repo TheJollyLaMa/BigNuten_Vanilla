@@ -9,7 +9,7 @@ import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 import { initCompetitions, loadCompetitionsList } from './competitions.js';
 import { initYogaFlow } from './yoga.js';
-import { getManualLighthouseToken, setManualLighthouseToken, clearManualLighthouseToken } from './lighthouseStorage.js';
+import { getManualLighthouseToken, setManualLighthouseToken, clearManualLighthouseToken, lighthouseGatewayUrl } from './lighthouseStorage.js';
 import { loadSnapshotManifest } from './snapshotLifecycle.js';
 
 // --- Raw Food Modal Logic ---
@@ -2856,7 +2856,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       const shortCid = `${prefix}${ipfsIcons}${suffix}`;
       return `<div class="${colorClass}">
         <strong>${date}</strong><br>
-        <a href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(cid)}" target="_blank" style="text-decoration:none;color:inherit;">
+        <a href="${lighthouseGatewayUrl(cid)}" target="_blank" style="text-decoration:none;color:inherit;">
           ${shortCid}
         </a>
       </div>`;
@@ -2935,7 +2935,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         div.className = 'snapshot-item';
         const date = h.timestamp ? formatInUserTz(h.timestamp) : '(No timestamp)';
         const shortCid = `${h.cid.slice(0, 6)}...${h.cid.slice(-4)}`;
-        div.innerHTML = `<strong>${date}</strong><br><a href="https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(h.cid || '').trim())}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
+        div.innerHTML = `<strong>${date}</strong><br><a href="${lighthouseGatewayUrl(h.cid)}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
         div.style.margin = '8px 0';
         content.appendChild(div);
       });
@@ -2999,7 +2999,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.appendChild(dateSpan);
         row.appendChild(document.createTextNode(' — '));
         const link = document.createElement('a');
-        link.href = `https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(entry.cid || '').trim())}`;
+        link.href = lighthouseGatewayUrl(entry.cid);
         link.target = '_blank';
         link.rel = 'noopener';
         link.style.color = '#ff00cc';
@@ -3083,7 +3083,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.appendChild(dateSpan);
         row.appendChild(document.createTextNode(' — '));
         const link = document.createElement('a');
-        link.href = `https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(entry.cid || '').trim())}`;
+        link.href = lighthouseGatewayUrl(entry.cid);
         link.target = '_blank';
         link.rel = 'noopener';
         link.style.color = '#00e5ff';

@@ -34,6 +34,7 @@ function getLighthouse({ strict = true } = {}) {
 
 const LIGHTHOUSE_AUTH_BASE = 'https://encryption.lighthouse.storage';
 const LIGHTHOUSE_OLD_AUTH_BASE = 'https://api.lighthouse.storage';
+const LIGHTHOUSE_IPFS_GATEWAY_BASE = 'https://electric-halibut-ovtd2.lighthouseweb3.xyz/ipfs/';
 let manualLighthouseTokenRef = '';
 
 export function getManualLighthouseToken() {
@@ -283,7 +284,7 @@ export function clearLighthouseSession() {
 }
 
 export function lighthouseGatewayUrl(cid) {
-  return `https://gateway.lighthouse.storage/ipfs/${encodeURIComponent(String(cid || '').trim())}`;
+  return `${LIGHTHOUSE_IPFS_GATEWAY_BASE}${encodeURIComponent(String(cid || '').trim())}`;
 }
 
 export async function uploadEncryptedSnapshot(data, { fileName = 'bignuten-snapshot.json', snapshotMeta = null } = {}) {
