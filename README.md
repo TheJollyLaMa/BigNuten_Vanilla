@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 ![Built With](https://img.shields.io/badge/built%20with-Vanilla%20JS-yellow?style=flat-square)
 ![Solidity](https://img.shields.io/badge/contracts-Solidity%200.8.20-363636?style=flat-square&logo=ethereum)
-![Storage](https://img.shields.io/badge/storage-IPFS%20via%20Lighthouse-blueviolet?style=flat-square)
+![Storage](https://img.shields.io/badge/storage-IPFS%20via%20Pinata-blueviolet?style=flat-square)
 ![Wallet](https://img.shields.io/badge/wallet-MetaMask-orange?style=flat-square)
 [![Early Supporter DNFT](https://img.shields.io/badge/Early%20Access-100%20DNFTs-8b00ff?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
 [![v2.0.0 DNFT Minted](https://img.shields.io/badge/v2.0.0%20DNFT-Minted%20%E2%9C%94-gold?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
@@ -134,8 +134,8 @@ Everything accessible to every user in the browser — no wallet required to sta
 
 ### Data Ownership
 
-- **IPFS backup & restore** via Lighthouse — your data, your wallet, your CID
-- **Optional personal key fallback** in Settings — enter a Lighthouse Files key on demand for encrypted snapshot uploads/restores
+- **IPFS backup & restore** via Pinata — your data, your wallet, your CID
+- **Optional personal JWT fallback** in Settings — enter a Pinata JWT on demand for snapshot uploads/restores
 - **MetaMask wallet connection** for Web3 identity (Optimism Mainnet)
 - **No backend** — fully client-side; if the servers go dark, your browser still works
 
@@ -257,7 +257,7 @@ open index.html   # macOS
 
 - Start logging weight, supplements, food, and exercise — no wallet needed
 - Connect **MetaMask** (Optimism) to unlock StreakBet competitions and on-chain identity
-- Connect **IPFS** (Lighthouse) to back up and restore your data across devices
+- Connect **IPFS** (Pinata) to back up and restore your data across devices
 - Join a StreakBet competition and put real money on your health goals 💪
 
 ### 🛠️ I'm a Builder
@@ -771,7 +771,7 @@ npx hardhat run scripts/deploy.js --network optimism
 |-------|-----------|
 | **Frontend** | HTML5, CSS3, Vanilla JavaScript (ES Modules) — no framework, no bundler |
 | **Charts** | Chart.js + chartjs-adapter-date-fns |
-| **Storage** | Lighthouse client (IPFS) |
+| **Storage** | Pinata client (IPFS) |
 | **Wallet** | MetaMask / EIP-1193 |
 | **Smart Contracts** | Solidity ^0.8.20, OpenZeppelin v5, Hardhat |
 | **Contract Testing** | Hardhat + @nomicfoundation/hardhat-network-helpers |
@@ -781,6 +781,10 @@ npx hardhat run scripts/deploy.js --network optimism
 | **AI / LLM** | WebLLM (local), GitHub Models (Azure), OpenAI GPT-4o |
 | **Fonts** | Bungee (Google Fonts) |
 | **Payments** | Stripe, PayPal (fiat on-ramp for DNFTs) |
+
+### Snapshot schema
+
+Snapshots now use the current `fitnessTrackerData` shape plus a lightweight wrapper for metadata. The inner payload remains the normalized data object from `fitnessData.js`, and wrapped snapshots can include `__bignutenSnapshot`, `version`, `createdAt`, `sessionAddress`, `sourceHash`, `previousSnapshot`, and `lineage` fields for recovery and history tracking.
 
 ### JS Module Map
 
@@ -803,7 +807,7 @@ js/
 ├── dataSharing.js       — Opt-in data sharing rewards
 ├── contracts.js         — Contract addresses + ABI imports
 ├── subscription.js      — DecentEscrow subscription management
-├── lighthouseStorage.js — Lighthouse encrypted upload helper
+├── pinataStorage.js — Pinata snapshot upload helper
 └── admin.js             — Admin panel helpers
 ```
 
@@ -820,7 +824,7 @@ cd BigNuten_Vanilla
 
 1. Open `index.html` in your browser — **no build step needed!**
 2. Connect your **MetaMask** wallet using the wallet button (Optimism Mainnet)
-3. Connect **IPFS** via the IPFS icon (requires a Lighthouse wallet-signed session)
+3. Connect **IPFS** via the IPFS icon (requires a Pinata JWT)
 4. Start logging your weight, supplements, food, and exercise!
 
 > Owner wallets automatically see the **Admin Panel** in the top navigation. See [Admin Panel](#️-admin-panel) above.

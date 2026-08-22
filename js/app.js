@@ -9,7 +9,7 @@ import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 import { initCompetitions, loadCompetitionsList } from './competitions.js';
 import { initYogaFlow } from './yoga.js';
-import { getManualLighthouseToken, setManualLighthouseToken, clearManualLighthouseToken, lighthouseGatewayUrl } from './lighthouseStorage.js';
+import { getManualLighthouseToken, setManualLighthouseToken, clearManualLighthouseToken, pinataGatewayUrl } from './lighthouseStorage.js';
 import { loadSnapshotManifest } from './snapshotLifecycle.js';
 
 // --- Raw Food Modal Logic ---
@@ -2856,7 +2856,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       const shortCid = `${prefix}${ipfsIcons}${suffix}`;
       return `<div class="${colorClass}">
         <strong>${date}</strong><br>
-        <a href="${lighthouseGatewayUrl(cid)}" target="_blank" style="text-decoration:none;color:inherit;">
+        <a href="${pinataGatewayUrl(cid)}" target="_blank" style="text-decoration:none;color:inherit;">
           ${shortCid}
         </a>
       </div>`;
@@ -2935,7 +2935,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         div.className = 'snapshot-item';
         const date = h.timestamp ? formatInUserTz(h.timestamp) : '(No timestamp)';
         const shortCid = `${h.cid.slice(0, 6)}...${h.cid.slice(-4)}`;
-        div.innerHTML = `<strong>${date}</strong><br><a href="${lighthouseGatewayUrl(h.cid)}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
+        div.innerHTML = `<strong>${date}</strong><br><a href="${pinataGatewayUrl(h.cid)}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
         div.style.margin = '8px 0';
         content.appendChild(div);
       });
@@ -2999,7 +2999,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.appendChild(dateSpan);
         row.appendChild(document.createTextNode(' — '));
         const link = document.createElement('a');
-        link.href = lighthouseGatewayUrl(entry.cid);
+        link.href = pinataGatewayUrl(entry.cid);
         link.target = '_blank';
         link.rel = 'noopener';
         link.style.color = '#ff00cc';
@@ -3083,7 +3083,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.appendChild(dateSpan);
         row.appendChild(document.createTextNode(' — '));
         const link = document.createElement('a');
-        link.href = lighthouseGatewayUrl(entry.cid);
+        link.href = pinataGatewayUrl(entry.cid);
         link.target = '_blank';
         link.rel = 'noopener';
         link.style.color = '#00e5ff';
@@ -3482,7 +3482,7 @@ if (measurementForm) {
 
         // On auto-connect (page reload), attempt silent restore only.
         // On user-initiated connect, allow the full wallet-sign-in flow.
-        // Route through the Lighthouse provider adapter — no direct SDK calls here.
+        // Route through the Pinata provider adapter — no direct SDK calls here.
         console.time('[provider] restore/connect');
         const _w3up = providerRegistry.get('w3up');
         const providerResult = _w3up
@@ -3494,7 +3494,7 @@ if (measurementForm) {
         console.timeEnd('[provider] restore/connect');
         
         if (result) {
-           console.log("Lighthouse session:", result.spaceDid);
+           console.log("Pinata session:", result.spaceDid);
            const status = document.getElementById("ipfs-status");
            status.style.display = "flex";
            const ipfsIconEl = document.getElementById("ipfsIcon");
@@ -3535,9 +3535,9 @@ if (measurementForm) {
            }
         } else {
            if (preAuthorizedAccount) {
-             console.info("Lighthouse session not restored on auto-connect — click the wallet button to connect Lighthouse.");
+             console.info("Pinata session not restored on auto-connect — click the wallet button to connect Pinata.");
            } else {
-             console.error("Failed to connect to Lighthouse.");
+             console.error("Failed to connect to Pinata.");
            }
         }
 
@@ -4786,10 +4786,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const cycleInput    = document.getElementById('settings-day-cycle-input');
     const cycleSaveBtn  = document.getElementById('settings-day-cycle-save');
     const cycleStatus   = document.getElementById('settings-day-cycle-status');
-    const lighthouseKeyInput  = document.getElementById('lighthouse-key-input');
-    const lighthouseKeyStatus  = document.getElementById('lighthouse-key-status');
-    const lighthouseKeySaveBtn = document.getElementById('lighthouse-key-save');
-    const lighthouseKeyClearBtn = document.getElementById('lighthouse-key-clear');
+    const pinataKeyInput  = document.getElementById('pinata-key-input');
+    const pinataKeyStatus  = document.getElementById('pinata-key-status');
+    const pinataKeySaveBtn = document.getElementById('pinata-key-save');
+    const pinataKeyClearBtn = document.getElementById('pinata-key-clear');
 
     if (!settingsModal) return;
 
@@ -4797,10 +4797,10 @@ document.addEventListener('DOMContentLoaded', () => {
       closeAesDropdown();
       if (cycleInput) cycleInput.value = getDayCycleStart();
       if (cycleStatus) cycleStatus.textContent = '';
-      if (lighthouseKeyInput) lighthouseKeyInput.value = getManualLighthouseToken();
-      if (lighthouseKeyStatus) {
-        lighthouseKeyStatus.textContent = getManualLighthouseToken() ? '✅ Key ready' : '';
-        lighthouseKeyStatus.className = getManualLighthouseToken()
+      if (pinataKeyInput) pinataKeyInput.value = getManualLighthouseToken();
+      if (pinataKeyStatus) {
+        pinataKeyStatus.textContent = getManualLighthouseToken() ? '✅ Key ready' : '';
+        pinataKeyStatus.className = getManualLighthouseToken()
           ? 'genie-apikey-status saved'
           : 'genie-apikey-status';
       }
@@ -4837,9 +4837,9 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    if (lighthouseKeySaveBtn) {
-      lighthouseKeySaveBtn.addEventListener('click', () => {
-        const val = lighthouseKeyInput?.value?.trim() || '';
+    if (pinataKeySaveBtn) {
+      pinataKeySaveBtn.addEventListener('click', () => {
+        const val = pinataKeyInput?.value?.trim() || '';
         setManualLighthouseToken(val);
         if (window._lighthouseSessionRef) {
           window._lighthouseSessionRef.authToken = val;
@@ -4850,18 +4850,18 @@ document.addEventListener('DOMContentLoaded', () => {
             window._lighthouseSessionRef.signedMessage = val;
           }
         }
-        if (lighthouseKeyInput) lighthouseKeyInput.value = val;
-        if (lighthouseKeyStatus) {
-          lighthouseKeyStatus.textContent = val ? '✅ Key ready' : '🗑 Key cleared';
-          lighthouseKeyStatus.className = val
+        if (pinataKeyInput) pinataKeyInput.value = val;
+        if (pinataKeyStatus) {
+          pinataKeyStatus.textContent = val ? '✅ Key ready' : '🗑 Key cleared';
+          pinataKeyStatus.className = val
             ? 'genie-apikey-status saved'
             : 'genie-apikey-status cleared';
         }
       });
     }
 
-    if (lighthouseKeyClearBtn) {
-      lighthouseKeyClearBtn.addEventListener('click', () => {
+    if (pinataKeyClearBtn) {
+      pinataKeyClearBtn.addEventListener('click', () => {
         clearManualLighthouseToken();
         if (window._lighthouseSessionRef?.manualToken) {
           window._lighthouseSessionRef.authToken = '';
@@ -4870,11 +4870,11 @@ document.addEventListener('DOMContentLoaded', () => {
           window._lighthouseSessionRef.signedMessage = '';
           window._lighthouseSessionRef.manualToken = false;
         }
-        if (lighthouseKeyInput) lighthouseKeyInput.value = '';
-        if (lighthouseKeyStatus) {
-          lighthouseKeyStatus.textContent = '🗑 Key cleared';
-          lighthouseKeyStatus.className = 'genie-apikey-status cleared';
-          setTimeout(() => { lighthouseKeyStatus.textContent = ''; }, 2500);
+        if (pinataKeyInput) pinataKeyInput.value = '';
+        if (pinataKeyStatus) {
+          pinataKeyStatus.textContent = '🗑 Key cleared';
+          pinataKeyStatus.className = 'genie-apikey-status cleared';
+          setTimeout(() => { pinataKeyStatus.textContent = ''; }, 2500);
         }
       });
     }
@@ -7547,9 +7547,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Data Control (educational overlay + snapshot panel) ──────────────────
   // Register providers and pass the W3up adapter to initDataControl.
-  const lighthouseProvider = new W3upProvider();
-  providerRegistry.register(lighthouseProvider);
-  initDataControl({ provider: lighthouseProvider });
+  const pinataProvider = new W3upProvider();
+  providerRegistry.register(pinataProvider);
+  initDataControl({ provider: pinataProvider });
 
   // ── Apply initial IPFS glow state ─────────────────────────────────────────
   {
@@ -7559,7 +7559,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusRing = document.getElementById('ipfs-status');
     if (statusRing) statusRing.dataset.storageMode = initMode;
 
-    // Wire About-modal "Connect Lighthouse" button
+    // Wire About-modal "Connect Pinata" button
     document.getElementById('about-ipfs-connect-btn')?.addEventListener('click', async () => {
       const mode = getStorageMode();
       if (mode === 'w3up' || mode === 'own-w3s') {

@@ -2,7 +2,7 @@
 // BigNuten Data Control — provider-agnostic backup, snapshot panel, JSON backup/restore.
 //
 // Storage modes (saved to localStorage key 'storageMode'):
-//   'w3up'      — User has connected Lighthouse IPFS storage (encrypted snapshots)
+//   'w3up'      — User has connected Pinata IPFS storage (encrypted snapshots)
 //   'own-w3s'   — Legacy alias for 'w3up' (kept for backwards compatibility)
 //   'json-only' — No remote storage; local browser only (DEFAULT for new users)
 
@@ -17,8 +17,8 @@ const EDUC_SEEN_KEY      = 'ipfsEducationSeen';
 
 /** Human-readable labels for each storage mode. */
 export const STORAGE_MODE_LABELS = {
-  'w3up':      '🔐 Lighthouse',
-  'own-w3s':   '🔐 Lighthouse',
+  'w3up':      '🔐 Pinata',
+  'own-w3s':   '🔐 Pinata',
   'json-only': '📁 JSON File (local)',
 };
 
@@ -232,7 +232,7 @@ export function initDataControl({
             try {
               window._bignutenScheduleHourlySnapshot(activeProvider.client, activeProvider.put.bind(activeProvider));
             } catch (err) {
-              console.warn('[DataControl] Failed to start hourly Lighthouse snapshots after restore:', err);
+              console.warn('[DataControl] Failed to start hourly Pinata snapshots after restore:', err);
             }
           }
         }
@@ -355,7 +355,7 @@ function _closeConnectDialog() {
 async function _doConnect(connectFn) {
   const statusEl = document.getElementById('ipfs-edu-connect-status')
                 || document.getElementById('ipfs-dialog-status');
-  _showEl(statusEl, '⏳ Signing in — approve the wallet prompt to unlock Lighthouse…', 'info');
+  _showEl(statusEl, '⏳ Signing in — approve the wallet prompt to unlock Pinata…', 'info');
 
   if (typeof connectFn !== 'function') {
     _showEl(statusEl, '⚠️ Storage provider not available. Please reload and try again.', 'error');
@@ -374,10 +374,10 @@ async function _doConnect(connectFn) {
         try {
           window._bignutenScheduleHourlySnapshot(result.client, activeProvider.put.bind(activeProvider));
         } catch (err) {
-          console.warn('[DataControl] Failed to start hourly Lighthouse snapshots after connect:', err);
+          console.warn('[DataControl] Failed to start hourly Pinata snapshots after connect:', err);
         }
       }
-      _showEl(statusEl, identity ? `✅ Signed in! Space: ${identity.slice(0, 20)}…` : '✅ Signed in to Lighthouse!', 'success');
+      _showEl(statusEl, identity ? `✅ Signed in! Space: ${identity.slice(0, 20)}…` : '✅ Signed in to Pinata!', 'success');
       document.getElementById('about-modal')?.classList.add('modal-hidden');
       setTimeout(() => {
         _closeOverlay();
@@ -688,12 +688,12 @@ function _applyIpfsIndicator(mode) {
     icon.setAttribute(
       'aria-label',
       mode === 'w3up' || mode === 'own-w3s'
-        ? `Lighthouse storage — ready${shortRef ? ` (${shortRef})` : ''}`
-        : 'Lighthouse storage — local only'
+        ? `Pinata storage — ready${shortRef ? ` (${shortRef})` : ''}`
+        : 'Pinata storage — local only'
     );
     icon.title = mode === 'w3up' || mode === 'own-w3s'
-      ? `🔆 Lighthouse — ready to push snapshots${shortRef ? ` (${shortRef})` : ''}.`
-      : '🔆 Local only — click to connect Lighthouse.';
+      ? `🔆 Pinata — ready to push snapshots${shortRef ? ` (${shortRef})` : ''}.`
+      : '🔆 Local only — click to connect Pinata.';
   }
   if (statusRing) statusRing.dataset.storageMode = mode;
 
@@ -706,10 +706,10 @@ function _applyIpfsIndicator(mode) {
   const tipMap = {
     'w3up':      `🔆 ${activeLabel} — ready. Click to push snapshot.`,
     'own-w3s':   `🔆 ${activeLabel} — ready. Click to push snapshot.`,
-    'json-only': '🔆 Local only — no remote backup. Click to connect Lighthouse.',
+    'json-only': '🔆 Local only — no remote backup. Click to connect Pinata.',
   };
   if (icon) {
-    icon.title = tipMap[mode] || '🔆 Lighthouse storage';
+    icon.title = tipMap[mode] || '🔆 Pinata storage';
   }
 
   // Refresh about-modal badge if visible (supports both old and new element IDs)
