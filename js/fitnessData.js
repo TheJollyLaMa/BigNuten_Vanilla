@@ -21,6 +21,7 @@ const defaultData = {
   dataVersion: DATA_VERSION,
   timeZone: '',
   weightLogs: [],
+  waterDailyHistory: {},
   supplements: [],
   foods: [],
   measurements: [],
@@ -73,6 +74,13 @@ function coerceArray(source, keys) {
   return [];
 }
 
+function coerceObject(source, keys) {
+  for (const key of keys) {
+    if (isPlainObject(source?.[key])) return source[key];
+  }
+  return {};
+}
+
 function normalizeExerciseBlock(source) {
   const block = unwrapFitnessDataPayload(source);
 
@@ -120,6 +128,7 @@ export function normalizeFitnessData(data) {
 
   normalized.timeZone = typeof source.timeZone === 'string' ? source.timeZone : '';
   normalized.weightLogs = coerceArray(source, ['weightLogs', 'weightHistory', 'weights']);
+  normalized.waterDailyHistory = coerceObject(source, ['waterDailyHistory', 'waterHistory']);
   normalized.supplements = coerceArray(source, ['supplements', 'supplementLogs', 'supplementHistory']);
   normalized.foods = coerceArray(source, ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods']);
   normalized.measurements = coerceArray(source, ['measurements', 'measurementLogs', 'bodyMeasurements']);
@@ -323,6 +332,11 @@ export function mergeSnapshotData(current, imported) {
     merged[field] = combined;
   });
 
+  merged.waterDailyHistory = {
+    ...(isPlainObject(imported.waterDailyHistory) ? imported.waterDailyHistory : {}),
+    ...(isPlainObject(current.waterDailyHistory) ? current.waterDailyHistory : {}),
+  };
+
   // Exercises can be an {types, entries} object (app.js format) or a legacy array
   const ce = current.exercises;
   const ie = imported.exercises;
@@ -369,12 +383,18 @@ export async function importAndMergeFromCID(cid) {
   ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions'].forEach(f => {
     if (!Array.isArray(imported[f])) imported[f] = [];
   });
+  if (!imported.waterDailyHistory || typeof imported.waterDailyHistory !== 'object' || Array.isArray(imported.waterDailyHistory)) {
+    imported.waterDailyHistory = {};
+  }
 
   const currentRaw = localStorage.getItem(STORAGE_KEY);
   const current = currentRaw ? JSON.parse(currentRaw) : { ...defaultData };
   ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions'].forEach(f => {
     if (!Array.isArray(current[f])) current[f] = [];
   });
+  if (!current.waterDailyHistory || typeof current.waterDailyHistory !== 'object' || Array.isArray(current.waterDailyHistory)) {
+    current.waterDailyHistory = {};
+  }
 
   const beforeWeightLogs = (current.weightLogs || []).length;
   const beforeExercises = Array.isArray(current.exercises)
@@ -397,7 +417,8 @@ export async function importAndMergeFromCID(cid) {
     added: {
       weightLogs: merged.weightLogs.length - beforeWeightLogs,
       exercises: (merged.exercises?.entries || []).length - beforeExercises,
-      sessionLog: merged.sessionLog.length - beforeSessionLog
+      sessionLog: merged.sessionLog.length - beforeSessionLog,
+      waterDays: Object.keys(merged.waterDailyHistory || {}).length - Object.keys(current.waterDailyHistory || {}).length,
     }
   };
 }

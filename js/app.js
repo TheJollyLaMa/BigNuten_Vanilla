@@ -785,6 +785,7 @@ const defaultData = {
   dataVersion: 1,
   timeZone: '',
   weightLogs: [],
+  waterDailyHistory: {},
   supplements: [],
   foods: [],
   measurements: [],
@@ -3115,7 +3116,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         const result = await importAndMergeFromCID(cid);
         const { added } = result;
         feedback.innerHTML = `✅ Merged successfully!<br>
-          Added: ${added.weightLogs} weight log(s), ${added.exercises} exercise entry(s), ${added.sessionLog} session(s).<br>
+          Added: ${added.weightLogs} weight log(s), ${added.exercises} exercise entry(s), ${added.sessionLog} session(s), ${added.waterDays} hydration day(s).<br>
           <em style="color:#aaa;">Reload the page to see all merged data.</em>`;
         feedback.style.color = '#00ff99';
         cidInput.value = '';
@@ -3365,6 +3366,14 @@ if (measurementForm) {
   const footer = document.querySelector('footer');
   const walletDisplay = document.getElementById('wallet-display');
 
+  function setWalletConnectionState(connected, account = '') {
+    if (!walletButton) return;
+    walletButton.classList.toggle('connected', connected);
+    walletButton.classList.toggle('disconnected', !connected);
+    walletButton.dataset.walletState = connected ? 'connected' : 'disconnected';
+    walletButton.title = connected && account ? `Connected: ${account}` : 'Connect MetaMask';
+  }
+
   function shortenAddress(addr) {
     // Show full 0x prefix
     const prefix = addr.slice(0, 6); // '0x1234'
@@ -3406,9 +3415,7 @@ if (measurementForm) {
           account = accounts[0];
         }
         if (!account || typeof account !== 'string') return;
-        walletButton.classList.remove('disconnected');
-        walletButton.classList.add('connected');
-        walletButton.title = `Connected: ${account}`;
+        setWalletConnectionState(true, account);
         window._connectedAccount = account;
         console.log(`Connected to ${account}`);
 
@@ -3545,11 +3552,29 @@ if (measurementForm) {
         console.error('Wallet connection error:', error);
       }
     } else {
+      setWalletConnectionState(false);
       alert('MetaMask is not installed. Please install it to connect your wallet.');
     }
   }
 
   walletButton.addEventListener('click', connectWallet);
+
+  if (typeof window.ethereum !== 'undefined') {
+    window.ethereum.on?.('accountsChanged', accounts => {
+      const account = Array.isArray(accounts) ? accounts[0] : null;
+      if (account) {
+        setWalletConnectionState(true, account);
+        window._connectedAccount = account;
+      } else {
+        setWalletConnectionState(false);
+        window._connectedAccount = null;
+      }
+    });
+    window.ethereum.on?.('disconnect', () => {
+      setWalletConnectionState(false);
+      window._connectedAccount = null;
+    });
+  }
 
   // Auto-connect wallet on page load if the user already authorized MetaMask previously.
   // Uses eth_accounts (no prompt) — only eth_requestAccounts prompts the user.
@@ -3560,13 +3585,18 @@ if (measurementForm) {
       .then(async accounts => {
         if (accounts && accounts.length > 0) {
           await connectWallet(accounts[0]);
+        } else {
+          setWalletConnectionState(false);
         }
         console.timeEnd('[startup] wallet auto-connect');
       })
       .catch(err => {
+        setWalletConnectionState(false);
         console.warn('Wallet auto-connect check failed:', err);
         console.timeEnd('[startup] wallet auto-connect');
       });
+  } else {
+    setWalletConnectionState(false);
   }
 
   // Modal logic
@@ -4168,6 +4198,14 @@ function saveWaterData(data) {
     const hist = JSON.parse(localStorage.getItem(WATER_HISTORY_KEY) || '{}');
     hist[data.date] = data.count;
     localStorage.setItem(WATER_HISTORY_KEY, JSON.stringify(hist));
+    const fitnessData = getFitnessData();
+    fitnessData.waterDailyHistory = {
+      ...(fitnessData.waterDailyHistory && typeof fitnessData.waterDailyHistory === 'object' && !Array.isArray(fitnessData.waterDailyHistory)
+        ? fitnessData.waterDailyHistory
+        : {}),
+      [data.date]: data.count,
+    };
+    saveFitnessData(fitnessData);
   } catch { /* ignore */ }
   refreshChakraAura();
 }
@@ -4214,6 +4252,23 @@ function removeWaterIntake() {
 
 window.addEventListener('DOMContentLoaded', () => {
   updateWaterMeter();
+  try {
+    const hist = JSON.parse(localStorage.getItem(WATER_HISTORY_KEY) || '{}');
+    const currentWater = getWaterData();
+    if (
+      (hist && typeof hist === 'object' && !Array.isArray(hist) && Object.keys(hist).length) ||
+      (currentWater && currentWater.count > 0)
+    ) {
+      const fitnessData = getFitnessData();
+      fitnessData.waterDailyHistory = {
+        ...(hist && typeof hist === 'object' && !Array.isArray(hist) ? hist : {}),
+        ...(currentWater?.count > 0 ? { [currentWater.date]: currentWater.count } : {}),
+      };
+      saveFitnessData(fitnessData);
+    }
+  } catch {
+    /* ignore hydration sync failures */
+  }
 
   // Both drop buttons open the water log modal
   document.getElementById('water-drop-empty')?.addEventListener('click', () => showModal('water-modal'));

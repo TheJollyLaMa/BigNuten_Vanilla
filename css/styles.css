@@ -1439,13 +1439,27 @@ header {
   border-color: #ff5722;
   box-shadow: 0 0 10px #ff5722;
 }
+/* Data-state fallback for wallet connection */
+#wallet-connect[data-wallet-state="disconnected"] {
+  border-color: #ff5722;
+  box-shadow: 0 0 10px #ff5722;
+}
 /* Connected state: green neon border */
 #wallet-connect.connected {
   border-color: #00e676;
   box-shadow: 0 0 10px #00e676;
 }
+/* Data-state fallback for wallet connection */
+#wallet-connect[data-wallet-state="connected"] {
+  border-color: #00e676;
+  box-shadow: 0 0 10px #00e676;
+}
 /* Connected hover: blue-green neon border */
 #wallet-connect.connected:hover {
+  border-color: #00ffcc;
+  box-shadow: 0 0 15px #00ffcc;
+}
+#wallet-connect[data-wallet-state="connected"]:hover {
   border-color: #00ffcc;
   box-shadow: 0 0 15px #00ffcc;
 }
