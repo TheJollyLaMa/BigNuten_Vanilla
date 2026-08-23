@@ -205,7 +205,7 @@ export function initDataControl({
   });
 
   // ── First-visit: show educational overlay ─────────────────────────────────
-  // On mobile, never show the overlay — silently default to json-only
+  // On mobile, never show the overlay — silently default to json-only.
   if (_isMobile()) {
     if (!localStorage.getItem(STORAGE_MODE_KEY)) {
       setStorageMode('json-only');
@@ -215,38 +215,34 @@ export function initDataControl({
   }
 
   const educSeen = localStorage.getItem(EDUC_SEEN_KEY);
-  if (!educSeen) {
-    // Check if already restored (returning user with session)
-    if (typeof restoreFn === 'function') {
-      restoreFn().then(result => {
-        if (!result) {
-          // No saved session — show overlay
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            _openOverlay();
-          }));
-        } else {
-          // Session restored — mark as seen and apply mode
-          localStorage.setItem(EDUC_SEEN_KEY, '1');
-          setStorageMode('w3up');
-          if (activeProvider?.client && typeof window._bignutenScheduleHourlySnapshot === 'function') {
-            try {
-              window._bignutenScheduleHourlySnapshot(activeProvider.client, activeProvider.put.bind(activeProvider));
-            } catch (err) {
-              console.warn('[DataControl] Failed to start hourly Pinata snapshots after restore:', err);
-            }
-          }
+  const syncRestoredSession = async () => {
+    if (typeof restoreFn !== 'function') return null;
+    try {
+      const result = await restoreFn();
+      if (!result || !(result.connected || result.spaceDid || result.identity)) return null;
+
+      localStorage.setItem(EDUC_SEEN_KEY, '1');
+      setStorageMode('w3up');
+      if (activeProvider?.client && typeof window._bignutenScheduleHourlySnapshot === 'function') {
+        try {
+          window._bignutenScheduleHourlySnapshot(activeProvider.client, activeProvider.put.bind(activeProvider));
+        } catch (err) {
+          console.warn('[DataControl] Failed to start hourly Pinata snapshots after restore:', err);
         }
-      }).catch(() => {
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          _openOverlay();
-        }));
-      });
-    } else {
+      }
+      return result;
+    } catch {
+      return null;
+    }
+  };
+
+  syncRestoredSession().then(result => {
+    if (!result && !educSeen) {
       requestAnimationFrame(() => requestAnimationFrame(() => {
         _openOverlay();
       }));
     }
-  }
+  });
 }
 
 // ── IPFS icon click handler ───────────────────────────────────────────────────
@@ -264,7 +260,7 @@ async function _handleIpfsIconClick() {
       _setSnapshotPanelStatus('⏳ Pushing snapshot…', 'info');
       try {
         const raw  = localStorage.getItem('fitnessTrackerData');
-        const data = raw ? JSON.parse(raw) : {};
+        const data = raw ? normalizeFitnessData(JSON.parse(raw)) : normalizeFitnessData({});
         const client = window._w3upClientRef;
         const cid = await uploadFn(data, client);
         if (cid) {

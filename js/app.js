@@ -3368,13 +3368,16 @@ if (measurementForm) {
 
   function setWalletConnectionState(connected, account = '') {
     if (!walletButton) return;
+    const normalizedAccount = connected ? String(account || '').trim() : '';
     walletButton.classList.toggle('connected', connected);
     walletButton.classList.toggle('disconnected', !connected);
     walletButton.dataset.walletState = connected ? 'connected' : 'disconnected';
     walletButton.style.borderColor = connected ? '#00e676' : '#ff5722';
     walletButton.style.boxShadow = connected ? '0 0 10px #00e676' : '0 0 10px #ff5722';
     walletButton.setAttribute('aria-pressed', connected ? 'true' : 'false');
-    walletButton.title = connected && account ? `Connected: ${account}` : 'Connect MetaMask';
+    walletButton.title = connected && normalizedAccount ? `Connected: ${normalizedAccount}` : 'Connect MetaMask';
+    window._connectedAccount = normalizedAccount || null;
+    window.connectedWallet = normalizedAccount || null;
   }
 
   function shortenAddress(addr) {
@@ -3419,7 +3422,6 @@ if (measurementForm) {
         }
         if (!account || typeof account !== 'string') return;
         setWalletConnectionState(true, account);
-        window._connectedAccount = account;
         console.log(`Connected to ${account}`);
 
         if (WALLET_WHITELIST.includes(account.toLowerCase())) {
@@ -3567,15 +3569,26 @@ if (measurementForm) {
       const account = Array.isArray(accounts) ? accounts[0] : null;
       if (account) {
         setWalletConnectionState(true, account);
-        window._connectedAccount = account;
       } else {
         setWalletConnectionState(false);
-        window._connectedAccount = null;
       }
+    });
+    window.ethereum.on?.('chainChanged', () => {
+      window.ethereum.request({ method: 'eth_accounts' })
+        .then(accounts => {
+          const account = Array.isArray(accounts) ? accounts[0] : null;
+          if (account) {
+            setWalletConnectionState(true, account);
+          } else {
+            setWalletConnectionState(false);
+          }
+        })
+        .catch(() => {
+          setWalletConnectionState(false);
+        });
     });
     window.ethereum.on?.('disconnect', () => {
       setWalletConnectionState(false);
-      window._connectedAccount = null;
     });
   }
 

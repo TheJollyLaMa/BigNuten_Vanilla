@@ -87,6 +87,21 @@ function extractHash(payload) {
   return value?.IpfsHash || value?.ipfsHash || value?.Hash || value?.hash || value?.cid || null;
 }
 
+function normalizeIpfsRef(ref) {
+  const value = String(ref || '').trim();
+  if (!value) return '';
+  const ipfsMatch = value.match(/(?:ipfs:\/\/|\/ipfs\/)([a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*)/);
+  if (ipfsMatch?.[1]) return ipfsMatch[1];
+  try {
+    const url = new URL(value);
+    const pathMatch = url.pathname.match(/\/ipfs\/([^/?#]+)/);
+    if (pathMatch?.[1]) return decodeURIComponent(pathMatch[1]);
+  } catch {
+    /* not a URL */
+  }
+  return value;
+}
+
 function wrapSnapshotPayload(data, snapshotMeta = {}) {
   const lineage = Array.isArray(snapshotMeta.lineage) ? snapshotMeta.lineage.slice(0, 25) : [];
   if (!snapshotMeta || (!snapshotMeta.sessionAddress && !snapshotMeta.previousSnapshot && !lineage.length && !snapshotMeta.sourceHash)) {
@@ -180,7 +195,7 @@ export async function uploadPinnedSnapshot(data, { fileName = 'bignuten-snapshot
   }
 
   const body = await response.text();
-  const cid = extractHash(body);
+  const cid = normalizeIpfsRef(extractHash(body));
   if (!cid) throw new Error('Pinata upload did not return a CID.');
 
   if (session.manualToken) {
@@ -192,7 +207,7 @@ export async function uploadPinnedSnapshot(data, { fileName = 'bignuten-snapshot
 }
 
 export async function fetchSnapshotData(cid, { session: providedSession = null } = {}) {
-  const trimmedCid = String(cid || '').trim();
+  const trimmedCid = normalizeIpfsRef(cid);
   if (!trimmedCid) throw new Error('No CID provided.');
 
   const fetchViaGateway = async () => {
