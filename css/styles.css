@@ -1198,6 +1198,10 @@ body.hide-icons #water-tracker {
   gap: 0.2rem;
 }
 
+#wallet-display:empty {
+  display: none;
+}
+
 .wallet-icon {
   width: 16px;
   height: 16px;

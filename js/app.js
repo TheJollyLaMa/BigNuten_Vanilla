@@ -3379,18 +3379,18 @@ if (measurementForm) {
     walletButton.style.backgroundColor = connected ? 'rgba(0, 230, 118, 0.12)' : 'transparent';
     walletButton.style.filter = connected ? 'drop-shadow(0 0 10px rgba(0, 230, 118, 0.55))' : 'none';
     walletButton.setAttribute('aria-pressed', connected ? 'true' : 'false');
-    walletButton.title = connected && normalizedAccount ? `Connected: ${normalizedAccount}` : 'Connect MetaMask';
+    walletButton.title = connected && normalizedAccount ? `Connected: ${normalizedAccount}` : 'Connect wallet';
     window._connectedAccount = normalizedAccount || null;
     window.connectedWallet = normalizedAccount || null;
     if (walletDisplay) {
       walletDisplay.textContent = connected && normalizedAccount
         ? `${normalizedAccount.slice(0, 6)}…${normalizedAccount.slice(-4)}`
-        : 'Connect wallet';
+        : '';
     }
     if (walletHoverDisplay) {
       walletHoverDisplay.textContent = connected && normalizedAccount
         ? `Connected: ${normalizedAccount.slice(0, 6)}…${normalizedAccount.slice(-4)}`
-        : 'Connect wallet';
+        : '';
     }
   }
 
@@ -5027,7 +5027,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!amountEl) return;
     const account = window._connectedAccount;
     if (!account) {
-      amountEl.textContent = 'Connect wallet';
+      amountEl.textContent = '—';
       return;
     }
     if (!window.CONTRACTS || !window.CONTRACTS.bnut ||
