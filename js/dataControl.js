@@ -6,7 +6,7 @@
 //   'own-w3s'   — Legacy alias for 'w3up' (kept for backwards compatibility)
 //   'json-only' — No remote storage; local browser only (DEFAULT for new users)
 
-import { normalizeFitnessData, mergeSnapshotData, importAndMergeFromCID } from './fitnessData.js';
+import { normalizeFitnessData, mergeSnapshotData, importAndMergeFromCID, getFitnessData } from './fitnessData.js';
 import { providerRegistry, loadSnapshotMeta } from './storageProvider.js';
 import { getCurrentSnapshotPointer, getSnapshotLifecycleSummary, loadSnapshotManifest } from './snapshotLifecycle.js';
 import { lighthouseGatewayUrl } from './lighthouseStorage.js';
@@ -259,8 +259,7 @@ async function _handleIpfsIconClick() {
     if (typeof uploadFn === 'function') {
       _setSnapshotPanelStatus('⏳ Pushing snapshot…', 'info');
       try {
-        const raw  = localStorage.getItem('fitnessTrackerData');
-        const data = raw ? normalizeFitnessData(JSON.parse(raw)) : normalizeFitnessData({});
+        const data = normalizeFitnessData(await getFitnessData());
         const client = window._w3upClientRef;
         const cid = await uploadFn(data, client);
         if (cid) {

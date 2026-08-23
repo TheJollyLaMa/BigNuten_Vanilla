@@ -3365,6 +3365,7 @@ if (measurementForm) {
   const walletButton = document.getElementById('wallet-connect');
   const footer = document.querySelector('footer');
   const walletDisplay = document.getElementById('wallet-display');
+  const walletHoverDisplay = document.getElementById('walletHoverDisplay');
 
   function setWalletConnectionState(connected, account = '') {
     if (!walletButton) return;
@@ -3372,12 +3373,25 @@ if (measurementForm) {
     walletButton.classList.toggle('connected', connected);
     walletButton.classList.toggle('disconnected', !connected);
     walletButton.dataset.walletState = connected ? 'connected' : 'disconnected';
+    walletButton.dataset.walletAddress = normalizedAccount;
     walletButton.style.borderColor = connected ? '#00e676' : '#ff5722';
     walletButton.style.boxShadow = connected ? '0 0 10px #00e676' : '0 0 10px #ff5722';
+    walletButton.style.backgroundColor = connected ? 'rgba(0, 230, 118, 0.12)' : 'transparent';
+    walletButton.style.filter = connected ? 'drop-shadow(0 0 10px rgba(0, 230, 118, 0.55))' : 'none';
     walletButton.setAttribute('aria-pressed', connected ? 'true' : 'false');
     walletButton.title = connected && normalizedAccount ? `Connected: ${normalizedAccount}` : 'Connect MetaMask';
     window._connectedAccount = normalizedAccount || null;
     window.connectedWallet = normalizedAccount || null;
+    if (walletDisplay) {
+      walletDisplay.textContent = connected && normalizedAccount
+        ? `${normalizedAccount.slice(0, 6)}…${normalizedAccount.slice(-4)}`
+        : 'Connect wallet';
+    }
+    if (walletHoverDisplay) {
+      walletHoverDisplay.textContent = connected && normalizedAccount
+        ? `Connected: ${normalizedAccount.slice(0, 6)}…${normalizedAccount.slice(-4)}`
+        : 'Connect wallet';
+    }
   }
 
   function shortenAddress(addr) {
