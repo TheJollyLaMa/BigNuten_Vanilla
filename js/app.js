@@ -3371,6 +3371,9 @@ if (measurementForm) {
     walletButton.classList.toggle('connected', connected);
     walletButton.classList.toggle('disconnected', !connected);
     walletButton.dataset.walletState = connected ? 'connected' : 'disconnected';
+    walletButton.style.borderColor = connected ? '#00e676' : '#ff5722';
+    walletButton.style.boxShadow = connected ? '0 0 10px #00e676' : '0 0 10px #ff5722';
+    walletButton.setAttribute('aria-pressed', connected ? 'true' : 'false');
     walletButton.title = connected && account ? `Connected: ${account}` : 'Connect MetaMask';
   }
 

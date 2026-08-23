@@ -206,25 +206,6 @@ export async function fetchSnapshotData(cid, { session: providedSession = null }
     }
   };
 
-  const session = providedSession || await ensureSession({ promptIfMissing: false });
-  if (session?.authToken || session?.jwt || session?.apiKey) {
-    try {
-      const response = await fetch(pinataGatewayUrl(trimmedCid), {
-        headers: createPinataHeaders(session.authToken || session.jwt || session.apiKey),
-      });
-      if (response.ok) {
-        const text = await response.text();
-        try {
-          return unwrapSnapshotPayload(JSON.parse(text));
-        } catch {
-          return unwrapSnapshotPayload(text);
-        }
-      }
-    } catch (err) {
-      console.warn('[Pinata] authenticated snapshot fetch failed:', err);
-    }
-  }
-
   const gatewayPayload = await fetchViaGateway();
   if (gatewayPayload !== null) return gatewayPayload;
 
