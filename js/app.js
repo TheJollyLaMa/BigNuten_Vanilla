@@ -3410,6 +3410,9 @@ if (measurementForm) {
   let _walletConnectInFlight = false;
 
   async function connectWallet(preAuthorizedAccount = null) {
+    if (preAuthorizedAccount && typeof preAuthorizedAccount !== 'string') {
+      preAuthorizedAccount = null;
+    }
     if (_walletConnectInFlight) {
       console.info('[wallet] connect already in progress — ignoring duplicate call');
       return;
@@ -3506,66 +3509,8 @@ if (measurementForm) {
         document.getElementById('current-weight-display').style.display = 'block';
         displayCurrentWeight();
 
-        // On auto-connect (page reload), attempt silent restore only.
-        // On user-initiated connect, allow the full wallet-sign-in flow.
-        // Route through the Pinata provider adapter — no direct SDK calls here.
-        console.time('[provider] restore/connect');
-        const _w3up = providerRegistry.get('w3up');
-        const providerResult = _w3up
-          ? (preAuthorizedAccount ? await _w3up.restore() : await _w3up.connect())
-          : null;
-        const result = providerResult?.connected
-          ? { spaceDid: providerResult.identity, client: _w3up?.client }
-          : null;
-        console.timeEnd('[provider] restore/connect');
-        
-        if (result) {
-           console.log("Pinata session:", result.spaceDid);
-           const status = document.getElementById("ipfs-status");
-           status.style.display = "flex";
-           const ipfsIconEl = document.getElementById("ipfsIcon");
-           if (ipfsIconEl) ipfsIconEl.style.display = "inline-flex";
-
-           // After provider connects: update mode to 'w3up', store session ref for uploads
-           const ipfsIcon = document.getElementById("ipfsIcon");
-           if (ipfsIcon) {
-             // Update the icon to reflect connected state
-             ipfsIcon.dataset.storageMode = 'w3up';
-             const statusRingEl = document.getElementById('ipfs-status');
-             if (statusRingEl) statusRingEl.dataset.storageMode = 'w3up';
-           }
-           // Store session reference so icon click can trigger manual upload (legacy path)
-           window._w3upClientRef = result.client;
-           // Mark education seen and update mode
-           localStorage.setItem('ipfsEducationSeen', '1');
-           if (typeof setStorageMode === 'function') setStorageMode('w3up');
-
-           // --- Snapshot catch-up logic: check if we missed the current hourly snapshot
-           if (result?.client) {
-             // Skip upload if user explicitly chose JSON-only mode
-             if (getStorageMode() !== 'json-only' && shouldTakeHourlySnapshot()) {
-               const data = getFitnessData();
-               _w3up.put(data).then(r => {
-                 if (r?.cid) {
-                   console.log("📦 Catch-up snapshot uploaded:", r.cid);
-                   markHourlySnapshotTaken();
-                   if (typeof setStorageMode === 'function') setStorageMode('w3up');
-                 }
-               }).catch(() => { /* non-fatal */ });
-             }
-           }
-
-           // After provider connects, schedule hourly snapshots
-           if (result && result.client) {
-             scheduleHourlySnapshot(result.client, _w3up.put.bind(_w3up));
-           }
-        } else {
-           if (preAuthorizedAccount) {
-             console.info("Pinata session not restored on auto-connect — click the wallet button to connect Pinata.");
-           } else {
-             console.error("Failed to connect to Pinata.");
-           }
-        }
+        // Wallet connection is handled here; Pinata storage is connected from
+        // the Data Storage controls so wallet sign-in stays reliable.
 
       } catch (error) {
         console.error('Wallet connection error:', error);
