@@ -448,17 +448,6 @@ body.hide-icons #water-tracker {
   border-radius: 50%;
 }
 
-.wallet-hover-display {
-  display: none;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  font-size: 0.7rem;
-  color: #00e5ff;
-  text-shadow: 0 0 4px #00e5ff;
-  white-space: nowrap;
-}
-
 .bnut-coin-icon {
   width: 18px;
   height: 18px;
@@ -1186,20 +1175,6 @@ body.hide-icons #water-tracker {
   color: #7300ff;
   text-shadow: 0 0 10px #00e5ff, 0 0 20px #00ffff;
   margin: 0;
-}
-
-#wallet-display {
-  margin: 0.5rem;
-  font-size: 1rem;
-  color: #fff;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-#wallet-display:empty {
-  display: none;
 }
 
 .wallet-icon {

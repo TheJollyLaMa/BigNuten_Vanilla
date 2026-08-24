@@ -3364,8 +3364,6 @@ if (measurementForm) {
 }
   const walletButton = document.getElementById('wallet-connect');
   const footer = document.querySelector('footer');
-  const walletDisplay = document.getElementById('wallet-display');
-  const walletHoverDisplay = document.getElementById('walletHoverDisplay');
 
   function setWalletConnectionState(connected, account = '') {
     if (!walletButton) return;
@@ -3382,16 +3380,6 @@ if (measurementForm) {
     walletButton.title = connected && normalizedAccount ? `Connected: ${normalizedAccount}` : 'Connect wallet';
     window._connectedAccount = normalizedAccount || null;
     window.connectedWallet = normalizedAccount || null;
-    if (walletDisplay) {
-      walletDisplay.textContent = connected && normalizedAccount
-        ? `${normalizedAccount.slice(0, 6)}…${normalizedAccount.slice(-4)}`
-        : '';
-    }
-    if (walletHoverDisplay) {
-      walletHoverDisplay.textContent = connected && normalizedAccount
-        ? `Connected: ${normalizedAccount.slice(0, 6)}…${normalizedAccount.slice(-4)}`
-        : '';
-    }
   }
 
   function shortenAddress(addr) {
