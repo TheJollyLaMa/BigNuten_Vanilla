@@ -13,33 +13,17 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
-    <script type="module">
-      import Lighthouse, * as LighthouseSdk from 'https://cdn.jsdelivr.net/npm/@lighthouse-web3/sdk@0.4.7/+esm';
-
-      const lighthouse = Lighthouse?.default || Lighthouse || LighthouseSdk?.default || LighthouseSdk;
-      window.lighthouse = window.lighthouse || lighthouse;
-      window.Lighthouse = window.Lighthouse || lighthouse;
-      window.LighthouseWeb3 = window.LighthouseWeb3 || lighthouse;
-      window.lighthouseWeb3 = window.lighthouseWeb3 || lighthouse;
-
-      console.info('[BigNuten] Lighthouse SDK globals', {
-        hasLower: !!window.lighthouse,
-        hasUpper: !!window.Lighthouse,
-        hasUpperWeb3: !!window.LighthouseWeb3,
-        hasLowerWeb3: !!window.lighthouseWeb3,
-      });
-    </script>
 </head>
 <body>
   
   <header>
     <div id="header-left">
-      <div id="ipfs-status" style="display:block;" title="IPFS Storage — click to manage your data options">
+      <div id="ipfs-status" style="display:block;" title="Pinata storage — click to manage your data options">
         <div class="ticker-wrapper">
           <div class="ticker-circle-ipfs" id="ticker-circle"></div>
         </div>
         <div id="ipfsIconWrapper">
-          <button id="ipfsIcon" type="button" data-storage-mode="json-only" aria-label="Lighthouse storage — local only" title="Lighthouse storage — local only">
+          <button id="ipfsIcon" type="button" data-storage-mode="json-only" aria-label="Pinata storage — local only" title="Pinata storage — local only">
             <img src="img/IPFS_Logo.png" class="ipfs-logo" alt="" aria-hidden="true" />
           </button>
           <div id="ipfsHoverPopup" class="hover-popup"></div>
@@ -86,7 +70,7 @@
       <div id="aesculapius-dropdown" class="aesculapius-dropdown hidden" role="menu" aria-label="$BNUT Features menu">
         <div id="aes-bnut-balance" class="aes-bnut-balance">
           <img src="img/BigNuten.png" alt="$BNUT" class="aes-bnut-icon" />
-          <span id="aes-bnut-amount" class="aes-bnut-amount">Connect wallet</span>
+          <span id="aes-bnut-amount" class="aes-bnut-amount">—</span>
         </div>
         <hr class="aes-divider" />
         <button class="aes-menu-item" id="aes-dnft-btn"      role="menuitem">🎟️ Supporter DNFT</button>
@@ -94,7 +78,7 @@
         <button class="aes-menu-item" id="aes-achieve-btn"   role="menuitem">🏆 Achievements</button>
         <button class="aes-menu-item" id="aes-gov-btn"       role="menuitem">🗳️ Governance</button>
         <button class="aes-menu-item" id="aes-data-btn"      role="menuitem">📊 Data Sharing</button>
-        <button class="aes-menu-item" id="aes-storage-btn" role="menuitem">💾 Data &amp; Storage</button>
+        <button class="aes-menu-item" id="aes-storage-btn" role="menuitem">💾 Data Storage</button>
         <button class="aes-menu-item" id="aes-challenge-btn" role="menuitem">🏋️ Monthly Challenge</button>
         <button class="aes-menu-item" id="aes-bounty-register-btn" role="menuitem">💰 Bounty Register</button>
         <hr class="aes-divider" />
@@ -108,8 +92,6 @@
       <button id="wallet-connect" class="neon-button disconnected">
         <img id="metamaskIcon" src="img/MetaMaskFox.png" alt="Connect Wallet" />
       </button>
-      <div id="wallet-display"></div>
-      <div id="walletHoverDisplay" class="wallet-hover-display"></div>
     </div>
   </header>
 
@@ -984,14 +966,14 @@
         <h3>🔑 Your Data &amp; IPFS Storage</h3>
 
         <p class="about-payment-desc">
-          Your data lives in your browser. Connect Lighthouse to enable automatic content-addressed snapshots — or export a JSON file anytime.
+          Your data lives in your browser. Connect Pinata to enable automatic content-addressed snapshots — or export a JSON file anytime.
           <strong>Data is not encrypted</strong> — only share what you're comfortable with.
           <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="dc-notice-link">📚 Learn about IPFS →</a>
         </p>
 
         <div class="dc-about-actions">
           <button id="about-ipfs-connect-btn" class="dc-about-open-btn" type="button">
-            🔆 Connect Lighthouse
+            🔆 Connect Pinata
           </button>
           <button id="about-json-download-btn" class="dc-about-json-btn" type="button">
             ⬇️ Download JSON Backup
@@ -1266,17 +1248,17 @@
         Nobody can sell it, lose it, or lock you out of it. Not even us.
       </p>
       <p class="edu-body">
-        To enable automatic cloud backup, connect <strong>Lighthouse</strong>.
-        Currently supported: <strong>Lighthouse</strong> (free IPFS storage, wallet-signed encryption).
+        To enable automatic cloud backup, connect <strong>Pinata</strong>.
+        Currently supported: <strong>Pinata</strong> (IPFS storage, JWT-backed uploads).
         More providers can be added without changing any of your data.
-        <a href="https://docs.lighthouse.storage/" target="_blank" rel="noopener noreferrer" class="edu-link">📚 Learn about IPFS &amp; Lighthouse →</a>
+        <a href="https://pinata.cloud/" target="_blank" rel="noopener noreferrer" class="edu-link">📚 Learn about IPFS &amp; Pinata →</a>
       </p>
 
       <div class="edu-steps">
         <div class="edu-step">
           <span class="edu-step-num">1</span>
           <div>
-            <strong>Connect Lighthouse</strong> (wallet-signed)
+            <strong>Connect Pinata</strong> (JWT-backed)
           </div>
         </div>
         <div class="edu-step">
@@ -1285,7 +1267,7 @@
         </div>
         <div class="edu-step">
           <span class="edu-step-num">3</span>
-          <div>Click <strong>"Connect Lighthouse"</strong> below</div>
+          <div>Click <strong>"Connect Pinata"</strong> below</div>
         </div>
       </div>
 
@@ -1298,7 +1280,7 @@
 
       <div class="edu-actions">
         <button id="ipfs-edu-connect-btn" class="edu-connect-btn" type="button">
-          🔆 Connect Lighthouse
+          🔆 Connect Pinata
         </button>
         <p id="ipfs-edu-connect-status" class="dc-status" aria-live="polite" style="display:none;"></p>
         <button id="ipfs-edu-skip-btn" class="edu-skip-btn" type="button">
@@ -1313,14 +1295,14 @@
   <div id="ipfs-connect-dialog" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="ipfs-dialog-title">
     <div class="modal dc-modal">
       <button class="modal-close" id="ipfs-dialog-close-btn" aria-label="Close">×</button>
-      <h3 id="ipfs-dialog-title" style="color:#00e5ff;margin-top:0;">🔆 Connect Lighthouse</h3>
+      <h3 id="ipfs-dialog-title" style="color:#00e5ff;margin-top:0;">🔆 Connect Pinata</h3>
       <p style="color:#8ab0c4;font-size:0.85rem;">
-        Connect Lighthouse to enable automatic content-addressed snapshots.
+        Connect Pinata to enable automatic content-addressed snapshots.
         Your data lives in <em>your</em> space — BigNuten cannot access it.
-        <a href="https://docs.lighthouse.storage/" target="_blank" rel="noopener noreferrer" class="dc-notice-link">Learn Lighthouse →</a>
+        <a href="https://pinata.cloud/" target="_blank" rel="noopener noreferrer" class="dc-notice-link">Learn Pinata →</a>
       </p>
       <button id="ipfs-dialog-connect-btn" class="dc-action-btn dc-btn-w3s" type="button" style="width:100%;margin-bottom:0.6rem;">
-        🔆 Connect Lighthouse
+        🔆 Connect Pinata
       </button>
       <p id="ipfs-dialog-status" class="dc-status" aria-live="polite" style="display:none;"></p>
       <div style="margin-top:0.75rem;border-top:1px solid rgba(0,229,255,0.1);padding-top:0.75rem;">
@@ -1394,7 +1376,7 @@
       <p id="mobile-sheet-status" class="dc-status" aria-live="polite" style="display:none;"></p>
 
       <p class="mobile-sheet-hint">
-        Want cloud sync? Open on desktop to connect Lighthouse.
+        Want cloud sync? Open on desktop to connect Pinata.
       </p>
     </div>
   </div>
@@ -1569,34 +1551,34 @@
         </p>
       </section>
 
-      <!-- Lighthouse Access Key Section -->
+      <!-- Pinata JWT Section -->
       <section class="settings-section">
-        <h3>🔐 Lighthouse Personal Key</h3>
+        <h3>🔐 Pinata JWT</h3>
         <p class="settings-desc">
           Optional fallback for encrypted IPFS uploads and restores. Enter the personal key
-          from Lighthouse Files when prompted; BigNuten keeps it only for the current tab and
+          from Pinata when prompted; BigNuten keeps it only for the current tab and
           clears it after use.
         </p>
-        <div class="genie-apikey-section" id="lighthouse-key-section">
-          <label class="genie-settings-label" for="lighthouse-key-input">
-            Lighthouse key
-            <span id="lighthouse-key-status" class="genie-apikey-status"></span>
+        <div class="genie-apikey-section" id="pinata-key-section">
+          <label class="genie-settings-label" for="pinata-key-input">
+            Pinata JWT
+            <span id="pinata-key-status" class="genie-apikey-status"></span>
           </label>
           <div class="genie-apikey-input-row">
             <input
               type="password"
-              id="lighthouse-key-input"
+              id="pinata-key-input"
               class="genie-api-key-input"
-              placeholder="Paste your Lighthouse personal key…"
+              placeholder="Paste your Pinata JWT…"
               autocomplete="off"
               spellcheck="false"
             />
-            <button id="lighthouse-key-save" class="genie-key-btn" type="button">Save</button>
-            <button id="lighthouse-key-clear" class="genie-key-btn genie-key-btn--clear" type="button">Clear</button>
+            <button id="pinata-key-save" class="genie-key-btn" type="button">Save</button>
+            <button id="pinata-key-clear" class="genie-key-btn genie-key-btn--clear" type="button">Clear</button>
           </div>
           <p class="settings-hint">
             🔒 Not synced anywhere; it stays in memory for this tab only.
-            <a href="https://files.lighthouse.storage/" target="_blank" rel="noopener noreferrer">Open Lighthouse Files</a>
+            <a href="https://pinata.cloud/" target="_blank" rel="noopener noreferrer">Open Pinata docs</a>
             to copy your key.
           </p>
         </div>

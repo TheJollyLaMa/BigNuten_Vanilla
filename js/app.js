@@ -9,7 +9,7 @@ import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 import { initCompetitions, loadCompetitionsList } from './competitions.js';
 import { initYogaFlow } from './yoga.js';
-import { getManualLighthouseToken, setManualLighthouseToken, clearManualLighthouseToken, lighthouseGatewayUrl } from './lighthouseStorage.js';
+import { getManualLighthouseToken, setManualLighthouseToken, clearManualLighthouseToken, pinataGatewayUrl } from './lighthouseStorage.js';
 import { loadSnapshotManifest } from './snapshotLifecycle.js';
 
 // --- Raw Food Modal Logic ---
@@ -785,6 +785,7 @@ const defaultData = {
   dataVersion: 1,
   timeZone: '',
   weightLogs: [],
+  waterDailyHistory: {},
   supplements: [],
   foods: [],
   measurements: [],
@@ -2856,7 +2857,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       const shortCid = `${prefix}${ipfsIcons}${suffix}`;
       return `<div class="${colorClass}">
         <strong>${date}</strong><br>
-        <a href="${lighthouseGatewayUrl(cid)}" target="_blank" style="text-decoration:none;color:inherit;">
+        <a href="${pinataGatewayUrl(cid)}" target="_blank" style="text-decoration:none;color:inherit;">
           ${shortCid}
         </a>
       </div>`;
@@ -2935,7 +2936,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         div.className = 'snapshot-item';
         const date = h.timestamp ? formatInUserTz(h.timestamp) : '(No timestamp)';
         const shortCid = `${h.cid.slice(0, 6)}...${h.cid.slice(-4)}`;
-        div.innerHTML = `<strong>${date}</strong><br><a href="${lighthouseGatewayUrl(h.cid)}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
+        div.innerHTML = `<strong>${date}</strong><br><a href="${pinataGatewayUrl(h.cid)}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
         div.style.margin = '8px 0';
         content.appendChild(div);
       });
@@ -2999,7 +3000,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.appendChild(dateSpan);
         row.appendChild(document.createTextNode(' — '));
         const link = document.createElement('a');
-        link.href = lighthouseGatewayUrl(entry.cid);
+        link.href = pinataGatewayUrl(entry.cid);
         link.target = '_blank';
         link.rel = 'noopener';
         link.style.color = '#ff00cc';
@@ -3083,7 +3084,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.appendChild(dateSpan);
         row.appendChild(document.createTextNode(' — '));
         const link = document.createElement('a');
-        link.href = lighthouseGatewayUrl(entry.cid);
+        link.href = pinataGatewayUrl(entry.cid);
         link.target = '_blank';
         link.rel = 'noopener';
         link.style.color = '#00e5ff';
@@ -3115,7 +3116,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         const result = await importAndMergeFromCID(cid);
         const { added } = result;
         feedback.innerHTML = `✅ Merged successfully!<br>
-          Added: ${added.weightLogs} weight log(s), ${added.exercises} exercise entry(s), ${added.sessionLog} session(s).<br>
+          Added: ${added.weightLogs} weight log(s), ${added.exercises} exercise entry(s), ${added.sessionLog} session(s), ${added.waterDays} hydration day(s).<br>
           <em style="color:#aaa;">Reload the page to see all merged data.</em>`;
         feedback.style.color = '#00ff99';
         cidInput.value = '';
@@ -3363,7 +3364,23 @@ if (measurementForm) {
 }
   const walletButton = document.getElementById('wallet-connect');
   const footer = document.querySelector('footer');
-  const walletDisplay = document.getElementById('wallet-display');
+
+  function setWalletConnectionState(connected, account = '') {
+    if (!walletButton) return;
+    const normalizedAccount = connected ? String(account || '').trim() : '';
+    walletButton.classList.toggle('connected', connected);
+    walletButton.classList.toggle('disconnected', !connected);
+    walletButton.dataset.walletState = connected ? 'connected' : 'disconnected';
+    walletButton.dataset.walletAddress = normalizedAccount;
+    walletButton.style.borderColor = connected ? '#00e676' : '#ff5722';
+    walletButton.style.boxShadow = connected ? '0 0 10px #00e676' : '0 0 10px #ff5722';
+    walletButton.style.backgroundColor = connected ? 'rgba(0, 230, 118, 0.12)' : 'transparent';
+    walletButton.style.filter = connected ? 'drop-shadow(0 0 10px rgba(0, 230, 118, 0.55))' : 'none';
+    walletButton.setAttribute('aria-pressed', connected ? 'true' : 'false');
+    walletButton.title = connected && normalizedAccount ? `Connected: ${normalizedAccount}` : 'Connect wallet';
+    window._connectedAccount = normalizedAccount || null;
+    window.connectedWallet = normalizedAccount || null;
+  }
 
   function shortenAddress(addr) {
     // Show full 0x prefix
@@ -3381,6 +3398,9 @@ if (measurementForm) {
   let _walletConnectInFlight = false;
 
   async function connectWallet(preAuthorizedAccount = null) {
+    if (preAuthorizedAccount && typeof preAuthorizedAccount !== 'string') {
+      preAuthorizedAccount = null;
+    }
     if (_walletConnectInFlight) {
       console.info('[wallet] connect already in progress — ignoring duplicate call');
       return;
@@ -3406,10 +3426,7 @@ if (measurementForm) {
           account = accounts[0];
         }
         if (!account || typeof account !== 'string') return;
-        walletButton.classList.remove('disconnected');
-        walletButton.classList.add('connected');
-        walletButton.title = `Connected: ${account}`;
-        window._connectedAccount = account;
+        setWalletConnectionState(true, account);
         console.log(`Connected to ${account}`);
 
         if (WALLET_WHITELIST.includes(account.toLowerCase())) {
@@ -3480,76 +3497,47 @@ if (measurementForm) {
         document.getElementById('current-weight-display').style.display = 'block';
         displayCurrentWeight();
 
-        // On auto-connect (page reload), attempt silent restore only.
-        // On user-initiated connect, allow the full wallet-sign-in flow.
-        // Route through the Lighthouse provider adapter — no direct SDK calls here.
-        console.time('[provider] restore/connect');
-        const _w3up = providerRegistry.get('w3up');
-        const providerResult = _w3up
-          ? (preAuthorizedAccount ? await _w3up.restore() : await _w3up.connect())
-          : null;
-        const result = providerResult?.connected
-          ? { spaceDid: providerResult.identity, client: _w3up?.client }
-          : null;
-        console.timeEnd('[provider] restore/connect');
-        
-        if (result) {
-           console.log("Lighthouse session:", result.spaceDid);
-           const status = document.getElementById("ipfs-status");
-           status.style.display = "flex";
-           const ipfsIconEl = document.getElementById("ipfsIcon");
-           if (ipfsIconEl) ipfsIconEl.style.display = "inline-flex";
-
-           // After provider connects: update mode to 'w3up', store session ref for uploads
-           const ipfsIcon = document.getElementById("ipfsIcon");
-           if (ipfsIcon) {
-             // Update the icon to reflect connected state
-             ipfsIcon.dataset.storageMode = 'w3up';
-             const statusRingEl = document.getElementById('ipfs-status');
-             if (statusRingEl) statusRingEl.dataset.storageMode = 'w3up';
-           }
-           // Store session reference so icon click can trigger manual upload (legacy path)
-           window._w3upClientRef = result.client;
-           // Mark education seen and update mode
-           localStorage.setItem('ipfsEducationSeen', '1');
-           if (typeof setStorageMode === 'function') setStorageMode('w3up');
-
-           // --- Snapshot catch-up logic: check if we missed the current hourly snapshot
-           if (result?.client) {
-             // Skip upload if user explicitly chose JSON-only mode
-             if (getStorageMode() !== 'json-only' && shouldTakeHourlySnapshot()) {
-               const data = getFitnessData();
-               _w3up.put(data).then(r => {
-                 if (r?.cid) {
-                   console.log("📦 Catch-up snapshot uploaded:", r.cid);
-                   markHourlySnapshotTaken();
-                   if (typeof setStorageMode === 'function') setStorageMode('w3up');
-                 }
-               }).catch(() => { /* non-fatal */ });
-             }
-           }
-
-           // After provider connects, schedule hourly snapshots
-           if (result && result.client) {
-             scheduleHourlySnapshot(result.client, _w3up.put.bind(_w3up));
-           }
-        } else {
-           if (preAuthorizedAccount) {
-             console.info("Lighthouse session not restored on auto-connect — click the wallet button to connect Lighthouse.");
-           } else {
-             console.error("Failed to connect to Lighthouse.");
-           }
-        }
+        // Wallet connection is handled here; Pinata storage is connected from
+        // the Data Storage controls so wallet sign-in stays reliable.
 
       } catch (error) {
         console.error('Wallet connection error:', error);
       }
     } else {
+      setWalletConnectionState(false);
       alert('MetaMask is not installed. Please install it to connect your wallet.');
     }
   }
 
   walletButton.addEventListener('click', connectWallet);
+
+  if (typeof window.ethereum !== 'undefined') {
+    window.ethereum.on?.('accountsChanged', accounts => {
+      const account = Array.isArray(accounts) ? accounts[0] : null;
+      if (account) {
+        setWalletConnectionState(true, account);
+      } else {
+        setWalletConnectionState(false);
+      }
+    });
+    window.ethereum.on?.('chainChanged', () => {
+      window.ethereum.request({ method: 'eth_accounts' })
+        .then(accounts => {
+          const account = Array.isArray(accounts) ? accounts[0] : null;
+          if (account) {
+            setWalletConnectionState(true, account);
+          } else {
+            setWalletConnectionState(false);
+          }
+        })
+        .catch(() => {
+          setWalletConnectionState(false);
+        });
+    });
+    window.ethereum.on?.('disconnect', () => {
+      setWalletConnectionState(false);
+    });
+  }
 
   // Auto-connect wallet on page load if the user already authorized MetaMask previously.
   // Uses eth_accounts (no prompt) — only eth_requestAccounts prompts the user.
@@ -3560,13 +3548,18 @@ if (measurementForm) {
       .then(async accounts => {
         if (accounts && accounts.length > 0) {
           await connectWallet(accounts[0]);
+        } else {
+          setWalletConnectionState(false);
         }
         console.timeEnd('[startup] wallet auto-connect');
       })
       .catch(err => {
+        setWalletConnectionState(false);
         console.warn('Wallet auto-connect check failed:', err);
         console.timeEnd('[startup] wallet auto-connect');
       });
+  } else {
+    setWalletConnectionState(false);
   }
 
   // Modal logic
@@ -4168,6 +4161,14 @@ function saveWaterData(data) {
     const hist = JSON.parse(localStorage.getItem(WATER_HISTORY_KEY) || '{}');
     hist[data.date] = data.count;
     localStorage.setItem(WATER_HISTORY_KEY, JSON.stringify(hist));
+    const fitnessData = getFitnessData();
+    fitnessData.waterDailyHistory = {
+      ...(fitnessData.waterDailyHistory && typeof fitnessData.waterDailyHistory === 'object' && !Array.isArray(fitnessData.waterDailyHistory)
+        ? fitnessData.waterDailyHistory
+        : {}),
+      [data.date]: data.count,
+    };
+    saveFitnessData(fitnessData);
   } catch { /* ignore */ }
   refreshChakraAura();
 }
@@ -4214,6 +4215,23 @@ function removeWaterIntake() {
 
 window.addEventListener('DOMContentLoaded', () => {
   updateWaterMeter();
+  try {
+    const hist = JSON.parse(localStorage.getItem(WATER_HISTORY_KEY) || '{}');
+    const currentWater = getWaterData();
+    if (
+      (hist && typeof hist === 'object' && !Array.isArray(hist) && Object.keys(hist).length) ||
+      (currentWater && currentWater.count > 0)
+    ) {
+      const fitnessData = getFitnessData();
+      fitnessData.waterDailyHistory = {
+        ...(hist && typeof hist === 'object' && !Array.isArray(hist) ? hist : {}),
+        ...(currentWater?.count > 0 ? { [currentWater.date]: currentWater.count } : {}),
+      };
+      saveFitnessData(fitnessData);
+    }
+  } catch {
+    /* ignore hydration sync failures */
+  }
 
   // Both drop buttons open the water log modal
   document.getElementById('water-drop-empty')?.addEventListener('click', () => showModal('water-modal'));
@@ -4786,10 +4804,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const cycleInput    = document.getElementById('settings-day-cycle-input');
     const cycleSaveBtn  = document.getElementById('settings-day-cycle-save');
     const cycleStatus   = document.getElementById('settings-day-cycle-status');
-    const lighthouseKeyInput  = document.getElementById('lighthouse-key-input');
-    const lighthouseKeyStatus  = document.getElementById('lighthouse-key-status');
-    const lighthouseKeySaveBtn = document.getElementById('lighthouse-key-save');
-    const lighthouseKeyClearBtn = document.getElementById('lighthouse-key-clear');
+    const pinataKeyInput  = document.getElementById('pinata-key-input');
+    const pinataKeyStatus  = document.getElementById('pinata-key-status');
+    const pinataKeySaveBtn = document.getElementById('pinata-key-save');
+    const pinataKeyClearBtn = document.getElementById('pinata-key-clear');
 
     if (!settingsModal) return;
 
@@ -4797,10 +4815,10 @@ document.addEventListener('DOMContentLoaded', () => {
       closeAesDropdown();
       if (cycleInput) cycleInput.value = getDayCycleStart();
       if (cycleStatus) cycleStatus.textContent = '';
-      if (lighthouseKeyInput) lighthouseKeyInput.value = getManualLighthouseToken();
-      if (lighthouseKeyStatus) {
-        lighthouseKeyStatus.textContent = getManualLighthouseToken() ? '✅ Key ready' : '';
-        lighthouseKeyStatus.className = getManualLighthouseToken()
+      if (pinataKeyInput) pinataKeyInput.value = getManualLighthouseToken();
+      if (pinataKeyStatus) {
+        pinataKeyStatus.textContent = getManualLighthouseToken() ? '✅ Key ready' : '';
+        pinataKeyStatus.className = getManualLighthouseToken()
           ? 'genie-apikey-status saved'
           : 'genie-apikey-status';
       }
@@ -4837,9 +4855,9 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    if (lighthouseKeySaveBtn) {
-      lighthouseKeySaveBtn.addEventListener('click', () => {
-        const val = lighthouseKeyInput?.value?.trim() || '';
+    if (pinataKeySaveBtn) {
+      pinataKeySaveBtn.addEventListener('click', () => {
+        const val = pinataKeyInput?.value?.trim() || '';
         setManualLighthouseToken(val);
         if (window._lighthouseSessionRef) {
           window._lighthouseSessionRef.authToken = val;
@@ -4850,18 +4868,18 @@ document.addEventListener('DOMContentLoaded', () => {
             window._lighthouseSessionRef.signedMessage = val;
           }
         }
-        if (lighthouseKeyInput) lighthouseKeyInput.value = val;
-        if (lighthouseKeyStatus) {
-          lighthouseKeyStatus.textContent = val ? '✅ Key ready' : '🗑 Key cleared';
-          lighthouseKeyStatus.className = val
+        if (pinataKeyInput) pinataKeyInput.value = val;
+        if (pinataKeyStatus) {
+          pinataKeyStatus.textContent = val ? '✅ Key ready' : '🗑 Key cleared';
+          pinataKeyStatus.className = val
             ? 'genie-apikey-status saved'
             : 'genie-apikey-status cleared';
         }
       });
     }
 
-    if (lighthouseKeyClearBtn) {
-      lighthouseKeyClearBtn.addEventListener('click', () => {
+    if (pinataKeyClearBtn) {
+      pinataKeyClearBtn.addEventListener('click', () => {
         clearManualLighthouseToken();
         if (window._lighthouseSessionRef?.manualToken) {
           window._lighthouseSessionRef.authToken = '';
@@ -4870,11 +4888,11 @@ document.addEventListener('DOMContentLoaded', () => {
           window._lighthouseSessionRef.signedMessage = '';
           window._lighthouseSessionRef.manualToken = false;
         }
-        if (lighthouseKeyInput) lighthouseKeyInput.value = '';
-        if (lighthouseKeyStatus) {
-          lighthouseKeyStatus.textContent = '🗑 Key cleared';
-          lighthouseKeyStatus.className = 'genie-apikey-status cleared';
-          setTimeout(() => { lighthouseKeyStatus.textContent = ''; }, 2500);
+        if (pinataKeyInput) pinataKeyInput.value = '';
+        if (pinataKeyStatus) {
+          pinataKeyStatus.textContent = '🗑 Key cleared';
+          pinataKeyStatus.className = 'genie-apikey-status cleared';
+          setTimeout(() => { pinataKeyStatus.textContent = ''; }, 2500);
         }
       });
     }
@@ -4942,7 +4960,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!amountEl) return;
     const account = window._connectedAccount;
     if (!account) {
-      amountEl.textContent = 'Connect wallet';
+      amountEl.textContent = '—';
       return;
     }
     if (!window.CONTRACTS || !window.CONTRACTS.bnut ||
@@ -7547,9 +7565,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Data Control (educational overlay + snapshot panel) ──────────────────
   // Register providers and pass the W3up adapter to initDataControl.
-  const lighthouseProvider = new W3upProvider();
-  providerRegistry.register(lighthouseProvider);
-  initDataControl({ provider: lighthouseProvider });
+  const pinataProvider = new W3upProvider();
+  providerRegistry.register(pinataProvider);
+  initDataControl({ provider: pinataProvider });
 
   // ── Apply initial IPFS glow state ─────────────────────────────────────────
   {
@@ -7559,7 +7577,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusRing = document.getElementById('ipfs-status');
     if (statusRing) statusRing.dataset.storageMode = initMode;
 
-    // Wire About-modal "Connect Lighthouse" button
+    // Wire About-modal "Connect Pinata" button
     document.getElementById('about-ipfs-connect-btn')?.addEventListener('click', async () => {
       const mode = getStorageMode();
       if (mode === 'w3up' || mode === 'own-w3s') {
