@@ -6250,13 +6250,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!previewEl) return;
 
       const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
-      const eligible  = pending.filter(p =>
+      const bnutPending = pending.filter(p => String(p.currency || 'BNUT').toUpperCase() === 'BNUT');
+      const manualArtCount = pending.length - bnutPending.length;
+      const eligible  = bnutPending.filter(p =>
         p.contributor && p.contributor !== ZERO_ADDR && !paidOnChain.has(entryKey(p))
       );
-      const skipped   = pending.filter(p =>
+      const skipped   = bnutPending.filter(p =>
         (!p.contributor || p.contributor === ZERO_ADDR) && !paidOnChain.has(entryKey(p))
       );
-      const alreadyPaidCount = pending.filter(p => paidOnChain.has(entryKey(p))).length;
+      const alreadyPaidCount = bnutPending.filter(p => paidOnChain.has(entryKey(p))).length;
 
       // Always reset so treasury health reflects current eligible payouts
       _totalBNUTOwed = 0;
@@ -6268,6 +6270,9 @@ document.addEventListener('DOMContentLoaded', () => {
           html += `<p class="payroll-batch-warning">⚠️ All pending payouts are skipped — no wallet registered for: ${githubs.map(g => `@${g}`).join(', ')}</p>`;
         } else {
           html += '<p class="payroll-batch-info">✅ No eligible payouts to batch.</p>';
+        }
+        if (manualArtCount > 0) {
+          html += `<p class="payroll-batch-info">ℹ️ ${manualArtCount} ART payout(s) require ledger/manual settlement and are excluded from the BNUT treasury.</p>`;
         }
         html += '</div>';
         previewEl.innerHTML = html;
@@ -6342,6 +6347,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (alreadyPaidCount > 0) {
         html += `<p class="payroll-batch-info">ℹ️ ${alreadyPaidCount} payout(s) already settled on-chain and excluded from batch.</p>`;
       }
+      if (manualArtCount > 0) {
+        html += `<p class="payroll-batch-info">ℹ️ ${manualArtCount} ART payout(s) require ledger/manual settlement and are excluded from this batch.</p>`;
+      }
 
       html += '</div>';
       previewEl.innerHTML = html;
@@ -6386,7 +6394,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <tr>
                 <th>GitHub</th>
                 <th>Issue</th>
-                <th>Amount (BNUT)</th>
+                <th>Amount</th>
                 <th>Wallet</th>
                 <th>Status</th>
                 <th>Action</th>
@@ -6398,11 +6406,13 @@ document.addEventListener('DOMContentLoaded', () => {
       // Render only unpaid entries.  Use the original index (i) in the full
       // _pendingQueue array so that data-idx on buttons still maps correctly.
       _pendingQueue.forEach((p, i) => {
-        const alreadyPaid = _paidOnChain.has(entryKey(p));
+        const currency = String(p.currency || 'BNUT').toUpperCase();
+        const isBnut = currency === 'BNUT';
+        const alreadyPaid = isBnut && _paidOnChain.has(entryKey(p));
         if (alreadyPaid) return; // skip settled rows — they appear in "Recently Settled"
 
         const hasWallet   = p.contributor && p.contributor !== ZERO_ADDR;
-        const status      = hasWallet ? 'pending' : 'needs-wallet';
+        const status      = !isBnut ? 'manual' : (hasWallet ? 'pending' : 'needs-wallet');
         const issueNum    = (p.issueRef || '').match(/#(\d+)/)?.[1] || '';
         const repoSlug    = (p.issueRef || '').split('#')[0] || 'TheJollyLaMa/BigNuten_Vanilla';
         const issueHref   = issueNum ? `https://github.com/${repoSlug}/issues/${issueNum}` : '#';
@@ -6425,6 +6435,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let statusCell;
         if (status === 'needs-wallet') {
           statusCell = '<span class="payroll-status payroll-status--needs-wallet">needs-wallet</span>';
+        } else if (status === 'manual') {
+          statusCell = '<span class="payroll-status payroll-status--pending">manual ledger</span>';
         } else {
           statusCell = '<span class="payroll-status payroll-status--pending">pending</span>';
         }
@@ -6438,14 +6450,14 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         ` : '';
 
-        const disableActions = !hasWallet;
+        const disableActions = !hasWallet || !isBnut;
 
         html += `
           <tr id="payroll-row-${i}" class="payroll-row${!hasWallet ? ' payroll-row--needs-wallet' : ''}${p.role === 'idea-originator' ? ' payroll-row--idea-originator' : ''}">
             <td>${roleBadge}@${p.contributorGithub || '—'}</td>
             <td>${issueCell}</td>
             <td>
-              <span class="payroll-amount-display">${p.amount || '1'} BNUT</span>
+              <span class="payroll-amount-display">${p.amount || '1'} ${currency}</span>
             </td>
             <td>${walletCell}${needsWalletNotice}</td>
             <td id="payroll-row-status-${i}">${statusCell}</td>
@@ -6455,7 +6467,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 Send
               </button>
               <button class="gov-admin-action-btn payroll-mark-paid-btn" data-idx="${i}"
-                style="font-size:0.7rem;padding:0.2rem 0.5rem;background:rgba(100,100,100,0.3);">
+                ${!isBnut ? 'disabled' : ''} style="font-size:0.7rem;padding:0.2rem 0.5rem;background:rgba(100,100,100,0.3);">
                 ✓ Mark Paid
               </button>
               <div class="payroll-row-msg" id="payroll-row-msg-${i}"></div>
@@ -6701,6 +6713,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const paidOnChain = new Set();
         await Promise.all(pending.map(async p => {
           if (!p.issueRef) return;
+          if (String(p.currency || 'BNUT').toUpperCase() !== 'BNUT') return;
           try {
             const key = entryKey(p);
             if (await isIssuePaid(key)) paidOnChain.add(key);
@@ -6965,6 +6978,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // are independently checked. Seed from the cached set.
         const freshPaidOnChain = new Set(_paidOnChain);
         const eligibleForCheck = _pendingQueue.filter(p =>
+          String(p.currency || 'BNUT').toUpperCase() === 'BNUT' &&
           p.contributor && p.contributor !== ZERO_ADDR
         );
         await Promise.all(eligibleForCheck.map(async p => {
@@ -6976,6 +6990,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const toSettle = _pendingQueue
           .map((p, i) => ({ p, i }))
           .filter(({ p }) =>
+            String(p.currency || 'BNUT').toUpperCase() === 'BNUT' &&
             p.contributor &&
             p.contributor !== ZERO_ADDR &&
             !freshPaidOnChain.has(entryKey(p))
@@ -6983,6 +6998,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Warn about skipped wallets
         const skippedWallets = _pendingQueue.filter(p =>
+          String(p.currency || 'BNUT').toUpperCase() === 'BNUT' &&
           (!p.contributor || p.contributor === ZERO_ADDR) && !freshPaidOnChain.has(entryKey(p))
         );
 
