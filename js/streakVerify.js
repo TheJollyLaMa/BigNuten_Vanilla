@@ -253,7 +253,7 @@ export async function runAutoVerify() {
     if (!wallet) return;
 
     const provider = new ethers.JsonRpcProvider(
-      (window.CONTRACTS && window.CONTRACTS.rpcUrl) || 'https://mainnet.optimism.io'
+      (window.CONTRACTS && window.CONTRACTS.rpcUrl) || 'https://mainnet.base.org'
     );
     const ABI = [
       'function nextCompId() view returns (uint256)',

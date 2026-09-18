@@ -192,7 +192,7 @@ export async function getOnChainDataSharingHistory(walletAddress) {
   console.time('[dataSharing] history fetch');
   try {
     const provider = new ethers.JsonRpcProvider(
-      window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
+      window.CONTRACTS?.rpcUrl || 'https://mainnet.base.org'
     );
     const res = await fetch('abis/BigNutenTreasury.json');
     if (!res.ok) return [];
@@ -365,8 +365,10 @@ export async function settleDataSharingRewards(batch) {
   if (!window.ethereum) throw new Error('MetaMask is not installed.');
   const provider = new ethers.BrowserProvider(window.ethereum);
   const network  = await provider.getNetwork();
-  if (Number(network.chainId) !== (window.CONTRACTS?.chainId || 10)) {
-    throw new Error('Please switch MetaMask to Optimism Mainnet (chain ID 10).');
+  const activeChainId = Number(window.CONTRACTS?.chainId || 8453);
+  const activeLabel = window.CONTRACTS?.label || 'Base Mainnet';
+  if (Number(network.chainId) !== activeChainId) {
+    throw new Error(`Please switch MetaMask to ${activeLabel} (chain ID ${activeChainId}).`);
   }
 
   const signer   = await provider.getSigner();

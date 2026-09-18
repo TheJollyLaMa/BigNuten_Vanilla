@@ -78,7 +78,7 @@ function getStreakBetAddress() {
 }
 
 function getRpc() {
-  return (window.CONTRACTS && window.CONTRACTS.rpcUrl) || 'https://mainnet.optimism.io';
+  return (window.CONTRACTS && window.CONTRACTS.rpcUrl) || 'https://mainnet.base.org';
 }
 
 function escHtml(str) {
@@ -162,10 +162,13 @@ async function requireMetaMask() {
   return accounts[0];
 }
 
-async function requireOptimism(provider) {
+async function requireActiveNetwork(provider) {
   const net = await provider.getNetwork();
-  if (Number(net.chainId) !== 10) {
-    throw new Error('Please switch MetaMask to Optimism Mainnet (chain 10).');
+  const cfg = window.CONTRACTS || {};
+  const chainId = Number(cfg.chainId || 8453);
+  const label = cfg.label || 'Base Mainnet';
+  if (Number(net.chainId) !== chainId) {
+    throw new Error(`Please switch MetaMask to ${label} (chain ID ${chainId}).`);
   }
 }
 
@@ -427,7 +430,7 @@ async function adminCreateComp() {
     statusMsg(statusId, '⏳ Connecting wallet…');
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     const signer   = await provider.getSigner();
     const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
 
@@ -497,7 +500,7 @@ async function adminSettleComp(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     const signer   = await provider.getSigner();
     const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
     const tx = await contract.settleCompetition(compId, cid);
@@ -514,7 +517,7 @@ async function adminCancelComp(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     const signer   = await provider.getSigner();
     const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
     const tx = await contract.cancelCompetition(compId);
@@ -531,7 +534,7 @@ async function adminDeployAave(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     const signer   = await provider.getSigner();
     const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
     const tx = await contract.deployToAave(compId);
@@ -664,7 +667,7 @@ async function userJoinComp(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     const signer   = await provider.getSigner();
     const readContract = getReadContract();
     const c = await readContract.getCompetition(compId);
@@ -700,7 +703,7 @@ async function userSubmitReport(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     const signer   = await provider.getSigner();
     const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
     const tx = await contract.submitReport(compId, cid);
@@ -717,7 +720,7 @@ async function userForfeitComp(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     const signer   = await provider.getSigner();
     const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
     const tx = await contract.forfeit(compId);
