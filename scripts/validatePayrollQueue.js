@@ -29,6 +29,7 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { entryCurrency } = require('./payroll');
 
 // ── File paths ──────────────────────────────────────────────────────────────
 const ROOT          = path.resolve(__dirname, '..');
@@ -39,6 +40,8 @@ const ACCOUNTS_PATH = path.join(ROOT, 'contributor-accounts.json');
 const ISSUE_REF_RE  = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#\d+$/;
 const ETH_ADDR_RE   = /^0x[0-9a-fA-F]{40}$/;
 const AMOUNT_RE     = /^\d+(\.\d+)?$/;
+const SUPPORTED_ROLES = new Set(['contributor', 'implementer', 'idea-originator', 'tester']);
+const CURRENCY_MIGRATION_AT = Date.parse('2026-09-16T00:00:00.000Z');
 
 let errors   = 0;
 let warnings = 0;
@@ -95,10 +98,12 @@ const knownGithubHandles = new Set(contribs.map(c => c.github.toLowerCase()));
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 function onChainKey(entry) {
   const addr = (entry.contributor || '').toLowerCase();
-  if (!addr || addr === ZERO_ADDR) return entry.issueRef;
-  return entry.role
+  const base = !addr || addr === ZERO_ADDR
+    ? entry.issueRef
+    : entry.role
     ? `${entry.issueRef}:${addr}:${entry.role}`
     : `${entry.issueRef}:${addr}`;
+  return `${entryCurrency(entry)}:${base}`;
 }
 
 // ── Validate a section of the queue (pending or settled) ─────────────────────
@@ -110,6 +115,13 @@ function validateSection(entries, sectionName) {
 
   entries.forEach((entry, idx) => {
     const label = `[${sectionName}][${idx}]`;
+    let currency;
+    try {
+      currency = entryCurrency(entry);
+    } catch (e) {
+      error(`${label} ${e.message}`);
+      currency = String(entry.currency || '').toUpperCase();
+    }
 
     // 1. Required fields
     const required = ['issueRef', 'contributor', 'contributorGithub', 'amount', 'queuedAt', 'queuedBy'];
@@ -141,11 +153,23 @@ function validateSection(entries, sectionName) {
       }
     }
 
+    // Currency-less records before the migration are legacy BNUT entries.
+    if (entry.currency === undefined && Date.parse(entry.queuedAt) >= CURRENCY_MIGRATION_AT) {
+      error(`${label} currency is required for entries queued after the ART migration`);
+    }
+    if (entry.currency !== undefined && entry.currency !== currency) {
+      error(`${label} currency "${entry.currency}" must be uppercase ART or BNUT`);
+    }
+    const role = String(entry.role || 'contributor').toLowerCase();
+    if (!SUPPORTED_ROLES.has(role)) {
+      error(`${label} unsupported role "${entry.role}"`);
+    }
+
     // 5. Duplicate (issueRef, contributorGithub, role) check
     // The role field distinguishes implementer entries from idea-originator entries,
     // allowing one entry of each role per (issueRef, contributorGithub) pair.
     if (entry.issueRef && entry.contributorGithub !== undefined) {
-      const key = `${entry.issueRef}::${(entry.contributorGithub || '').toLowerCase()}::${entry.role || ''}`;
+      const key = `${entry.issueRef}::${(entry.contributorGithub || '').toLowerCase()}::${role}::${currency}`;
       if (seen.has(key)) {
         error(`${label} Duplicate entry: (${entry.issueRef}, @${entry.contributorGithub})`);
       } else {
@@ -189,7 +213,7 @@ function validateSection(entries, sectionName) {
 
     // All checks passed for this entry
     if (missing.length === 0) {
-      pass(`${label} ${entry.issueRef} → @${entry.contributorGithub || '?'} (${entry.amount} BNUT)`);
+      pass(`${label} ${entry.issueRef} → @${entry.contributorGithub || '?'} (${entry.amount} ${currency})`);
     }
   });
 }
@@ -200,12 +224,12 @@ function checkCrossSectionDuplicates() {
   const settledKeys = new Set(
     settled
       .filter(e => e.issueRef && e.contributorGithub !== undefined)
-      .map(e => `${e.issueRef}::${(e.contributorGithub || '').toLowerCase()}::${e.role || ''}`)
+      .map(e => `${e.issueRef}::${(e.contributorGithub || '').toLowerCase()}::${String(e.role || 'contributor').toLowerCase()}::${entryCurrency(e)}`)
   );
 
   for (const [idx, entry] of pending.entries()) {
     if (!entry.issueRef || entry.contributorGithub === undefined) continue;
-    const key = `${entry.issueRef}::${(entry.contributorGithub || '').toLowerCase()}::${entry.role || ''}`;
+    const key = `${entry.issueRef}::${(entry.contributorGithub || '').toLowerCase()}::${String(entry.role || 'contributor').toLowerCase()}::${entryCurrency(entry)}`;
     if (settledKeys.has(key)) {
       error(`[pending][${idx}] Entry (${entry.issueRef}, @${entry.contributorGithub}${entry.role ? ', role:' + entry.role : ''}) also exists in settled`);
     }

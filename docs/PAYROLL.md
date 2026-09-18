@@ -1,4 +1,117 @@
-# BigNuten Payroll System
+# BigNuten Payroll
+
+BigNuten tracks contributor rewards in `payroll-queue.json` and account totals in
+`contributor-accounts.json`. The automation supports both ART and BNUT without
+requiring a private key in GitHub Actions.
+
+## Bounty Labels
+
+An issue may have one bounty label for each currency:
+
+- `bounty: 25 ART` or `bounty: 25 $ART`
+- `bounty: 100 BNUT` or `bounty: 100 $BNUT`
+- `test-bounty: 5 ART` or `test-bounty: 5 $ART`
+- `test-bounty: 20 BNUT` or `test-bounty: 20 $BNUT`
+
+Amounts must be positive decimals. Matching is exact and case-insensitive. One
+ART and one BNUT label may coexist, producing one payout per currency. Two labels
+for the same currency are ambiguous and stop processing so a maintainer can fix
+the labels.
+
+Every newly queued entry includes uppercase `currency: "ART"` or
+`currency: "BNUT"`. Historical entries without `currency` remain valid and are
+always interpreted as BNUT.
+
+## Contributor Requests
+
+The Contributor Request issue form asks only for a GitHub handle, payout wallet,
+the technical work the contributor wants to help with, and relevant links. A
+GitHub-native workflow assigns new `contributor-request` issues to the repository
+owner, which creates a normal GitHub notification. Approved contributors are
+added to `contributor-accounts.json` by a maintainer.
+
+Account totals are initialized only when needed:
+
+- `artPending` and `artEarned` track ART.
+- `bnutPending` and `bnutEarned` track BNUT.
+- `issuesClosed` and `ideasCredited` contain unique issue references.
+
+Existing fields and values are never reset by the payroll scripts.
+
+## Merge And Recovery Flow
+
+The Bounty Bot runs when a pull request targeting `main` is merged. It discovers
+issues from closing keywords, title references, and GitHub closing links, then:
+
+1. Reads every supported bounty label on each issue.
+2. Selects a whitelisted PR author or issue assignee.
+3. Appends non-duplicate entries to `payroll-queue.json`.
+4. Accrues the matching ART or BNUT account totals.
+5. Posts a currency-specific confirmation with deterministic BigNuten artwork.
+
+For a missed link or historical merge, manually run **Bounty Bot** with the PR
+number and optional comma-separated issue numbers. Recovery uses the same code,
+validation, deduplication, and account updates as the automatic path.
+
+The deduplication identity is issue reference, contributor, role, and currency.
+This permits ART and BNUT for the same participant and issue while preventing a
+second payout in one currency. The implementer/idea-originator same-person safety
+rule is also evaluated independently per currency.
+
+## Idea Credit
+
+Add the exact label `idea-credit: @github-user` to credit a whitelisted idea
+originator. Each bounty currency is split separately:
+
+- 80% to the implementer with role `implementer`.
+- 20% to the originator with role `idea-originator`.
+
+The issue is added once to both participants' `issuesClosed`; it is also added
+once to the originator's `ideasCredited`.
+
+## Testing Flow
+
+Assign the testing issue to the intended whitelisted tester and add one or both
+supported `test-bounty` labels.
+
+1. The assigned tester comments `/test-complete`.
+2. The repository owner reviews the work and comments `/test-approved`.
+3. Every supported test-bounty currency is queued for the selected whitelisted
+   tester with role `tester`.
+
+When multiple assigned users have wallets, approval stops as ambiguous unless
+the command author is one of those assigned testers. Remove extra assignees before
+owner approval to select a single tester.
+
+## Settlement
+
+Run **Settle Payroll** with optional contributor, issue, and currency filters.
+Leaving a filter blank selects all values. Settlement moves matching entries from
+`pending` to `settled` and transfers their amount from the corresponding pending
+account field to its earned field.
+
+BNUT can first be paid through the BigNuten treasury UI and then recorded by the
+workflow with its transaction hash. The UI displays ART entries but excludes them
+from all BNUT treasury checks and transactions. ART remains a manual/ledger
+settlement until an ART-capable payment path is added.
+
+## Validation And Operations
+
+Run the focused checks locally:
+
+```sh
+node --test test/payroll.test.js test/commentArt.test.js
+node scripts/validatePayrollQueue.js
+```
+
+The validation workflow watches the queue, accounts, payroll scripts, tests, and
+workflow definitions. It accepts legacy currency-less BNUT records and rejects
+unsupported currency values, lowercase explicit currencies, invalid amounts,
+wallet mismatches, and duplicate issue/contributor/role/currency entries.
+
+All workflows use repository-local Node scripts and GitHub's REST/GraphQL APIs.
+They require only the automatically provided `GITHUB_TOKEN`; there are no SMTP,
+wallet private-key, or third-party action secrets.# BigNuten Payroll System
 
 This document describes the complete payroll queue system introduced in v2.0.0 — how contributors get whitelisted, how bounties flow from issue to on-chain payout, and which scripts and workflows maintain the system.
 
