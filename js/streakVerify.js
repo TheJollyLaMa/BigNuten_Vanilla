@@ -37,6 +37,20 @@ export const DATA_SOURCES = [
   { value: 'supplements', label: '💊 Supplements' },
 ];
 
+function getActiveStreakConfig() {
+  const cfg = window.CONTRACTS || {};
+  return {
+    address: cfg.streakBetEscrow || '',
+    rpcUrl: cfg.rpcUrl || '',
+    chainId: Number(cfg.chainId || 0),
+    label: cfg.label || 'selected network',
+  };
+}
+
+function hasActiveStreakDeployment() {
+  return Boolean(getActiveStreakConfig().address);
+}
+
 // ─── Data Source Checkers ─────────────────────────────────────────────────────
 
 /**
@@ -244,23 +258,24 @@ export async function runAutoVerify() {
 
   // Need wallet and contract
   if (!window.ethereum) return;
-  const streakAddr = (window.CONTRACTS && window.CONTRACTS.streakBetEscrow) || '';
-  if (!streakAddr) return;
+  const streakCfg = getActiveStreakConfig();
+  if (!hasActiveStreakDeployment()) {
+    console.info(`[StreakVerify] StreakBetEscrow is not deployed on ${streakCfg.label}; skipping auto-verify.`);
+    return;
+  }
 
   try {
     const accounts = await window.ethereum.request({ method: 'eth_accounts' });
     const wallet = accounts[0];
     if (!wallet) return;
 
-    const provider = new ethers.JsonRpcProvider(
-      (window.CONTRACTS && window.CONTRACTS.rpcUrl) || 'https://mainnet.base.org'
-    );
+    const provider = new ethers.JsonRpcProvider(streakCfg.rpcUrl);
     const ABI = [
       'function nextCompId() view returns (uint256)',
       'function getCompetition(uint256 compId) view returns (tuple(string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, uint256 joinDeadline, bool yieldEnabled, bool potDeployed, string metadataCID, uint8 status, uint256 potBalance, uint256 entrantCount, uint256 winnerCount))',
       'function getEntrant(uint256 compId, address addr) view returns (bool joined, uint256 reportsSubmitted, uint8 status)',
     ];
-    const contract = new ethers.Contract(streakAddr, ABI, provider);
+    const contract = new ethers.Contract(streakCfg.address, ABI, provider);
     const total = Number(await contract.nextCompId());
 
     const yesterday = _yesterdayStr();
@@ -286,7 +301,12 @@ export async function runAutoVerify() {
           try {
             const browserProvider = new ethers.BrowserProvider(window.ethereum);
             const signer = await browserProvider.getSigner();
-            const writeContract = new ethers.Contract(streakAddr, [
+            const browserNet = await browserProvider.getNetwork();
+            if (streakCfg.chainId && Number(browserNet.chainId) !== streakCfg.chainId) {
+              throw new Error(`Please switch MetaMask to ${streakCfg.label} before auto-submitting streak reports.`);
+            }
+
+            const writeContract = new ethers.Contract(streakCfg.address, [
               'function submitReport(uint256 compId, string proofCID)',
             ], signer);
             const tx = await writeContract.submitReport(i, `auto:${source}:${yesterday}`);

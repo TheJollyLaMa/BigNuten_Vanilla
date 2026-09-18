@@ -4592,7 +4592,12 @@ async function _doBigNutenPurchase(provider, ethers, listingId, btn, setStatus) 
     // address(0) stored in listing means "use the contract's default token (USDC)"
     const paymentToken = (rawToken && rawToken !== _BIGNUTEN_ZERO_ADDRESS)
       ? rawToken
-: dnftCfg.usdcAddress;
+      : dnftCfg.usdcAddress;
+
+    if (!paymentToken) {
+      setStatus(`⚠ DNFT payment token is not deployed on ${dnftCfg.networkLabel}. Switch to Optimism fallback to buy the current listing.`, '#ff8800');
+      return;
+    }
 
     const tokenLabel = dnftCfg.usdcAddress && paymentToken.toLowerCase() === dnftCfg.usdcAddress.toLowerCase()
       ? 'USDC'
