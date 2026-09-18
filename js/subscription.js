@@ -73,23 +73,19 @@ const BNUT_ABI = [
 // ─── Configuration ────────────────────────────────────────────────────────────
 
 /**
- * DecentEscrow contract address — deployed on Optimism Mainnet.
+ * DecentEscrow contract address for the currently selected network.
  * Used as the subscription backend via its Plan-based subscription system.
  */
-const DECENT_ESCROW_ADDRESS =
-  window.SUBSCRIPTION_CONTRACT_ADDRESS ||
-  "0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e";
-
-/** $BNUT ERC-20 token address on Optimism Mainnet. */
-const BNUT_ADDRESS =
-  window.BNUT_CONTRACT_ADDRESS ||
-  "0x733c4d2Aae900E608147dd89Fa93606f89722823";
-
-/** USDC ERC-20 token address on Optimism Mainnet. */
-const USDC_ADDRESS = "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85";
-
-/** Public read-only RPC for Optimism Mainnet (used for view-only calls). */
-const OPTIMISM_RPC_URL = "https://mainnet.optimism.io";
+const ACTIVE_NETWORK = window.CONTRACTS || {};
+const DECENT_ESCROW_ADDRESS = window.SUBSCRIPTION_CONTRACT_ADDRESS || ACTIVE_NETWORK.subscription || '';
+const BNUT_ADDRESS = window.BNUT_CONTRACT_ADDRESS || ACTIVE_NETWORK.bnut || '';
+const USDC_ADDRESS = window.USDC_ADDRESS || ACTIVE_NETWORK.usdc || '';
+const ACTIVE_RPC_URL = ACTIVE_NETWORK.rpcUrl || 'https://mainnet.base.org';
+const ACTIVE_CHAIN_ID = Number(ACTIVE_NETWORK.chainId || 8453);
+const ACTIVE_HEX_CHAIN_ID = ACTIVE_NETWORK.hexChainId || '0x2105';
+const ACTIVE_NETWORK_LABEL = ACTIVE_NETWORK.label || 'Base Mainnet';
+const ACTIVE_CHAIN_NAME = ACTIVE_NETWORK.chainName || ACTIVE_NETWORK_LABEL;
+const ACTIVE_EXPLORER_BASE_URL = ACTIVE_NETWORK.explorerBaseUrl || 'https://basescan.org';
 
 /**
  * DecentEscrow plan IDs for BigNuten subscriptions.
@@ -115,8 +111,7 @@ const PLAN_IDS = {
   usdcAnnual: window.BIGNUTEN_USDC_ANNUAL_PLAN_ID ?? 5,
 };
 
-/** Optimism Mainnet chain ID (10) and Optimism Sepolia chain ID (11155420). */
-const SUPPORTED_CHAIN_IDS = [10, 11155420];
+const ACTIVE_NATIVE_CURRENCY = ACTIVE_NETWORK.nativeCurrency || { name: 'Ether', symbol: 'ETH', decimals: 18 };
 
 // ─── Internal Helpers ─────────────────────────────────────────────────────────
 
@@ -154,37 +149,38 @@ async function _getSigner() {
  *
  * @returns {Promise<void>}
  */
-async function _ensureOptimism() {
+function _requireSubscriptionDeployment() {
+  if (!DECENT_ESCROW_ADDRESS) {
+    throw new Error(`Subscriptions are not deployed on ${ACTIVE_NETWORK_LABEL} yet. Switch to Optimism Mainnet from the network dropdown to use the current DecentEscrow deployment.`);
+  }
+}
+
+async function _ensureActiveNetwork() {
+  _requireSubscriptionDeployment();
   const provider = await _getProvider();
   const network = await provider.getNetwork();
   const chainId = Number(network.chainId);
-  if (SUPPORTED_CHAIN_IDS.includes(chainId)) return;
+  if (chainId === ACTIVE_CHAIN_ID) return;
 
-  // Ask MetaMask to switch to Optimism Mainnet.
   try {
     await window.ethereum.request({
       method: "wallet_switchEthereumChain",
-      params: [{ chainId: "0xa" }], // 0xa = 10 (Optimism Mainnet)
+      params: [{ chainId: ACTIVE_HEX_CHAIN_ID }],
     });
   } catch (switchErr) {
-    // EIP-1193 error 4902: chain not added — prompt to add it.
     if (switchErr.code === 4902) {
       await window.ethereum.request({
         method: "wallet_addEthereumChain",
-        params: [
-          {
-            chainId: "0xa",
-            chainName: "Optimism",
-            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-            rpcUrls: [OPTIMISM_RPC_URL],
-            blockExplorerUrls: ["https://optimistic.etherscan.io"],
-          },
-        ],
+        params: [{
+          chainId: ACTIVE_HEX_CHAIN_ID,
+          chainName: ACTIVE_CHAIN_NAME,
+          nativeCurrency: ACTIVE_NATIVE_CURRENCY,
+          rpcUrls: [ACTIVE_RPC_URL],
+          blockExplorerUrls: [ACTIVE_EXPLORER_BASE_URL],
+        }],
       });
     } else {
-      throw new Error(
-        "Please switch MetaMask to the Optimism network to pay with crypto."
-      );
+      throw new Error(`Please switch MetaMask to ${ACTIVE_NETWORK_LABEL} to pay with crypto.`);
     }
   }
 }
@@ -207,6 +203,7 @@ async function _ensureOptimism() {
  */
 export async function checkSubscriptionStatus(walletAddress) {
   try {
+    if (!DECENT_ESCROW_ADDRESS) return { isSubscribed: false, expiry: null };
     const provider = await _getProvider();
     const contract = new ethers.Contract(
       DECENT_ESCROW_ADDRESS,
@@ -545,7 +542,7 @@ export function initDnftStripePurchase(
  *   console.log('Tx:', txHash);
  */
 export async function payCryptoSubscription(period = 'monthly') {
-  await _ensureOptimism();
+  await _ensureActiveNetwork();
   try {
     const signer = await _getSigner();
     const contract = new ethers.Contract(
@@ -604,7 +601,7 @@ export async function payCryptoSubscription(period = 'monthly') {
  *   console.log('Tx:', txHash);
  */
 export async function payBNUTSubscription(period = 'monthly') {
-  await _ensureOptimism();
+  await _ensureActiveNetwork();
   try {
     const signer = await _getSigner();
     const signerAddress = await signer.getAddress();
@@ -673,7 +670,7 @@ export async function payBNUTSubscription(period = 'monthly') {
  * Reads the plan price on-chain, requests USDC ERC-20 approval if needed,
  * then calls `subscribe(planId)` on the DecentEscrow contract.
  *
- * USDC on Optimism uses 6 decimals; price is read directly from the plan.
+ * USDC uses 6 decimals on the currently selected deployment; price is read directly from the plan.
  *
  * @param {'monthly'|'annual'} [period='monthly'] - Which plan period to use.
  * @returns {Promise<string>} The transaction hash of the subscribe call.
@@ -683,7 +680,7 @@ export async function payBNUTSubscription(period = 'monthly') {
  *   console.log('Tx:', txHash);
  */
 export async function payUSDCSubscription(period = 'monthly') {
-  await _ensureOptimism();
+  await _ensureActiveNetwork();
   try {
     const signer = await _getSigner();
     const signerAddress = await signer.getAddress();
@@ -832,7 +829,8 @@ export async function listDecentEscrowPlans() {
   const ethers = window.ethers;
   if (!ethers) throw new Error("ethers.js not loaded");
 
-  const provider = new ethers.JsonRpcProvider(OPTIMISM_RPC_URL);
+  if (!DECENT_ESCROW_ADDRESS) return [];
+  const provider = new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
   const contract = new ethers.Contract(
     DECENT_ESCROW_ADDRESS,
     DECENT_ESCROW_SUBSCRIPTION_ABI,
@@ -867,7 +865,7 @@ export async function listDecentEscrowPlans() {
  * @returns {Promise<{txHash: string, planId: number}>}
  */
 export async function createDecentEscrowPlan(name, paymentToken, pricePerPeriod, periodSeconds) {
-  await _ensureOptimism();
+  await _ensureActiveNetwork();
   const signer = await _getSigner();
   const contract = new ethers.Contract(
     DECENT_ESCROW_ADDRESS,
@@ -896,7 +894,7 @@ export async function createDecentEscrowPlan(name, paymentToken, pricePerPeriod,
  * @returns {Promise<string>} The transaction hash.
  */
 export async function deactivateDecentEscrowPlan(planId) {
-  await _ensureOptimism();
+  await _ensureActiveNetwork();
   const signer = await _getSigner();
   const contract = new ethers.Contract(
     DECENT_ESCROW_ADDRESS,
@@ -926,7 +924,8 @@ export async function getDecentEscrowSubscribers(planId) {
   const ethers = window.ethers;
   if (!ethers) throw new Error("ethers.js not loaded");
 
-  const provider = new ethers.JsonRpcProvider(OPTIMISM_RPC_URL);
+  if (!DECENT_ESCROW_ADDRESS) return [];
+  const provider = new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
   const contract = new ethers.Contract(
     DECENT_ESCROW_ADDRESS,
     [
@@ -947,7 +946,7 @@ export async function getDecentEscrowSubscribers(planId) {
     throw new Error(
       `Could not query subscriber events: ${err.message}. ` +
       `You can view all events on ` +
-      `https://optimistic.etherscan.io/address/${DECENT_ESCROW_ADDRESS}#events`
+      `${ACTIVE_EXPLORER_BASE_URL}/address/${DECENT_ESCROW_ADDRESS}#events`
     );
   }
 

@@ -78,7 +78,7 @@ function getStreakBetAddress() {
 }
 
 function getRpc() {
-  return (window.CONTRACTS && window.CONTRACTS.rpcUrl) || 'https://mainnet.optimism.io';
+  return (window.CONTRACTS && window.CONTRACTS.rpcUrl) || 'https://mainnet.base.org';
 }
 
 function escHtml(str) {
@@ -162,11 +162,23 @@ async function requireMetaMask() {
   return accounts[0];
 }
 
-async function requireOptimism(provider) {
+async function requireActiveNetwork(provider) {
   const net = await provider.getNetwork();
-  if (Number(net.chainId) !== 10) {
-    throw new Error('Please switch MetaMask to Optimism Mainnet (chain 10).');
+  const cfg = window.CONTRACTS || {};
+  const chainId = Number(cfg.chainId || 8453);
+  const label = cfg.label || 'Base Mainnet';
+  if (Number(net.chainId) !== chainId) {
+    throw new Error(`Please switch MetaMask to ${label} (chain ID ${chainId}).`);
   }
+}
+
+function requireStreakDeployment() {
+  const addr = getStreakBetAddress();
+  const label = window.CONTRACTS?.label || 'selected network';
+  if (!addr) {
+    throw new Error(`StreakBetEscrow is not deployed on ${label}. Switch to Optimism Mainnet from the network dropdown to use the current competition contracts.`);
+  }
+  return addr;
 }
 
 // ─── Read-Only Contract Instance ──────────────────────────────────────────────
@@ -427,9 +439,10 @@ async function adminCreateComp() {
     statusMsg(statusId, '⏳ Connecting wallet…');
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
+    const streakAddr = requireStreakDeployment();
     const signer   = await provider.getSigner();
-    const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
+    const contract = new ethers.Contract(streakAddr, STREAK_BET_ABI, signer);
 
     const name        = document.getElementById('comp-create-name')?.value.trim();
     const tokenSelect = document.getElementById('comp-create-token')?.value || 'ETH';
@@ -497,9 +510,10 @@ async function adminSettleComp(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
+    const streakAddr = requireStreakDeployment();
     const signer   = await provider.getSigner();
-    const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
+    const contract = new ethers.Contract(streakAddr, STREAK_BET_ABI, signer);
     const tx = await contract.settleCompetition(compId, cid);
     await tx.wait();
     alert(`✅ Competition #${compId} settled!`);
@@ -514,9 +528,10 @@ async function adminCancelComp(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
+    const streakAddr = requireStreakDeployment();
     const signer   = await provider.getSigner();
-    const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
+    const contract = new ethers.Contract(streakAddr, STREAK_BET_ABI, signer);
     const tx = await contract.cancelCompetition(compId);
     await tx.wait();
     alert(`✅ Competition #${compId} cancelled and refunded.`);
@@ -531,9 +546,10 @@ async function adminDeployAave(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
+    const streakAddr = requireStreakDeployment();
     const signer   = await provider.getSigner();
-    const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
+    const contract = new ethers.Contract(streakAddr, STREAK_BET_ABI, signer);
     const tx = await contract.deployToAave(compId);
     await tx.wait();
     alert(`✅ Competition #${compId} pot deployed to Aave.`);
@@ -664,14 +680,15 @@ async function userJoinComp(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
+    const streakAddr = requireStreakDeployment();
     const signer   = await provider.getSigner();
     const readContract = getReadContract();
     const c = await readContract.getCompetition(compId);
     const stakeToken = c.stakeToken;
     const stakeAmount = c.stakeAmount;
 
-    const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
+    const contract = new ethers.Contract(streakAddr, STREAK_BET_ABI, signer);
 
     if (stakeToken === ZERO_ADDR) {
       const tx = await contract.joinCompetition(compId, { value: stakeAmount });
@@ -679,9 +696,9 @@ async function userJoinComp(compId) {
     } else {
       // ERC-20: approve first
       const tokenContract = new ethers.Contract(stakeToken, ERC20_APPROVE_ABI, signer);
-      const allowance = await tokenContract.allowance(wallet, getStreakBetAddress());
+      const allowance = await tokenContract.allowance(wallet, streakAddr);
       if (allowance < stakeAmount) {
-        const approveTx = await tokenContract.approve(getStreakBetAddress(), stakeAmount);
+        const approveTx = await tokenContract.approve(streakAddr, stakeAmount);
         await approveTx.wait();
       }
       const tx = await contract.joinCompetition(compId);
@@ -700,9 +717,10 @@ async function userSubmitReport(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
+    const streakAddr = requireStreakDeployment();
     const signer   = await provider.getSigner();
-    const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
+    const contract = new ethers.Contract(streakAddr, STREAK_BET_ABI, signer);
     const tx = await contract.submitReport(compId, cid);
     await tx.wait();
     alert(`✅ Report submitted for competition #${compId}!`);
@@ -717,9 +735,10 @@ async function userForfeitComp(compId) {
   try {
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
+    const streakAddr = requireStreakDeployment();
     const signer   = await provider.getSigner();
-    const contract = new ethers.Contract(getStreakBetAddress(), STREAK_BET_ABI, signer);
+    const contract = new ethers.Contract(streakAddr, STREAK_BET_ABI, signer);
     const tx = await contract.forfeit(compId);
     await tx.wait();
     alert(`🏳️ Forfeited competition #${compId}.`);

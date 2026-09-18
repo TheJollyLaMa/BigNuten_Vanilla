@@ -20,11 +20,11 @@
 const PAYROLL_QUEUE_URL =
   'https://raw.githubusercontent.com/TheJollyLaMa/BigNuten_Vanilla/main/payroll-queue.json';
 
-/** Fallback treasury contract address (Optimism Mainnet deployment). */
-const DEFAULT_TREASURY_ADDRESS = '0x143cC41AC075FFA40be1993827DA6ffB4638A363';
-
-/** Optimism Mainnet chain ID. */
-const OPTIMISM_CHAIN_ID = 10;
+const ACTIVE_NETWORK = window.CONTRACTS || {};
+const DEFAULT_TREASURY_ADDRESS = window.TREASURY_CONTRACT_ADDRESS || ACTIVE_NETWORK.treasury || '';
+const ACTIVE_CHAIN_ID = Number(ACTIVE_NETWORK.chainId || 8453);
+const ACTIVE_NETWORK_LABEL = ACTIVE_NETWORK.label || 'Base Mainnet';
+const ACTIVE_RPC_URL = ACTIVE_NETWORK.rpcUrl || 'https://mainnet.base.org';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,9 +53,9 @@ async function getSignerContext() {
   }
 
   const network = await provider.getNetwork();
-  if (Number(network.chainId) !== OPTIMISM_CHAIN_ID) {
+  if (Number(network.chainId) !== ACTIVE_CHAIN_ID) {
     throw new Error(
-      `Wrong network. Please switch MetaMask to Optimism Mainnet (chain ID ${OPTIMISM_CHAIN_ID}).`
+      `Wrong network. Please switch MetaMask to ${ACTIVE_NETWORK_LABEL} (chain ID ${ACTIVE_CHAIN_ID}).`
     );
   }
 
@@ -105,9 +105,7 @@ export async function getTreasuryBalance() {
   }
 
   const abi = await loadTreasuryAbi();
-  const provider = new ethers.JsonRpcProvider(
-    window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
-  );
+  const provider = new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
   const treasury = new ethers.Contract(treasuryAddress, abi, provider);
   const balanceWei = await treasury.getBalance();
   return Number(ethers.formatEther(balanceWei));
@@ -137,9 +135,7 @@ export async function isTreasuryOwner(walletAddress) {
 
   try {
     const abi = await loadTreasuryAbi();
-    const provider = new ethers.JsonRpcProvider(
-      window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
-    );
+    const provider = new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
     const treasury = new ethers.Contract(treasuryAddress, abi, provider);
     const owner = await treasury.owner();
     return owner.toLowerCase() === walletAddress.toLowerCase();
@@ -172,9 +168,7 @@ export async function isIssuePaid(issueRef) {
 
   try {
     const abi = await loadTreasuryAbi();
-    const provider = new ethers.JsonRpcProvider(
-      window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
-    );
+    const provider = new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
     const treasury = new ethers.Contract(treasuryAddress, abi, provider);
     return await treasury.isIssuePaid(issueRef);
   } catch (_) {
@@ -237,12 +231,10 @@ export async function getContributorPaidEvents() {
 
   const abi = await loadTreasuryAbi();
 
-  // Always use the public Optimism JSON-RPC for log queries.
-  // MetaMask routes through Infura which caps eth_getLogs at ~2 000 blocks;
-  // our 9 000-block chunks would all fail silently (caught → []).
-  const provider = new ethers.JsonRpcProvider(
-    window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io'
-  );
+  // Always use the active network's public JSON-RPC for log queries.
+  // Browser-injected providers can route through endpoints that cap eth_getLogs at
+  // much smaller ranges; our 9 000-block chunks would otherwise fail silently (caught → []).
+  const provider = new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
 
   const treasury = new ethers.Contract(treasuryAddress, abi, provider);
   const filter   = treasury.filters.ContributorPaid();
@@ -280,7 +272,7 @@ export async function getContributorPaidEvents() {
   if (chunks.length > 0 && failedChunks === chunks.length) {
     throw new Error(
       `All ${chunks.length} block-range queries failed. ` +
-      'Check that the RPC endpoint (mainnet.optimism.io) is reachable and try again.'
+      `Check that the RPC endpoint for ${ACTIVE_NETWORK_LABEL} is reachable and try again.`
     );
   }
 
@@ -350,7 +342,7 @@ export async function settlePayroll(payouts) {
     treasuryAddress === '0x0000000000000000000000000000000000000000'
   ) {
     throw new Error(
-      'Treasury contract address is not set. Deploy the contract first and update js/contracts.js.'
+      `Treasury contract is not deployed on ${ACTIVE_NETWORK_LABEL}. Switch to Optimism Mainnet from the network dropdown or update js/contracts.js once a ${ACTIVE_NETWORK_LABEL} treasury is deployed.`
     );
   }
 

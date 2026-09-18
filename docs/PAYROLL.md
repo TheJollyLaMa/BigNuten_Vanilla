@@ -50,7 +50,7 @@ Before any $BNUT payout can be processed, the contributor must be registered in 
       "github": "octocat",                              // GitHub username
       "displayName": "Octocat",                         // Human-readable name
       "role": "contributor",                            // "owner" or "contributor"
-      "walletAddress": "0xABC...",                      // Optimism Mainnet address
+      "walletAddress": "0xABC...",                      // Selected-network payout address (Base default, Optimism fallback)
       "bnutEarned": 0,                                  // Cumulative settled payouts
       "bnutPending": 0,                                 // Queued but not yet settled
       "issuesClosed": [],                               // Issue refs credited
@@ -63,7 +63,7 @@ Before any $BNUT payout can be processed, the contributor must be registered in 
 ### Registration Process
 
 1. Contributor expresses interest on a bounty issue or contacts `@TheJollyLaMa` directly.
-2. Maintainer arranges a brief video call or direct conversation to verify identity and collect the Optimism Mainnet wallet address.
+2. Maintainer arranges a brief video call or direct conversation to verify identity and collect the preferred payout wallet address. Base is now the default BNUT network; Optimism remains the fallback if that is the active selection.
 3. Maintainer opens **Admin Panel → Contributors Admin** in the BigNuten app:
    - Loads the current `contributor-accounts.json` from GitHub
    - Adds a new entry with the contributor's GitHub username, display name, and wallet address
@@ -86,7 +86,7 @@ Before any $BNUT payout can be processed, the contributor must be registered in 
   "pending": [
     {
       "issueRef": "TheJollyLaMa/BigNuten_Vanilla#45",  // org/repo#issue_number
-      "contributor": "0xABC...",                         // Optimism Mainnet address
+      "contributor": "0xABC...",                         // Selected-network payout address (Base default, Optimism fallback)
       "contributorGithub": "octocat",                    // GitHub username
       "amount": "500",                                   // BNUT (decimal amounts supported, not wei; e.g. "0.5", "500")
       "role": "implementer",                             // optional: "implementer" | "idea-originator"
@@ -350,7 +350,7 @@ A complete walk-through of settling a batch of payouts:
 ### Prerequisites
 - Pending entries exist in `payroll-queue.json`
 - Treasury has sufficient $BNUT balance (check Admin Panel → Treasury Admin)
-- Owner wallet connected to MetaMask on Optimism Mainnet
+- Owner wallet connected to MetaMask on the active payout network (Base default, Optimism fallback where treasury flows remain deployed)
 
 ### Steps
 
@@ -361,7 +361,7 @@ https://thejollylama.github.io/BigNuten_Vanilla/
 
 **2. Connect MetaMask**
 - Click the wallet button (top right)
-- Select the owner wallet on Optimism Mainnet
+- Select the owner wallet on the active payout network
 - The Admin Panel appears in the ⚕︎ staff dropdown
 
 **3. Check Treasury Balance**
@@ -410,7 +410,7 @@ Every payout through `batchPayContributors()` emits:
 ContributorPaid(address contributor, string issueRef, uint256 amount)
 ```
 
-Query these events on Optimistic Etherscan:
+Query these events on the live treasury deployment. Base treasury deployment is still pending, so current payroll settlement events are on the Optimism fallback treasury:
 ```
 https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363#events
 ```

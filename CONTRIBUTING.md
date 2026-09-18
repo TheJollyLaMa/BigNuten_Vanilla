@@ -1,6 +1,6 @@
 # Contributing to BigNuten
 
-Thank you for your interest in contributing to **BigNuten**! This project uses a $BNUT bounty system — automated end-to-end via GitHub Actions — to reward contributors on Optimism Mainnet.
+Thank you for your interest in contributing to **BigNuten**! This project uses a $BNUT bounty system — automated end-to-end via GitHub Actions — to reward contributors on Base Mainnet by default, with Optimism Mainnet still available as a fallback from the app network dropdown.
 
 ---
 
@@ -17,7 +17,7 @@ Thank you for your interest in contributing to **BigNuten**! This project uses a
 
 ## Bounty System Overview
 
-BigNuten uses a **$BNUT bounty system** powered by GitHub Actions to reward contributors for closing issues. Issues labelled `bounty: N BNUT` carry a reward paid out in $BNUT on **Optimism Mainnet** via the BigNutenTreasury smart contract.
+BigNuten uses a **$BNUT bounty system** powered by GitHub Actions to reward contributors for closing issues. Issues labelled `bounty: N BNUT` carry a reward paid out in $BNUT on the currently selected payout network. Base Mainnet is now the default BNUT network; the existing BigNutenTreasury deployment remains on Optimism Mainnet until a Base treasury is deployed.
 
 ### Bounty Tiers
 
@@ -37,7 +37,7 @@ BigNuten uses a **$BNUT bounty system** powered by GitHub Actions to reward cont
 4. Contributor opens a PR with `Closes #N` in the body and gets it merged.
 5. **Bounty Bot** automatically appends an entry to `payroll-queue.json` and increments `bnutPending` in `contributor-accounts.json`.
 6. Maintainer settles pending payouts via **Admin Panel → Payroll** → MetaMask → BigNutenTreasury.
-7. $BNUT lands in the contributor's wallet on Optimism.
+7. $BNUT lands in the contributor's wallet on the active payout network (Base by default; Optimism while legacy treasury flows remain there).
 
 See [`docs/TOKENOMICS.md`](docs/TOKENOMICS.md) for the full payroll queue and settle cycle details.
 
@@ -61,7 +61,7 @@ BigNuten recognises that great ideas often come from community members who may n
 6. **Settled** — the maintainer processes payroll as normal. Your $BNUT lands in your whitelisted wallet.
 7. **Feature Originator DNFT (major features)** — for significant features, the maintainer may also mint a **Feature Originator DNFT** and send it to your wallet as a permanent on-chain record.
 
-> 💡 **Don't have a wallet yet?** Contact `@TheJollyLaMa` to complete onboarding and register your Optimism Mainnet address before the payout is processed.
+> 💡 **Don't have a wallet yet?** Contact `@TheJollyLaMa` to complete onboarding and register your preferred payout address (Base by default, Optimism if you are using the fallback deployment) before the payout is processed.
 
 ### Tips for a Strong Idea Submission
 
@@ -80,14 +80,14 @@ To protect contributors and the project from impersonation and phishing during t
 
 - The maintainer (`@TheJollyLaMa`) personally onboards each contributor.
 - Onboarding is done via a **video call or direct contact** to verify identity.
-- After onboarding, the maintainer adds the contributor's GitHub username and Optimism Mainnet wallet address to [`contributor-accounts.json`](contributor-accounts.json).
+- After onboarding, the maintainer adds the contributor's GitHub username and selected-network payout wallet address to [`contributor-accounts.json`](contributor-accounts.json).
 - Whitelist entries are public (standard Web3 transparency), but only the maintainer can add new contributors.
 
 ### How to Get Whitelisted
 
 1. **Express interest** — comment on the bounty issue you want to work on, or reach out to `@TheJollyLaMa` directly.
 2. **Schedule onboarding** — the maintainer will contact you to arrange a brief video call or direct conversation.
-3. **Provide your wallet privately** — share your **Optimism Mainnet** wallet address with the maintainer during onboarding. **Do not post your wallet address publicly in issues or PRs.**
+3. **Provide your wallet privately** — share your preferred payout wallet address with the maintainer during onboarding. Base Mainnet is the default BNUT network, but Optimism remains available if you are using the fallback deployment. **Do not post your wallet address publicly in issues or PRs.**
 4. **Get added** — the maintainer adds your entry to `contributor-accounts.json` and assigns you to the issue.
 
 > 💡 Until you are whitelisted, no $BNUT payout can be processed for your work — even if your PR is merged. Please complete onboarding **before** you start work on a bounty issue.
@@ -104,7 +104,7 @@ Once you are whitelisted:
 4. **Complete the work** described in the issue.
 5. **Open a Pull Request** that references the issue with `Closes #N` in the PR body.
 6. **Get your PR merged** — the Bounty Bot automatically appends your payout to the payroll queue and posts a confirmation comment on the issue.
-7. **Payout settled** — the maintainer settles all pending payouts via the Admin Panel. $BNUT is sent directly to your whitelisted wallet on Optimism.
+7. **Payout settled** — the maintainer settles all pending payouts via the Admin Panel. $BNUT is sent directly to your whitelisted wallet on the currently selected payout network.
 
 > ⚠️ **Always use `Closes #N` in the PR body.** This is the most reliable way to trigger the
 > Bounty Bot. The bot also tries to detect issue references in the PR title and via GitHub's
@@ -121,12 +121,12 @@ Once you are whitelisted:
 | PR merged | GitHub Actions (Bounty Bot) | Immediately — entry added to `payroll-queue.json` |
 | Queue validated | GitHub Actions (Validate) | Within minutes — format and whitelist check |
 | Payroll settled | Maintainer (Admin Panel + MetaMask) | Within days — batch payout to all pending contributors |
-| On-chain confirmed | BigNutenTreasury (Optimism) | After MetaMask confirmation — `ContributorPaid` event |
+| On-chain confirmed | BigNutenTreasury (active network / current Optimism fallback) | After MetaMask confirmation — `ContributorPaid` event |
 | Ledger committed | Maintainer (settle-payroll.yml) | After on-chain confirmation — `payroll-queue.json` updated |
 
 You can always check your payout status by:
 - Looking at `payroll-queue.json` — your entry will be in `pending[]` until settled, then move to `settled[]`
-- Looking at your wallet on [Optimistic Etherscan](https://optimistic.etherscan.io) for incoming $BNUT transfers from the treasury
+- Looking at your wallet on [Basescan](https://basescan.org) for the default BNUT token and on [Optimistic Etherscan](https://optimistic.etherscan.io) when using the legacy Optimism fallback for incoming $BNUT transfers from the treasury
 
 ---
 

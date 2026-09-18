@@ -438,10 +438,54 @@ body.hide-icons #water-tracker {
   color: #00e5ff;
   text-shadow: 0 0 4px #d6e101d7;
 }
-#walletIconWrapper {
+
+#wallet-controls {
   position: absolute;
   right: 20px;
   top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+#network-selector-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 10px;
+  background: rgba(0, 16, 32, 0.8);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.18);
+}
+
+.network-selector-label {
+  font-size: 0.62rem;
+  color: #9adfff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#network-select {
+  min-width: 138px;
+  padding: 0.28rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 229, 255, 0.45);
+  background: rgba(4, 25, 48, 0.95);
+  color: #e6fbff;
+  font-size: 0.78rem;
+}
+
+#network-select:focus {
+  outline: 2px solid rgba(0, 229, 255, 0.5);
+  outline-offset: 1px;
+}
+#walletIconWrapper {
+  position: relative;
+  right: auto;
+  top: auto;
   text-align: center;
   width: 80px;
   height: 80px;
@@ -3583,11 +3627,21 @@ svg text {
   #app-subtitle {
     font-size: 0.65rem;
   }
+  #wallet-controls {
+    top: 8px;
+    right: 6px;
+    gap: 0.3rem;
+  }
+  #network-selector-wrapper {
+    padding: 0.25rem 0.35rem;
+  }
+  #network-select {
+    min-width: 118px;
+    font-size: 0.72rem;
+  }
   #walletIconWrapper {
     width: 54px;
     height: 54px;
-    top: 8px;
-    right: 6px;
   }
   #wallet-connect {
     width: 50px;

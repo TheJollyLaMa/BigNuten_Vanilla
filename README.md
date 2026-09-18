@@ -11,7 +11,9 @@
 ![Wallet](https://img.shields.io/badge/wallet-MetaMask-orange?style=flat-square)
 [![Early Supporter DNFT](https://img.shields.io/badge/Early%20Access-100%20DNFTs-8b00ff?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
 [![v2.0.0 DNFT Minted](https://img.shields.io/badge/v2.0.0%20DNFT-Minted%20%E2%9C%94-gold?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
-[![Network](https://img.shields.io/badge/network-Optimism%20Mainnet-ff0420?style=flat-square&logo=ethereum)](https://optimistic.etherscan.io)
+[![Network](https://img.shields.io/badge/network-Base%20Mainnet-0052ff?style=flat-square&logo=ethereum)](https://basescan.org)
+
+> **Network update:** BigNuten now operates on **Base Mainnet by default** using BNUT `0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736`. The legacy **Optimism Mainnet** deployment remains available from the in-app network dropdown for fallback flows still deployed there.
 
 ---
 
@@ -49,7 +51,7 @@
 ║                                          │                                   ║
 ║              GitHub PR merged ──► Bounty Bot ──► payroll-queue.json         ║
 ║                                          │                                   ║
-║                    Admin settles ──► batchPayContributors() on Optimism      ║
+║                    Admin settles ──► batchPayContributors() on active network      ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -136,7 +138,7 @@ Everything accessible to every user in the browser — no wallet required to sta
 
 - **IPFS backup & restore** via Pinata — your data, your wallet, your CID
 - **Optional personal JWT fallback** in Settings — enter a Pinata JWT on demand for snapshot uploads/restores
-- **MetaMask wallet connection** for Web3 identity (Optimism Mainnet)
+- **MetaMask wallet connection** for Web3 identity (Base Mainnet by default, Optimism fallback via dropdown)
 - **No backend** — fully client-side; if the servers go dark, your browser still works
 
 ---
@@ -174,16 +176,29 @@ This is the "repo side" of BigNuten — the machinery that pays builders and kee
 
 ## 🏛️ Governance & Treasury Layer
 
-### On-Chain (Optimism Mainnet)
+### On-Chain Network Status
+
+#### Base Mainnet (default)
 
 | Contract | Role | Address |
 |----------|------|---------|
-| **$BNUT** (ERC-20) | Governance token, rewards currency, subscription discount | [`0x733c…8823`](https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823) |
+| **$BNUT** (ERC-20) | Governance token, rewards currency, default live BNUT | [`0x25AC…3736`](https://basescan.org/token/0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736) |
+| **BigNutenTreasury** | Holds $BNUT reserve, pays contributors | _Not yet deployed on Base_ |
+| **BigNutenGov** | On-chain proposals and voting | _Not yet deployed on Base_ |
+| **DecentEscrow** | Subscription plans (ETH + $BNUT) | _Not yet deployed on Base_ |
+| **DecentNFT** | Early Supporter DNFT (ERC-1155) | _Not yet deployed on Base_ |
+| **StreakBetEscrow** | Competition staking, Aave yield, payouts | _Not yet deployed on Base_ |
+
+#### Optimism Mainnet (fallback / legacy)
+
+| Contract | Role | Address |
+|----------|------|---------|
+| **$BNUT** (ERC-20) | Legacy fallback BNUT deployment | [`0x733c…8823`](https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823) |
 | **BigNutenTreasury** | Holds $BNUT reserve, pays contributors | [`0x143c…363`](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363) |
 | **BigNutenGov** | On-chain proposals and voting | [`0x58c2…E2cD`](https://optimistic.etherscan.io/address/0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD) |
 | **DecentEscrow** | Subscription plans (ETH + $BNUT) | [`0x23A4…350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) |
 | **DecentNFT** | Early Supporter DNFT (ERC-1155) | [`0xe870…958`](https://optimistic.etherscan.io/address/0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958) |
-| **StreakBetEscrow** | Competition staking, Aave yield, payouts | _Deploy from `contracts/StreakBetEscrow.sol`_ |
+| **StreakBetEscrow** | Competition staking, Aave yield, payouts | [`0x80f6…7215`](https://optimistic.etherscan.io/address/0x80f6492eFD6D27c877B2bd0936451f7AF61c7215) |
 
 ### Governance Rules
 
@@ -208,7 +223,7 @@ DNFT sales / Subscriptions
   DecentEscrow (on-chain)
           │
           ▼
-  BigNutenTreasury ──► batchPayContributors() ──► Contributor wallets (Optimism)
+  BigNutenTreasury ──► batchPayContributors() ──► Contributor wallets (Base default; Optimism fallback while treasury remains there)
           │
           ▼
   $BNUT minted / distributed ──► Data sharing rewards ──► Governance staking
@@ -285,11 +300,11 @@ npx hardhat test
 
 ### 🗳️ I'm a DAO / Governance Participant
 
-- **Hold $BNUT** — buy on Optimism or earn as a contributor
+- **Hold $BNUT** — use the default Base deployment or switch to Optimism fallback if needed
 - **Get a DNFT** — purchase an [Early Supporter DNFT](https://thejollylama.github.io/DecentMarket/) to gain `PROPOSER_ROLE`
 - **Create proposals** via the Governance modal in the app (DNFT required)
 - **Vote** on proposals — 1 wallet = 1 vote, minimum 1 $BNUT to participate
-- **Track treasury** — all movements visible on [Optimistic Etherscan](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363)
+- **Track treasury** — Base treasury is pending; current fallback treasury activity remains visible on [Optimistic Etherscan](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363)
 
 ---
 
@@ -298,7 +313,7 @@ npx hardhat test
 v3.1.0 builds on the full monetization stack of v2.0.0, adding StreakBet competitions, Yoga Flow, Chakra tracking, Genie AI, DeFi dashboard, Community Dashboard, and the complete admin competition layer. BigNuten is now a **fully layered wellness platform** with an on-chain economy.
 
 ### 🪙 Token Economy
-- ✅ $BNUT ERC-20 token deployed on Optimism Mainnet
+- ✅ $BNUT ERC-20 token deployed on Base Mainnet as the default live network
 - ✅ BigNutenTreasury contract deployed — holds all $BNUT reserves, direct contributor payouts
 - ✅ Subscription payments via DecentEscrow (ETH plan + $BNUT discounted plan)
 - ✅ Data-sharing rewards via `rewardDataSharing()` / `batchRewardDataSharing()`
@@ -365,18 +380,18 @@ The entire contributor reward cycle is automated end-to-end — no private keys 
 │     ➜ Clicks "Settle All Pending"                                   │
 │     ➜ MetaMask prompts batchPayContributors() on BigNutenTreasury   │
 │     ➜ $BNUT sent directly to contributor wallet on-chain            │
-│     ➜ ContributorPaid event emitted on Optimism                     │
+│     ➜ ContributorPaid event emitted on the active payout network                     │
 │     ➜ settle-payroll.yml moves entries: pending → settled           │
 │     ➜ txHash + settledAt recorded in payroll-queue.json             │
 │                                                                     │
 │  5. ON-CHAIN VERIFICATION                                           │
-│     Anyone can verify on Optimistic Etherscan:                      │
-│     ContributorPaid(contributor, issueRef, amount) events           │
-│     https://optimistic.etherscan.io/address/0x143c...363#events     │
+│     Anyone can verify ContributorPaid(contributor, issueRef, amount)        │
+│     events on the live treasury deployment. Base treasury is pending;       │
+│     current payout events are on Optimism fallback: 0x143c...363#events     │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 
-  GitHub Actions         payroll-queue.json        Optimism Mainnet
+  GitHub Actions         payroll-queue.json        Active Network
   ─────────────          ──────────────────        ────────────────
   bounty-label.yml  ──►  pending[] entry  ──────►  BigNutenTreasury
   bounty-bot.yml         settled[] entry  ◄──────  batchPayContributors()
@@ -391,11 +406,11 @@ The entire contributor reward cycle is automated end-to-end — no private keys 
 
 | Contract | Network | Address |
 |----------|---------|---------|
-| $BNUT (ERC-20) | Optimism Mainnet | [`0x733c4d2Aae900E608147dd89Fa93606f89722823`](https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823) |
-| BigNutenTreasury | Optimism Mainnet | [`0x143cC41AC075FFA40be1993827DA6ffB4638A363`](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363) |
-| BigNutenGov | Optimism Mainnet | [`0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD`](https://optimistic.etherscan.io/address/0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD) |
-| DecentEscrow v0.1 | Optimism Mainnet | [`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) |
-| StreakBetEscrow (v3.1.0) | Optimism Mainnet | _Not yet deployed — set `STREAK_BET_ESCROW_ADDRESS` in `contracts.js` after deployment_ |
+| $BNUT (ERC-20) | Base Mainnet (default) | [`0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736`](https://basescan.org/token/0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736) |
+| BigNutenTreasury | Optimism Mainnet (fallback) | [`0x143cC41AC075FFA40be1993827DA6ffB4638A363`](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363) |
+| BigNutenGov | Optimism Mainnet (fallback) | [`0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD`](https://optimistic.etherscan.io/address/0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD) |
+| DecentEscrow v0.1 | Optimism Mainnet (fallback) | [`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) |
+| StreakBetEscrow (v3.1.0) | Optimism Mainnet (fallback) | [`0x80f6492eFD6D27c877B2bd0936451f7AF61c7215`](https://optimistic.etherscan.io/address/0x80f6492eFD6D27c877B2bd0936451f7AF61c7215) |
 
 Full deployment details: [`docs/DEPLOYMENTS.md`](docs/DEPLOYMENTS.md)
 
@@ -458,7 +473,7 @@ The payroll queue is the authoritative off-chain ledger tracking all contributor
   "pending": [
     {
       "issueRef": "TheJollyLaMa/BigNuten_Vanilla#45",  // GitHub issue reference
-      "contributor": "0xABC...",                         // Optimism Mainnet wallet
+      "contributor": "0xABC...",                         // Selected-network wallet (Base default, Optimism fallback)
       "contributorGithub": "octocat",                    // GitHub username
       "amount": "500",                                   // BNUT amount (whole tokens)
       "queuedAt": "2026-03-20T12:00:00.000Z",
@@ -559,7 +574,7 @@ BigNuten is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155 tokens
 |---|---|
 | **Price** | $100 USDC (exact) |
 | **Supply** | 100 editions max |
-| **Standard** | ERC-1155 on Optimism |
+| **Standard** | ERC-1155 on Optimism fallback |
 | **DNFT Contract** | [`0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958`](https://optimistic.etherscan.io/address/0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958) — DecentNFT v0.2 |
 | **Escrow Contract** | [`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) — DecentEscrow v0.1 |
 
@@ -568,7 +583,7 @@ BigNuten is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155 tokens
 #### 🔗 Option 1 — Crypto (instant & trustless)
 
 1. Visit **[DecentMarket](https://thejollylama.github.io/DecentMarket/)** or use the **🎟️ Buy Now** button inside BigNuten
-2. Connect your MetaMask wallet (Optimism network)
+2. Connect your MetaMask wallet (switch to Optimism fallback from the header dropdown for the live DNFT escrow flow)
 3. Approve $100 USDC and confirm — the escrow releases your DNFT automatically on-chain
 
 #### 💳 Option 2 — PayPal (fiat-friendly)
@@ -580,7 +595,7 @@ BigNuten is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155 tokens
 
 ### Community Escrow
 
-Proceeds from DNFT sales flow to the **[DecentEscrow contract](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e)** on Optimism — a transparent, on-chain community treasury. Funds are reserved for:
+Proceeds from DNFT sales currently flow to the **[DecentEscrow contract](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e)** on the Optimism fallback network — a transparent, on-chain community treasury. Funds are reserved for:
 
 - $BNUT bounties for contributors
 - Feature development and infrastructure
@@ -605,7 +620,7 @@ This commemorative DNFT documents the launch of the **BigNuten Monetization Stac
 The DNFT metadata includes a full summary of everything shipped:
 
 - 💳 **Payment stack** — Stripe, PayPal, and on-chain crypto (ETH, $BNUT, USDC) subscription flows via DecentEscrow
-- 🪙 **$BNUT token** — ERC-20 governance and rewards token deployed on Optimism Mainnet
+- 🪙 **$BNUT token** — ERC-20 governance and rewards token now deployed on Base Mainnet by default
 - 🏛️ **BigNutenGov** — on-chain proposal and voting contract, gated by $BNUT balance
 - 🏦 **BigNutenTreasury** — holds the $BNUT reserve; owner settles contributor payroll directly via MetaMask
 - 🤖 **GitHub Bounty Bot** — automated issue-to-payroll pipeline with contributor whitelist; merging a bounty issue queues an addition to payroll
@@ -631,8 +646,9 @@ The DNFT metadata includes a full summary of everything shipped:
 |---|---|
 | Token Name | BigNuten |
 | Symbol | $BNUT |
-| Network | Optimism Mainnet |
-| Contract | [`0x733c4d2Aae900E608147dd89Fa93606f89722823`](https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823) |
+| Default Network | Base Mainnet |
+| Default Contract | [`0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736`](https://basescan.org/token/0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736) |
+| Optimism Fallback | [`0x733c4d2Aae900E608147dd89Fa93606f89722823`](https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823) |
 | Max Supply | 1,000,000,000 BNUT |
 | Mintable | Yes — `MINTER_ROLE` only (owner/Treasury) |
 | Burnable | Yes — any holder can burn their own tokens |
@@ -659,7 +675,7 @@ BigNuten accepts `$BNUT` for subscriptions at a **~50% discount** vs ETH:
 | ETH | ~0.01 ETH / month |
 | **$BNUT** | **~500 $BNUT / month** |
 
-Subscriptions are managed by **DecentEscrow** (`0x23A4…350e`) on Optimism. Plans:
+Subscriptions are currently managed by **DecentEscrow** (`0x23A4…350e`) on the Optimism fallback network until a Base escrow deployment is available. Plans:
 
 | Plan ID | Token | Name |
 |---------|-------|------|
@@ -682,7 +698,7 @@ BigNuten uses a **$BNUT bounty system** powered by GitHub Actions to reward cont
 3. **Comment and get assigned** — express interest on the issue, get assigned by a maintainer
 4. **Do the work and open a PR** — include `Closes #N` in the PR body
 5. **Get merged → get paid** — the Bounty Bot automatically queues your $BNUT payout
-6. **Payout settled** — the maintainer settles pending payouts via the Admin Panel → $BNUT sent to your wallet on Optimism
+6. **Payout settled** — the maintainer settles pending payouts via the Admin Panel → $BNUT sent to your wallet on the active payout network (currently the Optimism fallback treasury)
 
 ### Bounty Tiers
 
@@ -775,7 +791,7 @@ npx hardhat run scripts/deploy.js --network optimism
 | **Wallet** | MetaMask / EIP-1193 |
 | **Smart Contracts** | Solidity ^0.8.20, OpenZeppelin v5, Hardhat |
 | **Contract Testing** | Hardhat + @nomicfoundation/hardhat-network-helpers |
-| **Blockchain** | Optimism Mainnet (Chain ID: 10) |
+| **Blockchain** | Base Mainnet (Chain ID: 8453) by default; Optimism Mainnet (Chain ID: 10) fallback |
 | **DeFi** | Aave V3 Pool (yield on competition pots), Alchemix V2 |
 | **Subscriptions** | DecentEscrow v0.1 (external) |
 | **AI / LLM** | WebLLM (local), GitHub Models (Azure), OpenAI GPT-4o |
@@ -823,7 +839,7 @@ cd BigNuten_Vanilla
 ```
 
 1. Open `index.html` in your browser — **no build step needed!**
-2. Connect your **MetaMask** wallet using the wallet button (Optimism Mainnet)
+2. Connect your **MetaMask** wallet using the wallet button (Base Mainnet by default; switch with the network dropdown if you need Optimism fallback)
 3. Connect **IPFS** via the IPFS icon (requires a Pinata JWT)
 4. Start logging your weight, supplements, food, and exercise!
 

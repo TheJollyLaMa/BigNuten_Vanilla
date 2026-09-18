@@ -3365,6 +3365,103 @@ if (measurementForm) {
   const walletButton = document.getElementById('wallet-connect');
   const footer = document.querySelector('footer');
 
+  function getActiveNetworkConfig() {
+    return window.CONTRACTS || window.getActiveBigNutenNetwork?.() || {
+      key: 'base',
+      label: 'Base Mainnet',
+      shortLabel: 'Base',
+      chainId: 8453,
+      hexChainId: '0x2105',
+      chainName: 'Base Mainnet',
+      rpcUrl: 'https://mainnet.base.org',
+      explorerBaseUrl: 'https://basescan.org',
+      explorerAddressUrl: 'https://basescan.org/address/',
+      explorerTxUrl: 'https://basescan.org/tx/',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    };
+  }
+
+  function getActiveNetworkLabel() {
+    return getActiveNetworkConfig().label || 'selected network';
+  }
+
+  function getActiveExplorerUrl(kind, value) {
+    if (window.getBigNutenExplorerUrl) return window.getBigNutenExplorerUrl(kind, value);
+    const cfg = getActiveNetworkConfig();
+    if (kind === 'tx') return value ? `${cfg.explorerTxUrl}${value}` : cfg.explorerBaseUrl;
+    if (kind === 'address') return value ? `${cfg.explorerAddressUrl}${value}` : cfg.explorerBaseUrl;
+    return cfg.explorerBaseUrl;
+  }
+
+  async function switchWalletToNetwork(cfg) {
+    if (!window.ethereum) return;
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: cfg.hexChainId }],
+      });
+    } catch (switchErr) {
+      if (switchErr?.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: cfg.hexChainId,
+            chainName: cfg.chainName,
+            nativeCurrency: cfg.nativeCurrency,
+            rpcUrls: [cfg.rpcUrl],
+            blockExplorerUrls: [cfg.explorerBaseUrl],
+          }],
+        });
+      } else {
+        throw switchErr;
+      }
+    }
+  }
+
+  async function switchWalletToActiveNetwork() {
+    const cfg = getActiveNetworkConfig();
+    await switchWalletToNetwork(cfg);
+  }
+
+  function syncNetworkSelector() {
+    const networkSelect = document.getElementById('network-select');
+    if (!networkSelect) return;
+    networkSelect.value = window.BIGNUTEN_ACTIVE_NETWORK_KEY || window.BIGNUTEN_DEFAULT_NETWORK_KEY || 'base';
+    networkSelect.title = `Active network: ${getActiveNetworkLabel()}`;
+  }
+
+  async function handleNetworkSelectionChange(event) {
+    const networkSelect = event.currentTarget;
+    const nextKey = networkSelect.value;
+    const previousKey = window.BIGNUTEN_ACTIVE_NETWORK_KEY || window.BIGNUTEN_DEFAULT_NETWORK_KEY || 'base';
+    if (nextKey === previousKey) return;
+
+    networkSelect.disabled = true;
+    try {
+      window.setActiveBigNutenNetwork?.(nextKey);
+      if (window.ethereum) {
+        try {
+          await switchWalletToNetwork(dnftCfg);
+        } catch (switchErr) {
+          alert(`Selected ${getActiveNetworkLabel()} for BigNuten. MetaMask network switching was not completed: ${switchErr.message || switchErr}`);
+        }
+      }
+      window.location.reload();
+    } catch (err) {
+      window.setActiveBigNutenNetwork?.(previousKey);
+      syncNetworkSelector();
+      alert(`Could not switch BigNuten to the selected network: ${err.message || err}`);
+      networkSelect.disabled = false;
+    }
+  }
+
+  const networkSelect = document.getElementById('network-select');
+  if (networkSelect) {
+    syncNetworkSelector();
+    networkSelect.addEventListener('change', handleNetworkSelectionChange);
+    window.addEventListener('bignuten:network-changed', syncNetworkSelector);
+  }
+
   function setWalletConnectionState(connected, account = '') {
     if (!walletButton) return;
     const normalizedAccount = connected ? String(account || '').trim() : '';
@@ -4255,13 +4352,25 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // --- DNFT Escrow Purchase Flow (BigNuten v1.0.0) ---
 // Mirrors the DecentHead AboutModal.js on-chain buy pattern.
-const _BIGNUTEN_ESCROW_ADDRESS  = '0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e';
-const _BIGNUTEN_USDC_ADDRESS    = '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85'; // USDC on Optimism
-const _BIGNUTEN_ZERO_ADDRESS    = '0x0000000000000000000000000000000000000000';
-const _BIGNUTEN_CHAIN_ID        = 10n; // Optimism Mainnet
-const _BIGNUTEN_OPTIMISM_RPC    = 'https://mainnet.optimism.io'; // public read-only RPC
-const _BIGNUTEN_BUY_BTN_TEXT    = '🎟️ Buy Now';
+const _BIGNUTEN_ZERO_ADDRESS     = '0x0000000000000000000000000000000000000000';
+const _BIGNUTEN_BUY_BTN_TEXT     = '🎟️ Buy Now';
 const _BIGNUTEN_MSG_NO_NFT_STOCK = '⚠ NFT stock not yet loaded into escrow — check back soon.';
+
+function _getBignutenDnftConfig() {
+  const cfg = window.CONTRACTS || {};
+  return {
+    escrowAddress: cfg.dnftEscrow || '',
+    usdcAddress: cfg.usdc || '',
+    chainId: BigInt(cfg.chainId || 8453),
+    hexChainId: cfg.hexChainId || '0x2105',
+    chainName: cfg.chainName || 'Base Mainnet',
+    rpcUrl: cfg.rpcUrl || 'https://mainnet.base.org',
+    networkLabel: cfg.label || 'Base Mainnet',
+    shortLabel: cfg.shortLabel || 'Base',
+    explorerBaseUrl: cfg.explorerBaseUrl || 'https://basescan.org',
+    nativeCurrency: cfg.nativeCurrency || { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  };
+}
 
 const _BIGNUTEN_ESCROW_ABI = [
   'function nextListingId() view returns (uint256)',
@@ -4293,8 +4402,13 @@ async function _loadBigNutenListings() {
 
     // Use a public read-only RPC so listings and prices are visible to ALL
     // visitors, with or without MetaMask.  MetaMask is only needed at buy time.
-    const provider = new ethers.JsonRpcProvider(_BIGNUTEN_OPTIMISM_RPC);
-    const escrow   = new ethers.Contract(_BIGNUTEN_ESCROW_ADDRESS, _BIGNUTEN_ESCROW_ABI, provider);
+    const dnftCfg = _getBignutenDnftConfig();
+    if (!dnftCfg.escrowAddress) {
+      container.innerHTML = `<p class="dnft-buy-loading">${dnftCfg.networkLabel} DNFT escrow is not deployed yet. Switch to Optimism fallback from the network dropdown to buy the current listing.</p>`;
+      return;
+    }
+    const provider = new ethers.JsonRpcProvider(dnftCfg.rpcUrl);
+    const escrow   = new ethers.Contract(dnftCfg.escrowAddress, _BIGNUTEN_ESCROW_ABI, provider);
     const count    = Number(await escrow.nextListingId());
 
     const raws = await Promise.all(
@@ -4340,7 +4454,7 @@ async function _loadBigNutenListings() {
       } else if (l.priceAmount > 0n) {
         const isUsdc = !l.priceToken
           || l.priceToken === _BIGNUTEN_ZERO_ADDRESS
-          || l.priceToken.toLowerCase() === _BIGNUTEN_USDC_ADDRESS.toLowerCase();
+          || (dnftCfg.usdcAddress && l.priceToken.toLowerCase() === dnftCfg.usdcAddress.toLowerCase());
         priceLabel = isUsdc
           ? `$${(Number(l.priceAmount) / 1e6).toFixed(2)} USDC`
           : `${l.priceAmount.toString()} raw units (${l.priceToken.slice(0, 8)}…)`;
@@ -4404,27 +4518,19 @@ async function _handleBigNutenBuy(listingId, priceAmount, priceEth, btn, statusE
     const provider = new ethers.BrowserProvider(window.ethereum);
     await provider.send('eth_requestAccounts', []);
 
-    // Ensure we're on Optimism
+    const dnftCfg = _getBignutenDnftConfig();
+    if (!dnftCfg.escrowAddress) {
+      setStatus(`⚠ DNFT escrow is not deployed on ${dnftCfg.networkLabel}. Switch to Optimism fallback to buy the current listing.`, '#ff8800');
+      return;
+    }
+
     const network = await provider.getNetwork();
-    if (network.chainId !== _BIGNUTEN_CHAIN_ID) {
-      setStatus('⏳ Switching to Optimism…');
+    if (network.chainId !== dnftCfg.chainId) {
+      setStatus(`⏳ Switching to ${dnftCfg.shortLabel}…`);
       try {
-        await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0xa' }] });
+        await switchWalletToNetwork(dnftCfg);
       } catch (switchErr) {
-        if (switchErr.code === 4902) {
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: '0xa',
-              chainName: 'Optimism Mainnet',
-              nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-              rpcUrls: ['https://mainnet.optimism.io'],
-              blockExplorerUrls: ['https://optimistic.etherscan.io'],
-            }],
-          });
-        } else {
-          throw switchErr;
-        }
+        throw new Error(`Please switch MetaMask to ${dnftCfg.networkLabel}. ${switchErr.message || switchErr}`);
       }
       const freshProvider = new ethers.BrowserProvider(window.ethereum);
       await _doBigNutenPurchase(freshProvider, ethers, listingId, btn, setStatus);
@@ -4447,9 +4553,10 @@ async function _handleBigNutenBuy(listingId, priceAmount, priceEth, btn, statusE
 async function _doBigNutenPurchase(provider, ethers, listingId, btn, setStatus) {
   const signer = await provider.getSigner();
   const buyer  = signer.address;
+  const dnftCfg = _getBignutenDnftConfig();
 
   setStatus('⏳ Checking listing…');
-  const escrow  = new ethers.Contract(_BIGNUTEN_ESCROW_ADDRESS, _BIGNUTEN_ESCROW_ABI, signer);
+  const escrow  = new ethers.Contract(dnftCfg.escrowAddress, _BIGNUTEN_ESCROW_ABI, signer);
   const listing = await escrow.getListing(listingId);
 
   if (!listing.active) {
@@ -4489,15 +4596,20 @@ async function _doBigNutenPurchase(provider, ethers, listingId, btn, setStatus) 
     // address(0) stored in listing means "use the contract's default token (USDC)"
     const paymentToken = (rawToken && rawToken !== _BIGNUTEN_ZERO_ADDRESS)
       ? rawToken
-      : _BIGNUTEN_USDC_ADDRESS;
+      : dnftCfg.usdcAddress;
 
-    const tokenLabel = paymentToken.toLowerCase() === _BIGNUTEN_USDC_ADDRESS.toLowerCase()
+    if (!paymentToken) {
+      setStatus(`⚠ DNFT payment token is not deployed on ${dnftCfg.networkLabel}. Switch to Optimism fallback to buy the current listing.`, '#ff8800');
+      return;
+    }
+
+    const tokenLabel = dnftCfg.usdcAddress && paymentToken.toLowerCase() === dnftCfg.usdcAddress.toLowerCase()
       ? 'USDC'
       : `token (${paymentToken.slice(0, 8)}…)`;
 
     setStatus('⏳ Checking token allowance…');
     const token     = new ethers.Contract(paymentToken, _BIGNUTEN_ERC20_ABI, signer);
-    const allowance = await token.allowance(buyer, _BIGNUTEN_ESCROW_ADDRESS);
+    const allowance = await token.allowance(buyer, dnftCfg.escrowAddress);
     console.log('[BigNuten] allowance check:', {
       resolvedToken: paymentToken,
       allowance:     allowance.toString(),
@@ -4507,7 +4619,7 @@ async function _doBigNutenPurchase(provider, ethers, listingId, btn, setStatus) 
     if (allowance < tokenAmount) {
       setStatus(`⏳ Approving ${tokenLabel} spend (confirm in MetaMask)…`);
       btn.textContent = '⏳ Approving…';
-      const approveTx = await token.approve(_BIGNUTEN_ESCROW_ADDRESS, tokenAmount);
+      const approveTx = await token.approve(dnftCfg.escrowAddress, tokenAmount);
       setStatus('⏳ Waiting for approval confirmation…');
       await approveTx.wait();
     }
@@ -4524,7 +4636,7 @@ async function _doBigNutenPurchase(provider, ethers, listingId, btn, setStatus) 
   btn.textContent = '✅ Purchased!';
   if (statusEl) {
     statusEl.style.color = '#00e5ff';
-    statusEl.innerHTML = `✅ Success! DNFT transferred to your wallet. Tx: <a href="https://optimistic.etherscan.io/tx/${purchaseTx.hash}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff">${purchaseTx.hash.slice(0, 10)}…</a>`;
+    statusEl.innerHTML = `✅ Success! DNFT transferred to your wallet. Tx: <a href="${getActiveExplorerUrl('tx', purchaseTx.hash)}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff">${purchaseTx.hash.slice(0, 10)}…</a>`;
   }
 
   // Refresh listing cards
@@ -5408,7 +5520,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (createPlanStatus) {
             createPlanStatus.innerHTML =
               `✅ Plan ${planId} created! ` +
-              `<a href="https://optimistic.etherscan.io/tx/${txHash}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">↗ Tx</a>`;
+              `<a href="${getActiveExplorerUrl('tx', txHash)}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">↗ Tx</a>`;
           }
           const nameEl   = document.getElementById('escrow-plan-name');
           const tokenEl  = document.getElementById('escrow-plan-token');
@@ -5450,7 +5562,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (deactivatePlanStatus) {
             deactivatePlanStatus.innerHTML =
               `✅ Plan ${planId} deactivated! ` +
-              `<a href="https://optimistic.etherscan.io/tx/${txHash}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">↗ Tx</a>`;
+              `<a href="${getActiveExplorerUrl('tx', txHash)}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">↗ Tx</a>`;
           }
           if (planIdInput) planIdInput.value = '';
           await refreshEscrowPlansList();
@@ -5502,7 +5614,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const badge = s.active
             ? '<span style="color:#00e5ff; font-size:0.8em;">✅ Active</span>'
             : '<span style="color:#ff8800; font-size:0.8em;">⏰ Expired</span>';
-          const explorerUrl = `https://optimistic.etherscan.io/address/${s.address}`;
+          const explorerUrl = `${getActiveExplorerUrl('address', s.address)}`;
 
           return `
             <div style="display:flex; align-items:center; gap:0.5rem; border:1px solid rgba(0,229,255,0.15);
@@ -5718,9 +5830,9 @@ document.addEventListener('DOMContentLoaded', () => {
               // On-chain subscription — link to Optimism Etherscan for the contract
               const subscriptionAddress = (window.CONTRACTS && window.CONTRACTS.subscription) || '';
               manageLink.href = subscriptionAddress && subscriptionAddress !== '0x0000000000000000000000000000000000000000'
-                ? `https://optimistic.etherscan.io/address/${subscriptionAddress}`
+                ? `${getActiveExplorerUrl('address', subscriptionAddress)}`
                 : '#';
-              manageLink.textContent = '🔍 View on Optimism Explorer';
+              manageLink.textContent = '🔍 View on Explorer';
             } else {
               manageLink.href = '#';
             }
@@ -5825,7 +5937,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const { payCryptoSubscription } = await import('./subscription.js');
           const txHash = await payCryptoSubscription(currentPlan);
-          const explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+          const explorerUrl = `${getActiveExplorerUrl('tx', txHash)}`;
           if (ethStatus) ethStatus.innerHTML =
             `✅ Subscribed! <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer">View Tx ↗</a>`;
           _saveSubscriptionLocal('ETH / MetaMask', currentPlan, txHash);
@@ -5850,7 +5962,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const { payBNUTSubscription } = await import('./subscription.js');
           const txHash = await payBNUTSubscription(currentPlan);
-          const explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+          const explorerUrl = `${getActiveExplorerUrl('tx', txHash)}`;
           if (bnutStatus) bnutStatus.innerHTML =
             `✅ Subscribed! <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer">View Tx ↗</a>`;
           _saveSubscriptionLocal('$BNUT Token', currentPlan, txHash);
@@ -5875,7 +5987,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const { payUSDCSubscription } = await import('./subscription.js');
           const txHash = await payUSDCSubscription(currentPlan);
-          const explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+          const explorerUrl = `${getActiveExplorerUrl('tx', txHash)}`;
           if (usdcStatus) usdcStatus.innerHTML =
             `✅ Subscribed! <a href="${explorerUrl}" target="_blank" rel="noopener noreferrer">View Tx ↗</a>`;
           _saveSubscriptionLocal('USDC / MetaMask', currentPlan, txHash);
@@ -5941,7 +6053,7 @@ document.addEventListener('DOMContentLoaded', () => {
       listEl.innerHTML = raw.slice().reverse().map(p => `
         <div class="sub-history-item">
           <span class="sub-history-date">${formatInUserTz(p.date, { year:'numeric', month:'short', day:'numeric' })}</span>
-          <span class="sub-history-desc">${p.description || 'Subscription'}${p.txHash ? ` <a href="https://optimistic.etherscan.io/tx/${p.txHash}" target="_blank" rel="noopener noreferrer" class="sub-history-tx">↗ Tx</a>` : ''}</span>
+          <span class="sub-history-desc">${p.description || 'Subscription'}${p.txHash ? ` <a href="${getActiveExplorerUrl('tx', p.txHash)}" target="_blank" rel="noopener noreferrer" class="sub-history-tx">↗ Tx</a>` : ''}</span>
           <span class="sub-history-amount">${p.amount || ''}</span>
           <span class="${p.ok ? 'sub-history-status-ok' : 'sub-history-status-fail'}">${p.ok ? '✔' : '✖'}</span>
         </div>
@@ -6204,7 +6316,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const markBtn  = document.querySelector(`.payroll-mark-paid-btn[data-idx="${rowIdx}"]`);
       if (statusEl) statusEl.innerHTML = '<span class="payroll-status payroll-status--settled">settled</span>';
       if (msgEl && txHash) {
-        const txUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+        const txUrl = `${getActiveExplorerUrl('tx', txHash)}`;
         msgEl.innerHTML = `✅ <a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">${txHash.slice(0, 12)}… ↗</a>`;
       } else if (msgEl) {
         msgEl.textContent = '✓ Marked paid (manual)';
@@ -6517,7 +6629,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const github   = btn.dataset.github;
           const issueRef = btn.dataset.issueref;
           const msg = `👋 Hey @${github}! Your contribution to ${issueRef} has earned you $BNUT bounty rewards. ` +
-            `Please reply to this issue with your Optimism wallet address so we can send your payout!`;
+            `Please reply to this issue with your selected-network payout wallet address so we can send your payout!`;
           if (navigator.clipboard) {
             navigator.clipboard.writeText(msg).then(() => {
               const orig = btn.textContent;
@@ -6567,17 +6679,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (const ev of recent) {
         const txLink = ev.txHash
-          ? `<a href="https://optimistic.etherscan.io/tx/${ev.txHash}" target="_blank" rel="noopener" class="payroll-explorer-link" title="${ev.txHash}">` +
+          ? `<a href="${getActiveExplorerUrl('tx', ev.txHash)}" target="_blank" rel="noopener" class="payroll-explorer-link" title="${ev.txHash}">` +
             `<code class="payroll-wallet-addr">${shortenAddr(ev.txHash)}</code></a>`
           : '—';
 
         const walletLink = ev.contributor
-          ? `<a href="https://optimistic.etherscan.io/address/${ev.contributor}" target="_blank" rel="noopener" class="payroll-explorer-link" title="${ev.contributor}">` +
+          ? `<a href="${getActiveExplorerUrl('address', ev.contributor)}" target="_blank" rel="noopener" class="payroll-explorer-link" title="${ev.contributor}">` +
             `<code class="payroll-wallet-addr">${shortenAddr(ev.contributor)}</code></a>`
           : '—';
 
         const contractLink =
-          `<a href="https://optimistic.etherscan.io/address/${TREASURY_ADDR}" target="_blank" rel="noopener" class="payroll-explorer-link" title="BNUT Treasury: ${TREASURY_ADDR}">` +
+          `<a href="${getActiveExplorerUrl('address', TREASURY_ADDR)}" target="_blank" rel="noopener" class="payroll-explorer-link" title="BNUT Treasury: ${TREASURY_ADDR}">` +
           `<code class="payroll-wallet-addr">📜 ${shortenAddr(TREASURY_ADDR)}</code></a>`;
 
         // Strip compound-key wallet suffix if present (on-chain issueRef may be
@@ -6723,7 +6835,7 @@ document.addEventListener('DOMContentLoaded', () => {
               `<p style="color:#ff6b6b;">❌ On-chain query failed: ${chainErr.message}</p>` +
               `<p style="color:#aaa;font-size:0.85rem;">` +
               `<a href="#" id="payroll-settled-retry" style="color:#00e5ff;">🔄 Retry</a> · ` +
-              `Check your network connection and that MetaMask is on Optimism Mainnet.</p>`;
+              `Check your network connection and that MetaMask is on the selected BigNuten network.</p>`;
             const retryLink = document.getElementById('payroll-settled-retry');
             if (retryLink) {
               retryLink.addEventListener('click', async (e) => {
@@ -7062,14 +7174,14 @@ document.addEventListener('DOMContentLoaded', () => {
           renderBatchPreview(_pendingQueue, _paidOnChain);
 
           if (settleStatus) {
-            const txUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+            const txUrl = `${getActiveExplorerUrl('tx', txHash)}`;
             // Build per-wallet audit summary
             const auditLines = [...walletTally.values()]
               .map(w => `• @${w.github || w.contributor.slice(0, 10)}…${w.contributor.slice(-4)}: ${w.total} BNUT — ${w.issues.map(r => r.replace(/:0x[0-9a-fA-F]+$/i, '')).join(', ')}`)
               .join('<br>');
             settleStatus.innerHTML =
               `✅ ${payouts.length} payout(s) settled for ${walletTally.size} wallet(s)${skippedMsg}!<br>` +
-              `<a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View on Optimism Explorer ↗</a><br>` +
+              `<a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View on Explorer ↗</a><br>` +
               `<details style="margin-top:0.4rem;font-size:0.8rem;"><summary style="cursor:pointer;color:#aacfdd;">📋 Audit trail — click to expand</summary>` +
               `<div style="margin-top:0.4rem;line-height:1.8;">${auditLines}</div></details>` +
               `<small style="color:#aaa;">Settled payouts will appear in "Recently Settled" after chain confirmation.</small>`;
@@ -7159,8 +7271,8 @@ document.addEventListener('DOMContentLoaded', () => {
           const txHash = await settleDataSharingRewards(batch);
 
           if (dsStatusEl) {
-            const txUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
-            dsStatusEl.innerHTML = `✅ Rewards sent! <a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View on Optimism Explorer ↗</a>`;
+            const txUrl = `${getActiveExplorerUrl('tx', txHash)}`;
+            dsStatusEl.innerHTML = `✅ Rewards sent! <a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View on Explorer ↗</a>`;
           }
         } catch (err) {
           if (dsStatusEl) dsStatusEl.textContent = `❌ ${err.reason || err.message || err}`;
@@ -7231,10 +7343,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const tx = await escrow.withdrawNFT(nftContract, recipient, tokenId, 1);
           await tx.wait();
 
-          const txUrl = `https://optimistic.etherscan.io/tx/${tx.hash}`;
+          const txUrl = `${getActiveExplorerUrl('tx', tx.hash)}`;
           if (dnftStatusEl) {
             dnftStatusEl.innerHTML = `🎖️ Feature Originator DNFT sent to <code>${recipient.slice(0, 10)}…</code>!<br>` +
-              `<a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View tx on Optimism Explorer ↗</a><br>` +
+              `<a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View tx on Explorer ↗</a><br>` +
               `<small style="color:#aacfdd;">Issue: ${issueRef} · Feature: ${desc}</small>`;
           }
         } catch (err) {
@@ -7283,9 +7395,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Treasury Admin Panel ──────────────────────────────────────────────────
 
   (function initTreasuryAdminPanel() {
-    const BNUT_ADDR = window.BNUT_CONTRACT_ADDRESS || '0x733c4d2Aae900E608147dd89Fa93606f89722823';
-    const TREASURY_ADDR = window.TREASURY_CONTRACT_ADDRESS || window.CONTRACTS?.treasury || '0x0000000000000000000000000000000000000000';
-    const RPC_URL = window.CONTRACTS?.rpcUrl || 'https://mainnet.optimism.io';
+    const BNUT_ADDR = window.BNUT_CONTRACT_ADDRESS || '';
+    const TREASURY_ADDR = window.TREASURY_CONTRACT_ADDRESS || window.CONTRACTS?.treasury || '';
+    const RPC_URL = window.CONTRACTS?.rpcUrl || 'https://mainnet.base.org';
+    const ACTIVE_NETWORK = window.CONTRACTS || {};
+    const ACTIVE_CHAIN_ID = Number(ACTIVE_NETWORK.chainId || 8453);
+    const ACTIVE_NETWORK_LABEL = ACTIVE_NETWORK.label || 'Base Mainnet';
     // Optimism produces ~2 blocks/s; 2 000 000 blocks ≈ ~11.5 days of events.
     const MINT_HISTORY_BLOCKS = 2_000_000;
 
@@ -7397,7 +7512,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const amount = fmt(e.args.amount);
           const reason = e.args.reason || '—';
           const txHash = e.transactionHash;
-          const txLink = `<a href="https://optimistic.etherscan.io/tx/${txHash}" target="_blank" rel="noopener">${txHash.slice(0, 10)}…</a>`;
+          const txLink = `<a href="${getActiveExplorerUrl('tx', txHash)}" target="_blank" rel="noopener">${txHash.slice(0, 10)}…</a>`;
           const toShort = `<code style="font-size:0.78em;">${to.slice(0, 8)}…${to.slice(-6)}</code>`;
           return `<tr><td>${date}</td><td>${toShort}</td><td>${amount}</td><td>${reason}</td><td>${txLink}</td></tr>`;
         }));
@@ -7440,7 +7555,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Pre-fill treasury address display and wire "Mint to Treasury" checkbox
     const transferAddrDisplay = document.getElementById('treasury-transfer-addr-display');
-    if (transferAddrDisplay) transferAddrDisplay.textContent = TREASURY_ADDR;
+    if (transferAddrDisplay) transferAddrDisplay.textContent = TREASURY_ADDR || `Not deployed on ${ACTIVE_NETWORK_LABEL}`;
 
     if (mintToTreasuryCb && mintAddrEl) {
       mintToTreasuryCb.addEventListener('change', () => {
@@ -7479,7 +7594,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const defaultReason = mintToTreasury ? 'treasury fund' : 'Quick mint';
           const txHash = await mintBnutToAddress(toAddr, amount, reason || defaultReason);
           if (quickMintStatus) {
-            const txUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
+            const txUrl = `${getActiveExplorerUrl('tx', txHash)}`;
             const dest  = mintToTreasury ? ' to treasury' : '';
             quickMintStatus.innerHTML = `✅ Minted ${amount} $BNUT${dest}! <a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View tx ↗</a>`;
           }
@@ -7511,7 +7626,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         if (!TREASURY_ADDR || TREASURY_ADDR === '0x0000000000000000000000000000000000000000') {
-          if (transferStatus) transferStatus.textContent = '⚠️ Treasury address not configured.';
+          if (transferStatus) transferStatus.textContent = `⚠️ Treasury is not deployed on ${ACTIVE_NETWORK_LABEL}. Switch to Optimism fallback to use the current treasury.`;
           return;
         }
         if (!window.ethereum) {
@@ -7525,8 +7640,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const provider = new ethers.BrowserProvider(window.ethereum);
           const network  = await provider.getNetwork();
-          if (Number(network.chainId) !== 10) {
-            throw new Error('Please switch MetaMask to Optimism Mainnet (chain ID 10).');
+          if (Number(network.chainId) !== ACTIVE_CHAIN_ID) {
+            throw new Error(`Please switch MetaMask to ${ACTIVE_NETWORK_LABEL} (chain ID ${ACTIVE_CHAIN_ID}).`);
           }
           const signer = await provider.getSigner();
           const bnut   = new ethers.Contract(BNUT_ADDR, [
@@ -7545,7 +7660,7 @@ document.addEventListener('DOMContentLoaded', () => {
           await tx.wait();
 
           if (transferStatus) {
-            const txUrl = `https://optimistic.etherscan.io/tx/${tx.hash}`;
+            const txUrl = `${getActiveExplorerUrl('tx', tx.hash)}`;
             transferStatus.innerHTML = `✅ Transferred ${amount} $BNUT to treasury! <a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View tx ↗</a>`;
           }
           const amtEl = document.getElementById('treasury-transfer-amount');
