@@ -7622,7 +7622,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         if (!TREASURY_ADDR || TREASURY_ADDR === '0x0000000000000000000000000000000000000000') {
-          if (transferStatus) transferStatus.textContent = '⚠️ Treasury address not configured.';
+          if (transferStatus) transferStatus.textContent = `⚠️ Treasury is not deployed on ${ACTIVE_NETWORK_LABEL}. Switch to Optimism fallback to use the current treasury.`;
           return;
         }
         if (!window.ethereum) {

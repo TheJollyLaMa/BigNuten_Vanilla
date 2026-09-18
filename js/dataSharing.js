@@ -175,25 +175,22 @@ const MAX_LOG_RANGE_BLOCKS = 100_000;
  * @returns {Promise<Array<{amount: number, ref: string, txHash: string}>>}
  */
 export async function getOnChainDataSharingHistory(walletAddress) {
-  const treasuryAddress =
-    window.TREASURY_CONTRACT_ADDRESS ||
-    window.CONTRACTS?.treasury ||
-    '0x0000000000000000000000000000000000000000';
+  const activeConfig = window.CONTRACTS || {};
+  const treasuryAddress = activeConfig.treasury || window.TREASURY_CONTRACT_ADDRESS || '';
+  const activeLabel = activeConfig.label || 'selected network';
 
-  if (
-    !walletAddress ||
-    !treasuryAddress ||
-    treasuryAddress === '0x0000000000000000000000000000000000000000' ||
-    typeof ethers === 'undefined'
-  ) {
+  if (!walletAddress || typeof ethers === 'undefined') {
+    return [];
+  }
+
+  if (!treasuryAddress || treasuryAddress === '0x0000000000000000000000000000000000000000') {
+    console.info(`[dataSharing] Treasury is not deployed on ${activeLabel}; on-chain reward history is unavailable until you switch to a deployed network.`);
     return [];
   }
 
   console.time('[dataSharing] history fetch');
   try {
-    const provider = new ethers.JsonRpcProvider(
-      window.CONTRACTS?.rpcUrl || 'https://mainnet.base.org'
-    );
+    const provider = new ethers.JsonRpcProvider(activeConfig.rpcUrl || 'https://mainnet.base.org');
     const res = await fetch('abis/BigNutenTreasury.json');
     if (!res.ok) return [];
     const abi = await res.json();
