@@ -580,7 +580,7 @@ async function renderRewardStatus() {
         <div class="comm-history-row">
           <span class="comm-history-ref">${escHtml(h.ref)}</span>
           <span class="comm-history-amount">+${h.amount.toLocaleString()} BNUT</span>
-          <a class="comm-history-tx" href="${window.getBigNutenExplorerUrl ? window.getBigNutenExplorerUrl('tx', escHtml(h.txHash)) : `https://basescan.org/tx/${escHtml(h.txHash)}`}"
+          <a class="comm-history-tx" href="${window.getBigNutenExplorerUrl ? window.getBigNutenExplorerUrl('tx', h.txHash) : `https://basescan.org/tx/${h.txHash}`}"
              target="_blank" rel="noopener noreferrer">↗ tx</a>
         </div>
       `).join('');

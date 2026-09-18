@@ -385,9 +385,9 @@ The entire contributor reward cycle is automated end-to-end — no private keys 
 │     ➜ txHash + settledAt recorded in payroll-queue.json             │
 │                                                                     │
 │  5. ON-CHAIN VERIFICATION                                           │
-│     Anyone can verify on the active explorer (Base by default; Optimism for legacy treasury flows):                      │
-│     ContributorPaid(contributor, issueRef, amount) events           │
-│     Basescan: 0x25AC...3736 (default BNUT) · Optimistic Etherscan: 0x143c...363#events (fallback treasury)     │
+│     Anyone can verify ContributorPaid(contributor, issueRef, amount)        │
+│     events on the live treasury deployment. Base treasury is pending;       │
+│     current payout events are on Optimism fallback: 0x143c...363#events     │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 

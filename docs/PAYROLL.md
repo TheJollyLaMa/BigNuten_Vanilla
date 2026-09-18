@@ -410,10 +410,9 @@ Every payout through `batchPayContributors()` emits:
 ContributorPaid(address contributor, string issueRef, uint256 amount)
 ```
 
-Query these events on Optimistic Etherscan:
+Query these events on the live treasury deployment. Base treasury deployment is still pending, so current payroll settlement events are on the Optimism fallback treasury:
 ```
-Base BNUT: https://basescan.org/token/0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736
-Optimism fallback treasury: https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363#events
+https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363#events
 ```
 
 Or use the view helpers on the contract:
