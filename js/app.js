@@ -3393,9 +3393,8 @@ if (measurementForm) {
     return cfg.explorerBaseUrl;
   }
 
-  async function switchWalletToActiveNetwork() {
+  async function switchWalletToNetwork(cfg) {
     if (!window.ethereum) return;
-    const cfg = getActiveNetworkConfig();
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
@@ -3419,6 +3418,11 @@ if (measurementForm) {
     }
   }
 
+  async function switchWalletToActiveNetwork() {
+    const cfg = getActiveNetworkConfig();
+    await switchWalletToNetwork(cfg);
+  }
+
   function syncNetworkSelector() {
     const networkSelect = document.getElementById('network-select');
     if (!networkSelect) return;
@@ -3437,7 +3441,7 @@ if (measurementForm) {
       window.setActiveBigNutenNetwork?.(nextKey);
       if (window.ethereum) {
         try {
-          await switchWalletToActiveNetwork();
+          await switchWalletToNetwork(dnftCfg);
         } catch (switchErr) {
           alert(`Selected ${getActiveNetworkLabel()} for BigNuten. MetaMask network switching was not completed: ${switchErr.message || switchErr}`);
         }
@@ -4355,7 +4359,7 @@ const _BIGNUTEN_MSG_NO_NFT_STOCK = '⚠ NFT stock not yet loaded into escrow —
 function _getBignutenDnftConfig() {
   const cfg = window.CONTRACTS || {};
   return {
-    escrowAddress: cfg.dnftEscrow || cfg.subscription || '',
+    escrowAddress: cfg.dnftEscrow || '',
     usdcAddress: cfg.usdc || '',
     chainId: BigInt(cfg.chainId || 8453),
     hexChainId: cfg.hexChainId || '0x2105',
@@ -4524,7 +4528,7 @@ async function _handleBigNutenBuy(listingId, priceAmount, priceEth, btn, statusE
     if (network.chainId !== dnftCfg.chainId) {
       setStatus(`⏳ Switching to ${dnftCfg.shortLabel}…`);
       try {
-        await switchWalletToActiveNetwork();
+        await switchWalletToNetwork(dnftCfg);
       } catch (switchErr) {
         throw new Error(`Please switch MetaMask to ${dnftCfg.networkLabel}. ${switchErr.message || switchErr}`);
       }

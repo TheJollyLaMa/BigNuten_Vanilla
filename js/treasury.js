@@ -231,9 +231,9 @@ export async function getContributorPaidEvents() {
 
   const abi = await loadTreasuryAbi();
 
-  // Always use the public Optimism JSON-RPC for log queries.
-  // MetaMask routes through Infura which caps eth_getLogs at ~2 000 blocks;
-  // our 9 000-block chunks would all fail silently (caught → []).
+  // Always use the active network's public JSON-RPC for log queries.
+  // Browser-injected providers can route through endpoints that cap eth_getLogs at
+  // much smaller ranges; our 9 000-block chunks would otherwise fail silently (caught → []).
   const provider = new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
 
   const treasury = new ethers.Contract(treasuryAddress, abi, provider);
