@@ -82,13 +82,6 @@ async function resolveRuntimeNetworkConfig() {
   return activeNetworkConfig();
 }
 
-async function requireContractCode(provider, address, label, networkLabel) {
-  const code = await provider.getCode(address);
-  if (!code || code === '0x') {
-    throw new Error(`${label} is not deployed at ${address} on ${networkLabel}. Check MetaMask's active network.`);
-  }
-}
-
 /**
  * Return a read/write ethers provider + signer from the connected MetaMask.
  * Throws if MetaMask is not available or no account is connected.
@@ -170,7 +163,6 @@ export async function getPayrollSettlementOptions(currency = 'BNUT') {
     let balance = 0;
     if (tokenAddress && symbol === 'BNUT') {
       const token = new ethers.Contract(tokenAddress, ['function balanceOf(address) view returns (uint256)'], provider);
-      await requireContractCode(provider, tokenAddress, `${config.label} BNUT`, config.label || 'active network');
       balance = Number(ethers.formatEther(await token.balanceOf(config.treasury)));
     }
     options.push({ source: 'treasury', label: 'BigNuten Treasury', address: config.treasury, balance, available: symbol === 'BNUT' });
