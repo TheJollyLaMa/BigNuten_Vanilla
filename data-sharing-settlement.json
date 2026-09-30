@@ -1,0 +1,12 @@
+{
+  "chainId": 8453,
+  "rpcUrl": "https://base-rpc.publicnode.com",
+  "routerAddress": "0x8ecca903e2a6Daa8CCbB933700e4F2C58C44A4B5",
+  "fundSlug": "bignuten-health-data-rewards",
+  "repositorySlug": "TheJollyLaMa/BigNuten_Vanilla",
+  "asset": {
+    "symbol": "BNUT",
+    "address": "0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736",
+    "decimals": 18
+  }
+}

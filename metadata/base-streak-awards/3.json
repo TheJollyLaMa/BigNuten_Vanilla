@@ -1,0 +1,10 @@
+{
+  "name": "Monthly Hydration Challenge Third Place",
+  "description": "Awarded to the third-place participant in the BigNuten Monthly Hydration Challenge.",
+  "image": "https://thejollylama.github.io/BigNuten_Vanilla/img/BigNuten.png",
+  "external_url": "https://thejollylama.github.io/BigNuten_Vanilla/",
+  "attributes": [
+    { "trait_type": "Award", "value": "Third Place" },
+    { "trait_type": "Project", "value": "BigNuten" }
+  ]
+}

@@ -7273,7 +7273,7 @@ document.addEventListener('DOMContentLoaded', () => {
         row.innerHTML = `
           <input type="text"   class="payroll-ds-wallet payroll-ds-input" placeholder="0x… wallet address" />
           <input type="number" class="payroll-ds-amount payroll-ds-input" placeholder="BNUT amount" min="1" />
-          <input type="text"   class="payroll-ds-ref    payroll-ds-input" placeholder="ref" />
+          <input type="text"   class="payroll-ds-ref    payroll-ds-input" placeholder="Unique ref, e.g. data-sharing:cycle-2026-09:week-1" />
         `;
         dsEntriesEl.appendChild(row);
       });
@@ -7300,13 +7300,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
 
-          if (dsStatusEl) dsStatusEl.textContent = `⏳ Sending ${batch.length} data-sharing reward(s) via MetaMask…`;
+          if (dsStatusEl) dsStatusEl.textContent = `⏳ Sending ${batch.length} data-sharing reward(s) through the selected settlement network…`;
 
-          const txHash = await settleDataSharingRewards(batch);
+          const txHashes = await settleDataSharingRewards(batch);
 
-          if (dsStatusEl) {
-            const txUrl = `${getActiveExplorerUrl('tx', txHash)}`;
-            dsStatusEl.innerHTML = `✅ Rewards sent! <a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View on Explorer ↗</a>`;
+          if (dsStatusEl && txHashes.length === 0) {
+            dsStatusEl.textContent = 'ℹ️ All rewards in this batch were already settled; no new payout was sent.';
+          } else if (dsStatusEl) {
+            const links = txHashes.map((txHash, index) => {
+              const txUrl = getActiveExplorerUrl('tx', txHash);
+              return `<a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">Payout ${index + 1} ↗</a>`;
+            });
+            dsStatusEl.innerHTML = `✅ Rewards sent from the configured fund. ${links.join(' · ')}`;
           }
         } catch (err) {
           if (dsStatusEl) dsStatusEl.textContent = `❌ ${err.reason || err.message || err}`;

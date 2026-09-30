@@ -1,0 +1,10 @@
+{
+  "name": "Monthly Hydration Challenge Finisher",
+  "description": "Awarded to a participant who completes the BigNuten Monthly Hydration Challenge.",
+  "image": "https://thejollylama.github.io/BigNuten_Vanilla/img/BigNuten.png",
+  "external_url": "https://thejollylama.github.io/BigNuten_Vanilla/",
+  "attributes": [
+    { "trait_type": "Award", "value": "Completion" },
+    { "trait_type": "Project", "value": "BigNuten" }
+  ]
+}

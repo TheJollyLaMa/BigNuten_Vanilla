@@ -1207,7 +1207,7 @@
           <li>✅ GitHub bounty bot &amp; contributor payroll system</li>
           <li>✅ Admin Panel — BNUT, Treasury, Escrow, Contributors, Payroll (5 modals)</li>
           <li>✅ Community data dashboard &amp; opt-in data sharing rewards</li>
-          <li>✅ $BNUT governance voting (on-chain; Optimism fallback until Base governance is deployed)</li>
+          <li>✅ $BNUT governance voting (Base Mainnet; Optimism deployment retained as legacy)</li>
           <li>🔜 Q2 2026: Yield/Aave DeFi integration</li>
           <li>🔜 Q2 2026: DNFT Challenges &amp; prize pools</li>
           <li>🔜 Q2 2026: Premium feature tiers (v3.2+)</li>
@@ -1925,7 +1925,7 @@
         <h2 id="defi-admin-modal-title">🌾 v3 DeFi</h2>
       </div>
       <p class="aes-stub-desc">
-        Yield management &amp; manual dev fund borrowing on the selected network. These controls stay available on Optimism fallback and will remain disabled where Base contracts are not deployed yet.
+        Yield management &amp; manual dev fund borrowing use network-specific integrations. Base Aave is not configured for this launch; Optimism integrations are legacy.
       </p>
 
       <div class="gov-admin-panel">
@@ -2337,6 +2337,7 @@
               </div>
               <button id="streak-authorize-minter-button" class="gov-admin-action-btn">Authorize StreakBet to mint achievements</button>
               <button id="streak-awards-button" class="gov-admin-action-btn">Configure reusable DNFT awards</button>
+              <p class="gov-admin-hint">Use a fresh group of four IDs for each competition: completion, 1st, 2nd, and 3rd. The challenge stores that group when configured; each ID is an ERC-1155 award edition shared by recipients, not a one-of-one token per person.</p>
             <p class="gov-admin-hint">One StreakBetEscrow runs all challenge types. This first adapter reads the existing hydration tracker; future nutrition, exercise, and weight adapters use the same contract. Entries are fixed BNUT amounts because there is no liquid BNUT/USD market for automatic $5 conversion.</p>
             <label class="gov-label">Challenge name<input id="streak-create-name" class="gov-input" type="text" value="Monthly Hydration Streak" /></label>
             <label class="gov-label">Activity type
@@ -2542,7 +2543,7 @@
           <p>Default network: <strong>Base Mainnet</strong> · Legacy queue settlement: <strong>Optimism Mainnet</strong> · Token: <strong>$BNUT</strong></p>
           <p>
             📜 Contract:
-            <span class="payroll-wallet-addr">Base treasury deployment pending · Optimism fallback treasury: <a href="https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363" target="_blank" rel="noopener" class="payroll-explorer-link"><code class="payroll-wallet-addr">0x143c…363</code></a></span>
+            <span class="payroll-wallet-addr">Base Treasury: <a href="https://basescan.org/address/0x9aC977ED07953B97575CdE424C9bb67b53D9D09E" target="_blank" rel="noopener" class="payroll-explorer-link"><code class="payroll-wallet-addr">0x9aC9…D09E</code></a> · Legacy Optimism payout history remains on Optimistic Etherscan.</span>
           </p>
         </div>
       </details>
@@ -3081,10 +3082,10 @@
         <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
         <h2 id="challenge-modal-title">💧 Monthly Streak Challenge</h2>
       </div>
-      <p class="aes-stub-desc">Track your daily activity in BigNuten, then join four weekly video meetups. Drink one liter together, check in with the captain’s code, and have a peer verify your progress. Four peer approvals and 28 tracked days complete the month.</p>
+      <p class="aes-stub-desc">Track your daily activity in BigNuten, then join four weekly video meetups. Drink one liter together and check in with the captain’s code. A solo entrant’s logs are trusted; with others, agreement verifies a claim and disputes escalate to a vote.</p>
       <ul class="aes-stub-list">
         <li>📅 28 tracked activity days in a 30-day challenge</li>
-        <li>🎥 Four weekly one-hour meetups; a peer can approve or reject each attendance</li>
+        <li>🎥 Four weekly one-hour meetups; disputes stay open until a majority decides, with captain-invited guests as tie-break reviewers</li>
         <li>🥤 Attest to drinking one liter together during each meetup</li>
         <li>🏆 Completed entrants split forfeited BNUT by leaderboard rank and earn reusable achievement DNFTs</li>
       </ul>
@@ -3093,7 +3094,7 @@
         <img src="img/BigNuten.png" alt="$BNUT" class="aes-stub-pool-icon" />
         <span>Stake: <strong>BNUT amount set by the captain</strong></span>
       </div>
-      <p class="streak-peer-note">This is a peer-verified leaderboard challenge, not a random lottery. Your app logs are browser-local; peers review your displayed progress during calls. The blockchain records meetup code hashes, attendance decisions, stakes, and payouts.</p>
+      <p class="streak-peer-note">This is a peer-verified leaderboard challenge, not a random lottery. Your app logs are browser-local; peers review your displayed progress during calls. The blockchain records self-claims, review votes, guest invitations, stakes, and payouts.</p>
       <div id="streak-challenge-list"><p class="gov-loading">Loading monthly challenges…</p></div>
     </div>
   </div>

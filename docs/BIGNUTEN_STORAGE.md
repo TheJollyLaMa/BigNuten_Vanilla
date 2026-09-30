@@ -50,9 +50,11 @@ Keep Kubo bound to `127.0.0.1:5001` and allow only the exact BigNuten site origi
 ## Community pinning rewards
 
 BigNuten mirrors ArtFi’s verifiable node model through
-`BigNutenNetworkRegistry.sol`. The registry is configured to use the shared
-Settlements Router and the `bignuten-data-rewards` fund, but its address remains
-blank in `network-registry.json` until the Base migration deployment.
+`BigNutenNetworkRegistry.sol`, deployed at
+`0x0670B43b689D51Fd04741b52507D4f87c24A5E75` on Base. Its node-replication
+rewards are a separate program from participant health-data incentives. The
+`bignuten-data-rewards` fund is not yet created or funded, and the Registry still
+needs its router `PAYROLL_ROLE` and payout configuration.
 
 The intended lifecycle is:
 
@@ -61,7 +63,7 @@ The intended lifecycle is:
 3. The administrator publishes a monthly challenge hash.
 4. The keeper pins and retrieves a sample of published community CIDs, hashes the retrieval report, and submits a heartbeat or independent checker proof.
 5. After 25 independent checks with the 12-hour spacing rule, the operator sees the eligible amount in the community panel and claims through MetaMask.
-6. The registry calls the shared router for the `bignuten-data-rewards` fund using a unique work reference.
+6. The registry calls the shared router for the `bignuten-data-rewards` node fund using a unique work reference.
 
 Local commands are ready for the post-deployment phase:
 
@@ -74,6 +76,14 @@ Do not treat a browser-only “I pinned this” claim as proof. Reward eligibili
 comes from independent checker transactions and the router’s approved recipient
 and funded-fund checks.
 
+## Health-data rewards
+
+Opt-in participant rewards use the separate `bignuten-health-data-rewards` fund
+on the same Base Settlements Router. The fund record is active but currently has
+zero BNUT. Reward rows are explicitly settled by an authorized admin; the UI
+checks the fund balance, router roles, and recipient approvals before payout.
+Do not use the node-replication fund for participant incentives.
+
 ## DecentNFT metadata publishing
 
 Prepare a folder containing `collection.json`, one JSON file per token ID (for
@@ -82,7 +92,11 @@ example, `0.json`), and optional image/GIF/MP4/WebM assets. JSON is limited to
 `animationFile` filenames inside metadata JSON; the publisher pins media first
 and rewrites them to `ipfs://` CIDs. SVG and arbitrary file types are rejected.
 The publisher also accepts `streak-rules.json` for multi-metric challenge
-definitions. Example:
+definitions. Metadata without an explicit `image`/`imageFile` defaults to
+`img/BigNuten.png`. The current Render relay deployment only allows JSON; the
+first hydration awards therefore use the public BigNuten favicon URL in their
+metadata. Deploy the media-enabled relay source before publishing image files
+to Pinata. Example rules file:
 
 ```json
 {

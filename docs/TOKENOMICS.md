@@ -94,8 +94,9 @@ BigNuten offers multiple payment methods. Paying with $BNUT provides a discount 
 
 ### How Subscriptions Work
 
-Subscription management currently remains on the **Optimism Mainnet** DecentEscrow fallback deployment. Base is the default BNUT network, but subscription plans should be considered unavailable there until Base escrow addresses are deployed:
-[`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e)
+Subscription management uses the deployed Base **DecentEscrow** at
+[`0x31b07b83e99A9bdF379bf40225b8A80d3804C89d`](https://basescan.org/address/0x31b07b83e99A9bdF379bf40225b8A80d3804C89d).
+Its ETH and BNUT plans must be configured before purchases can begin.
 
 Plans are pre-created by the owner via Admin Panel → Escrow Admin → Create Plan:
 
@@ -191,7 +192,7 @@ A **settle cycle** is the process by which the admin moves entries from `pending
 1. The admin opens the BigNuten app and connects MetaMask as the owner wallet.
 2. Admin Panel → Payroll → **Settle All Pending** triggers `batchPayContributors()` on `BigNutenTreasury`.
 3. Each pending entry becomes one `payContributor(address, issueRef, amount)` call in the batch.
-4. MetaMask signs and broadcasts the transaction on the active payout network (currently the Optimism fallback treasury until Base treasury deployment).
+4. MetaMask signs and broadcasts the transaction on the selected payout network. The Base treasury is deployed; it must be funded and authorized before production payouts.
 5. `ContributorPaid(contributor, issueRef, amount)` events are emitted on-chain.
 6. After confirmation, the admin runs **Actions → Settle Payroll → Run workflow** (`.github/workflows/settle-payroll.yml`), providing:
    - A comma-separated list of `issueRef` values to settle
@@ -226,7 +227,7 @@ All registered contributors are tracked in `contributor-accounts.json` at the ro
 
 ## Governance
 
-BigNuten uses simple on-chain governance via the existing **Optimism Mainnet fallback** `BigNutenGov` contract until a Base governance deployment is available.
+BigNuten uses the deployed Base `BigNutenGov` contract for new governance flows. The older Optimism deployment is retained for historical reference.
 
 ### Model
 
@@ -241,7 +242,8 @@ BigNuten uses simple on-chain governance via the existing **Optimism Mainnet fal
 | Field | Detail |
 |---|---|
 | Contract | `BigNutenGov.sol` |
-| Address (Optimism fallback) | [`0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD`](https://optimistic.etherscan.io/address/0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD) |
+| Base address | [`0x9c9AE39400b9c723Dd395211aB643EAC3dFBFC5a`](https://basescan.org/address/0x9c9AE39400b9c723Dd395211aB643EAC3dFBFC5a) |
+| Legacy Optimism address | [`0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD`](https://optimistic.etherscan.io/address/0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD) |
 | Default Base $BNUT Token | `0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736` |
 | Optimism fallback BNUT Token | `0x733c4d2Aae900E608147dd89Fa93606f89722823` |
 | Min BNUT to vote | 1 $BNUT |
@@ -267,13 +269,13 @@ BigNuten uses simple on-chain governance via the existing **Optimism Mainnet fal
 
 ## Data Sharing Rewards
 
-BigNuten users can opt in to share anonymised fitness and health data with the community. In return, they earn $BNUT from the **BigNutenTreasury** contract.
+BigNuten users can opt in to share selected fitness and health data with the community. In return, they may receive $BNUT from ArtFi’s dedicated **`bignuten-health-data-rewards` Settlements Router fund**. The Base fund record is active but currently has zero balance.
 
 ### Privacy Guarantees
 
-- Data is **aggregated and anonymised** — individual records are never exposed.
+- Detailed health reports are optional, wallet-linked public IPFS records; they are not automatically aggregated or anonymised. Anyone with the CID can read them and pins may persist.
 - Users can **revoke consent at any time** via the in-app Data Pool tab.
-- No personal identifiers (name, email, wallet address) are linked to shared data.
+- Local opt-in calculation stores no name or email. If a participant opts to publish a detailed meetup report, that public report includes their wallet address; the router payout is also publicly attributable.
 - Opt-in state is stored in browser `localStorage` only.
 
 ### Earning $BNUT via Data Sharing
@@ -290,9 +292,9 @@ BigNuten users can opt in to share anonymised fitness and health data with the c
 1. User enables data-sharing toggles in the **Data Pool** tab.
 2. The app records the opt-in timestamp locally and calculates earned BNUT based on streak length.
 3. The user clicks **"Request $BNUT Reward"** to register their wallet for the next batch payout.
-4. The Treasury owner calls `batchRewardDataSharing()` on `BigNutenTreasury` to settle pending requests.
-5. Each payout emits a `DataSharingRewarded(user, amount, ref)` event — traceable on the active payout network (currently the Optimism fallback treasury until a Base treasury is deployed).
-6. On-chain reward history is shown in the Data Pool tab when the user's wallet is connected.
+4. An authorized admin reviews and submits a reward batch through the Base Settlements Router. A row’s reference must be unique; the router prevents duplicate work references.
+5. The router pays from `bignuten-health-data-rewards` only when the fund has enough BNUT. Payouts emit `PayrollPaid` events; recipients are whitelisted as part of the explicit admin settlement.
+6. On-chain router reward history is shown in the Data Pool tab when the user's wallet is connected. The retired Optimism Treasury remains the legacy history source for Optimism payouts.
 
 ---
 
@@ -325,10 +327,10 @@ All mints produce a `Transfer` event from the zero address (`0x000...000`) to th
 |---|---|---|---|
 | BigNuten (ERC-20) | `contracts/BigNuten.sol` | [`0x25AC…3736`](https://basescan.org/token/0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736) | Default Base $BNUT token |
 | BigNuten (ERC-20 fallback) | `contracts/BigNuten.sol` | [`0x733c…2823`](https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823) | Optimism fallback BNUT token |
-| BigNutenTreasury | `contracts/BigNutenTreasury.sol` | [`0x143c…363`](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363) | Current Optimism fallback treasury; Base deployment pending |
+| BigNutenTreasury | `contracts/BigNutenTreasury.sol` | [`0x9aC9…D09E`](https://basescan.org/address/0x9aC977ED07953B97575CdE424C9bb67b53D9D09E) | Deployed on Base; fund before payouts |
 | BigNutenSubscription | `contracts/BigNutenSubscription.sol` | — | Auxiliary subscription contract (app uses DecentEscrow instead) |
-| DecentEscrow v0.1 | External | [`0x23A4…350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) | Active Optimism fallback subscription backend — plan-based ETH + $BNUT subscriptions |
-| BigNutenGov | `contracts/BigNutenGov.sol` | [`0x58c2…2cD`](https://optimistic.etherscan.io/address/0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD) | Current Optimism fallback community proposal voting |
+| DecentEscrow v0.1 | External | [`0x31b0…C89d`](https://basescan.org/address/0x31b07b83e99A9bdF379bf40225b8A80d3804C89d) | Deployed on Base; plans/listings need configuration |
+| BigNutenGov | `contracts/BigNutenGov.sol` | [`0x9c9A…FC5a`](https://basescan.org/address/0x9c9AE39400b9c723Dd395211aB643EAC3dFBFC5a) | Deployed Base governance contract |
 
 All custom contracts use **Solidity ^0.8.20** and **OpenZeppelin Contracts v5**.
 

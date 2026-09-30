@@ -421,7 +421,7 @@ export async function settlePayroll(payouts, { source = 'router' } = {}) {
   const config = await loadSettlementRouterConfig();
   if (source === 'treasury') {
     const treasuryAddress = activeNetworkConfig().treasury;
-    if (!treasuryAddress) throw new Error('Base BigNuten Treasury is not deployed yet.');
+    if (!treasuryAddress) throw new Error('BigNuten Treasury is not configured for the selected network.');
     if (payouts.some(p => String(p.currency || 'BNUT').toUpperCase() !== 'BNUT')) {
       throw new Error('BigNuten Treasury can settle BNUT entries only.');
     }

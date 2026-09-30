@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-09-30T19:21:49.112Z",
+  "network": "base",
+  "publisher": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+  "collectionUri": "ipfs://bafkreifci7exy7b73c25jufer5uia2wmjbzd7zucb3imy6ixvuwx3s3vxu",
+  "streakRulesUri": null,
+  "tokens": [
+    {
+      "tokenId": 0,
+      "uri": "ipfs://bafkreihvnvovefqctifzm3fwdzh7h5ygpqaavfvf2aksebzqzrg5z4zkey",
+      "pinataCid": "bafkreihvnvovefqctifzm3fwdzh7h5ygpqaavfvf2aksebzqzrg5z4zkey",
+      "localCid": "bafkreihvnvovefqctifzm3fwdzh7h5ygpqaavfvf2aksebzqzrg5z4zkey",
+      "contentHash": "0x0a08bf79817a516a8c0fb5d8e438ba8aa03168975c6e59073ef407bbc342e2b3"
+    },
+    {
+      "tokenId": 1,
+      "uri": "ipfs://bafkreifdoqzuatktbggmprzjyhvklhw6zqios4qnjp6tbzxumldtgignwu",
+      "pinataCid": "bafkreifdoqzuatktbggmprzjyhvklhw6zqios4qnjp6tbzxumldtgignwu",
+      "localCid": "bafkreifdoqzuatktbggmprzjyhvklhw6zqios4qnjp6tbzxumldtgignwu",
+      "contentHash": "0x80327afd2d2afb86c2672999077f06eebad4d912cd24f56bea20468846a361e4"
+    },
+    {
+      "tokenId": 2,
+      "uri": "ipfs://bafkreig4ijikujaprxw6mjcdsirb3soaj756v22qtln2v2lungt6jxnupa",
+      "pinataCid": "bafkreig4ijikujaprxw6mjcdsirb3soaj756v22qtln2v2lungt6jxnupa",
+      "localCid": "bafkreig4ijikujaprxw6mjcdsirb3soaj756v22qtln2v2lungt6jxnupa",
+      "contentHash": "0xa05b8963182f721d00d1f43baf2fb7934af5fe947de601937d9bfef4da94ae26"
+    },
+    {
+      "tokenId": 3,
+      "uri": "ipfs://bafkreiaii3kiblp5sot3flv3iy74qgpsbiqcn72pe5vdfsu7ui4zuvsqfa",
+      "pinataCid": "bafkreiaii3kiblp5sot3flv3iy74qgpsbiqcn72pe5vdfsu7ui4zuvsqfa",
+      "localCid": "bafkreiaii3kiblp5sot3flv3iy74qgpsbiqcn72pe5vdfsu7ui4zuvsqfa",
+      "contentHash": "0xf5d91f6d6ad28ebe86e05238f06c8a54f68461043c0e4aa6c8063c3e3615075f"
+    }
+  ],
+  "files": [
+    {
+      "name": "0.json",
+      "pinataCid": "bafkreihvnvovefqctifzm3fwdzh7h5ygpqaavfvf2aksebzqzrg5z4zkey",
+      "pinataUri": "ipfs://bafkreihvnvovefqctifzm3fwdzh7h5ygpqaavfvf2aksebzqzrg5z4zkey",
+      "localCid": "bafkreihvnvovefqctifzm3fwdzh7h5ygpqaavfvf2aksebzqzrg5z4zkey",
+      "localUri": "ipfs://bafkreihvnvovefqctifzm3fwdzh7h5ygpqaavfvf2aksebzqzrg5z4zkey",
+      "contentHash": "0x0a08bf79817a516a8c0fb5d8e438ba8aa03168975c6e59073ef407bbc342e2b3"
+    },
+    {
+      "name": "1.json",
+      "pinataCid": "bafkreifdoqzuatktbggmprzjyhvklhw6zqios4qnjp6tbzxumldtgignwu",
+      "pinataUri": "ipfs://bafkreifdoqzuatktbggmprzjyhvklhw6zqios4qnjp6tbzxumldtgignwu",
+      "localCid": "bafkreifdoqzuatktbggmprzjyhvklhw6zqios4qnjp6tbzxumldtgignwu",
+      "localUri": "ipfs://bafkreifdoqzuatktbggmprzjyhvklhw6zqios4qnjp6tbzxumldtgignwu",
+      "contentHash": "0x80327afd2d2afb86c2672999077f06eebad4d912cd24f56bea20468846a361e4"
+    },
+    {
+      "name": "2.json",
+      "pinataCid": "bafkreig4ijikujaprxw6mjcdsirb3soaj756v22qtln2v2lungt6jxnupa",
+      "pinataUri": "ipfs://bafkreig4ijikujaprxw6mjcdsirb3soaj756v22qtln2v2lungt6jxnupa",
+      "localCid": "bafkreig4ijikujaprxw6mjcdsirb3soaj756v22qtln2v2lungt6jxnupa",
+      "localUri": "ipfs://bafkreig4ijikujaprxw6mjcdsirb3soaj756v22qtln2v2lungt6jxnupa",
+      "contentHash": "0xa05b8963182f721d00d1f43baf2fb7934af5fe947de601937d9bfef4da94ae26"
+    },
+    {
+      "name": "3.json",
+      "pinataCid": "bafkreiaii3kiblp5sot3flv3iy74qgpsbiqcn72pe5vdfsu7ui4zuvsqfa",
+      "pinataUri": "ipfs://bafkreiaii3kiblp5sot3flv3iy74qgpsbiqcn72pe5vdfsu7ui4zuvsqfa",
+      "localCid": "bafkreiaii3kiblp5sot3flv3iy74qgpsbiqcn72pe5vdfsu7ui4zuvsqfa",
+      "localUri": "ipfs://bafkreiaii3kiblp5sot3flv3iy74qgpsbiqcn72pe5vdfsu7ui4zuvsqfa",
+      "contentHash": "0xf5d91f6d6ad28ebe86e05238f06c8a54f68461043c0e4aa6c8063c3e3615075f"
+    },
+    {
+      "name": "collection.json",
+      "pinataCid": "bafkreifci7exy7b73c25jufer5uia2wmjbzd7zucb3imy6ixvuwx3s3vxu",
+      "pinataUri": "ipfs://bafkreifci7exy7b73c25jufer5uia2wmjbzd7zucb3imy6ixvuwx3s3vxu",
+      "localCid": "bafkreifci7exy7b73c25jufer5uia2wmjbzd7zucb3imy6ixvuwx3s3vxu",
+      "localUri": "ipfs://bafkreifci7exy7b73c25jufer5uia2wmjbzd7zucb3imy6ixvuwx3s3vxu",
+      "contentHash": "0x766319116b7188043f29ae7ce633ff2cec143dd08432246cf5b4ef5818feb238"
+    }
+  ],
+  "media": [],
+  "publishedToRegistry": []
+}

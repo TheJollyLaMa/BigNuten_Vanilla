@@ -31,16 +31,16 @@
       explorerTxUrl: 'https://basescan.org/tx/',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       bnut: '0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736',
-      networkRegistry: '',
-      treasury: '',
-      subscription: '',
-      governance: '',
-      dnftEscrow: '',
-      dnft: '',
-      usdc: '',
+      networkRegistry: '0x0670B43b689D51Fd04741b52507D4f87c24A5E75',
+      treasury: '0x9aC977ED07953B97575CdE424C9bb67b53D9D09E',
+      subscription: '0x31b07b83e99A9bdF379bf40225b8A80d3804C89d',
+      governance: '0x9c9AE39400b9c723Dd395211aB643EAC3dFBFC5a',
+      dnftEscrow: '0x31b07b83e99A9bdF379bf40225b8A80d3804C89d',
+      dnft: '0xe63EC9f8228720bAAC2fD528C0A6d06B3Dc5439B',
+      usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
       aaveV3Pool: '',
       alchemistV2: '',
-      streakBetEscrow: '',
+      streakBetEscrow: '0xFfd8453Ee3b2fF62DC2132Dd59a42F9f50447C95',
       ethPlanId: 0,
       bnutPlanId: 1,
     },
@@ -164,7 +164,7 @@
     }
     const config = applyNetworkGlobals(key, { persist: false });
     if (warn && chainId !== 8453) {
-      global.alert(`⚠️ You are now using ${config.label}. BigNuten's newest contracts and funds are currently being developed on Base. Legacy flows may be limited while migration continues.`);
+      global.alert(`⚠️ You are using ${config.label}. Base is BigNuten's primary network; this network uses legacy contracts and balances. Contract state is network-specific.`);
     }
     if (reload) global.location.reload();
     return { matched: true, key, config };

@@ -89,6 +89,15 @@ module.exports = {
         },
       },
     ],
+    overrides: {
+      "contracts/StreakBetEscrow.sol": {
+        version: "0.8.24",
+        settings: {
+          optimizer: { enabled: true, runs: 1 },
+          viaIR: true,
+        },
+      },
+    },
   },
 
   // ── Network Definitions ──────────────────────────────────────────────────

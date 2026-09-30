@@ -15,6 +15,8 @@ const MAX_METADATA_BYTES = 128 * 1024;
 const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 const DEFAULT_RELAY_URL = 'https://bignuten-vanilla.onrender.com';
 const DEFAULT_ORIGIN = 'https://thejollylama.github.io';
+const DEFAULT_FAVICON_FILENAME = '__bignuten_favicon.png';
+const DEFAULT_FAVICON_PATH = path.resolve(__dirname, '../img/BigNuten.png');
 const COLLECTION_FILE = 'collection.json';
 const JSON_FILE_RE = /^(?:collection|streak-rules|competition-[A-Za-z0-9._-]+|\d+)\.json$/;
 const MIME_BY_EXTENSION = {
@@ -79,6 +81,7 @@ function resolveMetadataAssets(file, mediaCids) {
 async function loadMetadataFiles(directory) {
   const entries = await fs.readdir(directory, { withFileTypes: true });
   const files = [];
+  let needsDefaultFavicon = false;
   for (const entry of entries) {
     if (entry.isDirectory()) throw new Error(`Nested metadata folders are not supported: ${entry.name}`);
     if (!entry.isFile()) continue;
@@ -95,7 +98,28 @@ async function loadMetadataFiles(directory) {
     if (bytes.length === 0 || bytes.length > maximumSize) throw new Error(`${entry.name} exceeds its ${maximumSize}-byte upload limit`);
     const document = isJson ? validateMetadataFile(entry.name, bytes) : null;
     if (entry.name === 'streak-rules.json') validateStreakRules(document);
+    if (document && (entry.name === COLLECTION_FILE || /^\d+\.json$/.test(entry.name) || /^competition-[A-Za-z0-9._-]+\.json$/.test(entry.name) || entry.name === 'streak-rules.json')
+      && !String(document.image || '').trim() && !String(document.imageFile || '').trim()) {
+      document.imageFile = DEFAULT_FAVICON_FILENAME;
+      needsDefaultFavicon = true;
+    }
     files.push({ name: entry.name, bytes, document, mimeType, isJson });
+  }
+  if (needsDefaultFavicon) {
+    const faviconBytes = await fs.readFile(DEFAULT_FAVICON_PATH);
+    const existingFavicon = files.find(file => file.name === DEFAULT_FAVICON_FILENAME);
+    if (existingFavicon && !existingFavicon.bytes.equals(faviconBytes)) {
+      throw new Error(`${DEFAULT_FAVICON_FILENAME} is reserved for the BigNuten favicon`);
+    }
+    if (!existingFavicon) {
+      files.push({
+        name: DEFAULT_FAVICON_FILENAME,
+        bytes: faviconBytes,
+        document: null,
+        mimeType: MIME_BY_EXTENSION['.png'],
+        isJson: false,
+      });
+    }
   }
   files.sort((left, right) => Number(left.isJson) - Number(right.isJson) || left.name.localeCompare(right.name, undefined, { numeric: true }));
   if (!files.some(file => file.name === COLLECTION_FILE)) throw new Error(`Metadata folder must contain ${COLLECTION_FILE}`);
@@ -109,14 +133,16 @@ async function loadMetadataFiles(directory) {
   return files;
 }
 
-function buildAuthorizationMessage({ wallet, origin, nonce, expiresAt }) {
+function buildAuthorizationMessage({ wallet, origin, nonce, expiresAt, legacy = false }) {
   return [
     'BigNuten private storage authorization',
     `Wallet: ${wallet.toLowerCase()}`,
     `Origin: ${origin}`,
     `Nonce: ${nonce}`,
     `Expires: ${new Date(expiresAt).toISOString()}`,
-    'Purpose: request a short-lived Pinata upload URL for public metadata or media; the relay never receives file contents.',
+    legacy
+      ? 'Purpose: request a short-lived Pinata upload URL; the relay never receives file contents.'
+      : 'Purpose: request a short-lived Pinata upload URL for public metadata or media; the relay never receives file contents.',
   ].join('\n');
 }
 
@@ -134,19 +160,28 @@ function lastJsonLine(text) {
 
 async function uploadThroughPinataRelay(file, { wallet, signer, relayUrl, origin, fetchImpl = fetch }) {
   const headers = { origin, 'content-type': 'application/json' };
-  const nonceResponse = await fetchImpl(`${relayUrl}/api/storage/nonce`, {
-    method: 'POST', headers, body: JSON.stringify({ wallet, origin }),
-  });
-  if (!nonceResponse.ok) throw new Error(`Storage relay nonce failed (${nonceResponse.status})`);
-  const { nonce, expiresAt } = await nonceResponse.json();
-  const signature = await signer.signMessage(buildAuthorizationMessage({ wallet, origin, nonce, expiresAt }));
-  const signingResponse = await fetchImpl(`${relayUrl}/api/pinata-upload-url`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ wallet, origin, nonce, expiresAt, signature, name: file.name, size: file.bytes.length, type: file.mimeType }),
-  });
-  if (!signingResponse.ok) throw new Error(`Pinata upload authorization failed (${signingResponse.status})`);
-  const { url } = await signingResponse.json();
+  const requestAuthorization = async legacy => {
+    const nonceResponse = await fetchImpl(`${relayUrl}/api/storage/nonce`, {
+      method: 'POST', headers, body: JSON.stringify({ wallet, origin }),
+    });
+    if (!nonceResponse.ok) throw new Error(`Storage relay nonce failed (${nonceResponse.status})`);
+    const { nonce, expiresAt } = await nonceResponse.json();
+    const signature = await signer.signMessage(buildAuthorizationMessage({ wallet, origin, nonce, expiresAt, legacy }));
+    const response = await fetchImpl(`${relayUrl}/api/pinata-upload-url`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ wallet, origin, nonce, expiresAt, signature, name: file.name, size: file.bytes.length, type: file.mimeType }),
+    });
+    return { response, detail: response.ok ? '' : (await response.text()).slice(0, 500) };
+  };
+  let authorization = await requestAuthorization(false);
+  if (!authorization.response.ok && /Wallet signature does not match wallet/i.test(authorization.detail)) {
+    authorization = await requestAuthorization(true);
+  }
+  if (!authorization.response.ok) {
+    throw new Error(`Pinata upload authorization failed (${authorization.response.status}): ${authorization.detail}`);
+  }
+  const { url } = await authorization.response.json();
   const form = new FormData();
   form.append('file', new Blob([file.bytes], { type: file.mimeType }), file.name);
   form.append('network', 'public');
@@ -185,7 +220,8 @@ async function publishCidsToRegistry(records, { registryAddress, provider, signe
 }
 
 async function publishMetadata({ directory, outputPath, publishToRegistry = false }) {
-  const privateKey = String(process.env.PRIVATE_KEY || '').trim();
+  const rawPrivateKey = String(process.env.PRIVATE_KEY || '').trim();
+  const privateKey = /^[a-fA-F0-9]{64}$/.test(rawPrivateKey) ? `0x${rawPrivateKey}` : rawPrivateKey;
   if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) throw new Error('PRIVATE_KEY must be set in BigNuten_Vanilla/.env');
   const relayUrl = String(process.env.BIGNUTEN_STORAGE_RELAY_URL || DEFAULT_RELAY_URL).replace(/\/$/, '');
   const origin = String(process.env.BIGNUTEN_STORAGE_ORIGIN || DEFAULT_ORIGIN).trim();
@@ -278,4 +314,4 @@ async function main() {
 
 if (require.main === module) main().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });
 
-module.exports = { buildAuthorizationMessage, lastJsonLine, loadMetadataFiles, publishMetadata, resolveMetadataAssets, validateMetadataFile, validateStreakRules };
+module.exports = { buildAuthorizationMessage, lastJsonLine, loadMetadataFiles, publishMetadata, resolveMetadataAssets, validateMetadataFile, validateStreakRules, DEFAULT_FAVICON_FILENAME };

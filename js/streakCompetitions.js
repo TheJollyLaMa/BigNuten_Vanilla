@@ -18,6 +18,9 @@ const ABI = [
   'function meetups(uint256,uint8) view returns (uint64 opensAt,uint64 closesAt,bytes32 codeHash,string meetingUrl,bool configured)',
   'function meetupAttendance(uint256,uint8,address) view returns (uint8 totalActivityDays,uint8 weeklyActivityDays,bytes32 progressHash,bool checkedIn,bool peerApproved)',
   'function meetupPeerReviewed(uint256,uint8,address,address) view returns (bool)',
+  'function reviewPolicyVersion() view returns (uint8)',
+  'function meetupReviewerInvited(uint256,uint8,address,address) view returns (bool)',
+  'function getMeetupReviewTally(uint256,uint8,address) view returns (uint32 approvals,uint32 rejections)',
   'function createCompetition(tuple(string name,address stakeToken,uint256 stakeAmount,uint256 totalWeeks,uint256 startTime,uint256 endTime,uint256 joinDeadline,bool yieldEnabled,string metadataCID) p)',
   'function configureStreakChallenge(uint256,string,string,uint8,uint8,uint8,uint16)',
   'function joinCompetition(uint256) payable',
@@ -25,6 +28,7 @@ const ABI = [
   'function scheduleMeetup(uint256,uint8,uint64,uint64,bytes32,string)',
   'function selfCheckInMeetup(uint256,uint8,string,uint8,uint8,bool,bytes32)',
   'function reviewMeetupAttendance(uint256,uint8,address,bool)',
+  'function inviteMeetupReviewer(uint256,uint8,address,address)',
   'function setStreakAwards(address,uint256,uint256,uint256,uint256)',
   'function settleCompetition(uint256,string)',
   'function cancelCompetition(uint256)',
@@ -55,6 +59,16 @@ function streakAddress() {
 }
 function escapeText(value) {
   return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+function challengeImageUrl(value) {
+  const image = String(value || '').trim();
+  if (/^https:\/\//i.test(image)) return image;
+  if (/^ipfs:\/\//i.test(image)) {
+    const path = image.slice(7);
+    const [cid, ...segments] = path.split('/');
+    if (/^[a-z0-9]+$/i.test(cid)) return `https://dweb.link/ipfs/${encodeURIComponent(cid)}${segments.length ? `/${segments.map(encodeURIComponent).join('/')}` : ''}`;
+  }
+  return 'img/BigNuten.png';
 }
 function localMeetupCodes() {
   try { return JSON.parse(localStorage.getItem(MEETUP_CODE_KEY) || '{}'); }
@@ -185,6 +199,12 @@ async function renderStreakChallenges() {
   }
   try {
     const contract = await readContract();
+    try {
+      if (await contract.reviewPolicyVersion() !== 1n) throw new Error('Unsupported review policy version.');
+    } catch {
+      renderAll('<p>The current StreakBet deployment uses legacy peer review. Monthly challenge actions will be enabled after the adaptive-review replacement is deployed.</p>');
+      return;
+    }
     const wallet = await getWallet();
     const captain = await contract.owner();
     const isCaptain = wallet && wallet.toLowerCase() === captain.toLowerCase();
@@ -202,6 +222,7 @@ async function renderStreakChallenges() {
       const entrant = wallet ? await contract.getStreakEntrant(compId, wallet) : null;
       const entrantIndex = entrant?.joined ? 1 : 0;
       const progress = readActivityProgress(competition, rules, 0);
+      const imageUrl = challengeImageUrl(rules.image);
       const joinedEvents = await contract.queryFilter(contract.filters.EntrantJoined(compId));
       const participantWallets = [...new Set(joinedEvents.map(log => log.args.entrant.toLowerCase()))];
       const cardsForMeetups = [];
@@ -214,18 +235,31 @@ async function renderStreakChallenges() {
         }
         const now = Date.now() / 1000;
         const inCall = now >= Number(meetup.opensAt) && now <= Number(meetup.closesAt);
+        const ownAttendance = wallet && entrantIndex ? await contract.meetupAttendance(compId, index, wallet) : null;
         const checkIns = await contract.queryFilter(contract.filters.MeetupSelfCheckedIn(compId, index));
         const addresses = [...new Set(checkIns.map(log => log.args.entrant.toLowerCase()))];
         const roster = await Promise.all(addresses.map(async peer => {
-          const [attendance, reviewed] = await Promise.all([
+          const [attendance, reviewed, tally, invited, peerEntrant] = await Promise.all([
             contract.meetupAttendance(compId, index, peer),
             wallet ? contract.meetupPeerReviewed(compId, index, peer, wallet) : true,
+            contract.getMeetupReviewTally(compId, index, peer),
+            wallet ? contract.meetupReviewerInvited(compId, index, peer, wallet) : false,
+            contract.getStreakEntrant(compId, peer),
           ]);
           const reviewOpen = now >= Number(meetup.opensAt) && now <= Number(meetup.closesAt) + DAY;
-          const canReview = entrantIndex > 0 && reviewOpen && peer.toLowerCase() !== wallet.toLowerCase() && !reviewed && Number(attendance.weeklyActivityDays) >= Number(config.minimumWeeklyLogs);
-          return `<li><code>${escapeText(peer.slice(0, 6))}…${escapeText(peer.slice(-4))}</code> · ${attendance.weeklyActivityDays}/${7} qualifying days · ${attendance.peerApproved ? 'verified' : 'waiting for peer'}${canReview ? `<button data-streak-action="approve" data-comp="${compId}" data-week="${index}" data-peer="${peer}">Approve</button><button data-streak-action="reject" data-comp="${compId}" data-week="${index}" data-peer="${peer}">Reject</button>` : ''}</li>`;
+          const canReview = reviewOpen && peer.toLowerCase() !== wallet?.toLowerCase() && !reviewed && !attendance.peerApproved && !peerEntrant.disqualified
+            && ((entrantIndex > 0 && ownAttendance?.checkedIn) || invited);
+          const approvals = Number(tally.approvals);
+          const rejections = Number(tally.rejections);
+          const disputed = approvals > 0 && approvals === rejections;
+          const reviewStatus = attendance.peerApproved ? 'verified'
+            : peerEntrant.disqualified ? 'rejected by majority'
+              : disputed ? `disputed · ${approvals} support / ${rejections} dispute`
+                : `${approvals} support / ${rejections} dispute`;
+          const inviteButton = isCaptain && disputed
+            ? `<button data-streak-action="invite-reviewer" data-comp="${compId}" data-week="${index}" data-peer="${peer}">Invite tie-break reviewer</button>` : '';
+          return `<li><code>${escapeText(peer.slice(0, 6))}…${escapeText(peer.slice(-4))}</code> · ${attendance.weeklyActivityDays}/${7} qualifying days · ${reviewStatus}${canReview ? `<button data-streak-action="approve" data-comp="${compId}" data-week="${index}" data-peer="${peer}">Confirm</button><button data-streak-action="reject" data-comp="${compId}" data-week="${index}" data-peer="${peer}">Dispute</button>` : ''}${inviteButton}</li>`;
         }));
-        const ownAttendance = wallet ? await contract.meetupAttendance(compId, index, wallet) : null;
         const weekly = readActivityProgress(competition, rules, index);
         const joinCall = entrantIndex && inCall && !ownAttendance?.checkedIn && weekly.weeklyDays >= Number(config.minimumWeeklyLogs) && weekly.weeklyRequirementsMet
           ? `<label class="streak-public-consent"><input type="checkbox" data-public-stats="${compId}:${index}" /> Publish wallet-linked progress details to public IPFS <small>Includes selected weight/exercise/food details; anyone can read them and pins may persist. If configured, request community-node replication too.</small></label><button data-streak-action="checkin" data-comp="${compId}" data-week="${index}">Check in · confirm ${escapeText(config.meetupGoal)}</button>`
@@ -244,11 +278,11 @@ async function renderStreakChallenges() {
       const settleButton = isCaptain && Number(competition.status) === 0 && Date.now() / 1000 >= Number(competition.endTime)
         ? `<button data-streak-action="settle" data-comp="${compId}">Settle challenge</button>` : '';
       const participantList = participantWallets.map(account => `<li>${escapeText(account.slice(0, 6))}…${escapeText(account.slice(-4))}</li>`).join('');
-      cards.push(`<article class="comp-card"><header class="comp-card-header"><h4>${escapeText(competition.name)}</h4><span>${Number(competition.status) === 0 ? 'Active' : Number(competition.status) === 1 ? 'Settled' : 'Cancelled'}</span></header><div class="comp-card-body"><p>Metrics: ${escapeText(ruleLabel)}</p><p>Challenge: ${config.requiredActivityDays} qualifying days · ${config.requiredMeetups} weekly calls · meetup goal: ${escapeText(config.meetupGoal)}</p><p>Your app progress: ${progress.totalDays} / ${config.requiredActivityDays} days · ${entrantStatus}</p><p class="streak-peer-note">Logs stay in your browser unless you explicitly opt to publish a wallet-linked progress report to public IPFS. During the call, share the app progress screen with a peer.</p><details><summary>Joined wallets (${participantWallets.length})</summary><ul>${participantList || '<li>No entrants yet.</li>'}</ul></details><ol>${cardsForMeetups.join('')}</ol>${joinButton}${settleButton}</div></article>`);
+      cards.push(`<article class="comp-card"><header class="comp-card-header"><img class="streak-challenge-art" src="${escapeText(imageUrl)}" alt="" onerror="this.onerror=null;this.src='img/BigNuten.png'" /><h4>${escapeText(competition.name)}</h4><span>${Number(competition.status) === 0 ? 'Active' : Number(competition.status) === 1 ? 'Settled' : 'Cancelled'}</span></header><div class="comp-card-body"><p>Metrics: ${escapeText(ruleLabel)}</p><p>Challenge: ${config.requiredActivityDays} qualifying days · ${config.requiredMeetups} weekly calls · meetup goal: ${escapeText(config.meetupGoal)}</p><p>Your app progress: ${progress.totalDays} / ${config.requiredActivityDays} days · ${entrantStatus}</p><p class="streak-peer-note">Logs stay in your browser unless you explicitly opt to publish a wallet-linked progress report to public IPFS. During the call, share the app progress screen with a peer.</p><details><summary>Joined wallets (${participantWallets.length})</summary><ul>${participantList || '<li>No entrants yet.</li>'}</ul></details><ol>${cardsForMeetups.join('')}</ol>${joinButton}${settleButton}</div></article>`);
     }
     renderAll(cards.length ? cards.join('') : '<p>No monthly challenges are active.</p>');
     targets.forEach(bindStreakActions);
-    if (isCaptain) renderCaptainSetup(contract);
+    if (isCaptain) renderCaptainSetup(contract, isCaptain);
   } catch (error) {
     renderAll(`<p>${escapeText(error.shortMessage || error.message)}</p>`);
   }
@@ -258,13 +292,20 @@ async function renderCaptainSetup(contract, isCaptain) {
   const panel = node('streak-captain-panel');
   if (!panel || !isCaptain) return;
   panel.hidden = false;
-  const [token, treasury, nft] = await Promise.all([
+  const [token, treasury, nft, completionId, firstId, secondId, thirdId] = await Promise.all([
     contract.challengeStakeToken(), contract.challengeTreasury(), contract.streakAwardNFT(),
+    contract.completionAwardId(), contract.firstPlaceAwardId(), contract.secondPlaceAwardId(), contract.thirdPlaceAwardId(),
   ]);
   const status = panel.querySelector('[data-streak-setup-status]');
   if (status) status.textContent = `Stake ${token.slice(0, 6)}…${token.slice(-4)} · Treasury ${treasury.slice(0, 6)}…${treasury.slice(-4)} · awards ${nft === ethers.ZeroAddress ? 'not configured' : `${nft.slice(0, 6)}…${nft.slice(-4)}`}`;
   const nftInput = node('streak-award-nft');
-  if (nftInput && !nftInput.value && nft !== ethers.ZeroAddress) nftInput.value = nft;
+  if (nftInput && !nftInput.value) nftInput.value = nft === ethers.ZeroAddress ? window.CONTRACTS?.dnft || '' : nft;
+  if (nft !== ethers.ZeroAddress) {
+    ['completion', 'first', 'second', 'third'].forEach((name, index) => {
+      const input = node(`streak-award-${name}`);
+      if (input && !input.value) input.value = [completionId, firstId, secondId, thirdId][index].toString();
+    });
+  }
 }
 
 function bindStreakActions(root) {
@@ -333,9 +374,14 @@ function bindStreakActions(root) {
             window.alert(`Check-in and Pinata report were saved, but community-node publication failed: ${error.shortMessage || error.message}`);
           }
         }
+      } else if (button.dataset.streakAction === 'invite-reviewer') {
+        const reviewer = prompt('Enter the guest reviewer wallet address. They do not need to stake or join the challenge.');
+        if (!reviewer) return;
+        if (!ethers.isAddress(reviewer)) throw new Error('Enter a valid reviewer wallet address.');
+        await (await contract.inviteMeetupReviewer(compId, week, button.dataset.peer, reviewer)).wait();
       } else if (button.dataset.streakAction === 'approve' || button.dataset.streakAction === 'reject') {
         const approved = button.dataset.streakAction === 'approve';
-        if (!approved && !confirm('Reject this participant? A rejection disqualifies them from the monthly challenge.')) return;
+        if (!approved && !confirm('Record a disagreement? A single dispute does not disqualify anyone; unresolved votes need a majority before rejection.')) return;
         await (await contract.reviewMeetupAttendance(compId, week, button.dataset.peer, approved)).wait();
       } else if (button.dataset.streakAction === 'reveal') {
         const code = localMeetupCodes()[`${compId}:${week}`];

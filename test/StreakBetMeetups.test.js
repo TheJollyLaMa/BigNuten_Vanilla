@@ -133,7 +133,7 @@ describe('StreakBetEscrow monthly meetup challenge', function () {
       expect((await escrow.getCompetition(0)).winnerCount).to.equal(2n);
   });
 
-  it('rejects a participant when a checked-in peer disputes attendance', async function () {
+  it('keeps a disputed two-person review open until a captain-approved guest breaks the tie', async function () {
     await createMonthlyChallenge();
     await configureMeetups();
     await join(alice);
@@ -143,9 +143,42 @@ describe('StreakBetEscrow monthly meetup challenge', function () {
       await escrow.connect(account).selfCheckInMeetup(0, 0, INVITE_CODES[0], 5, 5, true, ethers.id(`${account.address}:progress`));
     }
     await escrow.connect(bob).reviewMeetupAttendance(0, 0, alice.address, false);
+    let entrant = await escrow.getStreakEntrant(0, alice.address);
+    expect(entrant.disqualified).to.equal(false);
+    expect(entrant.status).to.equal(0n);
+    await escrow.inviteMeetupReviewer(0, 0, alice.address, carol.address);
+    await escrow.connect(carol).reviewMeetupAttendance(0, 0, alice.address, true);
+    entrant = await escrow.getStreakEntrant(0, alice.address);
+    expect(entrant.disqualified).to.equal(false);
+    expect(entrant.verifiedMeetups).to.equal(1n);
+    expect(await escrow.meetupReviewerInvited(0, 0, alice.address, carol.address)).to.equal(true);
+  });
+
+  it('uses the majority of claimant and peer votes for three-person review', async function () {
+    await createMonthlyChallenge();
+    await configureMeetups();
+    for (const account of [alice, bob, carol]) await join(account);
+    await time.increaseTo(startTime + MEETUP_DAYS[0] * DAY + 1);
+    for (const account of [alice, bob, carol]) {
+      await escrow.connect(account).selfCheckInMeetup(0, 0, INVITE_CODES[0], 5, 5, true, ethers.id(`${account.address}:progress`));
+    }
+    await escrow.connect(bob).reviewMeetupAttendance(0, 0, alice.address, false);
+    await escrow.connect(carol).reviewMeetupAttendance(0, 0, alice.address, true);
     const entrant = await escrow.getStreakEntrant(0, alice.address);
-    expect(entrant.disqualified).to.equal(true);
-    expect(entrant.status).to.equal(2n);
+    expect(entrant.disqualified).to.equal(false);
+    expect(entrant.verifiedMeetups).to.equal(1n);
+  });
+
+  it('automatically trusts a solo entrant self-check-in', async function () {
+    await createMonthlyChallenge();
+    await configureMeetups();
+    await join(alice);
+    await time.increaseTo(startTime + MEETUP_DAYS[0] * DAY + 1);
+    await escrow.connect(alice).selfCheckInMeetup(0, 0, INVITE_CODES[0], 5, 5, true, ethers.id('alice-solo-progress'));
+    const attendance = await escrow.meetupAttendance(0, 0, alice.address);
+    const entrant = await escrow.getStreakEntrant(0, alice.address);
+    expect(attendance.peerApproved).to.equal(true);
+    expect(entrant.verifiedMeetups).to.equal(1n);
   });
 
   it('ranks completed participants by activity progress then awards reusable DNFTs and BNUT payouts', async function () {

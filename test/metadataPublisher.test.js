@@ -12,6 +12,7 @@ const {
   resolveMetadataAssets,
   validateMetadataFile,
   validateStreakRules,
+  DEFAULT_FAVICON_FILENAME,
 } = require('../scripts/publishDecentMetadata');
 
 test('validates collection and numbered token metadata files', async t => {
@@ -32,14 +33,16 @@ test('validates collection and numbered token metadata files', async t => {
   }));
 
   const files = await loadMetadataFiles(directory);
-  assert.deepEqual(files.map(file => file.name), ['badge.gif', 'demo.mp4', '0.json', 'collection.json', 'streak-rules.json']);
-  assert.equal(files[0].mimeType, 'image/gif');
-  const metadataBytes = resolveMetadataAssets(files[2], new Map([['badge.gif', 'bafyimage'], ['demo.mp4', 'bafyanimation']]));
+  assert.deepEqual(files.map(file => file.name), ['__bignuten_favicon.png', 'badge.gif', 'demo.mp4', '0.json', 'collection.json', 'streak-rules.json']);
+  assert.equal(files.find(file => file.name === 'badge.gif').mimeType, 'image/gif');
+  const tokenMetadata = files.find(file => file.name === '0.json');
+  assert.equal(files.find(file => file.name === 'streak-rules.json').document.imageFile, DEFAULT_FAVICON_FILENAME);
+  const metadataBytes = resolveMetadataAssets(tokenMetadata, new Map([['badge.gif', 'bafyimage'], ['demo.mp4', 'bafyanimation']]));
   const metadata = JSON.parse(metadataBytes.toString('utf8'));
   assert.equal(metadata.image, 'ipfs://bafyimage');
   assert.equal(metadata.animation_url, 'ipfs://bafyanimation');
   assert.equal('imageFile' in metadata, false);
-  assert.throws(() => resolveMetadataAssets(files[2], new Map()), /was not pinned/);
+  assert.throws(() => resolveMetadataAssets(tokenMetadata, new Map()), /was not pinned/);
 
   await fs.writeFile(path.join(directory, 'notes.json'), '{"private":true}');
   await assert.rejects(loadMetadataFiles(directory), /Unexpected metadata filename/);
@@ -54,6 +57,28 @@ test('rejects placeholders, invalid filenames, and oversized metadata', () => {
     { id: 'water', type: 'hydration', cadence: 'daily', target: 8 },
     { id: 'water', type: 'exercise', exerciseType: 'Sit-ups', cadence: 'daily', target: 20 },
   ] }), /unique short slugs/);
+});
+
+test('defaults image-less award and competition metadata to the BigNuten favicon', async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'decent-metadata-default-image-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  await fs.writeFile(path.join(directory, 'collection.json'), '{"name":"BigNuten Achievements"}');
+  await fs.writeFile(path.join(directory, '0.json'), '{"name":"Completion Award"}');
+  await fs.writeFile(path.join(directory, 'competition-monthly.json'), '{"name":"Monthly Challenge"}');
+
+  const files = await loadMetadataFiles(directory);
+  const award = files.find(file => file.name === '0.json');
+  const competition = files.find(file => file.name === 'competition-monthly.json');
+  const collection = files.find(file => file.name === 'collection.json');
+  const favicon = files.find(file => file.name === DEFAULT_FAVICON_FILENAME);
+  assert.equal(award.document.imageFile, DEFAULT_FAVICON_FILENAME);
+  assert.equal(competition.document.imageFile, DEFAULT_FAVICON_FILENAME);
+  assert.equal(collection.document.imageFile, DEFAULT_FAVICON_FILENAME);
+  assert.ok(favicon.bytes.equals(await fs.readFile(path.resolve(__dirname, '../img/BigNuten.png'))));
+
+  const metadata = JSON.parse(resolveMetadataAssets(award, new Map([[DEFAULT_FAVICON_FILENAME, 'bafy-default-icon']])).toString('utf8'));
+  assert.equal(metadata.image, 'ipfs://bafy-default-icon');
+  assert.equal('imageFile' in metadata, false);
 });
 
 test('parses the last Kubo JSON response and builds the relay signature message', () => {

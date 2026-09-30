@@ -13,7 +13,7 @@
 [![v2.0.0 DNFT Minted](https://img.shields.io/badge/v2.0.0%20DNFT-Minted%20%E2%9C%94-gold?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
 [![Network](https://img.shields.io/badge/network-Base%20Mainnet-0052ff?style=flat-square&logo=ethereum)](https://basescan.org)
 
-> **Network update:** BigNuten now operates on **Base Mainnet** using BNUT `0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736`. Legacy Optimism contracts remain documented for archival reference, while new user flows and payroll are rebuilt on Base.
+> **Network update:** BigNuten’s application contracts are deployed on **Base Mainnet**. The replacement StreakBet review engine and its first hydration award set are live; the first challenge still needs its stake and meetup schedule. Legacy Optimism contracts remain archival references.
 
 ---
 
@@ -183,11 +183,23 @@ This is the "repo side" of BigNuten — the machinery that pays builders and kee
 | Contract | Role | Address |
 |----------|------|---------|
 | **$BNUT** (ERC-20) | Governance token, rewards currency, default live BNUT | [`0x25AC…3736`](https://basescan.org/token/0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736) |
-| **BigNutenTreasury** | Holds $BNUT reserve, pays contributors | _Not yet deployed on Base_ |
-| **BigNutenGov** | On-chain proposals and voting | _Not yet deployed on Base_ |
-| **DecentEscrow** | Subscription plans (ETH + $BNUT) | _Not yet deployed on Base_ |
-| **DecentNFT** | Early Supporter DNFT (ERC-1155) | _Not yet deployed on Base_ |
-| **StreakBetEscrow** | Reusable challenge staking, peer meetups, awards, payouts | _Prepared, not yet deployed on Base_ |
+| **BigNutenTreasury** | BNUT reserve and contributor payouts | [`0x9aC9…D09E`](https://basescan.org/address/0x9aC977ED07953B97575CdE424C9bb67b53D9D09E) |
+| **BigNutenGov** | On-chain proposals and voting | [`0x9c9A…FC5a`](https://basescan.org/address/0x9c9AE39400b9c723Dd395211aB643EAC3dFBFC5a) |
+| **BigNutenNetworkRegistry** | Community data registry | [`0x0670…5E75`](https://basescan.org/address/0x0670B43b689D51Fd04741b52507D4f87c24A5E75) |
+| **DecentEscrow** | Subscription and DNFT escrow; plans/listings need setup | [`0x31b0…C89d`](https://basescan.org/address/0x31b07b83e99A9bdF379bf40225b8A80d3804C89d) |
+| **DecentNFT** | ERC-1155 collection; hydration award IDs `0–3` registered | [`0xe63E…439B`](https://basescan.org/address/0xe63EC9f8228720bAAC2fD528C0A6d06B3Dc5439B) |
+| **StreakBetEscrow** | Replacement review engine; BNUT, Treasury, and hydration awards configured | [`0xFfd8…7C95`](https://basescan.org/address/0xFfd8453Ee3b2fF62DC2132Dd59a42F9f50447C95) |
+| **Retired StreakBetEscrow** | Old engine, paused; no competitions were created | [`0x53CE…5614`](https://basescan.org/address/0x53CEF3c2511bd648DC104aF8e593b01895A35614) |
+
+New BigNuten collection, competition, or award metadata without an image uses
+the BigNuten favicon (`img/BigNuten.png`) automatically when published; explicit
+custom artwork is preserved.
+
+The current meetup policy trusts a solo entrant’s self-check-in. With multiple
+entrants, a self-claim plus one peer approval verifies attendance. A disagreement
+stays pending; the captain can invite an outside, no-stake guest. Three or more
+votes resolve only by strict majority, so ties stay open for another invited
+reviewer. Each challenge snapshots its own four award IDs when configured.
 
 #### Optimism Mainnet (legacy archive only)
 
@@ -239,9 +251,9 @@ StreakBet is BigNuten's flagship community feature: put real stakes on your heal
 
 1. **Captain creates a competition** — sets name, BNUT stake, challenge dates, and optional `streak-rules.json` CID describing one or more activity metrics and goals
 2. **Users enter** — stake their tokens into `StreakBetEscrow` on-chain
-3. **Track activity and meet peers** — app rules calculate qualifying days from local hydration, weight, exercise, or nutrition logs; four scheduled meetups require an invite code and peer approval
+3. **Track activity and meet peers** — app rules calculate qualifying days from local hydration, weight, exercise, or nutrition logs; four scheduled meetups use an invite code and adaptive review
 4. **Share stats only by choice** — detailed wallet-linked progress can be published to public IPFS only after a participant opts in; the CID is linked by StreakBet's report event
-5. **Settlement** — incomplete or peer-rejected entrants forfeit; completed entrants share BNUT by the published leaderboard rules and receive reusable Achievement DNFTs
+5. **Review and settlement** — solo logs are trusted; agreement verifies with minimal reviewers. Disputes stay pending until a strict majority, with captain-invited guests available to break ties. Uncompleted or majority-rejected entrants forfeit; completers share BNUT by leaderboard rules and receive that competition’s Achievement DNFT IDs
 6. **Future strategies** — swaps, Aave yield, and borrowing are separate reviewed work; the current Base pilot does not convert BNUT or promise yield
 
 ### StreakBetEscrow Contract
@@ -301,11 +313,11 @@ npx hardhat test
 
 ### 🗳️ I'm a DAO / Governance Participant
 
-- **Hold $BNUT** — use the default Base deployment or switch to Optimism fallback if needed
+- **Hold $BNUT** — the app defaults to the live Base token; the older Optimism token remains an archival network option
 - **Get a DNFT** — purchase an [Early Supporter DNFT](https://thejollylama.github.io/DecentMarket/) to gain `PROPOSER_ROLE`
 - **Create proposals** via the Governance modal in the app (DNFT required)
 - **Vote** on proposals — 1 wallet = 1 vote, minimum 1 $BNUT to participate
-- **Track treasury** — Base treasury is pending; current fallback treasury activity remains visible on [Optimistic Etherscan](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363)
+- **Track treasury** — follow the live Base treasury on [BaseScan](https://basescan.org/address/0x9aC977ED07953B97575CdE424C9bb67b53D9D09E)
 
 ---
 
@@ -316,8 +328,8 @@ v3.1.0 builds on the full monetization stack of v2.0.0, adding StreakBet competi
 ### 🪙 Token Economy
 - ✅ $BNUT ERC-20 token deployed on Base Mainnet as the default live network
 - ✅ BigNutenTreasury contract deployed — holds all $BNUT reserves, direct contributor payouts
-- ✅ Subscription payments via DecentEscrow (ETH plan + $BNUT discounted plan)
-- ✅ Data-sharing rewards via `rewardDataSharing()` / `batchRewardDataSharing()`
+- ✅ Base DecentEscrow deployed; ETH and BNUT subscription plans still need configuration
+- ✅ Data-sharing reward settlement via the dedicated ArtFi `bignuten-health-data-rewards` fund (active, currently unfunded)
 
 ### 🤖 Bounty Bot & Payroll
 - ✅ Automated bounty label workflow (`bounty-label.yml`)
@@ -387,8 +399,8 @@ The entire contributor reward cycle is automated end-to-end — no private keys 
 │                                                                     │
 │  5. ON-CHAIN VERIFICATION                                           │
 │     Anyone can verify ContributorPaid(contributor, issueRef, amount)        │
-│     events on the live treasury deployment. Base treasury is pending;       │
-│     current payout events are on Optimism fallback: 0x143c...363#events     │
+│     events on the live Base treasury deployment; verify them at BaseScan.   │
+│     Legacy Optimism payout history remains available for archival review.   │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 
@@ -408,10 +420,12 @@ The entire contributor reward cycle is automated end-to-end — no private keys 
 | Contract | Network | Address |
 |----------|---------|---------|
 | $BNUT (ERC-20) | Base Mainnet (default) | [`0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736`](https://basescan.org/token/0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736) |
-| BigNutenTreasury | Optimism Mainnet (fallback) | [`0x143cC41AC075FFA40be1993827DA6ffB4638A363`](https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363) |
-| BigNutenGov | Optimism Mainnet (fallback) | [`0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD`](https://optimistic.etherscan.io/address/0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD) |
-| DecentEscrow v0.1 | Optimism Mainnet (fallback) | [`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) |
-| StreakBetEscrow (v3.1.0) | Optimism Mainnet (fallback) | [`0x80f6492eFD6D27c877B2bd0936451f7AF61c7215`](https://optimistic.etherscan.io/address/0x80f6492eFD6D27c877B2bd0936451f7AF61c7215) |
+| BigNutenTreasury | Base Mainnet | [`0x9aC977ED07953B97575CdE424C9bb67b53D9D09E`](https://basescan.org/address/0x9aC977ED07953B97575CdE424C9bb67b53D9D09E) |
+| BigNutenGov | Base Mainnet | [`0x9c9AE39400b9c723Dd395211aB643EAC3dFBFC5a`](https://basescan.org/address/0x9c9AE39400b9c723Dd395211aB643EAC3dFBFC5a) |
+| BigNutenNetworkRegistry | Base Mainnet | [`0x0670B43b689D51Fd04741b52507D4f87c24A5E75`](https://basescan.org/address/0x0670B43b689D51Fd04741b52507D4f87c24A5E75) |
+| DecentEscrow v0.1 | Base Mainnet | [`0x31b07b83e99A9bdF379bf40225b8A80d3804C89d`](https://basescan.org/address/0x31b07b83e99A9bdF379bf40225b8A80d3804C89d) |
+| DecentNFT v0.2 | Base Mainnet | [`0xe63EC9f8228720bAAC2fD528C0A6d06B3Dc5439B`](https://basescan.org/address/0xe63EC9f8228720bAAC2fD528C0A6d06B3Dc5439B) |
+| StreakBetEscrow | Base Mainnet | [`0xFfd8453Ee3b2fF62DC2132Dd59a42F9f50447C95`](https://basescan.org/address/0xFfd8453Ee3b2fF62DC2132Dd59a42F9f50447C95) |
 
 Full deployment details: [`docs/DEPLOYMENTS.md`](docs/DEPLOYMENTS.md)
 
@@ -574,8 +588,8 @@ BigNuten is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155 tokens
 | Field | Detail |
 |---|---|
 | **Price** | $100 USDC (exact) |
-| **Supply** | 100 editions max |
-| **Standard** | ERC-1155 on Optimism fallback |
+| **Supply** | 100 editions max on the legacy Optimism collection |
+| **Standard** | ERC-1155 on Optimism (legacy collection) |
 | **DNFT Contract** | [`0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958`](https://optimistic.etherscan.io/address/0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958) — DecentNFT v0.2 |
 | **Escrow Contract** | [`0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e`](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e) — DecentEscrow v0.1 |
 
@@ -584,8 +598,8 @@ BigNuten is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155 tokens
 #### 🔗 Option 1 — Crypto (instant & trustless)
 
 1. Visit **[DecentMarket](https://thejollylama.github.io/DecentMarket/)** or use the **🎟️ Buy Now** button inside BigNuten
-2. Connect your MetaMask wallet on Base. Features remain unavailable until their Base contracts are deployed.
-3. Approve $100 USDC and confirm — the escrow releases your DNFT automatically on-chain
+2. The existing Early Supporter editions are on Optimism. The new Base DecentNFT and escrow are deployed, but their metadata and listing are not configured yet.
+3. When a listing is active, connect to its network, approve the listed USDC amount, and confirm — escrow releases the DNFT automatically on-chain.
 
 #### 💳 Option 2 — PayPal (fiat-friendly)
 
@@ -596,7 +610,7 @@ BigNuten is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155 tokens
 
 ### Community Escrow
 
-Proceeds from DNFT sales currently flow to the **[DecentEscrow contract](https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e)** on the Optimism fallback network — a transparent, on-chain community treasury. Funds are reserved for:
+New Base DNFT sale proceeds will flow to the **[Base DecentEscrow contract](https://basescan.org/address/0x31b07b83e99A9bdF379bf40225b8A80d3804C89d)** once its metadata and listing are configured. Existing Early Supporter editions remain on the legacy Optimism contracts. Funds are intended for:
 
 - $BNUT bounties for contributors
 - Feature development and infrastructure
@@ -676,7 +690,7 @@ BigNuten accepts `$BNUT` for subscriptions at a **~50% discount** vs ETH:
 | ETH | ~0.01 ETH / month |
 | **$BNUT** | **~500 $BNUT / month** |
 
-Subscriptions are currently managed by **DecentEscrow** (`0x23A4…350e`) on the Optimism fallback network until a Base escrow deployment is available. Plans:
+Subscriptions will use the deployed Base **DecentEscrow** (`0x31b07b83e99A9bdF379bf40225b8A80d3804C89d`). Its ETH and BNUT plans still need to be created before subscription purchases can start. Planned plans:
 
 | Plan ID | Token | Name |
 |---------|-------|------|
@@ -699,7 +713,7 @@ BigNuten uses a **$BNUT bounty system** powered by GitHub Actions to reward cont
 3. **Comment and get assigned** — express interest on the issue, get assigned by a maintainer
 4. **Do the work and open a PR** — include `Closes #N` in the PR body
 5. **Get merged → get paid** — the Bounty Bot automatically queues your $BNUT payout
-6. **Payout settled** — the maintainer settles pending payouts via the Admin Panel → $BNUT sent to your wallet on the active payout network (currently the Optimism fallback treasury)
+6. **Payout settled** — the maintainer settles pending payouts via the Admin Panel → $BNUT sent to your wallet on the selected payout network; the Base treasury is deployed and must be funded/authorized for payouts
 
 ### Bounty Tiers
 

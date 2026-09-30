@@ -470,7 +470,7 @@ A complete walk-through of settling a batch of payouts:
 ### Prerequisites
 - Pending entries exist in `payroll-queue.json`
 - Treasury has sufficient $BNUT balance (check Admin Panel → Treasury Admin)
-- Owner wallet connected to MetaMask on the active payout network (Base default, Optimism fallback where treasury flows remain deployed)
+- Owner wallet connected to MetaMask on Base Mainnet; legacy Optimism payouts are historical records
 
 ### Steps
 
@@ -493,7 +493,7 @@ https://thejollylama.github.io/BigNuten_Vanilla/
 - Review the list of pending payouts
 - Click **Settle All Pending**
 - MetaMask prompts: confirm the `batchPayContributors()` transaction
-- Wait for Optimism confirmation (~2 seconds)
+- Wait for the Base transaction confirmation
 - Copy the transaction hash
 
 **5. Commit the Settlement**
@@ -504,7 +504,7 @@ https://thejollylama.github.io/BigNuten_Vanilla/
 - The workflow moves entries from `pending[]` to `settled[]` in `payroll-queue.json`
 
 **6. Verify On-Chain**
-- Visit the BigNutenTreasury contract on Optimistic Etherscan
+- Visit the Base BigNutenTreasury contract on BaseScan
 - Check **Events** tab for `ContributorPaid(contributor, issueRef, amount)` events
 - Verify each contributor received the correct amount
 
@@ -530,9 +530,9 @@ Every payout through `batchPayContributors()` emits:
 ContributorPaid(address contributor, string issueRef, uint256 amount)
 ```
 
-Query these events on the live treasury deployment. Base treasury deployment is still pending, so current payroll settlement events are on the Optimism fallback treasury:
+Query new payout events on the deployed Base treasury. Older payouts remain on the legacy Optimism treasury:
 ```
-https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363#events
+https://basescan.org/address/0x9aC977ED07953B97575CdE424C9bb67b53D9D09E#events
 ```
 
 Or use the view helpers on the contract:

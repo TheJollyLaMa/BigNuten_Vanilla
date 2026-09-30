@@ -1,7 +1,7 @@
 {
   "chainId": 8453,
   "rpcUrl": "https://mainnet.base.org",
-  "registryAddress": "",
+  "registryAddress": "0x0670B43b689D51Fd04741b52507D4f87c24A5E75",
   "settlementRouterAddress": "0x8ecca903e2a6Daa8CCbB933700e4F2C58C44A4B5",
   "rewardFundSlug": "bignuten-data-rewards",
   "rewardAsset": "0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736",

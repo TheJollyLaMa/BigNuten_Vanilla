@@ -1,0 +1,24 @@
+{
+  "network": "base",
+  "chainId": 8453,
+  "deployedAt": "2026-09-30T17:24:24.292Z",
+  "deployer": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+  "bnut": "0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736",
+  "treasury": "0x9aC977ED07953B97575CdE424C9bb67b53D9D09E",
+  "governance": "0x9c9AE39400b9c723Dd395211aB643EAC3dFBFC5a",
+  "networkRegistry": "0x0670B43b689D51Fd04741b52507D4f87c24A5E75",
+  "streakBetEscrow": "0xFfd8453Ee3b2fF62DC2132Dd59a42F9f50447C95",
+  "aavePool": null,
+  "decentNft": "0xe63EC9f8228720bAAC2fD528C0A6d06B3Dc5439B",
+  "decentEscrow": "0x31b07b83e99A9bdF379bf40225b8A80d3804C89d",
+  "notes": [
+    "BNUT is the existing Base token; the treasury holds nothing until explicitly funded.",
+    "Configure the shared Settlements Router bignuten-data-rewards fund before registry rewards.",
+    "StreakBetEscrow is deployed without Aave; configure an Aave pool in a later cycle if desired.",
+    "StreakBetEscrow is the single reusable engine for water, nutrition, exercise, weight, and future meetup challenges.",
+    "Set DecentNFT metadata URIs before registering tokens; publish and pin the metadata through the storage workflow."
+  ],
+  "decentNftBaseUri": null,
+  "previousStreakBetEscrow": "0x53CEF3c2511bd648DC104aF8e593b01895A35614",
+  "streakBetReplacementAt": "2026-09-30T19:16:54.607Z"
+}

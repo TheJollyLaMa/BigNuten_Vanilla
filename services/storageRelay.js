@@ -113,7 +113,10 @@ function createStorageRelayServer({ pinataSignUrl, pinataJwt, allowedOrigins, no
         filename: body.name,
       }),
     });
-    if (!response.ok) throw new Error(`Pinata signing failed (${response.status})`);
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 400);
+      throw new Error(`Pinata signing failed (${response.status}): ${detail}`);
+    }
     const result = await response.json();
     const url = result.data || result.url;
     if (!url) throw new Error('Pinata did not return a signed upload URL');

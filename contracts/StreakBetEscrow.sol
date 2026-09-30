@@ -53,6 +53,67 @@ interface ICompetitionTreasury {
     function bnutToken() external view returns (IERC20);
 }
 
+interface IMeetupReviewArbiter {
+    function addSelfVote(uint256 compId, uint8 meetupIndex, address attendee, bool solo) external returns (bool);
+    function invite(uint256 compId, uint8 meetupIndex, address attendee, address reviewer) external;
+    function isInvited(uint256 compId, uint8 meetupIndex, address attendee, address reviewer) external view returns (bool);
+    function tally(uint256 compId, uint8 meetupIndex, address attendee) external view returns (uint32 approvals, uint32 rejections);
+    function recordVote(uint256 compId, uint8 meetupIndex, address attendee, address reviewer, bool attended) external returns (uint8);
+}
+
+contract MeetupReviewArbiter is IMeetupReviewArbiter {
+    error UnauthorizedArbiterCaller();
+    error InvalidReviewerInvitation();
+
+    struct VoteTally { uint32 approvals; uint32 rejections; }
+
+    address private immutable escrow;
+    mapping(uint256 => mapping(uint8 => mapping(address => VoteTally))) private tallies;
+    mapping(uint256 => mapping(uint8 => mapping(address => mapping(address => bool)))) private invited;
+    mapping(uint256 => mapping(uint8 => mapping(address => mapping(address => bool)))) private reviewed;
+
+    constructor(address escrowAddress) { escrow = escrowAddress; }
+
+    modifier onlyEscrow() {
+        if (msg.sender != escrow) revert UnauthorizedArbiterCaller();
+        _;
+    }
+
+    function addSelfVote(uint256 compId, uint8 meetupIndex, address attendee, bool solo) external onlyEscrow returns (bool) {
+        tallies[compId][meetupIndex][attendee].approvals = 1;
+        return solo;
+    }
+
+    function invite(uint256 compId, uint8 meetupIndex, address attendee, address reviewer) external onlyEscrow {
+        VoteTally storage vote = tallies[compId][meetupIndex][attendee];
+        if (reviewer == address(0) || reviewer == attendee || vote.approvals != vote.rejections || invited[compId][meetupIndex][attendee][reviewer] || reviewed[compId][meetupIndex][attendee][reviewer]) {
+            revert InvalidReviewerInvitation();
+        }
+        invited[compId][meetupIndex][attendee][reviewer] = true;
+    }
+
+    function isInvited(uint256 compId, uint8 meetupIndex, address attendee, address reviewer) external view returns (bool) {
+        return invited[compId][meetupIndex][attendee][reviewer];
+    }
+
+    function tally(uint256 compId, uint8 meetupIndex, address attendee) external view returns (uint32 approvals, uint32 rejections) {
+        VoteTally storage vote = tallies[compId][meetupIndex][attendee];
+        return (vote.approvals, vote.rejections);
+    }
+
+    function recordVote(uint256 compId, uint8 meetupIndex, address attendee, address reviewer, bool attended) external onlyEscrow returns (uint8 decision) {
+        if (reviewed[compId][meetupIndex][attendee][reviewer]) revert InvalidReviewerInvitation();
+        reviewed[compId][meetupIndex][attendee][reviewer] = true;
+        VoteTally storage vote = tallies[compId][meetupIndex][attendee];
+        if (attended) vote.approvals++;
+        else vote.rejections++;
+        uint256 total = uint256(vote.approvals) + vote.rejections;
+        if ((total == 2 && vote.approvals == 2) || (total >= 3 && vote.approvals > total / 2)) return 1;
+        if (total >= 3 && vote.rejections > total / 2) return 2;
+        return 0;
+    }
+}
+
 // ─── Contract ─────────────────────────────────────────────────────────────────
 
 contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
@@ -160,6 +221,7 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => mapping(uint8 => Meetup)) public meetups;
     mapping(uint256 => mapping(uint8 => mapping(address => MeetupAttendance))) public meetupAttendance;
     mapping(uint256 => mapping(uint8 => mapping(address => mapping(address => bool)))) public meetupPeerReviewed;
+    IMeetupReviewArbiter private reviewArbiter;
     address public challengeStakeToken;
 
     address public challengeTreasury;
@@ -221,6 +283,7 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
     event MeetupScheduled(uint256 indexed compId, uint8 indexed meetupIndex, uint64 opensAt, uint64 closesAt, bytes32 codeHash, string meetingUrl);
     event MeetupSelfCheckedIn(uint256 indexed compId, uint8 indexed meetupIndex, address indexed entrant, uint8 totalActivityDays, bytes32 progressHash);
     event MeetupPeerDecision(uint256 indexed compId, uint8 indexed meetupIndex, address indexed entrant, address peer, bool approved);
+    event MeetupReviewerInvited(uint256 indexed compId, uint8 indexed meetupIndex, address indexed entrant, address reviewer);
     event MonthlyChallengeCompleted(uint256 indexed compId, address indexed entrant, uint8 activityDays, uint8 verifiedMeetups);
     event StreakPayout(uint256 indexed compId, address indexed entrant, uint8 place, uint256 baseRefund, uint256 bonus, uint256 totalPayout);
 
@@ -231,6 +294,7 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
     constructor(address initialOwner, address _aavePool) Ownable(initialOwner) {
         require(_aavePool == address(0) || _aavePool.code.length > 0, "Escrow: Aave pool has no code");
         aavePool = _aavePool;
+        reviewArbiter = IMeetupReviewArbiter(address(new MeetupReviewArbiter(address(this))));
     }
 
     // ── Admin: Create Competition ─────────────────────────────────────────────
@@ -384,24 +448,54 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
 
         meetupAttendance[compId][meetupIndex][msg.sender] = MeetupAttendance(totalActivityDays, weeklyActivityDays, progressHash, true, false);
         emit MeetupSelfCheckedIn(compId, meetupIndex, msg.sender, totalActivityDays, progressHash);
+        if (reviewArbiter.addSelfVote(compId, meetupIndex, msg.sender, c.entrantCount == 1)) {
+            _approveMeetupPeer(compId, meetupIndex, msg.sender, entrantPosition);
+        }
+    }
+
+    function inviteMeetupReviewer(uint256 compId, uint8 meetupIndex, address attendee, address reviewer) external onlyOwner whenNotPaused {
+        MeetupAttendance storage attendance = meetupAttendance[compId][meetupIndex][attendee];
+        uint256 attendeePosition = entrantIndex[compId][attendee];
+        if (!streakChallenges[compId].enabled || competitions[compId].status != CompStatus.Active) revert InvalidPeerReview(1);
+        if (!attendance.checkedIn || attendance.peerApproved || attendeePosition == 0 || entrants[compId][attendeePosition].disqualified) revert InvalidPeerReview(5);
+        if (entrantIndex[compId][reviewer] != 0) revert InvalidPeerReview(10);
+        reviewArbiter.invite(compId, meetupIndex, attendee, reviewer);
+        emit MeetupReviewerInvited(compId, meetupIndex, attendee, reviewer);
+    }
+
+    function reviewPolicyVersion() external pure returns (uint8) { return 1; }
+
+    function meetupReviewerInvited(uint256 compId, uint8 meetupIndex, address attendee, address reviewer) external view returns (bool) {
+        return reviewArbiter.isInvited(compId, meetupIndex, attendee, reviewer);
+    }
+
+    function getMeetupReviewTally(uint256 compId, uint8 meetupIndex, address attendee) external view returns (uint32 approvals, uint32 rejections) {
+        return reviewArbiter.tally(compId, meetupIndex, attendee);
     }
 
     function reviewMeetupAttendance(uint256 compId, uint8 meetupIndex, address attendee, bool attended) external whenNotPaused {
         Meetup storage meetup = meetups[compId][meetupIndex];
         uint256 reviewerPosition = entrantIndex[compId][msg.sender];
         uint256 attendeePosition = entrantIndex[compId][attendee];
+        MeetupAttendance storage reviewerAttendance = meetupAttendance[compId][meetupIndex][msg.sender];
+        MeetupAttendance storage attendeeAttendance = meetupAttendance[compId][meetupIndex][attendee];
         if (!streakChallenges[compId].enabled || competitions[compId].status != CompStatus.Active) revert InvalidPeerReview(1);
         if (!meetup.configured || block.timestamp < meetup.opensAt || block.timestamp > uint256(meetup.closesAt) + 1 days) revert InvalidPeerReview(2);
         if (attendee == msg.sender || attendeePosition == 0) revert InvalidPeerReview(3);
-        if (reviewerPosition == 0 || entrants[compId][reviewerPosition].status == EntrantStatus.Forfeited) revert InvalidPeerReview(4);
+        if (reviewerPosition == 0 && !reviewArbiter.isInvited(compId, meetupIndex, attendee, msg.sender)) revert InvalidPeerReview(4);
+        if (reviewerPosition != 0 && entrants[compId][reviewerPosition].status == EntrantStatus.Forfeited) revert InvalidPeerReview(4);
         if (entrants[compId][attendeePosition].status == EntrantStatus.Forfeited || entrants[compId][attendeePosition].disqualified) revert InvalidPeerReview(5);
-        if (!meetupAttendance[compId][meetupIndex][msg.sender].checkedIn) revert InvalidPeerReview(6);
-        if (!meetupAttendance[compId][meetupIndex][attendee].checkedIn) revert InvalidPeerReview(7);
+        if (reviewerPosition != 0 && !reviewerAttendance.checkedIn) revert InvalidPeerReview(6);
+        if (!attendeeAttendance.checkedIn || attendeeAttendance.peerApproved) revert InvalidPeerReview(7);
         if (meetupPeerReviewed[compId][meetupIndex][attendee][msg.sender]) revert InvalidPeerReview(8);
         meetupPeerReviewed[compId][meetupIndex][attendee][msg.sender] = true;
 
-        if (attended) _approveMeetupPeer(compId, meetupIndex, attendee, attendeePosition);
-        else _rejectMeetupPeer(compId, attendeePosition);
+        uint8 decision = reviewArbiter.recordVote(compId, meetupIndex, attendee, msg.sender, attended);
+        if (decision == 1) {
+            _approveMeetupPeer(compId, meetupIndex, attendee, attendeePosition);
+        } else if (decision == 2) {
+            _rejectMeetupPeer(compId, attendeePosition);
+        }
         emit MeetupPeerDecision(compId, meetupIndex, attendee, msg.sender, attended);
     }
 
