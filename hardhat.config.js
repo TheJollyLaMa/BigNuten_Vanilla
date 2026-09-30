@@ -29,6 +29,9 @@ const POLYGON_RPC_URL =
 const BASE_RPC_URL =
   process.env.BASE_RPC_URL || "https://sepolia.base.org";
 
+const BASE_MAINNET_RPC_URL =
+  process.env.BASE_MAINNET_RPC_URL || "https://mainnet.base.org";
+
 // Optimism Mainnet (production) — chain ID 10
 const OPTIMISM_MAINNET_RPC_URL =
   process.env.OPTIMISM_MAINNET_RPC_URL || "https://mainnet.optimism.io";
@@ -96,12 +99,20 @@ module.exports = {
       chainId: 31337,
     },
 
-    // Optimism Mainnet (production) — primary target for BigNuten contracts.
+    // Optimism Mainnet — legacy production network retained for archive access.
     // Explorer: https://optimistic.etherscan.io
     optimism: {
       url: OPTIMISM_MAINNET_RPC_URL,
       accounts: liveAccounts(),
       chainId: 10,
+    },
+
+    // Base Mainnet — current production migration target.
+    // Explorer: https://basescan.org
+    base: {
+      url: BASE_MAINNET_RPC_URL,
+      accounts: liveAccounts(),
+      chainId: 8453,
     },
 
     // Polygon Mumbai testnet (MATIC)

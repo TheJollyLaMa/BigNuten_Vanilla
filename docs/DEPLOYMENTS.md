@@ -30,7 +30,15 @@ The following Base Mainnet addresses are **not yet known** and are intentionally
 - `Aave V3 Pool`
 - `Alchemix V2`
 
-Until those deployments exist, the app keeps the corresponding UI flows disabled or read-only on Base and exposes the legacy Optimism deployment through the network dropdown.
+The shared Settlements Router is already deployed on Base at
+`0x8ecca903e2a6Daa8CCbB933700e4F2C58C44A4B5`. The planned
+`BigNutenNetworkRegistry` will use the `bignuten-data-rewards` fund for
+verifiable community pinning rewards. Its address remains unset until the Base
+migration deployment is performed.
+
+Until those deployments exist, the app keeps the corresponding UI flows disabled
+or read-only on Base. The legacy Optimism addresses below remain for historical
+reference and recovery planning; they are not part of the new-user flow.
 
 ---
 

@@ -73,7 +73,7 @@ const ACTIVE_NETWORK_LABEL = ACTIVE_NETWORK.label || 'Base Mainnet';
 
 function _requireGovernanceDeployment() {
   if (!GOVERNANCE_CONTRACT_ADDRESS) {
-    throw new Error(`Governance is not deployed on ${ACTIVE_NETWORK_LABEL}. Switch to Optimism Mainnet from the network dropdown to use the current governance contracts.`);
+    throw new Error(`Governance is not deployed on ${ACTIVE_NETWORK_LABEL} yet. Base migration is in progress.`);
   }
 }
 

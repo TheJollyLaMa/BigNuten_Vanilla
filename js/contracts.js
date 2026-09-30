@@ -1,6 +1,6 @@
 /**
  * js/contracts.js
- * BigNuten Mainnet Contract Addresses — Base default with Optimism fallback
+ * BigNuten Mainnet Contract Addresses — Base default; Optimism retained as legacy record
  *
  * This file is the single source of truth for all deployed contract addresses,
  * network metadata, and token configuration used across the BigNuten app.

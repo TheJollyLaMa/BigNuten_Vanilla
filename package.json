@@ -12,6 +12,7 @@
     "test:storage-relay": "node --test test/storageRelay.test.js",
     "network:index": "node scripts/indexBignutenCommunity.js",
     "network:node": "node scripts/bignutenNodeKeeper.js",
+    "deploy:network-registry": "hardhat run scripts/deployNetworkRegistry.js --network base",
     "test:scenarios": "hardhat test test/StreakBetEscrow.scenarios.test.js",
     "sim": "hardhat run scripts/streakbot-sim.js",
     "sim:live:estimate": "SIM_PHASE=estimate hardhat run scripts/streakbot-live.js --network optimism",

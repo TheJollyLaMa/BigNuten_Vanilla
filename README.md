@@ -13,7 +13,7 @@
 [![v2.0.0 DNFT Minted](https://img.shields.io/badge/v2.0.0%20DNFT-Minted%20%E2%9C%94-gold?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
 [![Network](https://img.shields.io/badge/network-Base%20Mainnet-0052ff?style=flat-square&logo=ethereum)](https://basescan.org)
 
-> **Network update:** BigNuten now operates on **Base Mainnet by default** using BNUT `0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736`. The legacy **Optimism Mainnet** deployment remains available from the in-app network dropdown for fallback flows still deployed there.
+> **Network update:** BigNuten now operates on **Base Mainnet** using BNUT `0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736`. Legacy Optimism contracts remain documented for archival reference, while new user flows and payroll are rebuilt on Base.
 
 ---
 
@@ -136,9 +136,9 @@ Everything accessible to every user in the browser — no wallet required to sta
 
 ### Data Ownership
 
-- **IPFS backup & restore** via Pinata — your data, your wallet, your CID
-- **Optional personal JWT fallback** in Settings — enter a Pinata JWT on demand for snapshot uploads/restores
-- **MetaMask wallet connection** for Web3 identity (Base Mainnet by default, Optimism fallback via dropdown)
+- **IPFS backup & restore** via hosted Pinata relay, personal Pinata, or local IPFS Desktop
+- **Private-by-default storage** — Render authorizes uploads while file contents travel directly from the browser to Pinata
+- **MetaMask wallet connection** for Base Mainnet Web3 identity
 - **No backend** — fully client-side; if the servers go dark, your browser still works
 
 ---
@@ -189,7 +189,7 @@ This is the "repo side" of BigNuten — the machinery that pays builders and kee
 | **DecentNFT** | Early Supporter DNFT (ERC-1155) | _Not yet deployed on Base_ |
 | **StreakBetEscrow** | Competition staking, Aave yield, payouts | _Not yet deployed on Base_ |
 
-#### Optimism Mainnet (fallback / legacy)
+#### Optimism Mainnet (legacy archive only)
 
 | Contract | Role | Address |
 |----------|------|---------|
@@ -223,7 +223,7 @@ DNFT sales / Subscriptions
   DecentEscrow (on-chain)
           │
           ▼
-  BigNutenTreasury ──► batchPayContributors() ──► Contributor wallets (Base default; Optimism fallback while treasury remains there)
+  Shared Base Settlements Router ──► Contributor wallets
           │
           ▼
   $BNUT minted / distributed ──► Data sharing rewards ──► Governance staking
@@ -271,8 +271,8 @@ open index.html   # macOS
 ```
 
 - Start logging weight, supplements, food, and exercise — no wallet needed
-- Connect **MetaMask** (Optimism) to unlock StreakBet competitions and on-chain identity
-- Connect **IPFS** (Pinata) to back up and restore your data across devices
+- Connect **MetaMask** on Base to unlock Base-deployed on-chain features
+- Use the left-header IPFS control to choose hosted Pinata, personal Pinata, or local IPFS Desktop
 - Join a StreakBet competition and put real money on your health goals 💪
 
 ### 🛠️ I'm a Builder
@@ -583,7 +583,7 @@ BigNuten is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155 tokens
 #### 🔗 Option 1 — Crypto (instant & trustless)
 
 1. Visit **[DecentMarket](https://thejollylama.github.io/DecentMarket/)** or use the **🎟️ Buy Now** button inside BigNuten
-2. Connect your MetaMask wallet (switch to Optimism fallback from the header dropdown for the live DNFT escrow flow)
+2. Connect your MetaMask wallet on Base. Features remain unavailable until their Base contracts are deployed.
 3. Approve $100 USDC and confirm — the escrow releases your DNFT automatically on-chain
 
 #### 💳 Option 2 — PayPal (fiat-friendly)
@@ -791,7 +791,7 @@ npx hardhat run scripts/deploy.js --network optimism
 | **Wallet** | MetaMask / EIP-1193 |
 | **Smart Contracts** | Solidity ^0.8.20, OpenZeppelin v5, Hardhat |
 | **Contract Testing** | Hardhat + @nomicfoundation/hardhat-network-helpers |
-| **Blockchain** | Base Mainnet (Chain ID: 8453) by default; Optimism Mainnet (Chain ID: 10) fallback |
+| **Blockchain** | Base Mainnet (Chain ID: 8453); Optimism Mainnet retained as a legacy archive |
 | **DeFi** | Aave V3 Pool (yield on competition pots), Alchemix V2 |
 | **Subscriptions** | DecentEscrow v0.1 (external) |
 | **AI / LLM** | WebLLM (local), GitHub Models (Azure), OpenAI GPT-4o |
@@ -839,7 +839,7 @@ cd BigNuten_Vanilla
 ```
 
 1. Open `index.html` in your browser — **no build step needed!**
-2. Connect your **MetaMask** wallet using the wallet button (Base Mainnet by default; switch with the network dropdown if you need Optimism fallback)
+2. Connect your **MetaMask** wallet using the wallet button on Base Mainnet
 3. Connect **IPFS** via the IPFS icon (requires a Pinata JWT)
 4. Start logging your weight, supplements, food, and exercise!
 

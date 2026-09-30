@@ -151,7 +151,7 @@ async function _getSigner() {
  */
 function _requireSubscriptionDeployment() {
   if (!DECENT_ESCROW_ADDRESS) {
-    throw new Error(`Subscriptions are not deployed on ${ACTIVE_NETWORK_LABEL} yet. Switch to Optimism Mainnet from the network dropdown to use the current DecentEscrow deployment.`);
+    throw new Error(`Subscriptions are not deployed on ${ACTIVE_NETWORK_LABEL} yet. Base migration is in progress.`);
   }
 }
 

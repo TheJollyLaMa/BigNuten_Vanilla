@@ -4382,7 +4382,7 @@ async function _loadBigNutenListings() {
     // visitors, with or without MetaMask.  MetaMask is only needed at buy time.
     const dnftCfg = _getBignutenDnftConfig();
     if (!dnftCfg.escrowAddress) {
-      container.innerHTML = `<p class="dnft-buy-loading">${dnftCfg.networkLabel} DNFT escrow is not deployed yet. Switch to Optimism fallback from the network dropdown to buy the current listing.</p>`;
+      container.innerHTML = `<p class="dnft-buy-loading">${dnftCfg.networkLabel} DNFT escrow is not deployed yet. This feature will return after its Base deployment.</p>`;
       return;
     }
     const provider = new ethers.JsonRpcProvider(dnftCfg.rpcUrl);
@@ -4498,7 +4498,7 @@ async function _handleBigNutenBuy(listingId, priceAmount, priceEth, btn, statusE
 
     const dnftCfg = _getBignutenDnftConfig();
     if (!dnftCfg.escrowAddress) {
-      setStatus(`⚠ DNFT escrow is not deployed on ${dnftCfg.networkLabel}. Switch to Optimism fallback to buy the current listing.`, '#ff8800');
+      setStatus(`⚠ DNFT escrow is not deployed on ${dnftCfg.networkLabel} yet. This feature will return after its Base deployment.`, '#ff8800');
       return;
     }
 
@@ -4577,7 +4577,7 @@ async function _doBigNutenPurchase(provider, ethers, listingId, btn, setStatus) 
       : dnftCfg.usdcAddress;
 
     if (!paymentToken) {
-      setStatus(`⚠ DNFT payment token is not deployed on ${dnftCfg.networkLabel}. Switch to Optimism fallback to buy the current listing.`, '#ff8800');
+      setStatus(`⚠ DNFT payment token is not deployed on ${dnftCfg.networkLabel} yet. This feature will return after its Base deployment.`, '#ff8800');
       return;
     }
 
@@ -7633,7 +7633,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         if (!TREASURY_ADDR || TREASURY_ADDR === '0x0000000000000000000000000000000000000000') {
-          if (transferStatus) transferStatus.textContent = `⚠️ Treasury is not deployed on ${ACTIVE_NETWORK_LABEL}. Switch to Optimism fallback to use the current treasury.`;
+          if (transferStatus) transferStatus.textContent = `⚠️ Treasury is not deployed on ${ACTIVE_NETWORK_LABEL} yet. Base migration is in progress.`;
           return;
         }
         if (!window.ethereum) {

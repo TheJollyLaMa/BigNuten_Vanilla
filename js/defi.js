@@ -1048,7 +1048,7 @@ async function loadDeFiBalances() {
       renderHistory();
       const history = document.getElementById('defi-history-list');
       if (history) {
-        history.innerHTML = `<p style="color:#7a9aa8;font-size:0.83rem;">DeFi integrations are not deployed on ${ACTIVE_NETWORK_LABEL} yet. Switch to Optimism Mainnet from the network dropdown to use the existing Aave and Alchemix integrations.</p>`;
+        history.innerHTML = `<p style="color:#7a9aa8;font-size:0.83rem;">DeFi integrations are not deployed on ${ACTIVE_NETWORK_LABEL} yet. Base migration is in progress.</p>`;
       }
       return;
     }

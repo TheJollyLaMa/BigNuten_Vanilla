@@ -176,7 +176,7 @@ function requireStreakDeployment() {
   const addr = getStreakBetAddress();
   const label = window.CONTRACTS?.label || 'selected network';
   if (!addr) {
-    throw new Error(`StreakBetEscrow is not deployed on ${label}. Switch to Optimism Mainnet from the network dropdown to use the current competition contracts.`);
+    throw new Error(`StreakBetEscrow is not deployed on ${label} yet. Base migration is in progress.`);
   }
   return addr;
 }
