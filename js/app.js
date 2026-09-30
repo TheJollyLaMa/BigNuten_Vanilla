@@ -1,6 +1,6 @@
 import { initDnftPayPalPurchase, initDnftStripePurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
-import { loadPayrollQueue, getTreasuryBalance, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
+import { loadPayrollQueue, getTreasuryBalance, getPayrollSettlementOptions, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS, _openConnectDialog } from './dataControl.js';
@@ -6141,6 +6141,28 @@ document.addEventListener('DOMContentLoaded', () => {
     let _paidOnChain     = new Set();
     let _totalBNUTOwed   = 0;
 
+    function selectedSettlementSource() {
+      return document.getElementById('payroll-settlement-source-select')?.value || 'router';
+    }
+
+    function renderSettlementSources(options) {
+      const select = document.getElementById('payroll-settlement-source-select');
+      const balances = document.getElementById('payroll-settlement-source-balances');
+      if (!select) return;
+      const previous = select.value;
+      select.innerHTML = options.map(option =>
+        `<option value="${option.source}" ${option.available ? '' : 'disabled'}>${option.label}${option.available ? '' : ' (not deployed)'}</option>`
+      ).join('');
+      select.value = options.some(option => option.source === previous && option.available)
+        ? previous
+        : (options.find(option => option.available)?.source || options[0]?.source || 'router');
+      if (balances) {
+        balances.textContent = options.length
+          ? options.map(option => `${option.label}: ${option.balance.toLocaleString(undefined, { maximumFractionDigits: 6 })} BNUT`).join(' · ')
+          : 'No settlement source is configured on this network.';
+      }
+    }
+
     // ── Bounty bot config (read from raw GitHub URL) ──────────────────────
     const BOT_CONFIG_RAW_URL =
       'https://raw.githubusercontent.com/TheJollyLaMa/BigNuten_Vanilla/main/bounty-bot-config.json';
@@ -6588,7 +6610,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (msgEl) msgEl.textContent = '⏳ Sending…';
 
           try {
-            const txHash = await settlePayroll([{ contributor: p.contributor, contributorGithub: p.contributorGithub, currency: String(p.currency || 'BNUT').toUpperCase(), amount: String(amount), issueRef: entryKey(p) }]);
+            const txHash = await settlePayroll([{ contributor: p.contributor, contributorGithub: p.contributorGithub, currency: String(p.currency || 'BNUT').toUpperCase(), amount: String(amount), issueRef: entryKey(p) }], { source: selectedSettlementSource() });
             markRowSettled(idx, txHash);
           } catch (err) {
             if (msgEl) msgEl.textContent = _friendlyTxError(err);
@@ -6838,8 +6860,12 @@ document.addEventListener('DOMContentLoaded', () => {
           renderSettledList(events);
         }
 
-        // Treasury balance with color-coded health indicator
-        const bal = await getTreasuryBalance();
+        // Settlement-source balances with color-coded health indicator
+        const sourceOptions = await getPayrollSettlementOptions('BNUT');
+        renderSettlementSources(sourceOptions);
+        const source = selectedSettlementSource();
+        const selectedOption = sourceOptions.find(option => option.source === source) || sourceOptions.find(option => option.available);
+        const bal = selectedOption?.balance || 0;
         if (balanceEl) {
           balanceEl.textContent = `🏦 Treasury: ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT`;
         }
@@ -6891,6 +6917,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pendingListEl) pendingListEl.innerHTML = `<p style="color:#ff6b6b;">❌ ${err.message}</p>`;
       }
     }
+
+    document.getElementById('payroll-settlement-source-select')?.addEventListener('change', () => {
+      refreshPayrollModal();
+    });
 
     // ── Bot toggle: read config + check admin status ──────────────────────
 
@@ -7111,7 +7141,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         try {
           for (const [currency, totalNeeded] of totalsByCurrency) {
-            const bal = await getTreasuryBalance(currency);
+            const sourceOptions = await getPayrollSettlementOptions(currency);
+            const selected = sourceOptions.find(option => option.source === selectedSettlementSource() && option.available);
+            if (!selected) throw new Error(`${currency} is not available from the selected settlement source.`);
+            const bal = selected.balance;
             if (bal >= totalNeeded) continue;
             if (settleStatus) {
               settleStatus.textContent =
@@ -7140,7 +7173,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-          const txHash = await settlePayroll(payouts);
+          const txHash = await settlePayroll(payouts, { source: selectedSettlementSource() });
 
           // Mark all settled rows in the UI.
           toSettle.forEach(({ i }) => markRowSettled(i, txHash));
@@ -7381,6 +7414,7 @@ document.addEventListener('DOMContentLoaded', () => {
         RPC_URL: config.rpcUrl || 'https://mainnet.base.org',
         ACTIVE_CHAIN_ID: Number(config.chainId || 8453),
         ACTIVE_NETWORK_LABEL: config.label || 'Base Mainnet',
+        EXPLORER_TX_URL: config.explorerTxUrl || 'https://basescan.org/tx/',
       };
     }
     // Optimism produces ~2 blocks/s; 2 000 000 blocks ≈ ~11.5 days of events.
@@ -7564,7 +7598,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (deficitStatus) deficitStatus.textContent = `⏳ Minting ${amount} BNUT directly to treasury — confirm in MetaMask…`;
       try {
         const txHash = await mintBnutToAddress(TREASURY_ADDR, amount, 'payroll treasury deficit');
-        if (deficitStatus) deficitStatus.innerHTML = `✅ Treasury funded with ${amount} BNUT. <a href="${getActiveExplorerUrl('tx', txHash)}" target="_blank" rel="noopener" style="color:#00e5ff;">View tx ↗</a>`;
+        const { EXPLORER_TX_URL } = getTreasuryConfig();
+        if (deficitStatus) deficitStatus.innerHTML = `✅ Treasury funded with ${amount} BNUT. <a href="${EXPLORER_TX_URL}${txHash}" target="_blank" rel="noopener" style="color:#00e5ff;">View tx ↗</a>`;
         if (deficitInput) deficitInput.value = '';
         window._bignutenTreasuryDeficit = 0;
         await loadTreasuryMetrics();

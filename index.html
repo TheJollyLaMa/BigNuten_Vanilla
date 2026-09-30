@@ -2467,6 +2467,14 @@
       <div id="payroll-treasury-health" style="display:none;">
         <p id="payroll-treasury-balance" class="gov-wallet-balance"></p>
         <p id="payroll-treasury-status" class="payroll-treasury-status"></p>
+        <div class="payroll-settlement-source">
+          <label for="payroll-settlement-source-select">Settlement source</label>
+          <select id="payroll-settlement-source-select" class="gov-input">
+            <option value="router">Shared Settlements Router fund</option>
+            <option value="treasury">BigNuten Treasury</option>
+          </select>
+          <p id="payroll-settlement-source-balances" class="gov-admin-hint"></p>
+        </div>
         <div id="payroll-treasury-actions" style="display:none;" class="payroll-treasury-actions">
           <button id="payroll-treasury-fund-link" class="payroll-treasury-action-link" type="button">⚡ Fund exact deficit</button>
         </div>

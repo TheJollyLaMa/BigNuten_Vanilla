@@ -141,6 +141,36 @@ export async function getTreasuryBalance(currency = 'BNUT') {
   return Number(ethers.formatUnits(await router.fundBalances(fundId, asset.address), asset.decimals));
 }
 
+export async function getPayrollSettlementOptions(currency = 'BNUT') {
+  const config = activeNetworkConfig();
+  const symbol = String(currency || 'BNUT').toUpperCase();
+  const options = [];
+  const provider = new ethers.JsonRpcProvider(config.rpcUrl || 'https://mainnet.base.org');
+
+  if (config.treasury) {
+    const tokenAddress = config.bnut;
+    let balance = 0;
+    if (tokenAddress && symbol === 'BNUT') {
+      const token = new ethers.Contract(tokenAddress, ['function balanceOf(address) view returns (uint256)'], provider);
+      balance = Number(ethers.formatEther(await token.balanceOf(config.treasury)));
+    }
+    options.push({ source: 'treasury', label: 'BigNuten Treasury', address: config.treasury, balance, available: symbol === 'BNUT' });
+  }
+
+  if (isLegacyOptimismActive()) return options;
+
+  const routerConfig = await loadSettlementRouterConfig();
+  const asset = routerConfig.assets?.[symbol];
+  if (routerConfig.routerAddress && asset?.address) {
+    const routerProvider = new ethers.JsonRpcProvider(routerConfig.rpcUrl, routerConfig.chainId);
+    const router = new ethers.Contract(routerConfig.routerAddress, ROUTER_ABI, routerProvider);
+    const fundId = ethers.keccak256(ethers.toUtf8Bytes(routerConfig.fundSlug));
+    const balance = Number(ethers.formatUnits(await router.fundBalances(fundId, asset.address), asset.decimals));
+    options.push({ source: 'router', label: `Settlements Router · ${routerConfig.fundSlug}`, address: routerConfig.routerAddress, balance, available: true });
+  }
+  return options;
+}
+
 // ─── Exported: isTreasuryOwner ────────────────────────────────────────────────
 
 /**
@@ -352,7 +382,7 @@ export async function getContributorPaidEvents() {
  *   Entries from the pending queue to include in the batch.
  * @returns {Promise<string>} Transaction hash of the batch settlement.
  */
-export async function settlePayroll(payouts) {
+export async function settlePayroll(payouts, { source = 'router' } = {}) {
   if (!payouts || payouts.length === 0) {
     throw new Error('No payouts to settle.');
   }
@@ -374,6 +404,22 @@ export async function settlePayroll(payouts) {
   }
 
   const config = await loadSettlementRouterConfig();
+  if (source === 'treasury') {
+    const treasuryAddress = activeNetworkConfig().treasury;
+    if (!treasuryAddress) throw new Error('Base BigNuten Treasury is not deployed yet.');
+    if (payouts.some(p => String(p.currency || 'BNUT').toUpperCase() !== 'BNUT')) {
+      throw new Error('BigNuten Treasury can settle BNUT entries only.');
+    }
+    const { signer } = await getSignerContext();
+    const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, signer);
+    const tx = await treasury.batchPayContributors(
+      payouts.map(p => ethers.getAddress(p.contributor)),
+      payouts.map(p => ethers.parseEther(String(p.amount))),
+      payouts.map(p => p.issueRef),
+    );
+    await tx.wait();
+    return tx.hash;
+  }
   if (!config.routerAddress) throw new Error('Settlement router address is not configured.');
   const { signer } = await getSignerContext();
   const router = new ethers.Contract(config.routerAddress, ROUTER_ABI, signer);
