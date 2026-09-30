@@ -5037,18 +5037,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function refreshAesBnutBalance() {
     const amountEl = document.getElementById('aes-bnut-amount');
-    if (!amountEl) return;
+    const adminAmountEl = document.getElementById('admin-bnut-wallet-amount');
+    if (!amountEl && !adminAmountEl) return;
     const account = window._connectedAccount;
     if (!account) {
-      amountEl.textContent = '—';
+      if (amountEl) amountEl.textContent = '—';
+      if (adminAmountEl) adminAmountEl.textContent = '—';
       return;
     }
     if (!window.CONTRACTS || !window.CONTRACTS.bnut ||
         window.CONTRACTS.bnut === '0x0000000000000000000000000000000000000000') {
-      amountEl.textContent = '—';
+      if (amountEl) amountEl.textContent = '—';
+      if (adminAmountEl) adminAmountEl.textContent = '—';
       return;
     }
-    amountEl.textContent = 'Loading…';
+    if (amountEl) amountEl.textContent = 'Loading…';
+    if (adminAmountEl) adminAmountEl.textContent = 'Loading…';
     try {
       const bnutAbi = ['function balanceOf(address account) view returns (uint256)'];
       const bnutProvider = new ethers.JsonRpcProvider(window.CONTRACTS.rpcUrl);
@@ -5057,11 +5061,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const formatted = parseFloat(ethers.formatUnits(rawBalance, 18))
         .toLocaleString(undefined, { maximumFractionDigits: 2 });
       const symbol = (window.CONTRACTS.bnutToken && window.CONTRACTS.bnutToken.symbol) || 'BNUT';
-      amountEl.textContent = `${formatted} $${symbol}`;
+      if (amountEl) amountEl.textContent = `${formatted} $${symbol}`;
+      if (adminAmountEl) adminAmountEl.textContent = `${formatted} $${symbol}`;
     } catch (err) {
       console.warn('[AES Dropdown] Could not fetch $BNUT balance:', err);
       const symbol = (window.CONTRACTS.bnutToken && window.CONTRACTS.bnutToken.symbol) || 'BNUT';
-      amountEl.textContent = `— $${symbol}`;
+      if (amountEl) amountEl.textContent = `— $${symbol}`;
+      if (adminAmountEl) adminAmountEl.textContent = `— $${symbol}`;
     }
   }
 
@@ -7447,46 +7453,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const provider = new ethers.JsonRpcProvider(RPC_URL);
-        const bnut = new ethers.Contract(BNUT_ADDR, BNUT_ABI_MIN, provider);
-
-        const [totalSupplyWei, maxSupplyWei, remainingWei] = await Promise.all([
-          bnut.totalSupply(),
-          bnut.MAX_SUPPLY(),
-          bnut.remainingSupply().catch(() => null),
-        ]);
-
-        const pctMinted = maxSupplyWei > 0n
-          ? ((Number(totalSupplyWei) / Number(maxSupplyWei)) * 100).toFixed(4)
-          : '—';
-
-        const remaining = remainingWei !== null
-          ? remainingWei
-          : (maxSupplyWei - totalSupplyWei);
-
         const el = (id) => document.getElementById(id);
-        if (el('treasury-total-supply')) el('treasury-total-supply').textContent = fmt(totalSupplyWei) + ' BNUT';
-        if (el('treasury-max-supply')) el('treasury-max-supply').textContent = fmt(maxSupplyWei) + ' BNUT';
-        if (el('treasury-pct-minted')) el('treasury-pct-minted').textContent = pctMinted + '%';
-        if (el('treasury-remaining')) el('treasury-remaining').textContent = fmt(remaining) + ' BNUT';
-
-        // Admin wallet balance: connected MetaMask account (if any)
-        let adminBal = '—';
-        if (window.ethereum) {
-          try {
-            const wp = new ethers.BrowserProvider(window.ethereum);
-            const accounts = await wp.send('eth_accounts', []);
-            if (accounts && accounts.length > 0) {
-              const balWei = await bnut.balanceOf(accounts[0]);
-              adminBal = fmt(balWei) + ' BNUT';
-            }
-          } catch (_) { /* wallet not connected */ }
-        }
-        if (el('treasury-admin-bal')) el('treasury-admin-bal').textContent = adminBal;
-
-        // Treasury wallet balance
         let treasuryBal = '—';
-        if (TREASURY_ADDR && TREASURY_ADDR !== '0x0000000000000000000000000000000000000000') {
+        if (BNUT_ADDR && TREASURY_ADDR && TREASURY_ADDR !== '0x0000000000000000000000000000000000000000') {
           try {
+            const bnut = new ethers.Contract(BNUT_ADDR, ['function balanceOf(address) view returns (uint256)'], provider);
             const balWei = await bnut.balanceOf(TREASURY_ADDR);
             treasuryBal = fmt(balWei) + ' BNUT';
           } catch (_) { /* treasury not deployed */ }

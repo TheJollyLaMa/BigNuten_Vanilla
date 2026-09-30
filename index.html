@@ -54,7 +54,7 @@
       <div id="admin-dropdown" class="admin-dropdown hidden" role="menu" aria-label="Admin menu">
         <div class="aes-bnut-balance">
           <img src="img/BigNuten.png" alt="Admin" class="aes-bnut-icon" />
-          <span class="aes-bnut-amount" style="color:#ff9f43;">⚙️ Admin</span>
+          <span class="aes-bnut-amount" style="color:#ff9f43;">⚙️ Admin · <strong id="admin-bnut-wallet-amount">—</strong></span>
         </div>
         <hr class="aes-divider" />
         <button class="aes-menu-item admin-menu-item" id="admin-bnut-btn"         role="menuitem">🪙 BigNuten ($BNUT)</button>
@@ -1845,32 +1845,12 @@
 
       <div class="gov-admin-panel">
 
-        <!-- Supply Metrics -->
+        <!-- Treasury Contract Balance -->
         <div id="treasury-metrics" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem 1rem; margin-bottom:1rem;">
-          <div class="treasury-metric">
-            <span class="treasury-metric-label">Total Supply</span>
-            <span id="treasury-total-supply" class="treasury-metric-value">—</span>
-          </div>
-          <div class="treasury-metric">
-            <span class="treasury-metric-label">Max Supply</span>
-            <span id="treasury-max-supply" class="treasury-metric-value">—</span>
-          </div>
-          <div class="treasury-metric">
-            <span class="treasury-metric-label">% Minted</span>
-            <span id="treasury-pct-minted" class="treasury-metric-value">—</span>
-          </div>
-          <div class="treasury-metric">
-            <span class="treasury-metric-label">Remaining Mintable</span>
-            <span id="treasury-remaining" class="treasury-metric-value">—</span>
-          </div>
           <div class="treasury-metric">
             <span class="treasury-metric-label">Treasury Contract Balance</span>
             <span id="treasury-wallet-bal" class="treasury-metric-value">—</span>
           </div>
-        </div>
-        <div class="treasury-wallet-reference">
-          <span>Connected wallet balance <small>(reference only; not part of Treasury balance)</small></span>
-          <strong id="treasury-admin-bal">—</strong>
         </div>
         <button id="treasury-refresh-btn" class="gov-admin-action-btn" style="margin-bottom:1rem;">🔄 Refresh Metrics</button>
 
