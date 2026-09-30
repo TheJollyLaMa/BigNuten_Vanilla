@@ -19,12 +19,23 @@
 /** Raw GitHub URL for the payroll queue file. */
 const PAYROLL_QUEUE_URL =
   'https://raw.githubusercontent.com/TheJollyLaMa/BigNuten_Vanilla/main/payroll-queue.json';
+const SETTLEMENT_ROUTER_CONFIG_URL = 'settlement-router.json';
 
-const ACTIVE_NETWORK = window.CONTRACTS || {};
-const DEFAULT_TREASURY_ADDRESS = window.TREASURY_CONTRACT_ADDRESS || ACTIVE_NETWORK.treasury || '';
-const ACTIVE_CHAIN_ID = Number(ACTIVE_NETWORK.chainId || 8453);
-const ACTIVE_NETWORK_LABEL = ACTIVE_NETWORK.label || 'Base Mainnet';
-const ACTIVE_RPC_URL = ACTIVE_NETWORK.rpcUrl || 'https://mainnet.base.org';
+/** Shared Settlement Router network: Base. */
+const SETTLEMENT_CHAIN_ID = 8453;
+const ROUTER_ABI = [
+  'function DEFAULT_ADMIN_ROLE() view returns (bytes32)',
+  'function PAYROLL_ROLE() view returns (bytes32)',
+  'function CONTRIBUTOR_ADMIN_ROLE() view returns (bytes32)',
+  'function hasRole(bytes32,address) view returns (bool)',
+  'function funds(bytes32) view returns (string,bool,bool)',
+  'function fundBalances(bytes32,address) view returns (uint256)',
+  'function contributors(address) view returns (bytes32,bool,bool)',
+  'function setContributorApproved(address,bytes32,bool)',
+  'function completedWorkReferences(bytes32) view returns (bool)',
+  'function payout(bytes32,address,address,uint256,bytes32,bytes32,bytes32,string,bytes32)',
+  'event PayrollPaid(bytes32 indexed fundId,address indexed asset,address indexed recipient,uint256 amount,bytes32 workReference,bytes32 repositoryIdHash,bytes32 contributorIdHash,string metadataUri,bytes32 metadataHash)',
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +46,12 @@ const ACTIVE_RPC_URL = ACTIVE_NETWORK.rpcUrl || 'https://mainnet.base.org';
 async function loadTreasuryAbi() {
   const res = await fetch('abis/BigNutenTreasury.json');
   if (!res.ok) throw new Error('Failed to load BigNutenTreasury ABI');
+  return res.json();
+}
+
+async function loadSettlementRouterConfig() {
+  const res = await fetch(SETTLEMENT_ROUTER_CONFIG_URL + '?t=' + Date.now());
+  if (!res.ok) throw new Error('Failed to load settlement router configuration');
   return res.json();
 }
 
@@ -53,9 +70,9 @@ async function getSignerContext() {
   }
 
   const network = await provider.getNetwork();
-  if (Number(network.chainId) !== ACTIVE_CHAIN_ID) {
+  if (Number(network.chainId) !== SETTLEMENT_CHAIN_ID) {
     throw new Error(
-      `Wrong network. Please switch MetaMask to ${ACTIVE_NETWORK_LABEL} (chain ID ${ACTIVE_CHAIN_ID}).`
+      `Wrong network. Please switch MetaMask to Base (chain ID ${SETTLEMENT_CHAIN_ID}).`
     );
   }
 
@@ -91,24 +108,14 @@ export async function loadPayrollQueue() {
  *
  * @returns {Promise<number>} Balance in whole BNUT tokens.
  */
-export async function getTreasuryBalance() {
-  const treasuryAddress =
-    window.TREASURY_CONTRACT_ADDRESS ||
-    window.CONTRACTS?.treasury ||
-    '0x0000000000000000000000000000000000000000';
-
-  if (
-    !treasuryAddress ||
-    treasuryAddress === '0x0000000000000000000000000000000000000000'
-  ) {
-    return 0;
-  }
-
-  const abi = await loadTreasuryAbi();
-  const provider = new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
-  const treasury = new ethers.Contract(treasuryAddress, abi, provider);
-  const balanceWei = await treasury.getBalance();
-  return Number(ethers.formatEther(balanceWei));
+export async function getTreasuryBalance(currency = 'BNUT') {
+  const config = await loadSettlementRouterConfig();
+  const asset = config.assets?.[String(currency).toUpperCase()];
+  if (!config.routerAddress || !asset?.address) return 0;
+  const provider = new ethers.JsonRpcProvider(config.rpcUrl, config.chainId);
+  const router = new ethers.Contract(config.routerAddress, ROUTER_ABI, provider);
+  const fundId = ethers.keccak256(ethers.toUtf8Bytes(config.fundSlug));
+  return Number(ethers.formatUnits(await router.fundBalances(fundId, asset.address), asset.decimals));
 }
 
 // ─── Exported: isTreasuryOwner ────────────────────────────────────────────────
@@ -120,25 +127,12 @@ export async function getTreasuryBalance() {
  * @returns {Promise<boolean>}
  */
 export async function isTreasuryOwner(walletAddress) {
-  const treasuryAddress =
-    window.TREASURY_CONTRACT_ADDRESS ||
-    window.CONTRACTS?.treasury ||
-    '0x0000000000000000000000000000000000000000';
-
-  if (
-    !walletAddress ||
-    !treasuryAddress ||
-    treasuryAddress === '0x0000000000000000000000000000000000000000'
-  ) {
-    return false;
-  }
-
   try {
-    const abi = await loadTreasuryAbi();
-    const provider = new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
-    const treasury = new ethers.Contract(treasuryAddress, abi, provider);
-    const owner = await treasury.owner();
-    return owner.toLowerCase() === walletAddress.toLowerCase();
+    const config = await loadSettlementRouterConfig();
+    if (!walletAddress || !config.routerAddress) return false;
+    const provider = new ethers.JsonRpcProvider(config.rpcUrl, config.chainId);
+    const router = new ethers.Contract(config.routerAddress, ROUTER_ABI, provider);
+    return router.hasRole(await router.DEFAULT_ADMIN_ROLE(), walletAddress);
   } catch (_) {
     return false;
   }
@@ -153,24 +147,12 @@ export async function isTreasuryOwner(walletAddress) {
  * @returns {Promise<boolean>}
  */
 export async function isIssuePaid(issueRef) {
-  const treasuryAddress =
-    window.TREASURY_CONTRACT_ADDRESS ||
-    window.CONTRACTS?.treasury ||
-    '0x0000000000000000000000000000000000000000';
-
-  if (
-    !issueRef ||
-    !treasuryAddress ||
-    treasuryAddress === '0x0000000000000000000000000000000000000000'
-  ) {
-    return false;
-  }
-
   try {
-    const abi = await loadTreasuryAbi();
-    const provider = new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
-    const treasury = new ethers.Contract(treasuryAddress, abi, provider);
-    return await treasury.isIssuePaid(issueRef);
+    const config = await loadSettlementRouterConfig();
+    if (!issueRef || !config.routerAddress) return false;
+    const provider = new ethers.JsonRpcProvider(config.rpcUrl, config.chainId);
+    const router = new ethers.Contract(config.routerAddress, ROUTER_ABI, provider);
+    return router.completedWorkReferences(ethers.keccak256(ethers.toUtf8Bytes(issueRef)));
   } catch (_) {
     return false;
   }
@@ -179,10 +161,10 @@ export async function isIssuePaid(issueRef) {
 // ─── Exported: getContributorPaidEvents ──────────────────────────────────────
 
 /**
- * Optimism block at which BigNutenTreasury was deployed (2026-03-19).
- * Used as the lower bound when scanning for ContributorPaid events.
+ * The shared router is on Base. A rolling window keeps public-RPC log queries
+ * bounded while covering recent project payroll activity.
  */
-const TREASURY_DEPLOY_BLOCK = 130_000_000;
+const SETTLEMENT_ROUTER_DEPLOY_BLOCK = 0;
 
 /**
  * Safe chunk size per queryFilter request (Optimism public RPC caps at ~10 000 blocks).
@@ -197,7 +179,7 @@ const RPC_BLOCK_CHUNK = 9_000;
 const CHUNK_CONCURRENCY = 5;
 
 /**
- * Query all ContributorPaid events emitted by the BigNutenTreasury contract.
+ * Query PayrollPaid events emitted by the shared Settlement Router.
  * Returns events sorted most-recent first.
  *
  * Always uses a public Optimism JSON-RPC for log queries.  MetaMask's injected
@@ -217,33 +199,21 @@ const CHUNK_CONCURRENCY = 5;
  * @returns {Promise<Array<{contributor: string, issueRef: string, amount: number, txHash: string, blockNumber: number, timestamp: number}>>}
  */
 export async function getContributorPaidEvents() {
-  const treasuryAddress =
-    window.TREASURY_CONTRACT_ADDRESS ||
-    window.CONTRACTS?.treasury ||
-    DEFAULT_TREASURY_ADDRESS;
+  const config = await loadSettlementRouterConfig();
+  if (!config.routerAddress) return [];
 
-  if (
-    !treasuryAddress ||
-    treasuryAddress === '0x0000000000000000000000000000000000000000'
-  ) {
-    return [];
-  }
-
-  const abi = await loadTreasuryAbi();
-
-  // Always use the active network's public JSON-RPC for log queries.
-  // Browser-injected providers can route through endpoints that cap eth_getLogs at
-  // much smaller ranges; our 9 000-block chunks would otherwise fail silently (caught → []).
-  const provider = new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
-
-  const treasury = new ethers.Contract(treasuryAddress, abi, provider);
-  const filter   = treasury.filters.ContributorPaid();
+  // Always use the public Optimism JSON-RPC for log queries.
+  // MetaMask routes through Infura which caps eth_getLogs at ~2 000 blocks;
+  // our 9 000-block chunks would all fail silently (caught → []).
+  const provider = new ethers.JsonRpcProvider(config.rpcUrl, config.chainId);
+  const router = new ethers.Contract(config.routerAddress, ROUTER_ABI, provider);
+  const filter = router.filters.PayrollPaid();
 
   // Scan from whichever is later: the known deploy block OR 500 000 blocks
   // before the current tip (~11 days on Optimism at 2-second blocks).
   // This keeps chunk count small while tolerating an imprecise deploy block.
   const latestBlock = await provider.getBlockNumber();
-  const startBlock  = Math.max(TREASURY_DEPLOY_BLOCK, latestBlock - 500_000);
+  const startBlock  = Math.max(SETTLEMENT_ROUTER_DEPLOY_BLOCK, latestBlock - 500_000);
   const chunks = [];
   for (let from = startBlock; from <= latestBlock; from += RPC_BLOCK_CHUNK) {
     chunks.push([from, Math.min(from + RPC_BLOCK_CHUNK - 1, latestBlock)]);
@@ -257,7 +227,7 @@ export async function getContributorPaidEvents() {
     const batch = chunks.slice(i, i + CHUNK_CONCURRENCY);
     const results = await Promise.all(
       batch.map(([from, to]) =>
-        treasury.queryFilter(filter, from, to).catch(err => {
+        router.queryFilter(filter, from, to).catch(err => {
           failedChunks++;
           console.warn(`[getContributorPaidEvents] chunk ${from}-${to} failed:`, err);
           return [];
@@ -272,7 +242,7 @@ export async function getContributorPaidEvents() {
   if (chunks.length > 0 && failedChunks === chunks.length) {
     throw new Error(
       `All ${chunks.length} block-range queries failed. ` +
-      `Check that the RPC endpoint for ${ACTIVE_NETWORK_LABEL} is reachable and try again.`
+      'Check that the RPC endpoint (mainnet.optimism.io) is reachable and try again.'
     );
   }
 
@@ -293,8 +263,8 @@ export async function getContributorPaidEvents() {
     // Strip the compound-key wallet+role suffix (":0x…" or ":0x…:role") before
     // storing the display ref.  The raw compound key lives on-chain; we only need
     // the human-readable GitHub ref for display purposes.
-    issueRef:    (log.args.issueRef || '').replace(/:0x[0-9a-fA-F]+(?::[a-z][a-z-]*)?$/i, ''),
-    amount:      Number(ethers.formatEther(log.args.amount)),
+    issueRef:    String(log.args.metadataUri || log.args.workReference),
+    amount:      Number(ethers.formatUnits(log.args.amount, config.assets?.[Object.keys(config.assets || {}).find(symbol => config.assets[symbol].address?.toLowerCase() === String(log.args.asset).toLowerCase())]?.decimals || 18)),
     txHash:      log.transactionHash,
     blockNumber: log.blockNumber,
     timestamp:   blockTimestamps.get(log.blockNumber) || 0,
@@ -331,30 +301,44 @@ export async function settlePayroll(payouts) {
   if (!payouts || payouts.length === 0) {
     throw new Error('No payouts to settle.');
   }
-
-  const treasuryAddress =
-    window.TREASURY_CONTRACT_ADDRESS ||
-    window.CONTRACTS?.treasury ||
-    '0x0000000000000000000000000000000000000000';
-
-  if (
-    !treasuryAddress ||
-    treasuryAddress === '0x0000000000000000000000000000000000000000'
-  ) {
-    throw new Error(
-      `Treasury contract is not deployed on ${ACTIVE_NETWORK_LABEL}. Switch to Optimism Mainnet from the network dropdown or update js/contracts.js once a ${ACTIVE_NETWORK_LABEL} treasury is deployed.`
-    );
+  const config = await loadSettlementRouterConfig();
+  if (!config.routerAddress) throw new Error('Settlement router address is not configured.');
+  const { signer } = await getSignerContext();
+  const router = new ethers.Contract(config.routerAddress, ROUTER_ABI, signer);
+  const owner = await signer.getAddress();
+  const fundId = ethers.keccak256(ethers.toUtf8Bytes(config.fundSlug));
+  if (!(await router.hasRole(await router.PAYROLL_ROLE(), owner))) {
+    throw new Error('Connected wallet lacks PAYROLL_ROLE on the settlement router.');
   }
 
-  const { signer } = await getSignerContext();
-  const abi        = await loadTreasuryAbi();
-  const treasury   = new ethers.Contract(treasuryAddress, abi, signer);
-
-  const contributors = payouts.map(p => p.contributor);
-  const amounts      = payouts.map(p => ethers.parseEther(String(p.amount)));
-  const issueRefs    = payouts.map(p => p.issueRef);
-
-  const tx = await treasury.batchPayContributors(contributors, amounts, issueRefs);
-  await tx.wait();
-  return tx.hash;
+  let lastHash;
+  for (const payout of payouts) {
+    const currency = String(payout.currency || 'BNUT').toUpperCase();
+    const asset = config.assets?.[currency];
+    if (!asset?.address || asset.manual) throw new Error(`${currency} is not configured for router settlement.`);
+    const recipient = ethers.getAddress(payout.contributor);
+    const contributorHash = ethers.id(String(payout.contributorGithub || '').trim());
+    const contributor = await router.contributors(recipient);
+    if (!(contributor.approved ?? contributor[1])) {
+      await (await router.setContributorApproved(recipient, contributorHash, true)).wait();
+    }
+    const workReference = ethers.keccak256(ethers.toUtf8Bytes(payout.issueRef));
+    const repository = String(payout.issueRef).split('#')[0];
+    const metadataUri = `https://github.com/${payout.issueRef.replace('#', '/issues/')}`;
+    const metadataHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(payout)));
+    const tx = await router.payout(
+      fundId,
+      asset.address,
+      recipient,
+      ethers.parseUnits(String(payout.amount), asset.decimals),
+      workReference,
+      ethers.id(repository),
+      contributorHash,
+      metadataUri,
+      metadataHash,
+    );
+    await tx.wait();
+    lastHash = tx.hash;
+  }
+  return lastHash;
 }

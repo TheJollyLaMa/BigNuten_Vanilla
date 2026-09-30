@@ -6,6 +6,8 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
+    "test:payroll": "node --test test/payroll.test.js test/commentArt.test.js",
+    "validate:payroll": "node scripts/validatePayrollQueue.js",
     "test:scenarios": "hardhat test test/StreakBetEscrow.scenarios.test.js",
     "sim": "hardhat run scripts/streakbot-sim.js",
     "sim:live:estimate": "SIM_PHASE=estimate hardhat run scripts/streakbot-live.js --network optimism",
