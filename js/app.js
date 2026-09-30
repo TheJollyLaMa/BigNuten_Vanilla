@@ -6239,9 +6239,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return p.issueRef;
       }
       const addr = p.contributor.toLowerCase();
-      return p.role
+      const base = p.role
         ? `${p.issueRef}:${addr}:${p.role}`
         : `${p.issueRef}:${addr}`;
+      const currency = String(p.currency || 'BNUT').toUpperCase();
+      return currency === 'BNUT' ? base : `${base}:${currency}`;
     }
 
     // ── Render batch preview: per-wallet tally with issue breakdown ───────
@@ -6506,7 +6508,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (msgEl) msgEl.textContent = '⏳ Sending…';
 
           try {
-            const txHash = await settlePayroll([{ contributor: p.contributor, amount: String(amount), issueRef: entryKey(p) }]);
+            const txHash = await settlePayroll([{ contributor: p.contributor, contributorGithub: p.contributorGithub, currency: String(p.currency || 'BNUT').toUpperCase(), amount: String(amount), issueRef: entryKey(p) }]);
             markRowSettled(idx, txHash);
           } catch (err) {
             if (msgEl) msgEl.textContent = _friendlyTxError(err);
@@ -6978,7 +6980,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // are independently checked. Seed from the cached set.
         const freshPaidOnChain = new Set(_paidOnChain);
         const eligibleForCheck = _pendingQueue.filter(p =>
-          String(p.currency || 'BNUT').toUpperCase() === 'BNUT' &&
+          ['BNUT', 'USDC'].includes(String(p.currency || 'BNUT').toUpperCase()) &&
           p.contributor && p.contributor !== ZERO_ADDR
         );
         await Promise.all(eligibleForCheck.map(async p => {
@@ -6990,7 +6992,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const toSettle = _pendingQueue
           .map((p, i) => ({ p, i }))
           .filter(({ p }) =>
-            String(p.currency || 'BNUT').toUpperCase() === 'BNUT' &&
+            ['BNUT', 'USDC'].includes(String(p.currency || 'BNUT').toUpperCase()) &&
             p.contributor &&
             p.contributor !== ZERO_ADDR &&
             !freshPaidOnChain.has(entryKey(p))
@@ -6998,7 +7000,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Warn about skipped wallets
         const skippedWallets = _pendingQueue.filter(p =>
-          String(p.currency || 'BNUT').toUpperCase() === 'BNUT' &&
+          ['BNUT', 'USDC'].includes(String(p.currency || 'BNUT').toUpperCase()) &&
           (!p.contributor || p.contributor === ZERO_ADDR) && !freshPaidOnChain.has(entryKey(p))
         );
 
@@ -7031,18 +7033,29 @@ document.addEventListener('DOMContentLoaded', () => {
         // issuePaid record, preventing cross-contributor revert.
         const payouts = toSettle.map(({ p }) => {
           const amount = parseFloat(p.amount) > 0 ? parseFloat(p.amount) : 1;
-          return { contributor: p.contributor, amount: String(amount), issueRef: entryKey(p) };
+          return {
+            contributor: p.contributor,
+            contributorGithub: p.contributorGithub,
+            currency: String(p.currency || 'BNUT').toUpperCase(),
+            amount: String(amount),
+            issueRef: entryKey(p),
+          };
         });
 
         // ── Treasury balance pre-check — never fall back to mint ─────────────
-        const totalNeeded = payouts.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+        const totalsByCurrency = new Map();
+        payouts.forEach(p => {
+          const currency = String(p.currency || 'BNUT').toUpperCase();
+          totalsByCurrency.set(currency, (totalsByCurrency.get(currency) || 0) + parseFloat(p.amount));
+        });
         try {
-          const bal = await getTreasuryBalance();
-          if (bal < totalNeeded) {
+          for (const [currency, totalNeeded] of totalsByCurrency) {
+            const bal = await getTreasuryBalance(currency);
+            if (bal >= totalNeeded) continue;
             if (settleStatus) {
               settleStatus.textContent =
-                `❌ Treasury underfunded: ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT available, ` +
-                `${totalNeeded.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT needed. ` +
+                `❌ ${currency} payroll fund underfunded: ${bal.toLocaleString(undefined, { maximumFractionDigits: 6 })} available, ` +
+                `${totalNeeded.toLocaleString(undefined, { maximumFractionDigits: 6 })} needed. ` +
                 `Top up the treasury before settling.`;
             }
             settleBtn.disabled = false;

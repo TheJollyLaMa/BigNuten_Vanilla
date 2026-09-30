@@ -1,9 +1,11 @@
-const BOUNTY_LABEL_RE = /^bounty:\s*(\d+(?:\.\d+)?)\s*\$?(ART|BNUT)$/i;
-const TEST_BOUNTY_LABEL_RE = /^test-bounty:\s*(\d+(?:\.\d+)?)\s*\$?(ART|BNUT)$/i;
+const ASSET_CONFIG = require('../settlement-router.json');
+const SUPPORTED_CURRENCIES = Object.keys(ASSET_CONFIG.assets || {});
+const BOUNTY_LABEL_RE = /^bounty:\s*(\d+(?:\.\d+)?)\s*\$?([A-Za-z][A-Za-z0-9]{1,9})$/i;
+const TEST_BOUNTY_LABEL_RE = /^test-bounty:\s*(\d+(?:\.\d+)?)\s*\$?([A-Za-z][A-Za-z0-9]{1,9})$/i;
 const IDEA_CREDIT_LABEL_RE = /^idea-credit:\s*@?([-\w]+)$/i;
 const CLOSING_ISSUE_RE = /(?:closes?|fixes?|resolves?)\s+(?:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)?#(\d+)/gi;
 const TITLE_ISSUE_RE = /#(\d+)/g;
-const SUPPORTED_CURRENCIES = new Set(['ART', 'BNUT']);
+const AMOUNT_RE = /^\d+(?:\.\d+)?$/;
 
 const CONTRIBUTOR_ALIASES = {
   'copilot-swe-agent': 'copilot',
@@ -17,18 +19,51 @@ function normalizeLogin(login) {
 
 function normalizeCurrency(currency) {
   const value = String(currency || 'BNUT').trim().toUpperCase();
-  if (!SUPPORTED_CURRENCIES.has(value)) throw new Error(`Unsupported payout currency: ${currency}`);
+  if (!SUPPORTED_CURRENCIES.includes(value)) throw new Error(`Unsupported payout currency: ${currency}`);
   return value;
+}
+
+function currencyDecimals(currency = 'BNUT') {
+  const value = normalizeCurrency(currency);
+  const decimals = ASSET_CONFIG.assets[value].ledgerDecimals;
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 18) {
+    throw new Error(`Invalid ledger precision for ${value}`);
+  }
+  return decimals;
+}
+
+function normalizeAmount(value, currency = 'BNUT') {
+  const input = String(value).trim();
+  if (!AMOUNT_RE.test(input)) throw new Error(`Invalid payout amount: ${value}`);
+  let [whole, fraction = ''] = input.split('.');
+  whole = whole.replace(/^0+(?=\d)/, '');
+  fraction = fraction.replace(/0+$/, '');
+  const decimals = currencyDecimals(currency);
+  if (fraction.length > decimals) {
+    throw new Error(`${normalizeCurrency(currency)} payouts support at most ${decimals} decimal places: ${value}`);
+  }
+  if (BigInt(`${whole}${fraction}` || '0') <= 0n) throw new Error(`Invalid payout amount: ${value}`);
+  return fraction ? `${whole}.${fraction}` : whole;
+}
+
+function amountToUnits(value, currency = 'BNUT') {
+  if (/^0(?:\.0+)?$/.test(String(value).trim())) return 0n;
+  const normalized = normalizeAmount(value, currency);
+  const [whole, fraction = ''] = normalized.split('.');
+  const decimals = currencyDecimals(currency);
+  return BigInt(whole) * (10n ** BigInt(decimals)) + BigInt(fraction.padEnd(decimals, '0') || '0');
+}
+
+function unitsToAmount(units, currency = 'BNUT') {
+  const decimals = currencyDecimals(currency);
+  const scale = 10n ** BigInt(decimals);
+  const whole = units / scale;
+  const fraction = (units % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
+  return fraction ? `${whole}.${fraction}` : String(whole);
 }
 
 function labelNames(issue) {
   return (issue.labels || []).map(label => typeof label === 'string' ? label : label.name);
-}
-
-function normalizeAmount(value) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Invalid payout amount: ${value}`);
-  return String(Number(amount.toFixed(8)));
 }
 
 function parseAmountLabels(issue, pattern = BOUNTY_LABEL_RE) {
@@ -36,12 +71,20 @@ function parseAmountLabels(issue, pattern = BOUNTY_LABEL_RE) {
   for (const label of labelNames(issue)) {
     const match = String(label || '').match(pattern);
     if (!match) continue;
-    if (Number(match[1]) <= 0) continue;
-    const currency = normalizeCurrency(match[2]);
+    const currencyName = String(match[2]).toUpperCase();
+    if (!SUPPORTED_CURRENCIES.includes(currencyName)) continue;
+    const currency = normalizeCurrency(currencyName);
+    let amount;
+    try {
+      amount = normalizeAmount(match[1], currency);
+    } catch (error) {
+      if (/Invalid payout amount/.test(error.message)) continue;
+      throw error;
+    }
     if (byCurrency.has(currency)) {
       throw new Error(`Ambiguous ${currency} bounty labels: "${byCurrency.get(currency).label}" and "${label}"`);
     }
-    byCurrency.set(currency, { label, amount: normalizeAmount(match[1]), currency });
+    byCurrency.set(currency, { label, amount, currency });
   }
   return [...byCurrency.values()];
 }
@@ -74,10 +117,13 @@ function extractIssueNumbers({ body = '', title = '', linked = [], override = []
 }
 
 function splitIdeaCredit(amount) {
-  const total = Number(normalizeAmount(amount));
+  const currency = arguments[1] || 'BNUT';
+  const total = amountToUnits(amount, currency);
+  if (total % 5n !== 0n) throw new Error(`Payout amount cannot be split exactly for ${currency}: ${amount}`);
+  const originator = total / 5n;
   return {
-    implementer: normalizeAmount(total * 0.8),
-    originator: normalizeAmount(total * 0.2),
+    implementer: unitsToAmount(total - originator, currency),
+    originator: unitsToAmount(originator, currency),
   };
 }
 
@@ -160,7 +206,7 @@ function createBountyEntries({ issue, pr, accounts, queue, repoSlug, queuedAt, q
   for (const bounty of bounties) {
     const common = { issueRef, currency: bounty.currency, queuedAt, queuedBy, prNumber: pr.number };
     if (originator) {
-      const split = splitIdeaCredit(bounty.amount);
+      const split = splitIdeaCredit(bounty.amount, bounty.currency);
       entries.push(
         {
           ...common,
@@ -199,12 +245,20 @@ function accountField(currency, suffix) {
   return `${currency.toLowerCase()}${suffix}`;
 }
 
+function updateAccountTotal(account, field, amount, currency, subtract = false) {
+  const current = amountToUnits(String(Math.max(0, Number(account[field]) || 0)), currency);
+  const delta = amountToUnits(amount, currency);
+  const next = subtract ? (current > delta ? current - delta : 0n) : current + delta;
+  account[field] = Number(unitsToAmount(next, currency));
+}
+
 function applyAccountAccrual(accounts, entries) {
   for (const entry of entries) {
     const account = findAccount(accounts, entry.contributorGithub);
     if (!account) continue;
-    const pendingField = accountField(entryCurrency(entry), 'Pending');
-    account[pendingField] = Number(((Number(account[pendingField]) || 0) + Number(entry.amount)).toFixed(8));
+    const normalizedCurrency = entryCurrency(entry);
+    const pendingField = accountField(normalizedCurrency, 'Pending');
+    updateAccountTotal(account, pendingField, entry.amount, normalizedCurrency);
     if (!Array.isArray(account.issuesClosed)) account.issuesClosed = [];
     if (!account.issuesClosed.includes(entry.issueRef)) account.issuesClosed.push(entry.issueRef);
     if (entryRole(entry) === 'idea-originator') {
@@ -249,14 +303,17 @@ function settleEntries({
     const normalizedCurrency = entryCurrency(entry);
     const pendingField = accountField(normalizedCurrency, 'Pending');
     const earnedField = accountField(normalizedCurrency, 'Earned');
-    account[pendingField] = Number(Math.max(0, (Number(account[pendingField]) || 0) - Number(entry.amount)).toFixed(8));
-    account[earnedField] = Number(((Number(account[earnedField]) || 0) + Number(entry.amount)).toFixed(8));
+    updateAccountTotal(account, pendingField, entry.amount, normalizedCurrency, true);
+    updateAccountTotal(account, earnedField, entry.amount, normalizedCurrency);
   }
   return settled;
 }
 
 module.exports = {
   BOUNTY_LABEL_RE,
+  ASSET_CONFIG,
+  amountToUnits,
+  currencyDecimals,
   TEST_BOUNTY_LABEL_RE,
   SUPPORTED_CURRENCIES,
   applyAccountAccrual,
@@ -274,4 +331,5 @@ module.exports = {
   pickWhitelistedTester,
   settleEntries,
   splitIdeaCredit,
+  unitsToAmount,
 };

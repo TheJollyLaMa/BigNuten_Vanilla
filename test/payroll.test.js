@@ -43,6 +43,28 @@ test('parses one exact positive-decimal label per supported currency', () => {
   assert.deepEqual(parseAmountLabels({ labels: ['bounty: 0 ART', 'bounty: -1 BNUT', 'bounty: 1 ETH'] }), []);
 });
 
+test('supports USDC labels and six-decimal account balances without float drift', () => {
+  const issue = { labels: ['bounty: 12.345678 USDC'] };
+  assert.deepEqual(parseAmountLabels(issue).map(({ amount, currency }) => [amount, currency]), [['12.345678', 'USDC']]);
+  assert.throws(() => parseAmountLabels({ labels: ['bounty: 1.0000001 USDC'] }), /USDC payouts support at most 6 decimal places/);
+
+  const accounts = { contributors: [{ ...owner, usdcPending: 0.000001 }] };
+  applyAccountAccrual(accounts, [{
+    issueRef: 'org/repo#1', contributorGithub: owner.github, amount: '12.345678', currency: 'USDC',
+  }]);
+  assert.equal(accounts.contributors[0].usdcPending, 12.345679);
+});
+
+test('splits USDC idea credit using integer base units', () => {
+  const result = createBountyEntries(fixture({
+    labels: ['bounty: 12.345 USDC', 'idea-credit: @TheJollyLaMa'],
+  }));
+  assert.deepEqual(result.entries.map(entry => [entry.role, entry.amount, entry.currency]), [
+    ['implementer', '9.876', 'USDC'],
+    ['idea-originator', '2.469', 'USDC'],
+  ]);
+});
+
 test('rejects duplicate labels for the same currency as ambiguous', () => {
   assert.throws(() => parseAmountLabels({ labels: ['bounty: 1 ART', 'bounty: 2 $ART'] }), /Ambiguous ART/);
 });

@@ -90,10 +90,17 @@ Leaving a filter blank selects all values. Settlement moves matching entries fro
 `pending` to `settled` and transfers their amount from the corresponding pending
 account field to its earned field.
 
-BNUT can first be paid through the BigNuten treasury UI and then recorded by the
-workflow with its transaction hash. The UI displays ART entries but excludes them
-from all BNUT treasury checks and transactions. ART remains a manual/ledger
-settlement until an ART-capable payment path is added.
+BNUT and USDC are settled through the shared `ArtFiSettlementRouter`, using the
+repository fund configured in `settlement-router.json`. The router isolates fund
+balances by asset, approves contributor wallets by GitHub identity hash, and
+prevents duplicate work references on-chain. USDC amounts use six decimals;
+legacy BNUT records use 18 on-chain decimals and eight ledger decimals.
+
+BigNuten uses the already-deployed shared Base router at
+`0x8ecca903e2a6Daa8CCbB933700e4F2C58C44A4B5`. Its project fund is
+`bignuten-repo-dev`. ART, USDC, and the shared-router BNUT asset are configured
+in `settlement-router.json`; each asset must be approved and funded on that
+router before it can settle.
 
 ## Validation And Operations
 
