@@ -1,11 +1,9 @@
 /**
  * js/contracts.js
- * BigNuten Mainnet Contract Addresses — Optimism (Chain ID 10)
+ * BigNuten Mainnet Contract Addresses — Base default with Optimism fallback
  *
- * This file is the single source of truth for all deployed contract addresses
- * and token metadata used across the BigNuten app, prize flows, and governance.
- *
- * Related issue: #39 — Deploy $BNUT ERC-20 Token & Add to contracts.js
+ * This file is the single source of truth for all deployed contract addresses,
+ * network metadata, and token configuration used across the BigNuten app.
  *
  * Usage:
  *   Load this script (non-module) in index.html BEFORE any ES modules so that
@@ -15,130 +13,144 @@
  *   <script src="js/contracts.js"></script>
  */
 
-// ─── Network ──────────────────────────────────────────────────────────────────
+(function initBigNutenContracts(global) {
+  const STORAGE_KEY = 'bignuten.activeNetwork';
+  const DEFAULT_NETWORK_KEY = 'base';
 
-/** Optimism Mainnet chain ID (decimal). */
-const OPTIMISM_CHAIN_ID = 10;
+  const NETWORKS = {
+    base: {
+      key: 'base',
+      label: 'Base Mainnet',
+      shortLabel: 'Base',
+      chainId: 8453,
+      hexChainId: '0x2105',
+      chainName: 'Base Mainnet',
+      rpcUrl: 'https://mainnet.base.org',
+      explorerBaseUrl: 'https://basescan.org',
+      explorerAddressUrl: 'https://basescan.org/address/',
+      explorerTxUrl: 'https://basescan.org/tx/',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      bnut: '0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736',
+      treasury: '',
+      subscription: '',
+      governance: '',
+      dnftEscrow: '',
+      dnft: '',
+      usdc: '',
+      aaveV3Pool: '',
+      alchemistV2: '',
+      streakBetEscrow: '',
+      ethPlanId: 0,
+      bnutPlanId: 1,
+    },
+    optimism: {
+      key: 'optimism',
+      label: 'Optimism Mainnet',
+      shortLabel: 'Optimism',
+      chainId: 10,
+      hexChainId: '0xa',
+      chainName: 'Optimism Mainnet',
+      rpcUrl: 'https://mainnet.optimism.io',
+      explorerBaseUrl: 'https://optimistic.etherscan.io',
+      explorerAddressUrl: 'https://optimistic.etherscan.io/address/',
+      explorerTxUrl: 'https://optimistic.etherscan.io/tx/',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      bnut: '0x733c4d2Aae900E608147dd89Fa93606f89722823',
+      treasury: '0x143cC41AC075FFA40be1993827DA6ffB4638A363',
+      subscription: '0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e',
+      governance: '0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD',
+      dnftEscrow: '0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e',
+      dnft: '0xe870f7b1D10C41dbc6b75598a5308B9a2Bb52958',
+      usdc: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
+      aaveV3Pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
+      alchemistV2: '0x10294d57A419C8eb78C648372c5bAA27fD1484af',
+      streakBetEscrow: '0x80f6492eFD6D27c877B2bd0936451f7AF61c7215',
+      ethPlanId: 0,
+      bnutPlanId: 1,
+    },
+  };
 
-/** Public read-only RPC for Optimism Mainnet. */
-const OPTIMISM_RPC_URL = 'https://mainnet.optimism.io';
+  function cloneNetworkConfig(network) {
+    const config = {
+      ...network,
+      bnutToken: {
+        symbol: 'BNUT',
+        name: 'BigNuten',
+        decimals: 18,
+        address: network.bnut,
+        chainId: network.chainId,
+        coinImage: 'img/BigNuten.png',
+      },
+    };
+    return config;
+  }
 
-// ─── Contract Addresses ───────────────────────────────────────────────────────
+  function getNetworkConfig(key) {
+    return cloneNetworkConfig(NETWORKS[key] || NETWORKS[DEFAULT_NETWORK_KEY]);
+  }
 
-/**
- * $BNUT ERC-20 governance & rewards token.
- * Deployed on Optimism Mainnet.
- * Symbol: BNUT | Decimals: 18 | Max supply: 1,000,000,000
- */
-const BNUT_CONTRACT_ADDRESS = '0x733c4d2Aae900E608147dd89Fa93606f89722823';
+  function getStoredNetworkKey() {
+    try {
+      const stored = global.localStorage.getItem(STORAGE_KEY);
+      return NETWORKS[stored] ? stored : DEFAULT_NETWORK_KEY;
+    } catch {
+      return DEFAULT_NETWORK_KEY;
+    }
+  }
 
-/**
- * BigNutenTreasury — holds the $BNUT reserve and pays out contributor bounties.
- * Owner settles the weekly payroll queue directly via MetaMask in the app.
- * Deployed on Optimism Mainnet via Remix/Foundry (see docs/DEPLOYMENTS.md).
- * Constructor args: _token = BNUT_CONTRACT_ADDRESS, initialOwner = deployer wallet.
- */
-const TREASURY_CONTRACT_ADDRESS = '0x143cC41AC075FFA40be1993827DA6ffB4638A363';
+  function getExplorerUrl(kind, value, key) {
+    const cfg = getNetworkConfig(key || global.BIGNUTEN_ACTIVE_NETWORK_KEY || DEFAULT_NETWORK_KEY);
+    if (!value) return '';
+    if (kind === 'tx') return `${cfg.explorerTxUrl}${value}`;
+    if (kind === 'address') return `${cfg.explorerAddressUrl}${value}`;
+    return cfg.explorerBaseUrl;
+  }
 
-/**
- * BigNuten subscription management — uses the already-deployed DecentEscrow
- * contract (DNFT_ESCROW_ADDRESS). Plans are created by the owner via
- * `createPlan()` on DecentEscrow; the plan IDs are defined below.
- *
- * Plan IDs (set by owner calling createPlan() on DecentEscrow):
- *   Plan 0 — ETH monthly subscription
- *   Plan 1 — $BNUT discounted monthly subscription
- *
- * Override defaults via window.BIGNUTEN_ETH_PLAN_ID / window.BIGNUTEN_BNUT_PLAN_ID.
- */
-const BIGNUTEN_ETH_PLAN_ID  = 0;   // planId for ETH monthly subscription
-const BIGNUTEN_BNUT_PLAN_ID = 1;   // planId for $BNUT discounted monthly subscription
+  function applyNetworkGlobals(key, { persist = true } = {}) {
+    const activeKey = NETWORKS[key] ? key : DEFAULT_NETWORK_KEY;
+    const config = getNetworkConfig(activeKey);
 
-/**
- * BigNutenGovernance — community proposal voting powered by $BNUT.
- * Deployed on Optimism Mainnet. 1 wallet = 1 vote; DNFT holders can propose.
- */
-const GOVERNANCE_CONTRACT_ADDRESS = '0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD';
+    global.BIGNUTEN_NETWORKS = NETWORKS;
+    global.BIGNUTEN_NETWORK_STORAGE_KEY = STORAGE_KEY;
+    global.BIGNUTEN_DEFAULT_NETWORK_KEY = DEFAULT_NETWORK_KEY;
+    global.BIGNUTEN_ACTIVE_NETWORK_KEY = activeKey;
+    global.BIGNUTEN_ACTIVE_NETWORK = config;
 
-/**
- * BigNutenEscrow (DecentEscrow) — trustless DNFT / ERC-1155 escrow.
- * Deployed on Optimism Mainnet.
- */
-const DNFT_ESCROW_ADDRESS = '0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e';
+    global.BNUT_CONTRACT_ADDRESS = config.bnut;
+    global.TREASURY_CONTRACT_ADDRESS = config.treasury;
+    global.SUBSCRIPTION_CONTRACT_ADDRESS = config.subscription;
+    global.GOVERNANCE_CONTRACT_ADDRESS = config.governance;
+    global.DNFT_ESCROW_ADDRESS = config.dnftEscrow;
+    global.DNFT_CONTRACT_ADDRESS = config.dnft;
+    global.USDC_ADDRESS = config.usdc;
+    global.AAVE_V3_POOL_ADDRESS = config.aaveV3Pool;
+    global.ALCHEMIST_V2_ADDRESS = config.alchemistV2;
+    global.STREAK_BET_ESCROW_ADDRESS = config.streakBetEscrow;
+    global.BIGNUTEN_ETH_PLAN_ID = config.ethPlanId;
+    global.BIGNUTEN_BNUT_PLAN_ID = config.bnutPlanId;
+    global.CONTRACTS = config;
 
-/**
- * USDC on Optimism Mainnet — used as the default payment token in escrow.
- */
-const USDC_ADDRESS = '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85';
+    if (persist) {
+      try {
+        global.localStorage.setItem(STORAGE_KEY, activeKey);
+      } catch {
+        // Ignore storage failures (private mode, restricted environments, etc.)
+      }
+    }
 
-/**
- * Aave V3 Pool on Optimism Mainnet — used for supply/borrow in v3 DeFi panel.
- */
-const AAVE_V3_POOL_ADDRESS = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
+    global.dispatchEvent(new CustomEvent('bignuten:network-changed', {
+      detail: { key: activeKey, config },
+    }));
 
-/**
- * Alchemix V2 AlchemistV2 (alUSD) on Optimism Mainnet — used for self-repaying loans.
- */
-const ALCHEMIST_V2_ADDRESS = '0x10294d57A419C8eb78C648372c5bAA27fD1484af';
+    return config;
+  }
 
-/**
- * StreakBetEscrow — BigNutenv3.1.0 now has competition & streak bet escrow with optional Aave yield.
- * Deployed on Optimism Mainnet. Set after deployment; empty string means "not yet deployed".
- * Related issue: #71
- */
-const STREAK_BET_ESCROW_ADDRESS = '0x80f6492eFD6D27c877B2bd0936451f7AF61c7215';
+  global.getBigNutenNetworkConfig = getNetworkConfig;
+  global.getActiveBigNutenNetwork = function getActiveBigNutenNetwork() {
+    return getNetworkConfig(global.BIGNUTEN_ACTIVE_NETWORK_KEY || getStoredNetworkKey());
+  };
+  global.setActiveBigNutenNetwork = applyNetworkGlobals;
+  global.getBigNutenExplorerUrl = getExplorerUrl;
 
-// ─── Token Metadata ───────────────────────────────────────────────────────────
-
-/**
- * Canonical $BNUT token metadata.
- * coinImage points to the app favicon, used wherever $BNUT is rendered as a coin.
- */
-const BNUT_TOKEN = {
-  symbol:     'BNUT',
-  name:       'BigNuten',
-  decimals:   18,
-  address:    BNUT_CONTRACT_ADDRESS,
-  chainId:    OPTIMISM_CHAIN_ID,
-  coinImage:  'img/BigNuten.png',
-};
-
-// ─── Aggregated CONTRACTS object ─────────────────────────────────────────────
-
-/**
- * All deployed contract addresses and token metadata in one object.
- * Accessible globally as window.CONTRACTS from any script on the page.
- */
-const CONTRACTS = {
-  chainId:        OPTIMISM_CHAIN_ID,
-  rpcUrl:         OPTIMISM_RPC_URL,
-  bnut:           BNUT_CONTRACT_ADDRESS,
-  treasury:       TREASURY_CONTRACT_ADDRESS,
-  subscription:   DNFT_ESCROW_ADDRESS,   // DecentEscrow handles subscriptions
-  governance:     GOVERNANCE_CONTRACT_ADDRESS,
-  dnftEscrow:     DNFT_ESCROW_ADDRESS,
-  usdc:           USDC_ADDRESS,
-  aaveV3Pool:     AAVE_V3_POOL_ADDRESS,
-  alchemistV2:    ALCHEMIST_V2_ADDRESS,
-  streakBetEscrow: STREAK_BET_ESCROW_ADDRESS,
-  bnutToken:      BNUT_TOKEN,
-  ethPlanId:      BIGNUTEN_ETH_PLAN_ID,
-  bnutPlanId:     BIGNUTEN_BNUT_PLAN_ID,
-};
-
-// ─── Expose as window globals ─────────────────────────────────────────────────
-
-// Individual address globals — consumed by subscription.js and governance.js
-// via their  window.BNUT_CONTRACT_ADDRESS || "0x000…"  fallback pattern.
-window.BNUT_CONTRACT_ADDRESS         = BNUT_CONTRACT_ADDRESS;
-window.TREASURY_CONTRACT_ADDRESS     = TREASURY_CONTRACT_ADDRESS;
-window.SUBSCRIPTION_CONTRACT_ADDRESS = DNFT_ESCROW_ADDRESS;   // DecentEscrow
-window.GOVERNANCE_CONTRACT_ADDRESS   = GOVERNANCE_CONTRACT_ADDRESS;
-window.BIGNUTEN_ETH_PLAN_ID          = BIGNUTEN_ETH_PLAN_ID;
-window.BIGNUTEN_BNUT_PLAN_ID         = BIGNUTEN_BNUT_PLAN_ID;
-window.AAVE_V3_POOL_ADDRESS          = AAVE_V3_POOL_ADDRESS;
-window.ALCHEMIST_V2_ADDRESS          = ALCHEMIST_V2_ADDRESS;
-window.STREAK_BET_ESCROW_ADDRESS     = STREAK_BET_ESCROW_ADDRESS;
-
-// Full CONTRACTS object for use in app.js and future modules.
-window.CONTRACTS = CONTRACTS;
+  applyNetworkGlobals(getStoredNetworkKey(), { persist: false });
+})(window);

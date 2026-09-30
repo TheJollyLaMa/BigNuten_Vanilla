@@ -21,10 +21,12 @@ const DEFI_SCRAPE_BLOCKS      = 2000;  // ~5.5 h on Optimism (2 s block time)
 const DEFI_SCRAPE_COOLDOWN_MS = 10 * 60 * 1000; // 10 min between background scrapes
 const DEFI_SCRAPE_TS_KEY      = 'defi_last_scrape_ts';
 
-// Aave V3 on Optimism Mainnet
-const AAVE_V3_POOL_ADDRESS    = '0x794a61358D6845594F94dc1DB02A252b5b4814aD';
-// Alchemix V2 alUSD AlchemistV2 on Optimism Mainnet
-const ALCHEMIST_V2_ADDRESS    = '0x10294d57A419C8eb78C648372c5bAA27fD1484af';
+const ACTIVE_NETWORK = window.CONTRACTS || {};
+const ACTIVE_NETWORK_LABEL = ACTIVE_NETWORK.label || 'Base Mainnet';
+const ACTIVE_CHAIN_ID = Number(ACTIVE_NETWORK.chainId || 8453);
+const ACTIVE_EXPLORER_TX_URL = ACTIVE_NETWORK.explorerTxUrl || 'https://basescan.org/tx/';
+const AAVE_V3_POOL_ADDRESS = window.AAVE_V3_POOL_ADDRESS || ACTIVE_NETWORK.aaveV3Pool || '';
+const ALCHEMIST_V2_ADDRESS = window.ALCHEMIST_V2_ADDRESS || ACTIVE_NETWORK.alchemistV2 || '';
 // Recommended yvUSDC yield token for Alchemix on Optimism (Yearn USDC vault)
 const ALCHEMIX_YIELD_TOKEN    = '0xaD17A225074191d5c8a37B50FdA1AE278a2EE6A2';
 
@@ -81,19 +83,19 @@ const ALCHEMIST_EVENTS_ABI = [
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getRpc() {
-  return (window.CONTRACTS && window.CONTRACTS.rpcUrl) || 'https://mainnet.optimism.io';
+  return (window.CONTRACTS && window.CONTRACTS.rpcUrl) || 'https://mainnet.base.org';
 }
 
 function getUsdcAddress() {
-  return (window.CONTRACTS && window.CONTRACTS.usdc) || '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85';
+  return (window.CONTRACTS && window.CONTRACTS.usdc) || '';
 }
 
 function getTreasuryAddress() {
-  return window.TREASURY_CONTRACT_ADDRESS || '0x143cC41AC075FFA40be1993827DA6ffB4638A363';
+  return window.TREASURY_CONTRACT_ADDRESS || window.CONTRACTS?.treasury || '';
 }
 
 function getEscrowAddress() {
-  return (window.CONTRACTS && window.CONTRACTS.dnftEscrow) || '0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e';
+  return (window.CONTRACTS && window.CONTRACTS.dnftEscrow) || '';
 }
 
 function fmtUsdc(wei) {
@@ -124,10 +126,14 @@ function statusEl(id, msg, isErr) {
   el.style.color = isErr ? '#ff6b6b' : '#00e5ff';
 }
 
-async function requireOptimism(provider) {
+function isDeFiConfigured() {
+  return Boolean(AAVE_V3_POOL_ADDRESS && ALCHEMIST_V2_ADDRESS && getUsdcAddress() && getTreasuryAddress());
+}
+
+async function requireActiveNetwork(provider) {
   const net = await provider.getNetwork();
-  if (Number(net.chainId) !== 10) {
-    throw new Error('Please switch MetaMask to Optimism Mainnet (chain ID 10).');
+  if (Number(net.chainId) !== ACTIVE_CHAIN_ID) {
+    throw new Error(`Please switch MetaMask to ${ACTIVE_NETWORK_LABEL} (chain ID ${ACTIVE_CHAIN_ID}).`);
   }
 }
 
@@ -184,7 +190,7 @@ function renderHistory() {
   const rows = history.map(e => {
     const date = new Date(e.timestamp).toLocaleString();
     const hash = e.txHash
-      ? `<a href="https://optimistic.etherscan.io/tx/${e.txHash}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;font-family:monospace;font-size:0.75rem;">${e.txHash.slice(0, 10)}…</a>`
+      ? `<a href="${ACTIVE_EXPLORER_TX_URL}${e.txHash}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;font-family:monospace;font-size:0.75rem;">${e.txHash.slice(0, 10)}…</a>`
       : '—';
     const sourceTag = e.fromChain
       ? '<span style="font-size:0.68rem;color:#7a9aa8;margin-left:0.3rem;" title="Scraped from chain">⛓</span>'
@@ -419,7 +425,7 @@ function exportHistoryCSV() {
     e.action    || '',
     e.amount    || '',
     e.txHash    || '',
-    e.txHash ? `https://optimistic.etherscan.io/tx/${e.txHash}` : '',
+    e.txHash ? `${ACTIVE_EXPLORER_TX_URL}${e.txHash}` : '',
   ]);
 
   const csv = [header, ...rows]
@@ -625,7 +631,7 @@ async function aaveSupplyUsdc() {
     statusEl(statusId, '⏳ Connecting wallet…');
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     await requireAdmin(wallet, provider);
 
     const amountInput = document.getElementById('defi-aave-supply-amount');
@@ -671,7 +677,7 @@ async function aaveBorrowUsdc() {
     statusEl(statusId, '⏳ Connecting wallet…');
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     await requireAdmin(wallet, provider);
 
     const amountInput = document.getElementById('defi-aave-borrow-amount');
@@ -708,7 +714,7 @@ async function alchemixDepositUsdc() {
     statusEl(statusId, '⏳ Connecting wallet…');
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     await requireAdmin(wallet, provider);
 
     const amountInput = document.getElementById('defi-alchemix-deposit-amount');
@@ -757,7 +763,7 @@ async function alchemixMintAlUsd() {
     statusEl(statusId, '⏳ Connecting wallet…');
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     await requireAdmin(wallet, provider);
 
     const amountInput = document.getElementById('defi-alchemix-borrow-amount');
@@ -792,7 +798,7 @@ async function aaveMaxBorrowToDevFund() {
     statusEl(statusId, '⏳ Connecting wallet…');
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     await requireAdmin(wallet, provider);
 
     const rpcProvider = new ethers.JsonRpcProvider(getRpc());
@@ -840,7 +846,7 @@ async function aaveMaxBorrowToDevFund() {
 
     addHistory({ protocol: 'Aave', action: 'Max Borrow → Dev Fund', amount: availableHuman + ' USDC', txHash: tx.hash });
     renderHistory();
-    const txLink = `https://optimistic.etherscan.io/tx/${tx.hash}`;
+    const txLink = `${ACTIVE_EXPLORER_TX_URL}${tx.hash}`;
     statusEl(statusId, `✅ Borrowed ${availableHuman} USDC and sent to treasury. Tx: ${tx.hash.slice(0, 10)}… — ${txLink}`);
     await loadAaveBalances();
   } catch (e) {
@@ -856,7 +862,7 @@ async function alchemixMaxBorrowToDevFund() {
     statusEl(statusId, '⏳ Connecting wallet…');
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     await requireAdmin(wallet, provider);
 
     const rpcProvider = new ethers.JsonRpcProvider(getRpc());
@@ -920,7 +926,7 @@ async function alchemixMaxBorrowToDevFund() {
 
     addHistory({ protocol: 'Alchemix', action: 'Max Borrow → Dev Fund', amount: availableHuman + ' alUSD', txHash: tx.hash });
     renderHistory();
-    const txLink = `https://optimistic.etherscan.io/tx/${tx.hash}`;
+    const txLink = `${ACTIVE_EXPLORER_TX_URL}${tx.hash}`;
     statusEl(statusId, `✅ Minted ${availableHuman} alUSD to treasury. Tx: ${tx.hash.slice(0, 10)}… — ${txLink}`);
     await loadAlchemixBalances();
   } catch (e) {
@@ -936,7 +942,7 @@ async function aaveSweepUsdc() {
     statusEl(statusId, '⏳ Connecting wallet…');
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     await requireAdmin(wallet, provider);
 
     const signer       = await provider.getSigner();
@@ -987,7 +993,7 @@ async function alchemixSweepUsdc() {
     statusEl(statusId, '⏳ Connecting wallet…');
     const wallet   = await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
-    await requireOptimism(provider);
+    await requireActiveNetwork(provider);
     await requireAdmin(wallet, provider);
 
     const signer       = await provider.getSigner();
@@ -1038,6 +1044,14 @@ async function loadDeFiBalances() {
   if (refreshBtn) refreshBtn.disabled = true;
 
   try {
+    if (!isDeFiConfigured()) {
+      renderHistory();
+      const history = document.getElementById('defi-history-list');
+      if (history) {
+        history.innerHTML = `<p style="color:#7a9aa8;font-size:0.83rem;">DeFi integrations are not deployed on ${ACTIVE_NETWORK_LABEL} yet. Switch to Optimism Mainnet from the network dropdown to use the existing Aave and Alchemix integrations.</p>`;
+      }
+      return;
+    }
     await Promise.allSettled([
       loadOverviewBalances(),
       loadAaveBalances(),
@@ -1054,6 +1068,27 @@ async function loadDeFiBalances() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 export function initDeFiPanel() {
+  const actionIds = [
+    'defi-aave-supply-btn',
+    'defi-aave-borrow-btn',
+    'defi-aave-max-borrow-btn',
+    'defi-aave-sweep-btn',
+    'defi-alchemix-deposit-btn',
+    'defi-alchemix-borrow-btn',
+    'defi-alchemix-max-borrow-btn',
+    'defi-alchemix-sweep-btn',
+    'defi-scrape-btn',
+  ];
+  if (!isDeFiConfigured()) {
+    actionIds.forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.disabled = true;
+        btn.title = `Unavailable on ${ACTIVE_NETWORK_LABEL}`;
+      }
+    });
+  }
+
   // Refresh button
   const refreshBtn = document.getElementById('defi-refresh-btn');
   if (refreshBtn) refreshBtn.addEventListener('click', loadDeFiBalances);

@@ -85,13 +85,22 @@
         <button class="aes-menu-item" id="aes-settings-btn"         role="menuitem">⚙️ Settings</button>
       </div>
     </div>
-    <div id="walletIconWrapper">
-      <div class="ticker-wrapper wallet-ticker">
-        <div class="ticker-circle-metamask" id="wallet-ticker-circle"></div>
+    <div id="wallet-controls">
+      <label id="network-selector-wrapper" for="network-select">
+        <span class="network-selector-label">Network</span>
+        <select id="network-select" aria-label="Select BigNuten network">
+          <option value="base" selected>Base Mainnet</option>
+          <option value="optimism">Optimism Mainnet</option>
+        </select>
+      </label>
+      <div id="walletIconWrapper">
+        <div class="ticker-wrapper wallet-ticker">
+          <div class="ticker-circle-metamask" id="wallet-ticker-circle"></div>
+        </div>
+        <button id="wallet-connect" class="neon-button disconnected">
+          <img id="metamaskIcon" src="img/MetaMaskFox.png" alt="Connect Wallet" />
+        </button>
       </div>
-      <button id="wallet-connect" class="neon-button disconnected">
-        <img id="metamaskIcon" src="img/MetaMaskFox.png" alt="Connect Wallet" />
-      </button>
     </div>
   </header>
 
@@ -1076,7 +1085,7 @@
         <!-- BigNuten DNFT Early Supporter — matches DecentHead buy-section standard -->
         <div class="dnft-buy-section" id="dnft-supporter-section">
           <h3 class="dnft-buy-heading">🎟️ Own a Piece of Web3 History</h3>
-          <p class="dnft-buy-subheading">BigNuten v1.0.0 — 100 genesis DNFTs · ERC-1155 · Optimism</p>
+          <p class="dnft-buy-subheading">BigNuten v1.0.0 — 100 genesis DNFTs · ERC-1155 · Optimism fallback</p>
 
           <ul class="dnft-perks-list dnft-perks-compact">
             <li>🏅 Permanent on-chain proof of founding support</li>
@@ -1092,13 +1101,13 @@
             <!-- ── Crypto option — on-chain escrow buy ────────────────────── -->
             <div class="dnft-buy-option-card dnft-crypto-option">
               <div class="dnft-option-title">🔗 Buy with Crypto</div>
-              <div class="dnft-option-price">USDC on Optimism — instant &amp; trustless</div>
+              <div class="dnft-option-price">Currently available on Optimism fallback — instant &amp; trustless</div>
               <div id="dnft-buy-cards">
                 <p class="dnft-buy-loading">⏳ Loading available editions…</p>
               </div>
               <div id="dnft-buy-status"></div>
               <p class="dnft-escrow-note">
-                Sold via <a href="https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e" target="_blank" rel="noopener noreferrer">DecentEscrow on Optimism</a> — instant, trustless, on-chain.
+                Base is the default BNUT network. DNFT escrow is currently available via <a href="https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e" target="_blank" rel="noopener noreferrer">DecentEscrow on Optimism fallback</a>.
               </p>
             </div>
 
@@ -1181,7 +1190,7 @@
           <li>✅ GitHub bounty bot &amp; contributor payroll system</li>
           <li>✅ Admin Panel — BNUT, Treasury, Escrow, Contributors, Payroll (5 modals)</li>
           <li>✅ Community data dashboard &amp; opt-in data sharing rewards</li>
-          <li>✅ $BNUT governance voting (on-chain, Optimism)</li>
+          <li>✅ $BNUT governance voting (on-chain; Optimism fallback until Base governance is deployed)</li>
           <li>🔜 Q2 2026: Yield/Aave DeFi integration</li>
           <li>🔜 Q2 2026: DNFT Challenges &amp; prize pools</li>
           <li>🔜 Q2 2026: Premium feature tiers (v3.2+)</li>
@@ -1219,13 +1228,13 @@
 
       <section class="about-section donate-crypto-section">
         <h3>🪙 Donate with Crypto</h3>
-        <p class="about-payment-desc">Send ETH or USDC donations directly on Optimism — trustless and instant.</p>
+        <p class="about-payment-desc">Send ETH or USDC donations directly on the current Optimism fallback deployment — trustless and instant.</p>
         <div class="donate-crypto-address-box">
           <span class="donate-crypto-icon">⧫</span>
           <div class="donate-crypto-details">
-            <span class="donate-crypto-label">Send ETH or USDC on Optimism to:</span>
+            <span class="donate-crypto-label">Send ETH or USDC on Optimism fallback to:</span>
             <code class="donate-crypto-addr">TheJollyLaMa.eth</code>
-            <span class="donate-crypto-note">(resolves on Optimism via ENS)</span>
+            <span class="donate-crypto-note">(currently resolves on Optimism fallback via ENS)</span>
           </div>
         </div>
       </section>
@@ -1825,10 +1834,7 @@
         <h2 id="treasury-admin-modal-title">🏦 Treasury</h2>
       </div>
       <p class="aes-stub-desc">
-        Live on-chain data from the
-        <a href="https://optimistic.etherscan.io/token/0x733c4d2Aae900E608147dd89Fa93606f89722823"
-           target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">$BNUT contract</a>
-        on Optimism Mainnet.
+        Live on-chain data from the selected $BNUT network. Base Mainnet is the default; Optimism Mainnet remains available from the header dropdown.
       </p>
 
       <div class="gov-admin-panel">
@@ -1946,9 +1952,7 @@
         <h2 id="defi-admin-modal-title">🌾 v3 DeFi</h2>
       </div>
       <p class="aes-stub-desc">
-        Yield management &amp; manual dev fund borrowing on
-        <a href="https://optimistic.etherscan.io/" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">Optimism Mainnet</a>.
-        All operations are manual and trigger MetaMask.
+        Yield management &amp; manual dev fund borrowing on the selected network. These controls stay available on Optimism fallback and will remain disabled where Base contracts are not deployed yet.
       </p>
 
       <div class="gov-admin-panel">
@@ -2143,10 +2147,7 @@
         <h2 id="escrow-admin-modal-title">📋 Subscription Plans (DecentEscrow)</h2>
       </div>
       <p class="aes-stub-desc">
-        Manage subscription plans on the deployed
-        <a href="https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e"
-           target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">DecentEscrow contract</a>.
-        BigNuten uses <strong>Plan 0 (ETH)</strong> and <strong>Plan 1 ($BNUT)</strong>.
+        Manage subscription plans on the currently selected network. Base is the default BNUT network; Optimism fallback keeps the existing DecentEscrow deployment for <strong>Plan 0 (ETH)</strong> and <strong>Plan 1 ($BNUT)</strong>.
       </p>
 
       <div class="gov-admin-panel">
@@ -2238,7 +2239,7 @@
             <thead>
               <tr>
                 <th>GitHub</th>
-                <th>Wallet (Optimism)</th>
+                <th>Wallet (Selected Network)</th>
                 <th>Total Paid</th>
                 <th>Issues Completed</th>
                 <th>Status</th>
@@ -2276,13 +2277,13 @@
       <details class="gov-info-box">
         <summary>💡 How to get $BNUT</summary>
         <div class="gov-info-content">
-          <p>$BNUT is the BigNuten governance &amp; rewards token on <strong>Optimism Mainnet</strong>.</p>
+          <p>$BNUT now defaults to <strong>Base Mainnet</strong>. Switch the header dropdown to use the legacy <strong>Optimism Mainnet</strong> deployment when needed.</p>
           <ul>
             <li>🎟️ <strong>Buy a Supporter DNFT</strong> — DNFT holders earn $BNUT rewards and gain PROPOSER_ROLE.</li>
             <li>💻 <strong>Contribute code</strong> — merged PRs can be rewarded with $BNUT by the admin.</li>
             <li>📊 <strong>Share health data</strong> (opt-in) — earn $BNUT for community research contributions.</li>
           </ul>
-          <p class="gov-info-contract">Token: <code>0x733c4d2Aae900E608147dd89Fa93606f89722823</code> (Optimism)</p>
+          <p class="gov-info-contract">Base token: <code>0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736</code> · Optimism fallback: <code>0x733c4d2Aae900E608147dd89Fa93606f89722823</code></p>
         </div>
       </details>
 
@@ -2514,12 +2515,10 @@
             <li>Connect MetaMask and click <strong>Settle All Pending</strong> to send a single batch transaction. Wallets without a registered address are skipped with a warning.</li>
             <li>After settlement, the <strong>Recently Settled</strong> section is populated live from <code>ContributorPaid</code> events on-chain.</li>
           </ol>
-          <p>Network: <strong>Optimism Mainnet</strong> · Token: <strong>$BNUT</strong></p>
+          <p>Default network: <strong>Base Mainnet</strong> · Fallback: <strong>Optimism Mainnet</strong> · Token: <strong>$BNUT</strong></p>
           <p>
             📜 Contract:
-            <a href="https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363" target="_blank" rel="noopener" class="payroll-explorer-link">
-              <code class="payroll-wallet-addr">BNUT Treasury 0x143c…363</code>
-            </a>
+            <span class="payroll-wallet-addr">Base treasury deployment pending · Optimism fallback treasury: <a href="https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363" target="_blank" rel="noopener" class="payroll-explorer-link"><code class="payroll-wallet-addr">0x143c…363</code></a></span>
           </p>
         </div>
       </details>
@@ -2978,7 +2977,7 @@
 
         <!-- ETH panel -->
         <div id="sub-panel-eth" class="sub-method-panel">
-          <p class="sub-method-desc">Pay with ETH via MetaMask. Subscription recorded on-chain on Optimism.</p>
+          <p class="sub-method-desc">Pay with ETH via MetaMask. Subscription is recorded on the currently selected network when that deployment is available.</p>
           <div class="sub-crypto-price-row">
             <span class="sub-crypto-label">Price:</span>
             <span id="sub-eth-price" class="sub-crypto-price">~0.003 ETH / month</span>
@@ -2987,12 +2986,12 @@
             Ξ Pay with ETH
           </button>
           <p id="sub-eth-status" class="sub-method-status"></p>
-          <p class="sub-sandbox-note">⛓️ Optimism Mainnet — MetaMask will prompt to switch network if needed</p>
+          <p class="sub-sandbox-note">⛓️ Base Mainnet by default — use the header dropdown if you need Optimism fallback</p>
         </div>
 
         <!-- USDC panel -->
         <div id="sub-panel-usdc" class="sub-method-panel" style="display:none;">
-          <p class="sub-method-desc">Pay with USDC on Optimism via MetaMask. Approve &amp; subscribe in one flow.</p>
+          <p class="sub-method-desc">Pay with USDC via MetaMask on the currently selected network when that deployment is available. The live fallback USDC flow remains on Optimism.</p>
           <div class="sub-crypto-price-row">
             <span class="sub-crypto-label">Price:</span>
             <span id="sub-usdc-price" class="sub-crypto-price">10 USDC / month</span>
@@ -3001,7 +3000,7 @@
             💵 Pay with USDC
           </button>
           <p id="sub-usdc-status" class="sub-method-status"></p>
-          <p class="sub-sandbox-note">⛓️ Optimism Mainnet — MetaMask will prompt to switch network if needed</p>
+          <p class="sub-sandbox-note">⛓️ Base Mainnet by default — use the header dropdown if you need Optimism fallback</p>
         </div>
 
         <!-- $BNUT panel -->
@@ -3015,7 +3014,7 @@
             <img src="img/BigNuten.png" alt="$BNUT" style="height:1.1em;vertical-align:middle;margin-right:5px;"> Pay with $BNUT
           </button>
           <p id="sub-bnut-status" class="sub-method-status"></p>
-          <p class="sub-sandbox-note">⛓️ Optimism Mainnet — MetaMask will prompt to switch network if needed</p>
+          <p class="sub-sandbox-note">⛓️ Base Mainnet by default — use the header dropdown if you need Optimism fallback</p>
         </div>
       </div>
 
@@ -3067,7 +3066,7 @@
     <label class="gov-label">GitHub username
       <input id="admin-add-contrib-github" class="gov-input" type="text" placeholder="e.g. octocat" />
     </label>
-    <label class="gov-label">Optimism wallet address <span style="color:#aaa;font-weight:normal;">(optional — can be added later)</span>
+    <label class="gov-label">Preferred payout wallet address <span style="color:#aaa;font-weight:normal;">(Base by default; Optimism if you switch networks)</span>
       <input id="admin-add-contrib-wallet" class="gov-input" type="text" placeholder="0x…" />
     </label>
     <button id="admin-add-contrib-submit" class="gov-admin-action-btn" style="margin-top:0.5rem;">✅ Add</button>
@@ -3084,7 +3083,7 @@
         <h2 id="bounty-register-title">💰 Bounty Register</h2>
       </div>
       <p class="aes-stub-desc">
-        Register your Optimism Mainnet wallet to receive $BNUT bounty payouts for your GitHub contributions.
+        Register the wallet you want to receive $BNUT bounty payouts on. Base Mainnet is the default, and Optimism Mainnet remains available if you switch the network dropdown first.
         Connect MetaMask, enter your GitHub username, sign a proof-of-ownership message, and download the
         updated <code>contributor-accounts.json</code> to share with the maintainer.
       </p>
@@ -3092,7 +3091,7 @@
       <div id="bounty-register-section">
         <!-- Step 1: Connect wallet -->
         <div class="br-step">
-          <p class="br-step-label">Step 1 — Connect your Optimism wallet</p>
+          <p class="br-step-label">Step 1 — Connect the wallet for your selected BNUT network</p>
           <button id="br-connect-btn" class="gov-admin-action-btn">🦊 Connect MetaMask</button>
           <p id="br-wallet-display" class="br-wallet-addr"></p>
         </div>
@@ -3103,7 +3102,7 @@
           <label class="gov-label">GitHub username
             <input id="br-github-input" class="gov-input" type="text" placeholder="e.g. octocat" />
           </label>
-          <label class="gov-label">Optimism wallet address
+          <label class="gov-label">Selected-network wallet address
             <input id="br-wallet-input" class="gov-input" type="text" placeholder="0x…" />
           </label>
           <button id="br-submit-btn" class="gov-admin-action-btn" style="margin-top:0.5rem;">✍️ Sign &amp; Download JSON</button>

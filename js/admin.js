@@ -197,7 +197,7 @@ function updateRowStatus(idx) {
 
 function copyInviteLink(github) {
   const url  = `${window.location.origin}${window.location.pathname}#bounty-register`;
-  const text = `Hey @${github}! You can register your Optimism wallet for $BNUT bounty payouts here: ${url}`;
+  const text = `Hey @${github}! You can register your selected-network wallet for $BNUT bounty payouts here: ${url}`;
   navigator.clipboard.writeText(text).then(() => {
     const status = document.getElementById('admin-contrib-status');
     if (status) {
@@ -368,7 +368,7 @@ async function brSubmit() {
     return;
   }
   if (!wallet) {
-    if (statusEl) statusEl.textContent = '⚠️ Connect MetaMask or enter your Optimism wallet address.';
+    if (statusEl) statusEl.textContent = '⚠️ Connect MetaMask or enter your selected-network wallet address.';
     return;
   }
   if (!wallet.startsWith('0x') || wallet.length !== 42) {
@@ -430,7 +430,7 @@ async function brSubmit() {
       statusEl.innerHTML =
         '✅ Signed! Your updated <code>contributor-accounts.json</code> has been downloaded. ' +
         'Please share it with the repo maintainer or open a PR to register your wallet. ' +
-        'Once merged, you will receive $BNUT bounty payouts to your Optimism address.';
+        'Once merged, you will receive $BNUT bounty payouts to your selected-network payout address.';
     }
   } catch (err) {
     if (statusEl) statusEl.textContent = `❌ ${err.message || err}`;

@@ -63,28 +63,26 @@ const PROPOSAL_STATE = {
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-const GOVERNANCE_CONTRACT_ADDRESS =
-  window.GOVERNANCE_CONTRACT_ADDRESS ||
-  "0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD";
-
-const BNUT_CONTRACT_ADDRESS =
-  window.BNUT_CONTRACT_ADDRESS ||
-  "0x733c4d2Aae900E608147dd89Fa93606f89722823";
-
-const OPTIMISM_RPC_URL =
-  (window.CONTRACTS && window.CONTRACTS.rpcUrl) ||
-  "https://mainnet.optimism.io";
+const ACTIVE_NETWORK = window.CONTRACTS || {};
+const GOVERNANCE_CONTRACT_ADDRESS = window.GOVERNANCE_CONTRACT_ADDRESS || ACTIVE_NETWORK.governance || '';
+const BNUT_CONTRACT_ADDRESS = window.BNUT_CONTRACT_ADDRESS || ACTIVE_NETWORK.bnut || '';
+const ACTIVE_RPC_URL = ACTIVE_NETWORK.rpcUrl || 'https://mainnet.base.org';
+const ACTIVE_NETWORK_LABEL = ACTIVE_NETWORK.label || 'Base Mainnet';
 
 // ─── Internal Helpers ─────────────────────────────────────────────────────────
+
+function _requireGovernanceDeployment() {
+  if (!GOVERNANCE_CONTRACT_ADDRESS) {
+    throw new Error(`Governance is not deployed on ${ACTIVE_NETWORK_LABEL}. Switch to Optimism Mainnet from the network dropdown to use the current governance contracts.`);
+  }
+}
 
 function _getProvider() {
   if (window.ethereum) {
     return new ethers.BrowserProvider(window.ethereum);
   }
-  console.warn(
-    "[governance.js] MetaMask not found — using read-only Optimism RPC. Voting unavailable."
-  );
-  return new ethers.JsonRpcProvider(OPTIMISM_RPC_URL);
+  console.warn(`[governance.js] MetaMask not found — using read-only ${ACTIVE_NETWORK_LABEL} RPC. Voting unavailable.`);
+  return new ethers.JsonRpcProvider(ACTIVE_RPC_URL);
 }
 
 async function _getSigner() {
@@ -112,6 +110,7 @@ function _sanitize(str) {
  * @returns {Promise<Array>}
  */
 export async function loadProposals() {
+  if (!GOVERNANCE_CONTRACT_ADDRESS) return [];
   const provider = _getProvider();
   const contract = new ethers.Contract(
     GOVERNANCE_CONTRACT_ADDRESS,
@@ -159,6 +158,7 @@ export async function loadProposals() {
  * @returns {Promise<string>} transaction hash
  */
 export async function castVote(proposalId, voteYes) {
+  _requireGovernanceDeployment();
   const signer = await _getSigner();
   const contract = new ethers.Contract(
     GOVERNANCE_CONTRACT_ADDRESS,
@@ -194,6 +194,7 @@ export async function createProposal(
   optionNo,
   durationDays
 ) {
+  _requireGovernanceDeployment();
   const signer = await _getSigner();
   const contract = new ethers.Contract(
     GOVERNANCE_CONTRACT_ADDRESS,
@@ -237,7 +238,7 @@ export async function createProposal(
  * @returns {Promise<boolean>}
  */
 export async function isProposer(address) {
-  if (!address) return false;
+  if (!address || !GOVERNANCE_CONTRACT_ADDRESS) return false;
   try {
     const provider = _getProvider();
     const contract = new ethers.Contract(
@@ -262,7 +263,7 @@ export async function isProposer(address) {
  * @returns {Promise<boolean>}
  */
 export async function isAdmin(address) {
-  if (!address) return false;
+  if (!address || !GOVERNANCE_CONTRACT_ADDRESS) return false;
   try {
     const provider = _getProvider();
     const contract = new ethers.Contract(
@@ -287,7 +288,7 @@ export async function isAdmin(address) {
  * @returns {Promise<number>}
  */
 export async function getBnutBalance(address) {
-  if (!address) return 0;
+  if (!address || !BNUT_CONTRACT_ADDRESS) return 0;
   try {
     const provider = _getProvider();
     const token = new ethers.Contract(BNUT_CONTRACT_ADDRESS, BNUT_TOKEN_ABI, provider);
@@ -308,6 +309,7 @@ export async function getBnutBalance(address) {
  * @returns {Promise<string>} transaction hash
  */
 export async function finalizeProposal(proposalId) {
+  _requireGovernanceDeployment();
   const signer = await _getSigner();
   const contract = new ethers.Contract(GOVERNANCE_CONTRACT_ADDRESS, GOVERNANCE_ABI, signer);
   console.log(`[governance.js] Finalizing proposal #${proposalId}…`);
@@ -327,6 +329,7 @@ export async function finalizeProposal(proposalId) {
  * @returns {Promise<string>} transaction hash
  */
 export async function enactProposal(proposalId, note) {
+  _requireGovernanceDeployment();
   const signer = await _getSigner();
   const contract = new ethers.Contract(GOVERNANCE_CONTRACT_ADDRESS, GOVERNANCE_ABI, signer);
   console.log(`[governance.js] Enacting proposal #${proposalId}…`);
@@ -346,6 +349,7 @@ export async function enactProposal(proposalId, note) {
  * @returns {Promise<string>} transaction hash
  */
 export async function vetoProposal(proposalId, note) {
+  _requireGovernanceDeployment();
   const signer = await _getSigner();
   const contract = new ethers.Contract(GOVERNANCE_CONTRACT_ADDRESS, GOVERNANCE_ABI, signer);
   console.log(`[governance.js] Vetoing proposal #${proposalId}…`);
@@ -364,6 +368,7 @@ export async function vetoProposal(proposalId, note) {
  * @returns {Promise<string>} transaction hash
  */
 export async function addProposer(address) {
+  _requireGovernanceDeployment();
   const signer = await _getSigner();
   const contract = new ethers.Contract(GOVERNANCE_CONTRACT_ADDRESS, GOVERNANCE_ABI, signer);
   console.log(`[governance.js] Adding proposer ${address}…`);
@@ -382,6 +387,7 @@ export async function addProposer(address) {
  * @returns {Promise<string>} transaction hash
  */
 export async function removeProposer(address) {
+  _requireGovernanceDeployment();
   const signer = await _getSigner();
   const contract = new ethers.Contract(GOVERNANCE_CONTRACT_ADDRESS, GOVERNANCE_ABI, signer);
   console.log(`[governance.js] Removing proposer ${address}…`);
@@ -403,6 +409,9 @@ export async function removeProposer(address) {
  * @returns {Promise<string>} transaction hash
  */
 export async function mintBnutToAddress(toAddress, amount, reason) {
+  if (!BNUT_CONTRACT_ADDRESS) {
+    throw new Error(`$BNUT is not configured on ${ACTIVE_NETWORK_LABEL}.`);
+  }
   const signer = await _getSigner();
   const token = new ethers.Contract(BNUT_CONTRACT_ADDRESS, BNUT_TOKEN_ABI, signer);
   const amountWei = ethers.parseUnits(String(amount), 18);
