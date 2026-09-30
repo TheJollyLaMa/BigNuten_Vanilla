@@ -4,14 +4,14 @@ pragma solidity ^0.8.24;
 // ─────────────────────────────────────────────────────────────────────────────
 // BigNutenGov — BigNuten Community Governance Contract
 // ─────────────────────────────────────────────────────────────────────────────
-//# Voting Model:  1 wallet = 1 vote (sybil-resistant for small community)
-//# Eligibility:   Must hold >= MIN_BNUT_TO_VOTE $BNUT tokens to vote
-//# Proposals:     Only DNFT holders (granted PROPOSER_ROLE) can create proposals
+//# Voting Model:  1 wallet = 1 vote (advisory polling; not sybil-proof)
+//# Eligibility:   BNUT threshold checked at vote time; balances are not snapshotted
+//# Proposals:     Admin grants PROPOSER_ROLE; the contract does not verify DNFT ownership
 //# Admin:         DEFAULT_ADMIN_ROLE (TheJollyLaMa) has final say — can mark
 //#                result as ENACTED or VETOED after reviewing vote outcome
 //# No auto-exec:  Results are advisory — admin decides final action
 //#
-//# Network:       Optimism Mainnet (same as $BNUT and DNFTs)
+//# Network:       Base Mainnet (current default deployment)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -79,6 +79,9 @@ contract BigNutenGov is AccessControl, ReentrancyGuard {
 
     // ── Constructor ──────────────────────────────────────────────────────────
     constructor(address admin, address bnutTokenAddress) {
+        require(admin != address(0), "Governance: zero admin");
+        require(bnutTokenAddress != address(0), "Governance: zero BNUT token");
+        require(bnutTokenAddress.code.length > 0, "Governance: BNUT token has no code");
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         bnutToken = IERC20Balance(bnutTokenAddress);
     }

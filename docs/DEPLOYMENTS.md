@@ -17,35 +17,50 @@ BigNuten now defaults to **Base Mainnet** (Chain ID `8453`) for the live BNUT to
 | **Network** | Base Mainnet |
 | **Explorer** | https://basescan.org/token/0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736 |
 
-### Base deployment status for other app contracts
+### Base deployment status
 
-The following Base Mainnet addresses are **not yet known** and are intentionally left unset in `js/contracts.js`:
+The Base BNUT token is already deployed. BigNutenTreasury, BigNutenGov,
+BigNutenNetworkRegistry, StreakBetEscrow, DecentNFT, and DecentEscrow are
+prepared but not yet deployed; their app addresses remain unset. StreakBetEscrow
+is the single reusable engine for water, nutrition, exercise, weight, and future
+meetup challenges. Aave is optional and can be configured later.
 
-- `BigNutenTreasury`
-- `BigNutenGovernance`
-- `DecentEscrow`
-- `DecentNFT`
-- `StreakBetEscrow`
-- `USDC`
-- `Aave V3 Pool`
-- `Alchemix V2`
-
-## Prepared Base deployment
-
-The production deployment command is intentionally Base-only:
+The production deployment command is Base-only:
 
 ```sh
 npm run deploy:base
 ```
 
-It preflights chain ID `8453`, deploys BNUT, BigNutenTreasury, BigNutenGov, and
-BigNutenNetworkRegistry, and writes `deployments/base.json`. StreakBetEscrow is
-deployed in the same run only when `BASE_AAVE_POOL_ADDRESS` is configured. The
-script can also deploy the canonical DecentNFT and DecentEscrow artifacts from
-the sibling repositories when `DECENT_NFT_ARTIFACT` and `DECENT_ESCROW_ARTIFACT`
-are supplied. For DecentNFT, set the Base URI, royalty receiver, and royalty BPS.
-The script does not transfer the initial BNUT supply or configure router roles
-automatically; those are explicit Remix/MetaMask review steps.
+It preflights chain ID `8453`, reuses the existing Base BNUT token, deploys the
+contracts listed above, and writes `deployments/base.json`. Aave is intentionally
+left blank in `.env` for this cycle, but StreakBetEscrow deploys with Aave
+disabled; a later issue can configure the pool and yield strategy.
+
+The first monthly activity challenge uses this shared contract: 28 qualifying
+app-tracked days in a 30-day period plus four peer-approved weekly meetups. The
+captain schedules each one-hour call and reveals its committed invite code
+during the call. Attendees self-check in, attest to the shared meetup goal, and
+peers approve or reject attendance. Logs are local and peer-reviewed, not
+cryptographically verified. Rejection disqualifies that entrant. Completed
+participants receive reusable achievement DNFTs and BNUT payouts: forfeits are
+shared by leaderboard weights 3:2:1; third place starts with half principal.
+This is deterministic leaderboard settlement, not a random lottery. The stake
+is an exact BNUT amount because no liquid BNUT/USD market exists for an
+automatic $5 quote.
+
+Before creating a challenge, publish metadata, register four unlimited-supply
+Achievement IDs, grant `MINTER_ROLE` to StreakBetEscrow, and call
+`setStreakAwards`. The captain then creates a generic competition and configures
+its habit type, activity threshold, peer meetup count, and meetup goal. DecentNFT
+may deploy with a blank base URI; its award IDs cannot be registered until
+metadata URIs are set. Pinata/local-IPFS/community-node publishing is documented
+in `docs/BIGNUTEN_STORAGE.md`.
+
+Base Aave supports USDC but not BNUT, and no BNUT/USDC pool was found during
+preparation. Therefore the pilot does not swap or earn Aave yield; conversion,
+yield, and borrowing need a separately reviewed strategy after a liquid pool
+exists. The deployment script does not fund router allocations or configure
+community registry roles automatically.
 
 The shared Settlements Router is already deployed on Base at
 `0x8ecca903e2a6Daa8CCbB933700e4F2C58C44A4B5`. The planned

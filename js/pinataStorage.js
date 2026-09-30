@@ -249,7 +249,7 @@ export async function uploadViaStorageRelay(data, {
     `Origin: ${origin}`,
     `Nonce: ${nonce}`,
     `Expires: ${new Date(expiresAt).toISOString()}`,
-    'Purpose: request a short-lived Pinata upload URL; the relay never receives file contents.',
+    'Purpose: request a short-lived Pinata upload URL for public metadata or media; the relay never receives file contents.',
   ].join('\n');
   const signature = await signer.signMessage(message);
   const signingResponse = await fetch(`${relayUrl.replace(/\/$/, '')}/api/pinata-upload-url`, {

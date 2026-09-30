@@ -2546,6 +2546,28 @@ svg text {
   text-shadow: 0 0 6px #7300ff;
 }
 
+.streak-invite-flyer {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.9rem;
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  border-left: 3px solid #00e5ff;
+  border-radius: 8px;
+  background: rgba(0, 229, 255, 0.06);
+}
+.streak-flyer-token {
+  width: 3rem;
+  height: 3rem;
+  object-fit: contain;
+}
+.streak-invite-flyer p {
+  margin: 0 0 0.75rem;
+  color: #c6d5dc;
+  font-size: 0.88rem;
+}
+
 .about-tech-list {
   list-style: none;
   padding: 0;
@@ -8329,6 +8351,48 @@ svg text {
   gap: 0.4rem;
   margin-top: 0.25rem;
 }
+.streak-peer-note,
+.water-leaderboard {
+  grid-column: 1 / -1;
+}
+.streak-peer-note {
+  margin: 0.4rem 0;
+  color: #b7c5cc;
+  font-size: 0.78rem;
+}
+.streak-public-consent {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  color: #b7c5cc;
+  font-size: 0.78rem;
+}
+.streak-public-consent input {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+}
+.streak-public-consent small {
+  display: block;
+  color: #e1a469;
+}
+.water-leaderboard {
+  margin: 0.25rem 0 0;
+  padding-left: 1.4rem;
+  color: #e0e0e0;
+  font-size: 0.82rem;
+}
+.water-leaderboard li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.2rem 0;
+}
+.streak-award-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
 .comp-user-btn {
   display: inline-block;
   padding: 0.4rem 0.75rem;
@@ -8359,6 +8423,21 @@ svg text {
 }
 .comp-user-btn.comp-danger:hover {
   background: rgba(255, 82, 82, 0.2);
+}
+
+@media (max-width: 600px) {
+  .comp-card-body,
+  .streak-award-grid {
+    grid-template-columns: 1fr;
+  }
+  .streak-invite-flyer {
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    padding: 0.7rem;
+  }
+  .streak-flyer-token {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
 }
 
 /* Auto-verify badge in user cards */

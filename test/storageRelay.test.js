@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createNonceStore, createStorageRelayServer, buildAuthorizationMessage } = require('../services/storageRelay');
+const { MAX_MEDIA_BYTES, createNonceStore, createStorageRelayServer, buildAuthorizationMessage, validateUploadMetadata } = require('../services/storageRelay');
 
 const wallet = '0x807061DF657A7697c04045dA7d16D941861cAABc';
 const origin = 'https://bignuten.example';
@@ -57,4 +57,18 @@ test('rejects a replayed upload authorization', async () => {
   const body = { wallet, origin, nonce: issued.nonce, expiresAt: issued.expiresAt, name: 'snapshot.json', size: 1, type: 'application/json', signature: '0xsignature' };
   await relay.signUpload(body);
   await assert.rejects(() => relay.signUpload(body), /Nonce is missing or expired/);
+});
+
+test('allows bounded competition image and video uploads through the same signed URL relay', () => {
+  for (const [name, type] of [
+    ['badge.png', 'image/png'],
+    ['poster.gif', 'image/gif'],
+    ['preview.mp4', 'video/mp4'],
+  ]) {
+    assert.equal(validateUploadMetadata({ name, type, size: MAX_MEDIA_BYTES }), undefined);
+  }
+  assert.throws(() => validateUploadMetadata({ name: 'badge.mp4', type: 'image/png', size: 1 }), /filename/);
+  assert.throws(() => validateUploadMetadata({ name: 'badge.svg', type: 'image/svg+xml', size: 1 }), /not allowed/);
+  assert.throws(() => validateUploadMetadata({ name: 'large.mp4', type: 'video/mp4', size: MAX_MEDIA_BYTES + 1 }), /size/);
+  assert.throws(() => validateUploadMetadata({ name: '../badge.png', type: 'image/png', size: 1 }), /filename/);
 });

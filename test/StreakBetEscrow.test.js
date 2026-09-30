@@ -454,4 +454,100 @@ describe("StreakBetEscrow — Security Hardening", function () {
       expect(c.name).to.equal("View Test");
     });
   });
+
+  // ── 7. Aave accounting and guards ─────────────────────────────────────────
+
+  describe("Aave accounting", function () {
+    it("deploys with Aave disabled for non-yield competition cycles", async function () {
+      const factory = await ethers.getContractFactory("StreakBetEscrow", owner);
+      const noAaveEscrow = await factory.deploy(owner.address, ZERO_ADDR);
+      expect(await noAaveEscrow.aavePool()).to.equal(ZERO_ADDR);
+    });
+
+    async function createYieldComp(name) {
+      const { startTime, endTime, joinDeadline } = await compTimestamps();
+      await escrow.createCompetition({
+        name,
+        stakeToken: await token.getAddress(),
+        stakeAmount: ethers.parseEther("100"),
+        totalWeeks: 1,
+        startTime,
+        endTime,
+        joinDeadline,
+        yieldEnabled: true,
+        metadataCID: ""
+      });
+      return { startTime, endTime };
+    }
+
+    async function join(user, compId) {
+      await token.transfer(user.address, ethers.parseEther("100"));
+      await token.connect(user).approve(await escrow.getAddress(), ethers.parseEther("100"));
+      await escrow.connect(user).joinCompetition(compId);
+    }
+
+    it("attributes yield only to the time each pot was supplied", async function () {
+      await token.transfer(await aavePool.getAddress(), ethers.parseEther("50"));
+      const { startTime } = await createYieldComp("A");
+      await createYieldComp("B");
+      await time.increaseTo(startTime + 1);
+      await join(alice, 0);
+      await join(bob, 1);
+
+      await escrow.deployToAave(0);
+      await aavePool.setYieldBps(1000); // +10% accrues to comp 0 only
+      await escrow.deployToAave(1);
+      await aavePool.setYieldBps(0);
+
+      await escrow.withdrawFromAave(0);
+      await escrow.withdrawFromAave(1);
+      // Floor rounding on the scaled balance may lose at most 1 wei (never over-withdraws).
+      expect((await escrow.getCompetition(0)).potBalance).to.be.closeTo(ethers.parseEther("110"), 1n);
+      expect((await escrow.getCompetition(1)).potBalance).to.be.closeTo(ethers.parseEther("100"), 1n);
+    });
+
+    it("blocks settle, cancel, and pool changes while a pot is on Aave", async function () {
+      const { startTime, endTime } = await createYieldComp("Locked");
+      await time.increaseTo(startTime + 1);
+      await join(alice, 0);
+      await escrow.deployToAave(0);
+
+      await expect(escrow.cancelCompetition(0)).to.be.revertedWith("Escrow: withdraw pot from Aave first");
+      await expect(escrow.setAavePool(bob.address)).to.be.revertedWith("Escrow: pots still deployed to Aave");
+      await time.increaseTo(endTime);
+      await expect(escrow.settleCompetition(0, "")).to.be.revertedWith("Escrow: withdraw pot from Aave first");
+
+      await escrow.withdrawFromAave(0);
+      const replacementPool = await deployMockAave(owner);
+      await expect(escrow.setAavePool(await replacementPool.getAddress())).to.emit(escrow, "AavePoolUpdated");
+    });
+
+    it("rejects yield on ETH competitions and zero pool addresses", async function () {
+      const { startTime, endTime, joinDeadline } = await compTimestamps();
+      await expect(escrow.createCompetition({
+        name: "ETH Yield", stakeToken: ZERO_ADDR, stakeAmount: 1n, totalWeeks: 1,
+        startTime, endTime, joinDeadline, yieldEnabled: true, metadataCID: ""
+      })).to.be.revertedWith("Escrow: ETH yield not supported");
+      await expect(escrow.setAavePool(ZERO_ADDR)).to.be.revertedWith("Escrow: zero Aave pool");
+      await expect(deployEscrow(owner, bob.address)).to.be.revertedWith("Escrow: Aave pool has no code");
+    });
+
+    it("rejects yield-enabled competitions for assets not listed in Aave", async function () {
+      await aavePool.setReserveSupported(await token.getAddress(), false);
+      await expect(createYieldComp("Unsupported asset")).to.be.revertedWith("Escrow: unsupported Aave asset");
+    });
+
+    it("sends forfeited stakes to the owner on cancel instead of stranding them", async function () {
+      const { startTime } = await createYieldComp("Cancel");
+      await time.increaseTo(startTime + 1);
+      await join(alice, 0);
+      await join(bob, 0);
+      await escrow.connect(bob).forfeit(0);
+
+      const ownerBefore = await token.balanceOf(owner.address);
+      await escrow.cancelCompetition(0);
+      expect(await token.balanceOf(owner.address) - ownerBefore).to.equal(ethers.parseEther("100"));
+      expect(await token.balanceOf(await escrow.getAddress())).to.equal(0n);
+    });
+  });
 });

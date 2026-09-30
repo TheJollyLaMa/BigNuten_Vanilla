@@ -20,8 +20,7 @@ require("dotenv").config();
 // ─── Environment Variable Helpers ─────────────────────────────────────────────
 // Provide sensible defaults so that `npx hardhat compile` works without a .env.
 const PRIVATE_KEY =
-  process.env.PRIVATE_KEY ||
-  "0x0000000000000000000000000000000000000000000000000000000000000001";
+  process.env.PRIVATE_KEY || "";
 
 const POLYGON_RPC_URL =
   process.env.POLYGON_RPC_URL || "https://rpc-mumbai.maticvigil.com";
@@ -61,7 +60,7 @@ function liveAccounts() {
   if (HD_MNEMONIC) {
     return { mnemonic: HD_MNEMONIC, count: 5 };
   }
-  return [PRIVATE_KEY];
+  return PRIVATE_KEY ? [PRIVATE_KEY] : [];
 }
 
 // ─── Hardhat Configuration ────────────────────────────────────────────────────

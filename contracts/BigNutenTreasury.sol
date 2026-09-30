@@ -13,9 +13,14 @@ pragma solidity ^0.8.20;
 ///      in-app data sharing opt-in reward flow.
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract BigNutenTreasury is Ownable {
+contract BigNutenTreasury is Ownable, Pausable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     // ─── State ────────────────────────────────────────────────────────────────
 
     /// @notice The $BNUT ERC-20 token managed by this treasury.
@@ -59,6 +64,9 @@ contract BigNutenTreasury is Ownable {
         string ref
     );
 
+    /// @notice Emitted when the owner recovers a non-BNUT token sent here by mistake.
+    event TokenRecovered(address indexed token, address indexed to, uint256 amount);
+
     // ─── Constructor ──────────────────────────────────────────────────────────
 
     /// @notice Sets the BNUT token address and the initial contract owner.
@@ -82,18 +90,14 @@ contract BigNutenTreasury is Ownable {
         address contributor,
         uint256 amount,
         string memory issueRef
-    ) external onlyOwner {
-        require(contributor != address(0), "Treasury: zero contributor address");
-        require(amount > 0, "Treasury: amount must be > 0");
-        require(!issuePaid[issueRef], "Treasury: issue already paid");
+    ) external onlyOwner whenNotPaused nonReentrant {
+        _validateContributorPayout(contributor, amount, issueRef);
         require(bnutToken.balanceOf(address(this)) >= amount,"Treasury: insufficient BNUT balance");
 
         issuePaid[issueRef] = true;
         totalPaid[contributor] += amount;
 
-        // Transfer BNUT directly from treasury to the contributor.
-        bool success = bnutToken.transfer(contributor, amount);
-        require(success, "Treasury: transfer failed");
+        bnutToken.safeTransfer(contributor, amount);
 
         emit ContributorPaid(contributor, amount, issueRef);
     }
@@ -109,27 +113,30 @@ contract BigNutenTreasury is Ownable {
         address[] calldata contributors,
         uint256[] calldata amounts,
         string[]  calldata issueRefs
-    ) external onlyOwner {
+    ) external onlyOwner whenNotPaused nonReentrant {
         require(
             contributors.length == amounts.length &&
             amounts.length      == issueRefs.length,
             "Treasury: array length mismatch"
         );
 
+        uint256 totalRequired = 0;
+        for (uint256 i = 0; i < amounts.length; i++) {
+            totalRequired += amounts[i];
+        }
+        require(
+            bnutToken.balanceOf(address(this)) >= totalRequired,
+            "Treasury: insufficient BNUT balance"
+        );
+
         for (uint256 i = 0; i < contributors.length; i++) {
-            require(contributors[i] != address(0), "Treasury: zero contributor address");
-            require(amounts[i] > 0, "Treasury: amount must be > 0");
-            require(!issuePaid[issueRefs[i]], "Treasury: issue already paid");
-            require(
-                bnutToken.balanceOf(address(this)) >= amounts[i],
-                "Treasury: insufficient BNUT balance"
-            );
+            // issuePaid is set before the next iteration, so duplicate refs in one batch revert.
+            _validateContributorPayout(contributors[i], amounts[i], issueRefs[i]);
 
             issuePaid[issueRefs[i]] = true;
             totalPaid[contributors[i]] += amounts[i];
 
-            bool success = bnutToken.transfer(contributors[i], amounts[i]);
-            require(success, "Treasury: transfer failed");
+            bnutToken.safeTransfer(contributors[i], amounts[i]);
 
             emit ContributorPaid(contributors[i], amounts[i], issueRefs[i]);
         }
@@ -137,18 +144,38 @@ contract BigNutenTreasury is Ownable {
 
     /// @notice Emergency withdrawal — sends BNUT back to the owner.
     ///         Use only if funds need to be moved (e.g. contract migration).
+    ///         Intentionally allowed while paused so funds can always be rescued.
     /// @param amount BNUT amount to withdraw (18 decimals).
-    function withdrawTokens(uint256 amount) external onlyOwner {
+    function withdrawTokens(uint256 amount) external onlyOwner nonReentrant {
         require(amount > 0, "Treasury: amount must be > 0");
         require(
             bnutToken.balanceOf(address(this)) >= amount,
             "Treasury: insufficient BNUT balance"
         );
 
-        bool success = bnutToken.transfer(owner(), amount);
-        require(success, "Treasury: withdrawal failed");
+        bnutToken.safeTransfer(owner(), amount);
 
         emit TokensWithdrawn(owner(), amount);
+    }
+
+    /// @notice Recover a non-BNUT ERC-20 sent to the treasury by mistake.
+    /// @param token  ERC-20 address (must not be the BNUT token).
+    /// @param amount Amount to send to the owner.
+    function recoverToken(address token, uint256 amount) external onlyOwner nonReentrant {
+        require(token != address(bnutToken), "Treasury: use withdrawTokens for BNUT");
+        require(amount > 0, "Treasury: amount must be > 0");
+        IERC20(token).safeTransfer(owner(), amount);
+        emit TokenRecovered(token, owner(), amount);
+    }
+
+    /// @notice Pause all payouts and rewards (emergency stop).
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Resume payouts and rewards.
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     /// @notice Reward a user with BNUT for opting in and sharing anonymised health data.
@@ -163,7 +190,7 @@ contract BigNutenTreasury is Ownable {
         address user,
         uint256 amount,
         string calldata ref
-    ) external onlyOwner {
+    ) external onlyOwner whenNotPaused nonReentrant {
         require(user != address(0), "Treasury: zero user address");
         require(amount > 0, "Treasury: amount must be > 0");
         require(
@@ -173,8 +200,7 @@ contract BigNutenTreasury is Ownable {
 
         dataSharingRewards[user] += amount;
 
-        bool success = bnutToken.transfer(user, amount);
-        require(success, "Treasury: transfer failed");
+        bnutToken.safeTransfer(user, amount);
 
         emit DataSharingRewarded(user, amount, ref);
     }
@@ -187,7 +213,7 @@ contract BigNutenTreasury is Ownable {
         address[] calldata users,
         uint256[] calldata amounts,
         string[]  calldata refs
-    ) external onlyOwner {
+    ) external onlyOwner whenNotPaused nonReentrant {
         require(
             users.length == amounts.length &&
             amounts.length == refs.length,
@@ -210,11 +236,17 @@ contract BigNutenTreasury is Ownable {
 
             dataSharingRewards[users[i]] += amounts[i];
 
-            bool success = bnutToken.transfer(users[i], amounts[i]);
-            require(success, "Treasury: transfer failed");
+            bnutToken.safeTransfer(users[i], amounts[i]);
 
             emit DataSharingRewarded(users[i], amounts[i], refs[i]);
         }
+    }
+
+    function _validateContributorPayout(address contributor, uint256 amount, string memory issueRef) private view {
+        require(contributor != address(0), "Treasury: zero contributor address");
+        require(amount > 0, "Treasury: amount must be > 0");
+        require(bytes(issueRef).length > 0, "Treasury: issue ref required");
+        require(!issuePaid[issueRef], "Treasury: issue already paid");
     }
 
     // ─── View Functions ───────────────────────────────────────────────────────

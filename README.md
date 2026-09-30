@@ -91,7 +91,7 @@ BigNuten exists because tracking your health shouldn't require surrendering your
 - **Gives you ownership** of your wellness data — stored locally, backed up to IPFS, never sold
 - **Rewards builders** who improve it — every merged PR earns on-chain $BNUT tokens automatically
 - **Lets the community govern** its direction — DAO voting, on-chain proposals, transparent treasury
-- **Puts real stakes on your habits** — bet on your own consistency with StreakBet escrow competitions that earn Aave yield while you sleep
+- **Puts real stakes on your habits** — join reusable StreakBet challenges with peer-verified meetups; Aave yield is a separate optional strategy, not active in the first Base cycle
 
 This isn't a toy. Whether you come to track your macros, contribute a feature, or vote on the roadmap, BigNuten is a fully functioning platform with a live token economy, working smart contracts, and a community that has skin in the game. Come build. Come track. Come earn. 🎉
 
@@ -162,9 +162,9 @@ This is the "repo side" of BigNuten — the machinery that pays builders and kee
 ### Smart Contract Integrations
 
 - **BigNutenTreasury** — `batchPayContributors()` pays multiple contributors in one MetaMask tx
-- **StreakBetEscrow** — handles StreakBet competition staking, forfeits, Aave yield, and winner payouts
+- **StreakBetEscrow** — one reusable engine for water, nutrition, exercise, weight, meetup verification, stakes, awards, and payouts
 - **DecentEscrow** — subscription plan management (ETH and $BNUT plans)
-- **Aave V3** — idle competition pots earn yield during the competition window
+- **Aave V3** — optional future yield adapter; Base BNUT is not currently an Aave reserve
 
 ### DeFi Dashboard
 
@@ -187,7 +187,7 @@ This is the "repo side" of BigNuten — the machinery that pays builders and kee
 | **BigNutenGov** | On-chain proposals and voting | _Not yet deployed on Base_ |
 | **DecentEscrow** | Subscription plans (ETH + $BNUT) | _Not yet deployed on Base_ |
 | **DecentNFT** | Early Supporter DNFT (ERC-1155) | _Not yet deployed on Base_ |
-| **StreakBetEscrow** | Competition staking, Aave yield, payouts | _Not yet deployed on Base_ |
+| **StreakBetEscrow** | Reusable challenge staking, peer meetups, awards, payouts | _Prepared, not yet deployed on Base_ |
 
 #### Optimism Mainnet (legacy archive only)
 
@@ -237,19 +237,20 @@ StreakBet is BigNuten's flagship community feature: put real stakes on your heal
 
 ### How It Works
 
-1. **Admin creates a competition** — sets name, data source (water / weight / exercise / nutrition / supplements), stake token (ETH/USDC/BNUT), stake amount, duration, self-report cycle (daily/weekly), and optional Aave yield toggle
+1. **Captain creates a competition** — sets name, BNUT stake, challenge dates, and optional `streak-rules.json` CID describing one or more activity metrics and goals
 2. **Users enter** — stake their tokens into `StreakBetEscrow` on-chain
-3. **Track your streak** — the Streak Verifier bot (`js/streakVerify.js`) auto-checks your local data on every app load and submits on-chain reports — **no double-logging**
-4. **Idle pot earns yield** — if enabled, the staked pot is deployed to Aave V3 during the competition window
-5. **Settlement** — admin settles; forfeited entrants lose their stake to the winners; pot + Aave yield distributed to winners
-6. **IPFS Daily Reports** — an immutable daily chain of competition records published to IPFS
+3. **Track activity and meet peers** — app rules calculate qualifying days from local hydration, weight, exercise, or nutrition logs; four scheduled meetups require an invite code and peer approval
+4. **Share stats only by choice** — detailed wallet-linked progress can be published to public IPFS only after a participant opts in; the CID is linked by StreakBet's report event
+5. **Settlement** — incomplete or peer-rejected entrants forfeit; completed entrants share BNUT by the published leaderboard rules and receive reusable Achievement DNFTs
+6. **Future strategies** — swaps, Aave yield, and borrowing are separate reviewed work; the current Base pilot does not convert BNUT or promise yield
 
 ### StreakBetEscrow Contract
 
 - `createCompetition(CreateParams)` — single-struct competition creation
 - `joinCompetition(id)` — stake tokens, enter the competition
-- `selfReport(id, metadataCID)` — submit daily/weekly progress proof
-- `settleCompetition(id, winners[])` — distribute pot + yield to winners
+- `submitReport(id, proofCID)` — link an optional participant report CID
+- `scheduleMeetup()` / `selfCheckInMeetup()` / `reviewMeetupAttendance()` — schedule invite-code sessions and record peer decisions
+- `settleCompetition(id, leaderboardCID)` — apply the configured payout policy
 - `forfeit(id)` — early exit (stake goes to pot)
 - Powered by OpenZeppelin v5 `ReentrancyGuard`, `SafeERC20`, `Pausable`
 

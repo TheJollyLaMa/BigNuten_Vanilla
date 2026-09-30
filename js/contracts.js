@@ -31,6 +31,7 @@
       explorerTxUrl: 'https://basescan.org/tx/',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       bnut: '0x25ACb773159Af5a5c672DEfe31C7Fff6a9A93736',
+      networkRegistry: '',
       treasury: '',
       subscription: '',
       governance: '',
@@ -56,6 +57,7 @@
       explorerTxUrl: 'https://optimistic.etherscan.io/tx/',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       bnut: '0x733c4d2Aae900E608147dd89Fa93606f89722823',
+      networkRegistry: '',
       treasury: '0x143cC41AC075FFA40be1993827DA6ffB4638A363',
       subscription: '0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e',
       governance: '0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD',
@@ -116,6 +118,7 @@
     global.BIGNUTEN_ACTIVE_NETWORK = config;
 
     global.BNUT_CONTRACT_ADDRESS = config.bnut;
+    global.BIGNUTEN_NETWORK_REGISTRY_ADDRESS = config.networkRegistry;
     global.TREASURY_CONTRACT_ADDRESS = config.treasury;
     global.SUBSCRIPTION_CONTRACT_ADDRESS = config.subscription;
     global.GOVERNANCE_CONTRACT_ADDRESS = config.governance;

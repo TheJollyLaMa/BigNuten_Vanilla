@@ -42,6 +42,7 @@ const ENTRANT_STATUS = { 0: 'Joined', 1: 'Completed', 2: 'Forfeited' };
 const STREAK_BET_ABI = [
   'function nextCompId() view returns (uint256)',
   'function getCompetition(uint256 compId) view returns (tuple(string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, uint256 joinDeadline, bool yieldEnabled, bool potDeployed, string metadataCID, uint8 status, uint256 potBalance, uint256 entrantCount, uint256 winnerCount))',
+  'function getStreakChallenge(uint256 compId) view returns (bool enabled, string habitType, string meetupGoal, uint8 requiredActivityDays, uint8 requiredMeetups, uint8 minimumWeeklyLogs, uint16 dailyGoal)',
   'function getEntrant(uint256 compId, address addr) view returns (bool joined, uint256 reportsSubmitted, uint8 status)',
   'function createCompetition(tuple(string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, uint256 joinDeadline, bool yieldEnabled, string metadataCID) p)',
   'function joinCompetition(uint256 compId) payable',
@@ -197,10 +198,12 @@ async function fetchAllCompetitions() {
   if (!contract) return [];
 
   const total = Number(await contract.nextCompId());
+  const supportsActivityChallenges = Number(window.CONTRACTS?.chainId) === 8453;
   const comps = [];
   for (let i = 0; i < total; i++) {
     try {
       const c = await contract.getCompetition(i);
+      if (supportsActivityChallenges && (await contract.getStreakChallenge(i)).enabled) continue;
       comps.push({
         id: i,
         name:         c.name,

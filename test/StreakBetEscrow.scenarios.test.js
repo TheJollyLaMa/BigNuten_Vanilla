@@ -442,8 +442,6 @@ describe("StreakBetEscrow — E2E Scenario Suite", function () {
       const tokenAddr  = await token.getAddress();
       const escrowAddr = await escrow.getAddress();
 
-      // Configure 5% (500 bps) simulated yield on the mock Aave pool.
-      await aavePool.setYieldBps(500);
       // Fund the mock Aave pool so it can return principal + yield.
       await token.transfer(await aavePool.getAddress(), ethers.parseEther("10"));
 
@@ -465,6 +463,9 @@ describe("StreakBetEscrow — E2E Scenario Suite", function () {
 
       // Deploy pot to Aave (owner action).
       await escrow.deployToAave(0);
+
+      // Accrue 5% (500 bps) simulated yield while the pot is supplied.
+      await aavePool.setYieldBps(500);
 
       // Alice completes her report.
       await escrow.connect(alice).submitReport(0, "QmAliceH");

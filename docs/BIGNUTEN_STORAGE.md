@@ -19,7 +19,7 @@ Configure these Render environment variables:
 
 - `PINATA_JWT`: server-only Pinata credential; never expose it to the browser.
 - `PINATA_SIGN_URL`: normally `https://uploads.pinata.cloud/v3/files/sign`.
-- `BIGNUTEN_STORAGE_ALLOWED_ORIGINS`: exact production and local browser origins, comma-separated.
+- `BIGNUTEN_STORAGE_ALLOWED_ORIGINS`: exact production and local browser origins, comma-separated. Include `http://127.0.0.1:8010` when developing on the current BigNuten preview server.
 
 The service exposes:
 
@@ -27,7 +27,7 @@ The service exposes:
 - `POST /api/storage/nonce`
 - `POST /api/pinata-upload-url`
 
-Each upload authorization is bound to the wallet, browser origin, a five-minute nonce, an expiry, and a wallet signature. Nonces are single-use. The relay accepts JSON metadata only and enforces a 128 KiB limit.
+Each upload authorization is bound to the wallet, browser origin, a five-minute nonce, an expiry, and a wallet signature. Nonces are single-use. The relay authorizes JSON (128 KiB max), JPEG/PNG/GIF/WebP, and MP4/WebM (25 MiB max) by extension and MIME type. File bytes upload directly to Pinata.
 
 Set the deployed Render URL in the browser before enabling the hosted provider:
 
@@ -74,10 +74,65 @@ Do not treat a browser-only “I pinned this” claim as proof. Reward eligibili
 comes from independent checker transactions and the router’s approved recipient
 and funded-fund checks.
 
+## DecentNFT metadata publishing
+
+Prepare a folder containing `collection.json`, one JSON file per token ID (for
+example, `0.json`), and optional image/GIF/MP4/WebM assets. JSON is limited to
+128 KiB; each media file is limited to 25 MiB. Use `imageFile` and
+`animationFile` filenames inside metadata JSON; the publisher pins media first
+and rewrites them to `ipfs://` CIDs. SVG and arbitrary file types are rejected.
+The publisher also accepts `streak-rules.json` for multi-metric challenge
+definitions. Example:
+
+```json
+{
+	"schema": "bignuten-streak-rules/v1",
+	"requiredActivityDays": 28,
+	"metrics": [
+		{ "id": "water", "type": "hydration", "label": "Hydration", "cadence": "daily", "target": 8, "unit": "glasses" },
+		{ "id": "weigh-in", "type": "weight", "label": "Scale check-in", "cadence": "weekly", "target": 1, "unit": "entries" },
+		{ "id": "situps", "type": "exercise", "label": "Sit-ups", "exerciseType": "Sit-ups", "cadence": "daily", "target": 20, "unit": "reps" }
+	]
+}
+```
+
+All `daily` rules must pass for a qualifying day; `weekly` rules count their
+targets independently in each seven-day period. From `BigNuten_Vanilla`, run:
+
+```sh
+npm run metadata:publish -- ../DecentMarket/metadata/base
+```
+
+For each file, the command obtains a wallet-authorized Pinata upload URL from
+the Render relay and uploads directly to Pinata; it also pins the same bytes on
+the configured local IPFS Desktop API. The relay never receives file contents.
+The command writes per-file Pinata and local CIDs to
+`deployments/decent-metadata-cids.json`; use the collection CID with
+`setContractURI` and token CIDs with `setTokenURI` or `registerToken`.
+
+After the Base network registry is deployed, set
+`BIGNUTEN_NETWORK_REGISTRY_ADDRESS` and add `--publish-to-registry` to publish
+the Pinata CIDs as community data. Independent node operators can then pin and
+sample those CIDs under the existing reward workflow. Pinata, local IPFS, and
+reward-eligible community nodes provide separate replicas; the Render relay
+authorizes uploads but is not itself a storage replica.
+
+### Participant progress reports
+
+Participants can optionally check **Publish wallet-linked progress details to
+public IPFS** at meetup check-in. The app uploads the selected metric records to
+Pinata through the relay, attempts a local IPFS Desktop pin, and submits the
+Pinata CID through StreakBet's `WeeklyReport` event. This checkbox is off by
+default. Published reports associate the participant wallet with their chosen
+health statistics and are public to anyone with the CID; never opt in unless
+that disclosure is intended. Without opt-in, the chain receives only a
+commitment hash and peer decisions, not the detailed records.
+
 ## Testing
 
 Run the relay tests with:
 
 ```sh
 npm run test:storage-relay
+npm run test:metadata-publisher
 ```

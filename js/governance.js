@@ -2,13 +2,14 @@
  * js/governance.js
  * BigNuten In-App Governance Module
  *
- * Handles on-chain governance for BigNutenGov contract on Optimism Mainnet:
+ * Handles on-chain governance for BigNutenGov on the active configured network
+ * (Base by default; Optimism remains available as a legacy network):
  *   - Loading proposals via getAllProposals()
  *   - Casting votes via castVote(proposalId, voteYes)
  *   - Creating proposals via createProposal() (PROPOSER_ROLE only)
  *   - Rendering proposals to the governance modal DOM
  *
- * Contract: 0x58c21942716eB78aCfeD1BACE81f5189bad5E2cD (Optimism)
+ * Contract addresses are supplied by js/contracts.js per active network.
  * Related issue: #47 — Build In-App Governance Contract & Modal
  *
  * Prerequisites (loaded in index.html before this module):

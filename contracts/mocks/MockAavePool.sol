@@ -6,15 +6,24 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @dev Minimal Aave V3 Pool mock for testing StreakBetEscrow.
 ///      supply() accepts tokens (pull), withdraw() sends them back (push).
-///      A small yield bonus can be configured to test yield capture.
+///      Yield is simulated by raising the liquidity index, like the real pool.
 contract MockAavePool {
     using SafeERC20 for IERC20;
 
-    /// @notice Simulated extra yield (in bps, 100 = 1%).
-    uint256 public yieldBps;
+    uint256 public liquidityIndex = 1e27;
+    mapping(address => bool) private _unsupportedAssets;
 
+    /// @notice Grow the liquidity index by `_bps` (100 = 1%) to simulate accrued yield.
     function setYieldBps(uint256 _bps) external {
-        yieldBps = _bps;
+        liquidityIndex = (liquidityIndex * (10000 + _bps)) / 10000;
+    }
+
+    function setReserveSupported(address asset, bool supported) external {
+        _unsupportedAssets[asset] = !supported;
+    }
+
+    function getReserveNormalizedIncome(address asset) external view returns (uint256) {
+        return _unsupportedAssets[asset] ? 0 : liquidityIndex;
     }
 
     /// @notice Accept a supply (pull tokens from sender).
@@ -24,11 +33,9 @@ contract MockAavePool {
 
     /// @notice Withdraw tokens back to `to`. Returns actual amount sent.
     function withdraw(address asset, uint256 amount, address to) external returns (uint256) {
-        uint256 bonus = (amount * yieldBps) / 10000;
-        uint256 total = amount + bonus;
         uint256 balance = IERC20(asset).balanceOf(address(this));
-        if (total > balance) total = balance; // cap to what we have
-        IERC20(asset).safeTransfer(to, total);
-        return total;
+        require(amount <= balance, "MockAave: insufficient liquidity");
+        IERC20(asset).safeTransfer(to, amount);
+        return amount;
     }
 }

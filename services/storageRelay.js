@@ -7,8 +7,18 @@ require('dotenv').config();
 
 const MAX_REQUEST_BYTES = 32 * 1024;
 const MAX_METADATA_BYTES = 128 * 1024;
+const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 const NONCE_TTL_MS = 5 * 60 * 1000;
-const JSON_NAME_RE = /^[A-Za-z0-9._-]+\.json$/;
+const FILE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const UPLOAD_TYPES = new Map([
+  ['application/json', { extensions: ['.json'], maxBytes: MAX_METADATA_BYTES }],
+  ['image/jpeg', { extensions: ['.jpg', '.jpeg'], maxBytes: MAX_MEDIA_BYTES }],
+  ['image/png', { extensions: ['.png'], maxBytes: MAX_MEDIA_BYTES }],
+  ['image/gif', { extensions: ['.gif'], maxBytes: MAX_MEDIA_BYTES }],
+  ['image/webp', { extensions: ['.webp'], maxBytes: MAX_MEDIA_BYTES }],
+  ['video/mp4', { extensions: ['.mp4'], maxBytes: MAX_MEDIA_BYTES }],
+  ['video/webm', { extensions: ['.webm'], maxBytes: MAX_MEDIA_BYTES }],
+]);
 
 function parseAllowedOrigins(value) {
   return new Set(String(value || '').split(',').map(item => item.trim()).filter(Boolean).map(item => new URL(item).origin));
@@ -62,14 +72,18 @@ function buildAuthorizationMessage({ wallet, origin, nonce, expiresAt }) {
     `Origin: ${origin}`,
     `Nonce: ${nonce}`,
     `Expires: ${new Date(expiresAt).toISOString()}`,
-    'Purpose: request a short-lived Pinata upload URL; the relay never receives file contents.',
+    'Purpose: request a short-lived Pinata upload URL for public metadata or media; the relay never receives file contents.',
   ].join('\n');
 }
 
 function validateUploadMetadata(body) {
-  if (!body || body.type !== 'application/json') throw new Error('Only JSON uploads are allowed');
-  if (!Number.isInteger(body.size) || body.size < 1 || body.size > MAX_METADATA_BYTES) throw new Error('Invalid metadata size');
-  if (!JSON_NAME_RE.test(String(body.name || ''))) throw new Error('Invalid metadata filename');
+  const type = UPLOAD_TYPES.get(String(body?.type || '').toLowerCase());
+  const name = String(body?.name || '');
+  if (!type) throw new Error('Upload type is not allowed');
+  if (!FILE_NAME_RE.test(name) || !type.extensions.some(extension => name.toLowerCase().endsWith(extension))) {
+    throw new Error('Invalid upload filename for content type');
+  }
+  if (!Number.isInteger(body.size) || body.size < 1 || body.size > type.maxBytes) throw new Error('Invalid upload size');
 }
 
 function createStorageRelayServer({ pinataSignUrl, pinataJwt, allowedOrigins, nonceStore = createNonceStore(), fetchImpl = fetch, now = () => Date.now(), verifyMessageImpl = verifyMessage } = {}) {
@@ -95,7 +109,7 @@ function createStorageRelayServer({ pinataSignUrl, pinataJwt, allowedOrigins, no
         date: Math.floor(now() / 1000),
         expires: 60,
         max_file_size: body.size,
-        mime_types: ['application/json'],
+        mime_types: [body.type],
         filename: body.name,
       }),
     });
@@ -169,9 +183,11 @@ if (require.main === module) {
 
 module.exports = {
   MAX_METADATA_BYTES,
+  MAX_MEDIA_BYTES,
   buildAuthorizationMessage,
   createNonceStore,
   createStorageRelayServer,
   parseAllowedOrigins,
+  UPLOAD_TYPES,
   validateUploadMetadata,
 };

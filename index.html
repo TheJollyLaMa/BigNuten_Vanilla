@@ -871,6 +871,7 @@
   </script>
 
   <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/streakCompetitions.js"></script>
   <script type="module">
     import { initAdminContributors, initAddContributorModal, initBountyRegister } from './js/admin.js';
     import { initDeFiPanel } from './js/defi.js';
@@ -965,6 +966,15 @@
       <section class="about-section">
         <h3>About the Project</h3>
         <p>BigNuten helps you track the combined effects of regular exercise, vitamins, and supplements on your body over time. Log workouts, weight, nutrition, and emotions — all in one place, stored locally and optionally on IPFS for decentralized persistence.</p>
+      </section>
+
+      <section class="about-section streak-invite-flyer">
+        <img src="img/BigNuten.png" alt="$BNUT" class="streak-flyer-token" />
+        <div>
+          <h3>Monthly Streak Challenge</h3>
+          <p>Track your daily health progress, meet online once a week, drink a liter together, and verify one another. Four peer-verified meetups and 28 tracked days complete the month.</p>
+          <button class="about-pay-btn" type="button" data-open-monthly-challenge>Join the monthly challenge</button>
+        </div>
       </section>
 
       <!-- ── Data Control Section ──────────────────────────────────── -->
@@ -2304,13 +2314,59 @@
         <h2 id="comp-admin-modal-title">🏆 Competitions Admin</h2>
       </div>
       <p class="aes-stub-desc">
-        Create &amp; manage streak bet competitions. Users stake tokens to join
-        and the streak bot auto-verifies their logged data (water, weight, etc.)
-        daily. Reports are chained on IPFS. Finishers split the pot.
-        Optional Aave yield on the escrowed pot.
+        Create reusable activity-streak competitions. Members stake BNUT, track
+        progress locally, and verify one another during weekly video meetups.
+        StreakBetEscrow handles every challenge type; Aave yield is optional.
       </p>
 
       <div class="gov-admin-panel">
+
+        <details class="gov-admin-section" open>
+          <summary>🗓️ Monthly Streak Challenge</summary>
+          <div class="gov-admin-section-body">
+            <div id="streak-captain-panel" hidden>
+              <p data-streak-setup-status class="gov-admin-hint">Configure unlimited Achievement DNFT IDs and grant MINTER_ROLE to StreakBetEscrow.</p>
+              <label class="gov-label">DecentNFT address
+                <input id="streak-award-nft" class="gov-input" type="text" placeholder="0x…" />
+              </label>
+              <div class="streak-award-grid">
+                <label class="gov-label">Completion ID<input id="streak-award-completion" class="gov-input" type="number" min="0" /></label>
+                <label class="gov-label">1st place ID<input id="streak-award-first" class="gov-input" type="number" min="0" /></label>
+                <label class="gov-label">2nd place ID<input id="streak-award-second" class="gov-input" type="number" min="0" /></label>
+                <label class="gov-label">3rd place ID<input id="streak-award-third" class="gov-input" type="number" min="0" /></label>
+              </div>
+              <button id="streak-authorize-minter-button" class="gov-admin-action-btn">Authorize StreakBet to mint achievements</button>
+              <button id="streak-awards-button" class="gov-admin-action-btn">Configure reusable DNFT awards</button>
+            <p class="gov-admin-hint">One StreakBetEscrow runs all challenge types. This first adapter reads the existing hydration tracker; future nutrition, exercise, and weight adapters use the same contract. Entries are fixed BNUT amounts because there is no liquid BNUT/USD market for automatic $5 conversion.</p>
+            <label class="gov-label">Challenge name<input id="streak-create-name" class="gov-input" type="text" value="Monthly Hydration Streak" /></label>
+            <label class="gov-label">Activity type
+              <select id="streak-create-habit" class="gov-input"><option value="hydration">Hydration</option><option value="multi">Combined metrics</option></select>
+            </label>
+            <label class="gov-label">Pinned rules JSON CID <span>(required for combined metrics)</span><input id="streak-create-rules-cid" class="gov-input" type="text" placeholder="ipfs://CID" /></label>
+            <label class="gov-label">Entry stake (BNUT)<input id="streak-create-stake" class="gov-input gov-input-short" type="number" min="0" step="any" placeholder="Exact BNUT amount" /></label>
+            <label class="gov-label">Fallback daily goal<input id="streak-create-goal" class="gov-input gov-input-short" type="number" min="1" step="1" value="8" /></label>
+            <label class="gov-label">Meetup confirmation goal<input id="streak-create-meetup-goal" class="gov-input" type="text" value="Drink 1 liter together during the call" /></label>
+            <div class="streak-award-grid">
+              <label class="gov-label">Challenge start<input id="streak-create-start" class="gov-input" type="datetime-local" /></label>
+              <label class="gov-label">Monthly window<input class="gov-input" type="text" value="30 days · 28 tracked days · 4 meetups" readonly /></label>
+            </div>
+            <p class="gov-admin-hint">Combined rules use daily gates that must all pass for a qualifying day, plus independent weekly gates. Publish a `streak-rules.json` file first. Four peer-approved calls and 28 qualifying days complete the month. Stats stay private unless a participant opts into public IPFS reporting.</p>
+            <button id="streak-create-button" class="gov-admin-action-btn">Create monthly challenge</button>
+            <p id="streak-create-status" class="gov-form-status"></p>
+
+            <h3>Schedule weekly calls</h3>
+            <div class="streak-award-grid">
+              <label class="gov-label">Competition ID<input id="streak-schedule-comp" class="gov-input" type="number" min="0" /></label>
+              <label class="gov-label">Meetup week<input id="streak-schedule-week" class="gov-input" type="number" min="1" max="4" value="1" /></label>
+              <label class="gov-label">Call start<input id="streak-meetup-start" class="gov-input" type="datetime-local" /></label>
+              <label class="gov-label">Video call URL<input id="streak-meetup-url" class="gov-input" type="url" placeholder="https://…" /></label>
+            </div>
+            <button id="streak-schedule-button" class="gov-admin-action-btn">Schedule call and generate private code</button>
+            <p id="streak-meetup-status" class="gov-form-status"></p>
+            </div>
+            <div id="streak-admin-challenge-list"></div>
+          </div>
+        </details>
 
         <!-- Summary Stats -->
         <details class="gov-admin-section" open>
@@ -3017,26 +3073,28 @@
     </div>
   </div>
 
-  <!-- ── Monthly Challenge Modal (stub) ─────────────────────────────────── -->
+  <!-- ── Monthly Challenge Modal ────────────────────────────────────────── -->
   <div id="challenge-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="challenge-modal-title">
-    <div class="modal aes-stub-modal">
+    <div class="modal gov-modal streak-challenge-modal">
       <button class="modal-close" id="challenge-modal-close" aria-label="Close Monthly Challenge modal">×</button>
       <div class="aes-stub-header">
         <img src="img/BigNuten.png" alt="BigNuten" class="aes-stub-logo" />
-        <h2 id="challenge-modal-title">🏋️ Monthly Challenge</h2>
+        <h2 id="challenge-modal-title">💧 Monthly Streak Challenge</h2>
       </div>
-      <p class="aes-stub-desc">Enter the monthly fitness lottery! Log workouts &amp; healthy habits to earn tickets. Winners share the $BNUT prize pool.</p>
+      <p class="aes-stub-desc">Track your daily activity in BigNuten, then join four weekly video meetups. Drink one liter together, check in with the captain’s code, and have a peer verify your progress. Four peer approvals and 28 tracked days complete the month.</p>
       <ul class="aes-stub-list">
-        <li>🎟️ 1 ticket per logged workout</li>
-        <li>💧 Bonus ticket for daily hydration goal</li>
-        <li>⚖️ Bonus ticket for weight check-in</li>
-        <li>🏆 Top 3 wallets share the prize pool</li>
+        <li>📅 28 tracked activity days in a 30-day challenge</li>
+        <li>🎥 Four weekly one-hour meetups; a peer can approve or reject each attendance</li>
+        <li>🥤 Attest to drinking one liter together during each meetup</li>
+        <li>🏆 Completed entrants split forfeited BNUT by leaderboard rank and earn reusable achievement DNFTs</li>
       </ul>
+      <p class="streak-peer-note">Detailed health stats stay in your browser unless you explicitly opt in to publish a wallet-linked IPFS progress report. Public IPFS data can be read by anyone with its CID and may persist indefinitely.</p>
       <div class="aes-stub-prize-pool">
         <img src="img/BigNuten.png" alt="$BNUT" class="aes-stub-pool-icon" />
-        <span>Prize Pool: <strong>TBD $BNUT</strong></span>
+        <span>Stake: <strong>BNUT amount set by the captain</strong></span>
       </div>
-      <p class="aes-stub-coming-soon">🚧 Monthly challenge lottery launching soon!</p>
+      <p class="streak-peer-note">This is a peer-verified leaderboard challenge, not a random lottery. Your app logs are browser-local; peers review your displayed progress during calls. The blockchain records meetup code hashes, attendance decisions, stakes, and payouts.</p>
+      <div id="streak-challenge-list"><p class="gov-loading">Loading monthly challenges…</p></div>
     </div>
   </div>
 
