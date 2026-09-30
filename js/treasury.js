@@ -139,7 +139,7 @@ export async function getTreasuryBalance(currency = 'BNUT') {
   if (Number(runtimeConfig.chainId) === LEGACY_OPTIMISM_CHAIN_ID) {
     const treasuryAddress = runtimeConfig.treasury || window.TREASURY_CONTRACT_ADDRESS;
     if (!treasuryAddress || String(currency).toUpperCase() !== 'BNUT') return 0;
-    const provider = new ethers.JsonRpcProvider(runtimeConfig.rpcUrl || 'https://mainnet.optimism.io');
+    const provider = new ethers.JsonRpcProvider(runtimeConfig.rpcUrl || 'https://optimism-rpc.publicnode.com');
     const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, provider);
     return Number(ethers.formatEther(await treasury.getBalance()));
   }
@@ -195,7 +195,7 @@ export async function isTreasuryOwner(walletAddress) {
     if (isLegacyOptimismActive()) {
       const treasuryAddress = activeNetworkConfig().treasury || window.TREASURY_CONTRACT_ADDRESS;
       if (!walletAddress || !treasuryAddress) return false;
-      const provider = new ethers.JsonRpcProvider(activeNetworkConfig().rpcUrl || 'https://mainnet.optimism.io');
+      const provider = new ethers.JsonRpcProvider(activeNetworkConfig().rpcUrl || 'https://optimism-rpc.publicnode.com');
       const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, provider);
       return (await treasury.owner()).toLowerCase() === walletAddress.toLowerCase();
     }
@@ -222,7 +222,7 @@ export async function isIssuePaid(issueRef) {
     if (isLegacyOptimismActive()) {
       const treasuryAddress = activeNetworkConfig().treasury || window.TREASURY_CONTRACT_ADDRESS;
       if (!issueRef || !treasuryAddress) return false;
-      const provider = new ethers.JsonRpcProvider(activeNetworkConfig().rpcUrl || 'https://mainnet.optimism.io');
+      const provider = new ethers.JsonRpcProvider(activeNetworkConfig().rpcUrl || 'https://optimism-rpc.publicnode.com');
       const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, provider);
       return treasury.isIssuePaid(issueRef);
     }
@@ -280,7 +280,7 @@ export async function getContributorPaidEvents() {
   if (isLegacyOptimismActive()) {
     const treasuryAddress = activeNetworkConfig().treasury || window.TREASURY_CONTRACT_ADDRESS;
     if (!treasuryAddress) return [];
-    const provider = new ethers.JsonRpcProvider(activeNetworkConfig().rpcUrl || 'https://mainnet.optimism.io');
+    const provider = new ethers.JsonRpcProvider(activeNetworkConfig().rpcUrl || 'https://optimism-rpc.publicnode.com');
     const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, provider);
     const latestBlock = await provider.getBlockNumber();
     const filter = treasury.filters.ContributorPaid();
@@ -338,7 +338,7 @@ export async function getContributorPaidEvents() {
   if (chunks.length > 0 && failedChunks === chunks.length) {
     throw new Error(
       `All ${chunks.length} block-range queries failed. ` +
-      'Check that the RPC endpoint (mainnet.optimism.io) is reachable and try again.'
+      'Check that the Optimism RPC endpoint is reachable and try again.'
     );
   }
 

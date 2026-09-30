@@ -7446,7 +7446,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (refreshBtn) refreshBtn.disabled = true;
 
       try {
-        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        const provider = window.ethereum
+          ? new ethers.BrowserProvider(window.ethereum)
+          : new ethers.JsonRpcProvider(RPC_URL);
         const bnut = new ethers.Contract(BNUT_ADDR, BNUT_ABI_MIN, provider);
 
         const [totalSupplyWei, maxSupplyWei, remainingWei] = await Promise.all([
@@ -7512,7 +7514,9 @@ document.addEventListener('DOMContentLoaded', () => {
       tableEl.innerHTML = '';
 
       try {
-        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        const provider = window.ethereum
+          ? new ethers.BrowserProvider(window.ethereum)
+          : new ethers.JsonRpcProvider(RPC_URL);
         const bnut = new ethers.Contract(BNUT_ADDR, BNUT_ABI_MIN, provider);
 
         const latestBlock = await provider.getBlockNumber();

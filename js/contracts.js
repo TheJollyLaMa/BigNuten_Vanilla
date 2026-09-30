@@ -50,7 +50,7 @@
       chainId: 10,
       hexChainId: '0xa',
       chainName: 'Optimism Mainnet',
-      rpcUrl: 'https://mainnet.optimism.io',
+      rpcUrl: 'https://optimism-rpc.publicnode.com',
       explorerBaseUrl: 'https://optimistic.etherscan.io',
       explorerAddressUrl: 'https://optimistic.etherscan.io/address/',
       explorerTxUrl: 'https://optimistic.etherscan.io/tx/',
