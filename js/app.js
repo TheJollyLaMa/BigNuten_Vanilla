@@ -6867,7 +6867,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedOption = sourceOptions.find(option => option.source === source) || sourceOptions.find(option => option.available);
         const bal = selectedOption?.balance || 0;
         if (balanceEl) {
-          balanceEl.textContent = `🏦 Treasury: ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT`;
+          balanceEl.textContent = `🏦 ${selectedOption?.label || 'Settlement source'}: ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT available · ${_totalBNUTOwed.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT owed`;
         }
         if (healthEl) healthEl.style.display = 'block';
 
@@ -7051,7 +7051,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('payroll-treasury-fund-link')?.addEventListener('click', () => {
       document.getElementById('payroll-modal')?.classList.add('modal-hidden');
       document.getElementById('admin-treasury-btn')?.click();
-      setTimeout(() => document.getElementById('treasury-deficit-amount')?.focus(), 300);
+      setTimeout(() => {
+        const input = document.getElementById('treasury-deficit-amount');
+        const deficit = Number(window._bignutenTreasuryDeficit || 0);
+        if (input && deficit > 0) input.value = deficit.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+        input?.focus();
+      }, 300);
     });
 
     // ── Settle All Pending button — uses treasury.settlePayroll() ─────────
