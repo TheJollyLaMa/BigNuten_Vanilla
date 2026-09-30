@@ -25,6 +25,7 @@ const SETTLEMENT_ROUTER_CONFIG_URL = 'settlement-router.json';
 const SETTLEMENT_CHAIN_ID = 8453;
 const LEGACY_OPTIMISM_CHAIN_ID = 10;
 const LEGACY_TREASURY_DEPLOY_BLOCK = 130_000_000;
+const LEGACY_EVENT_LOOKBACK_BLOCKS = 50_000;
 const LEGACY_TREASURY_ABI = [
   'function owner() view returns (address)',
   'function getBalance() view returns (uint256)',
@@ -284,7 +285,10 @@ export async function getContributorPaidEvents() {
     const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, provider);
     const latestBlock = await provider.getBlockNumber();
     const filter = treasury.filters.ContributorPaid();
-    const fromBlock = Math.max(LEGACY_TREASURY_DEPLOY_BLOCK, latestBlock - 500_000);
+    // Public Optimism RPCs reject archive-range log queries without a token.
+    // Recent payroll settlements fit inside this bounded window; older history
+    // remains available through an archive provider or explorer.
+    const fromBlock = Math.max(LEGACY_TREASURY_DEPLOY_BLOCK, latestBlock - LEGACY_EVENT_LOOKBACK_BLOCKS);
     const logs = await treasury.queryFilter(filter, fromBlock, latestBlock);
     return logs.map(log => ({
       contributor: log.args.contributor,
