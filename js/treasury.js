@@ -23,6 +23,15 @@ const SETTLEMENT_ROUTER_CONFIG_URL = 'settlement-router.json';
 
 /** Shared Settlement Router network: Base. */
 const SETTLEMENT_CHAIN_ID = 8453;
+const LEGACY_OPTIMISM_CHAIN_ID = 10;
+const LEGACY_TREASURY_DEPLOY_BLOCK = 130_000_000;
+const LEGACY_TREASURY_ABI = [
+  'function owner() view returns (address)',
+  'function getBalance() view returns (uint256)',
+  'function isIssuePaid(string) view returns (bool)',
+  'function batchPayContributors(address[],uint256[],string[])',
+  'event ContributorPaid(address indexed contributor,uint256 amount,string issueRef)',
+];
 const ROUTER_ABI = [
   'function DEFAULT_ADMIN_ROLE() view returns (bytes32)',
   'function PAYROLL_ROLE() view returns (bytes32)',
@@ -55,6 +64,14 @@ async function loadSettlementRouterConfig() {
   return res.json();
 }
 
+function activeNetworkConfig() {
+  return window.CONTRACTS || window.getActiveBigNutenNetwork?.() || {};
+}
+
+function isLegacyOptimismActive() {
+  return Number(activeNetworkConfig().chainId) === LEGACY_OPTIMISM_CHAIN_ID;
+}
+
 /**
  * Return a read/write ethers provider + signer from the connected MetaMask.
  * Throws if MetaMask is not available or no account is connected.
@@ -70,10 +87,9 @@ async function getSignerContext() {
   }
 
   const network = await provider.getNetwork();
-  if (Number(network.chainId) !== SETTLEMENT_CHAIN_ID) {
-    throw new Error(
-      `Wrong network. Please switch MetaMask to Base (chain ID ${SETTLEMENT_CHAIN_ID}).`
-    );
+  const activeChainId = Number(activeNetworkConfig().chainId || network.chainId);
+  if (Number(network.chainId) !== activeChainId) {
+    throw new Error(`MetaMask is on chain ${network.chainId}; select ${activeNetworkConfig().label || 'the active BigNuten network'} in MetaMask.`);
   }
 
   const signer  = await provider.getSigner();
@@ -109,6 +125,13 @@ export async function loadPayrollQueue() {
  * @returns {Promise<number>} Balance in whole BNUT tokens.
  */
 export async function getTreasuryBalance(currency = 'BNUT') {
+  if (isLegacyOptimismActive()) {
+    const treasuryAddress = activeNetworkConfig().treasury || window.TREASURY_CONTRACT_ADDRESS;
+    if (!treasuryAddress || String(currency).toUpperCase() !== 'BNUT') return 0;
+    const provider = new ethers.JsonRpcProvider(activeNetworkConfig().rpcUrl || 'https://mainnet.optimism.io');
+    const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, provider);
+    return Number(ethers.formatEther(await treasury.getBalance()));
+  }
   const config = await loadSettlementRouterConfig();
   const asset = config.assets?.[String(currency).toUpperCase()];
   if (!config.routerAddress || !asset?.address) return 0;
@@ -128,6 +151,13 @@ export async function getTreasuryBalance(currency = 'BNUT') {
  */
 export async function isTreasuryOwner(walletAddress) {
   try {
+    if (isLegacyOptimismActive()) {
+      const treasuryAddress = activeNetworkConfig().treasury || window.TREASURY_CONTRACT_ADDRESS;
+      if (!walletAddress || !treasuryAddress) return false;
+      const provider = new ethers.JsonRpcProvider(activeNetworkConfig().rpcUrl || 'https://mainnet.optimism.io');
+      const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, provider);
+      return (await treasury.owner()).toLowerCase() === walletAddress.toLowerCase();
+    }
     const config = await loadSettlementRouterConfig();
     if (!walletAddress || !config.routerAddress) return false;
     const provider = new ethers.JsonRpcProvider(config.rpcUrl, config.chainId);
@@ -148,6 +178,13 @@ export async function isTreasuryOwner(walletAddress) {
  */
 export async function isIssuePaid(issueRef) {
   try {
+    if (isLegacyOptimismActive()) {
+      const treasuryAddress = activeNetworkConfig().treasury || window.TREASURY_CONTRACT_ADDRESS;
+      if (!issueRef || !treasuryAddress) return false;
+      const provider = new ethers.JsonRpcProvider(activeNetworkConfig().rpcUrl || 'https://mainnet.optimism.io');
+      const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, provider);
+      return treasury.isIssuePaid(issueRef);
+    }
     const config = await loadSettlementRouterConfig();
     if (!issueRef || !config.routerAddress) return false;
     const provider = new ethers.JsonRpcProvider(config.rpcUrl, config.chainId);
@@ -199,6 +236,24 @@ const CHUNK_CONCURRENCY = 5;
  * @returns {Promise<Array<{contributor: string, issueRef: string, amount: number, txHash: string, blockNumber: number, timestamp: number}>>}
  */
 export async function getContributorPaidEvents() {
+  if (isLegacyOptimismActive()) {
+    const treasuryAddress = activeNetworkConfig().treasury || window.TREASURY_CONTRACT_ADDRESS;
+    if (!treasuryAddress) return [];
+    const provider = new ethers.JsonRpcProvider(activeNetworkConfig().rpcUrl || 'https://mainnet.optimism.io');
+    const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, provider);
+    const latestBlock = await provider.getBlockNumber();
+    const filter = treasury.filters.ContributorPaid();
+    const fromBlock = Math.max(LEGACY_TREASURY_DEPLOY_BLOCK, latestBlock - 500_000);
+    const logs = await treasury.queryFilter(filter, fromBlock, latestBlock);
+    return logs.map(log => ({
+      contributor: log.args.contributor,
+      issueRef: log.args.issueRef,
+      amount: Number(ethers.formatEther(log.args.amount)),
+      txHash: log.transactionHash,
+      blockNumber: log.blockNumber,
+      timestamp: 0,
+    })).sort((a, b) => b.blockNumber - a.blockNumber);
+  }
   const config = await loadSettlementRouterConfig();
   if (!config.routerAddress) return [];
 
@@ -301,6 +356,23 @@ export async function settlePayroll(payouts) {
   if (!payouts || payouts.length === 0) {
     throw new Error('No payouts to settle.');
   }
+  if (isLegacyOptimismActive()) {
+    if (payouts.some(p => String(p.currency || 'BNUT').toUpperCase() !== 'BNUT')) {
+      throw new Error('Legacy Optimism treasury can settle BNUT entries only.');
+    }
+    const treasuryAddress = activeNetworkConfig().treasury || window.TREASURY_CONTRACT_ADDRESS;
+    if (!treasuryAddress) throw new Error('Legacy Optimism treasury address is not configured.');
+    const { signer } = await getSignerContext();
+    const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, signer);
+    const tx = await treasury.batchPayContributors(
+      payouts.map(p => ethers.getAddress(p.contributor)),
+      payouts.map(p => ethers.parseEther(String(p.amount))),
+      payouts.map(p => p.issueRef),
+    );
+    await tx.wait();
+    return tx.hash;
+  }
+
   const config = await loadSettlementRouterConfig();
   if (!config.routerAddress) throw new Error('Settlement router address is not configured.');
   const { signer } = await getSignerContext();
