@@ -6036,6 +6036,28 @@ svg text {
   color: #00e5ff;
 }
 
+.treasury-wallet-reference {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  margin: -0.45rem 0 1rem;
+  padding: 0.45rem 0.6rem;
+  color: #9bb2bd;
+  font-size: 0.76rem;
+  border-bottom: 1px solid rgba(122, 154, 168, 0.18);
+}
+
+.treasury-wallet-reference small {
+  color: #718691;
+}
+
+.treasury-wallet-reference strong {
+  color: #b7cbd4;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .treasury-mints-table {
   width: 100%;
   border-collapse: collapse;

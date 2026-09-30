@@ -1840,7 +1840,7 @@
         <h2 id="treasury-admin-modal-title">🏦 Treasury</h2>
       </div>
       <p class="aes-stub-desc">
-        Live on-chain data from the selected $BNUT network. Base Mainnet is the default; Optimism Mainnet remains available from the header dropdown.
+        Live on-chain data from the active $BNUT network. Base Mainnet is the default; legacy Optimism data is shown only when MetaMask is connected there.
       </p>
 
       <div class="gov-admin-panel">
@@ -1864,13 +1864,13 @@
             <span id="treasury-remaining" class="treasury-metric-value">—</span>
           </div>
           <div class="treasury-metric">
-            <span class="treasury-metric-label">Connected Wallet Balance</span>
-            <span id="treasury-admin-bal" class="treasury-metric-value">—</span>
-          </div>
-          <div class="treasury-metric">
             <span class="treasury-metric-label">Treasury Contract Balance</span>
             <span id="treasury-wallet-bal" class="treasury-metric-value">—</span>
           </div>
+        </div>
+        <div class="treasury-wallet-reference">
+          <span>Connected wallet balance <small>(reference only; not part of Treasury balance)</small></span>
+          <strong id="treasury-admin-bal">—</strong>
         </div>
         <button id="treasury-refresh-btn" class="gov-admin-action-btn" style="margin-bottom:1rem;">🔄 Refresh Metrics</button>
 
