@@ -3423,45 +3423,6 @@ if (measurementForm) {
     await switchWalletToNetwork(cfg);
   }
 
-  function syncNetworkSelector() {
-    const networkSelect = document.getElementById('network-select');
-    if (!networkSelect) return;
-    networkSelect.value = window.BIGNUTEN_ACTIVE_NETWORK_KEY || window.BIGNUTEN_DEFAULT_NETWORK_KEY || 'base';
-    networkSelect.title = `Active network: ${getActiveNetworkLabel()}`;
-  }
-
-  async function handleNetworkSelectionChange(event) {
-    const networkSelect = event.currentTarget;
-    const nextKey = networkSelect.value;
-    const previousKey = window.BIGNUTEN_ACTIVE_NETWORK_KEY || window.BIGNUTEN_DEFAULT_NETWORK_KEY || 'base';
-    if (nextKey === previousKey) return;
-
-    networkSelect.disabled = true;
-    try {
-      window.setActiveBigNutenNetwork?.(nextKey);
-      if (window.ethereum) {
-        try {
-          await switchWalletToNetwork(dnftCfg);
-        } catch (switchErr) {
-          alert(`Selected ${getActiveNetworkLabel()} for BigNuten. MetaMask network switching was not completed: ${switchErr.message || switchErr}`);
-        }
-      }
-      window.location.reload();
-    } catch (err) {
-      window.setActiveBigNutenNetwork?.(previousKey);
-      syncNetworkSelector();
-      alert(`Could not switch BigNuten to the selected network: ${err.message || err}`);
-      networkSelect.disabled = false;
-    }
-  }
-
-  const networkSelect = document.getElementById('network-select');
-  if (networkSelect) {
-    syncNetworkSelector();
-    networkSelect.addEventListener('change', handleNetworkSelectionChange);
-    window.addEventListener('bignuten:network-changed', syncNetworkSelector);
-  }
-
   function setWalletConnectionState(connected, account = '') {
     if (!walletButton) return;
     const normalizedAccount = connected ? String(account || '').trim() : '';
@@ -3515,6 +3476,12 @@ if (measurementForm) {
   async function _doConnectWallet(preAuthorizedAccount = null) {
     if (typeof window.ethereum !== 'undefined') {
       try {
+        const chainId = Number.parseInt(await window.ethereum.request({ method: 'eth_chainId' }), 16);
+        const matchingNetwork = Object.entries(window.BIGNUTEN_NETWORKS || {})
+          .find(([, config]) => Number(config.chainId) === chainId);
+        if (matchingNetwork) {
+          window.setActiveBigNutenNetwork?.(matchingNetwork[0], { persist: false });
+        }
         let account;
         if (preAuthorizedAccount) {
           account = preAuthorizedAccount;
@@ -3607,6 +3574,17 @@ if (measurementForm) {
   }
 
   walletButton.addEventListener('click', connectWallet);
+
+  if (window.ethereum?.on) {
+    window.ethereum.on('chainChanged', async chainIdHex => {
+      const chainId = Number.parseInt(chainIdHex, 16);
+      const matchingNetwork = Object.entries(window.BIGNUTEN_NETWORKS || {})
+        .find(([, config]) => Number(config.chainId) === chainId);
+      if (!matchingNetwork) return;
+      window.setActiveBigNutenNetwork?.(matchingNetwork[0], { persist: false });
+      window.location.reload();
+    });
+  }
 
   if (typeof window.ethereum !== 'undefined') {
     window.ethereum.on?.('accountsChanged', accounts => {

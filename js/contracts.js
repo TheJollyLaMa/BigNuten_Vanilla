@@ -90,12 +90,7 @@
   }
 
   function getStoredNetworkKey() {
-    try {
-      const stored = global.localStorage.getItem(STORAGE_KEY);
-      return NETWORKS[stored] ? stored : DEFAULT_NETWORK_KEY;
-    } catch {
-      return DEFAULT_NETWORK_KEY;
-    }
+    return DEFAULT_NETWORK_KEY;
   }
 
   function getExplorerUrl(kind, value, key) {
