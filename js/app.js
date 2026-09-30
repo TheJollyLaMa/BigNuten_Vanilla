@@ -7701,14 +7701,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Wire About-modal "Connect Pinata" button
     document.getElementById('about-ipfs-connect-btn')?.addEventListener('click', async () => {
-      const mode = getStorageMode();
-      if (mode === 'w3up' || mode === 'own-w3s') {
-        document.getElementById('about-modal')?.classList.add('modal-hidden');
-        import('./dataControl.js').then(m => m._openSnapshotPanel());
-        return;
-      }
       document.getElementById('about-modal')?.classList.add('modal-hidden');
-      document.getElementById('ipfs-dialog-connect-btn')?.click();
+      document.getElementById('ipfsIcon')?.click();
     });
 
     // Wire condensed dialog JSON buttons
