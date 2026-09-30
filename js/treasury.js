@@ -72,6 +72,23 @@ function isLegacyOptimismActive() {
   return Number(activeNetworkConfig().chainId) === LEGACY_OPTIMISM_CHAIN_ID;
 }
 
+async function resolveRuntimeNetworkConfig() {
+  if (window.ethereum && window.BIGNUTEN_NETWORKS) {
+    const chainId = Number.parseInt(await window.ethereum.request({ method: 'eth_chainId' }), 16);
+    const match = Object.entries(window.BIGNUTEN_NETWORKS)
+      .find(([, config]) => Number(config.chainId) === chainId);
+    if (match) return window.getBigNutenNetworkConfig(match[0]);
+  }
+  return activeNetworkConfig();
+}
+
+async function requireContractCode(provider, address, label, networkLabel) {
+  const code = await provider.getCode(address);
+  if (!code || code === '0x') {
+    throw new Error(`${label} is not deployed at ${address} on ${networkLabel}. Check MetaMask's active network.`);
+  }
+}
+
 /**
  * Return a read/write ethers provider + signer from the connected MetaMask.
  * Throws if MetaMask is not available or no account is connected.
@@ -125,10 +142,11 @@ export async function loadPayrollQueue() {
  * @returns {Promise<number>} Balance in whole BNUT tokens.
  */
 export async function getTreasuryBalance(currency = 'BNUT') {
-  if (isLegacyOptimismActive()) {
-    const treasuryAddress = activeNetworkConfig().treasury || window.TREASURY_CONTRACT_ADDRESS;
+  const runtimeConfig = await resolveRuntimeNetworkConfig();
+  if (Number(runtimeConfig.chainId) === LEGACY_OPTIMISM_CHAIN_ID) {
+    const treasuryAddress = runtimeConfig.treasury || window.TREASURY_CONTRACT_ADDRESS;
     if (!treasuryAddress || String(currency).toUpperCase() !== 'BNUT') return 0;
-    const provider = new ethers.JsonRpcProvider(activeNetworkConfig().rpcUrl || 'https://mainnet.optimism.io');
+    const provider = new ethers.JsonRpcProvider(runtimeConfig.rpcUrl || 'https://mainnet.optimism.io');
     const treasury = new ethers.Contract(treasuryAddress, LEGACY_TREASURY_ABI, provider);
     return Number(ethers.formatEther(await treasury.getBalance()));
   }
@@ -142,7 +160,7 @@ export async function getTreasuryBalance(currency = 'BNUT') {
 }
 
 export async function getPayrollSettlementOptions(currency = 'BNUT') {
-  const config = activeNetworkConfig();
+  const config = await resolveRuntimeNetworkConfig();
   const symbol = String(currency || 'BNUT').toUpperCase();
   const options = [];
   const provider = new ethers.JsonRpcProvider(config.rpcUrl || 'https://mainnet.base.org');
@@ -152,12 +170,13 @@ export async function getPayrollSettlementOptions(currency = 'BNUT') {
     let balance = 0;
     if (tokenAddress && symbol === 'BNUT') {
       const token = new ethers.Contract(tokenAddress, ['function balanceOf(address) view returns (uint256)'], provider);
+      await requireContractCode(provider, tokenAddress, `${config.label} BNUT`, config.label || 'active network');
       balance = Number(ethers.formatEther(await token.balanceOf(config.treasury)));
     }
     options.push({ source: 'treasury', label: 'BigNuten Treasury', address: config.treasury, balance, available: symbol === 'BNUT' });
   }
 
-  if (isLegacyOptimismActive()) return options;
+  if (Number(config.chainId) === LEGACY_OPTIMISM_CHAIN_ID) return options;
 
   const routerConfig = await loadSettlementRouterConfig();
   const asset = routerConfig.assets?.[symbol];
