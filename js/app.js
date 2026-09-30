@@ -7402,12 +7402,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Treasury Admin Panel ──────────────────────────────────────────────────
 
   (function initTreasuryAdminPanel() {
-    const BNUT_ADDR = window.BNUT_CONTRACT_ADDRESS || '';
-    const TREASURY_ADDR = window.TREASURY_CONTRACT_ADDRESS || window.CONTRACTS?.treasury || '';
-    const RPC_URL = window.CONTRACTS?.rpcUrl || 'https://mainnet.base.org';
-    const ACTIVE_NETWORK = window.CONTRACTS || {};
-    const ACTIVE_CHAIN_ID = Number(ACTIVE_NETWORK.chainId || 8453);
-    const ACTIVE_NETWORK_LABEL = ACTIVE_NETWORK.label || 'Base Mainnet';
+    function getTreasuryConfig() {
+      const config = window.CONTRACTS || {};
+      return {
+        BNUT_ADDR: window.BNUT_CONTRACT_ADDRESS || config.bnut || '',
+        TREASURY_ADDR: window.TREASURY_CONTRACT_ADDRESS || config.treasury || '',
+        RPC_URL: config.rpcUrl || 'https://mainnet.base.org',
+        ACTIVE_CHAIN_ID: Number(config.chainId || 8453),
+        ACTIVE_NETWORK_LABEL: config.label || 'Base Mainnet',
+      };
+    }
     // Optimism produces ~2 blocks/s; 2 000 000 blocks ≈ ~11.5 days of events.
     const MINT_HISTORY_BLOCKS = 2_000_000;
 
@@ -7425,6 +7429,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadTreasuryMetrics() {
+      const { BNUT_ADDR, TREASURY_ADDR, RPC_URL } = getTreasuryConfig();
       const refreshBtn = document.getElementById('treasury-refresh-btn');
       if (refreshBtn) refreshBtn.disabled = true;
 
@@ -7484,6 +7489,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadMintHistory() {
+      const { BNUT_ADDR, RPC_URL } = getTreasuryConfig();
       const loadBtn   = document.getElementById('treasury-load-mints-btn');
       const statusEl  = document.getElementById('treasury-mints-status');
       const tableEl   = document.getElementById('treasury-mints-table');
@@ -7562,10 +7568,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Pre-fill treasury address display and wire "Mint to Treasury" checkbox
     const transferAddrDisplay = document.getElementById('treasury-transfer-addr-display');
-    if (transferAddrDisplay) transferAddrDisplay.textContent = TREASURY_ADDR || `Not deployed on ${ACTIVE_NETWORK_LABEL}`;
+    if (transferAddrDisplay) {
+      const { TREASURY_ADDR, ACTIVE_NETWORK_LABEL } = getTreasuryConfig();
+      transferAddrDisplay.textContent = TREASURY_ADDR || `Not deployed on ${ACTIVE_NETWORK_LABEL}`;
+    }
 
     if (mintToTreasuryCb && mintAddrEl) {
       mintToTreasuryCb.addEventListener('change', () => {
+        const { TREASURY_ADDR } = getTreasuryConfig();
         if (mintToTreasuryCb.checked) {
           mintAddrEl.value = TREASURY_ADDR;
           mintAddrEl.disabled = true;
@@ -7578,6 +7588,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (quickMintBtn) {
       quickMintBtn.addEventListener('click', async () => {
+        const { TREASURY_ADDR } = getTreasuryConfig();
         const mintToTreasury = mintToTreasuryCb?.checked || false;
         const toAddr = mintToTreasury
           ? TREASURY_ADDR
@@ -7626,6 +7637,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (transferBtn) {
       transferBtn.addEventListener('click', async () => {
+        const { BNUT_ADDR, TREASURY_ADDR, ACTIVE_CHAIN_ID, ACTIVE_NETWORK_LABEL } = getTreasuryConfig();
         const amount = Number(document.getElementById('treasury-transfer-amount')?.value || 0);
 
         if (!amount || amount <= 0) {

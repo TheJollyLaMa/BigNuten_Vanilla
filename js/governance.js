@@ -63,11 +63,31 @@ const PROPOSAL_STATE = {
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-const ACTIVE_NETWORK = window.CONTRACTS || {};
-const GOVERNANCE_CONTRACT_ADDRESS = window.GOVERNANCE_CONTRACT_ADDRESS || ACTIVE_NETWORK.governance || '';
-const BNUT_CONTRACT_ADDRESS = window.BNUT_CONTRACT_ADDRESS || ACTIVE_NETWORK.bnut || '';
-const ACTIVE_RPC_URL = ACTIVE_NETWORK.rpcUrl || 'https://mainnet.base.org';
-const ACTIVE_NETWORK_LABEL = ACTIVE_NETWORK.label || 'Base Mainnet';
+function getActiveGovernanceConfig() {
+  const network = window.CONTRACTS || {};
+  return {
+    governance: window.GOVERNANCE_CONTRACT_ADDRESS || network.governance || '',
+    bnut: window.BNUT_CONTRACT_ADDRESS || network.bnut || '',
+    rpcUrl: network.rpcUrl || 'https://mainnet.base.org',
+    label: network.label || 'Base Mainnet',
+  };
+}
+
+let GOVERNANCE_CONTRACT_ADDRESS = '';
+let BNUT_CONTRACT_ADDRESS = '';
+let ACTIVE_RPC_URL = 'https://mainnet.base.org';
+let ACTIVE_NETWORK_LABEL = 'Base Mainnet';
+
+function syncActiveGovernanceConfig() {
+  const config = getActiveGovernanceConfig();
+  GOVERNANCE_CONTRACT_ADDRESS = config.governance;
+  BNUT_CONTRACT_ADDRESS = config.bnut;
+  ACTIVE_RPC_URL = config.rpcUrl;
+  ACTIVE_NETWORK_LABEL = config.label;
+}
+
+syncActiveGovernanceConfig();
+window.addEventListener('bignuten:network-changed', syncActiveGovernanceConfig);
 
 // ─── Internal Helpers ─────────────────────────────────────────────────────────
 
@@ -288,6 +308,7 @@ export async function isAdmin(address) {
  * @returns {Promise<number>}
  */
 export async function getBnutBalance(address) {
+  const { bnut: BNUT_CONTRACT_ADDRESS, rpcUrl: ACTIVE_RPC_URL } = getActiveGovernanceConfig();
   if (!address || !BNUT_CONTRACT_ADDRESS) return 0;
   try {
     const provider = _getProvider();
@@ -409,6 +430,7 @@ export async function removeProposer(address) {
  * @returns {Promise<string>} transaction hash
  */
 export async function mintBnutToAddress(toAddress, amount, reason) {
+  const { bnut: BNUT_CONTRACT_ADDRESS, rpcUrl: ACTIVE_RPC_URL } = getActiveGovernanceConfig();
   if (!BNUT_CONTRACT_ADDRESS) {
     throw new Error(`$BNUT is not configured on ${ACTIVE_NETWORK_LABEL}.`);
   }
