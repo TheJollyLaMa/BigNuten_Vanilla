@@ -3476,12 +3476,7 @@ if (measurementForm) {
   async function _doConnectWallet(preAuthorizedAccount = null) {
     if (typeof window.ethereum !== 'undefined') {
       try {
-        const chainId = Number.parseInt(await window.ethereum.request({ method: 'eth_chainId' }), 16);
-        const matchingNetwork = Object.entries(window.BIGNUTEN_NETWORKS || {})
-          .find(([, config]) => Number(config.chainId) === chainId);
-        if (matchingNetwork) {
-          window.setActiveBigNutenNetwork?.(matchingNetwork[0], { persist: false });
-        }
+        await window.syncBigNutenNetworkFromWallet?.({ warn: true, reload: false });
         let account;
         if (preAuthorizedAccount) {
           account = preAuthorizedAccount;
@@ -3576,13 +3571,8 @@ if (measurementForm) {
   walletButton.addEventListener('click', connectWallet);
 
   if (window.ethereum?.on) {
-    window.ethereum.on('chainChanged', async chainIdHex => {
-      const chainId = Number.parseInt(chainIdHex, 16);
-      const matchingNetwork = Object.entries(window.BIGNUTEN_NETWORKS || {})
-        .find(([, config]) => Number(config.chainId) === chainId);
-      if (!matchingNetwork) return;
-      window.setActiveBigNutenNetwork?.(matchingNetwork[0], { persist: false });
-      window.location.reload();
+    window.ethereum.on('chainChanged', () => {
+      window.syncBigNutenNetworkFromWallet?.({ warn: true, reload: true });
     });
   }
 

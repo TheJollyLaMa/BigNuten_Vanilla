@@ -93,6 +93,10 @@
     return DEFAULT_NETWORK_KEY;
   }
 
+  function networkKeyForChainId(chainId) {
+    return Object.keys(NETWORKS).find(key => Number(NETWORKS[key].chainId) === Number(chainId)) || null;
+  }
+
   function getExplorerUrl(kind, value, key) {
     const cfg = getNetworkConfig(key || global.BIGNUTEN_ACTIVE_NETWORK_KEY || DEFAULT_NETWORK_KEY);
     if (!value) return '';
@@ -146,6 +150,22 @@
   };
   global.setActiveBigNutenNetwork = applyNetworkGlobals;
   global.getBigNutenExplorerUrl = getExplorerUrl;
+
+  global.syncBigNutenNetworkFromWallet = async function syncBigNutenNetworkFromWallet({ warn = true, reload = false } = {}) {
+    if (!global.ethereum) return { matched: false, reason: 'MetaMask unavailable' };
+    const chainId = Number.parseInt(await global.ethereum.request({ method: 'eth_chainId' }), 16);
+    const key = networkKeyForChainId(chainId);
+    if (!key) {
+      if (warn) global.alert(`⚠️ BigNuten does not have a configured contract context for chain ${chainId}. Switch back to Base (8453) or a supported legacy chain.`);
+      return { matched: false, chainId };
+    }
+    const config = applyNetworkGlobals(key, { persist: false });
+    if (warn && chainId !== 8453) {
+      global.alert(`⚠️ You are now using ${config.label}. BigNuten's newest contracts and funds are currently being developed on Base. Legacy flows may be limited while migration continues.`);
+    }
+    if (reload) global.location.reload();
+    return { matched: true, key, config };
+  };
 
   applyNetworkGlobals(getStoredNetworkKey(), { persist: false });
 })(window);
