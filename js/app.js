@@ -12,6 +12,14 @@ import { initYogaFlow } from './yoga.js';
 import { getManualLighthouseToken, setManualLighthouseToken, clearManualLighthouseToken, pinataGatewayUrl } from './lighthouseStorage.js';
 import { loadSnapshotManifest } from './snapshotLifecycle.js';
 
+function getActiveExplorerUrl(kind, value) {
+  const config = window.CONTRACTS || {};
+  if (window.getBigNutenExplorerUrl) return window.getBigNutenExplorerUrl(kind, value);
+  if (kind === 'tx') return value ? `${config.explorerTxUrl || 'https://basescan.org/tx/'}${value}` : config.explorerBaseUrl;
+  if (kind === 'address') return value ? `${config.explorerAddressUrl || 'https://basescan.org/address/'}${value}` : config.explorerBaseUrl;
+  return config.explorerBaseUrl || 'https://basescan.org';
+}
+
 // --- Raw Food Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
   // Initialise DNFT PayPal one-time purchase form (wallet validation + PayPal submit)
