@@ -550,6 +550,68 @@ async function publishCommunitySnapshot(data, optIn) {
   return result;
 }
 
+async function renderNodeRewardStatus() {
+  const statusEl = document.getElementById('cd-node-reward-status');
+  const claimBtn = document.getElementById('cd-node-reward-claim-btn');
+  if (!statusEl || !claimBtn) return;
+  claimBtn.disabled = true;
+  try {
+    const config = await fetch('network-registry.json?t=' + Date.now()).then(response => response.json());
+    if (!config.registryAddress) {
+      statusEl.textContent = 'Registry deployment is queued in the Base migration issue.';
+      return;
+    }
+    if (!window.ethereum) {
+      statusEl.textContent = 'Connect MetaMask to inspect node rewards.';
+      return;
+    }
+    const accounts = await new ethers.BrowserProvider(window.ethereum).send('eth_accounts', []);
+    const wallet = accounts?.[0];
+    if (!wallet) {
+      statusEl.textContent = 'Connect MetaMask to inspect node rewards.';
+      return;
+    }
+    const provider = new ethers.JsonRpcProvider(config.rpcUrl, config.chainId);
+    const registry = new ethers.Contract(config.registryAddress, [
+      'function operatorNodeIds(address) view returns (uint256[])',
+      'function nodes(uint256) view returns (address,bytes32,bytes32,string,bool,bool)',
+      'function monthStats(uint256,uint256) view returns (uint32,uint32,uint64,uint64,bytes32,bool)',
+      'function rewardEligible(uint256,uint256) view returns (bool)',
+      'function nodeRewardAmount() view returns (uint256)',
+      'function claimMonthlyReward(uint256,uint256)',
+    ], provider);
+    const nodeIds = await registry.operatorNodeIds(wallet);
+    const month = Number(new Date().toISOString().slice(0, 7).replace('-', ''));
+    const eligible = [];
+    for (const nodeId of nodeIds) {
+      if (await registry.rewardEligible(nodeId, month)) eligible.push(nodeId);
+    }
+    if (!eligible.length) {
+      statusEl.textContent = `No eligible reward this month. ${nodeIds.length} registered node(s) found.`;
+      return;
+    }
+    const amount = await registry.nodeRewardAmount();
+    statusEl.textContent = `${ethers.formatEther(amount)} BNUT ready for node #${eligible[0].toString()}.`;
+    claimBtn.disabled = false;
+    claimBtn.onclick = async () => {
+      claimBtn.disabled = true;
+      statusEl.textContent = '⏳ Confirm the node reward in MetaMask…';
+      try {
+        const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
+        const writable = new ethers.Contract(config.registryAddress, ['function claimMonthlyReward(uint256,uint256)'], signer);
+        const tx = await writable.claimMonthlyReward(eligible[0], month);
+        await tx.wait();
+        statusEl.textContent = `✅ Claimed ${ethers.formatEther(amount)} BNUT. Transaction confirmed.`;
+      } catch (error) {
+        statusEl.textContent = `❌ ${error.reason || error.message}`;
+        claimBtn.disabled = false;
+      }
+    };
+  } catch (error) {
+    statusEl.textContent = `Registry status unavailable: ${error.message}`;
+  }
+}
+
 /**
  * Render the reward-status section of the Data Pool tab.
  * Reads on-chain history if a wallet is connected.
@@ -691,6 +753,7 @@ export function initCommunityDashboard() {
     renderDataPoolTab(data, optIn);
     wireOptInToggles(data);
     await renderRewardStatus();
+    await renderNodeRewardStatus();
   }
 
   function wireOptInToggles(data) {

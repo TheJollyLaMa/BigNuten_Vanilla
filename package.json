@@ -10,6 +10,8 @@
     "validate:payroll": "node scripts/validatePayrollQueue.js",
     "storage:serve": "node services/storageRelay.js",
     "test:storage-relay": "node --test test/storageRelay.test.js",
+    "network:index": "node scripts/indexBignutenCommunity.js",
+    "network:node": "node scripts/bignutenNodeKeeper.js",
     "test:scenarios": "hardhat test test/StreakBetEscrow.scenarios.test.js",
     "sim": "hardhat run scripts/streakbot-sim.js",
     "sim:live:estimate": "SIM_PHASE=estimate hardhat run scripts/streakbot-live.js --network optimism",
