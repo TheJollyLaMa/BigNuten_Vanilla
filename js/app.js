@@ -4780,6 +4780,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function openAdminDropdown() {
     if (!adminDropdown) return;
+    closeAesDropdown();
     adminDropdown.classList.remove('hidden');
     aesLeft && aesLeft.setAttribute('aria-expanded', 'true');
   }
@@ -4992,6 +4993,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function openAesDropdown() {
     if (!aesDropdown) return;
+    closeAdminDropdown();
     aesDropdown.classList.remove('hidden');
     aesRight && aesRight.setAttribute('aria-expanded', 'true');
     refreshAesBnutBalance();
