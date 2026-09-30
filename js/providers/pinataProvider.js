@@ -1,5 +1,5 @@
 import { StorageProvider, computeSnapshotHash, saveSnapshotMeta, loadSnapshotMeta } from '../storageProvider.js';
-import { connectPinataSession, restorePinataSession, uploadPinnedSnapshot, fetchSnapshotData } from '../pinataStorage.js';
+import { connectPinataSession, restorePinataSession, uploadPinnedSnapshot, uploadViaStorageRelay, fetchSnapshotData } from '../pinataStorage.js';
 import { loadSnapshotManifest, recordSnapshotUpload } from '../snapshotLifecycle.js';
 
 export class PinataProvider extends StorageProvider {
@@ -77,8 +77,10 @@ export class PinataProvider extends StorageProvider {
       fileName: manifest.current.fileName || '',
     } : null;
     try {
-      const { cid } = await uploadPinnedSnapshot(data, {
+      const upload = this._session.relay ? uploadViaStorageRelay : uploadPinnedSnapshot;
+      const { cid } = await upload(data, {
         fileName: 'bignuten-snapshot.json',
+        ...(this._session.relay ? { wallet: this._session.wallet, signer: this._session.signer } : {}),
         snapshotMeta: {
           createdAt: now,
           sessionAddress: this._session.identity || 'Pinata',

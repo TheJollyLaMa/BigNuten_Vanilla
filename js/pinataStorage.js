@@ -20,6 +20,7 @@ function getPinataToken({ strict = true } = {}) {
 
 const PINATA_API_BASE = 'https://api.pinata.cloud';
 const PINATA_GATEWAY_BASE = 'https://gateway.pinata.cloud/ipfs/';
+const STORAGE_RELAY_URL = window.BIGNUTEN_STORAGE_RELAY_URL || '';
 let manualPinataTokenRef = '';
 
 export function getManualPinataToken() {
@@ -40,7 +41,7 @@ function readSession() {
   const session = window._lighthouseSessionRef || window._pinataSessionRef || null;
   if (!session) return null;
   const token = session.jwt || session.apiKey || session.authToken || null;
-  if (!token) return null;
+  if (!token && !session.relay) return null;
   return {
     ...session,
     jwt: session.jwt || token,
@@ -53,6 +54,7 @@ function readSession() {
 function saveSession(session) {
   const token = session.jwt || session.apiKey || session.authToken || null;
   window._lighthouseSessionRef = {
+    ...session,
     jwt: token,
     apiKey: token,
     authToken: token,
@@ -155,6 +157,18 @@ function createPinataHeaders(token) {
 }
 
 export async function connectPinataSession() {
+  if (STORAGE_RELAY_URL && window.ethereum) {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const wallet = await signer.getAddress();
+    return saveSession({
+      relay: true,
+      signer,
+      wallet,
+      identity: wallet,
+      publicKey: wallet,
+    });
+  }
   return ensureSession({ promptIfMissing: true });
 }
 
@@ -204,6 +218,51 @@ export async function uploadPinnedSnapshot(data, { fileName = 'bignuten-snapshot
   }
 
   return { cid: String(cid), session };
+}
+
+export async function uploadViaStorageRelay(data, {
+  fileName = 'bignuten-snapshot.json',
+  wallet,
+  signer,
+  relayUrl = STORAGE_RELAY_URL,
+  snapshotMeta = null,
+} = {}) {
+  if (!relayUrl || !wallet || !signer) throw new Error('Storage relay, wallet, and signer are required.');
+  const payload = wrapSnapshotPayload(data, snapshotMeta || {});
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const origin = globalThis.location?.origin || 'unknown';
+  const nonceResponse = await fetch(`${relayUrl.replace(/\/$/, '')}/api/storage/nonce`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ wallet, origin }),
+  });
+  if (!nonceResponse.ok) throw new Error(`Storage relay nonce failed (${nonceResponse.status})`);
+  const { nonce, expiresAt } = await nonceResponse.json();
+  const message = [
+    'BigNuten private storage authorization',
+    `Wallet: ${wallet.toLowerCase()}`,
+    `Origin: ${origin}`,
+    `Nonce: ${nonce}`,
+    `Expires: ${new Date(expiresAt).toISOString()}`,
+    'Purpose: request a short-lived Pinata upload URL; the relay never receives file contents.',
+  ].join('\n');
+  const signature = await signer.signMessage(message);
+  const signingResponse = await fetch(`${relayUrl.replace(/\/$/, '')}/api/pinata-upload-url`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ wallet, origin, nonce, expiresAt, signature, name: fileName, size: bytes.byteLength, type: 'application/json' }),
+  });
+  if (!signingResponse.ok) throw new Error(`Storage relay signing failed (${signingResponse.status})`);
+  const { url } = await signingResponse.json();
+  const form = new FormData();
+  form.append('file', new Blob([bytes], { type: 'application/json' }), fileName);
+  form.append('network', 'public');
+  const uploadResponse = await fetch(url, { method: 'POST', body: form });
+  if (!uploadResponse.ok) throw new Error(`Pinata upload failed (${uploadResponse.status})`);
+  const result = await uploadResponse.json();
+  const cid = result.IpfsHash || result.cid || result.data?.cid;
+  if (!cid) throw new Error('Pinata upload response did not include a CID.');
+  return { cid: String(cid), session: { relay: true, wallet, identity: wallet } };
 }
 
 export async function fetchSnapshotData(cid, { session: providedSession = null } = {}) {

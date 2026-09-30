@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: bignuten-storage-relay
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm run storage:serve
+    healthCheckPath: /health
+    envVars:
+      - key: PINATA_JWT
+        sync: false
+      - key: PINATA_SIGN_URL
+        value: https://uploads.pinata.cloud/v3/files/sign
+      - key: BIGNUTEN_STORAGE_ALLOWED_ORIGINS
+        sync: false
