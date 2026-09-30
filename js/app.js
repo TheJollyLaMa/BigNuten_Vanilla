@@ -6873,13 +6873,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Apply health thresholds
         const owed = _totalBNUTOwed;
-        window._bignutenTreasuryDeficit = Math.max(0, owed - bal);
+        const deficit = Math.max(0, owed - bal);
+        const effectivelyFunded = deficit <= 0.000001;
+        window._bignutenTreasuryDeficit = effectivelyFunded ? 0 : deficit;
         window.dispatchEvent(new CustomEvent('bignuten:treasury-deficit-changed', {
           detail: { owed, balance: bal, deficit: window._bignutenTreasuryDeficit },
         }));
         const settleBtn = document.getElementById('payroll-settle-btn');
         if (statusEl) {
-          if (owed <= 0) {
+          if (owed <= 0 || effectivelyFunded) {
             statusEl.textContent = `✅ Treasury healthy — ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT available`;
             statusEl.style.color = '#00ff88';
             if (actionsEl) actionsEl.style.display = 'none';
