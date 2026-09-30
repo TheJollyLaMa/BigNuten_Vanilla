@@ -6847,6 +6847,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Apply health thresholds
         const owed = _totalBNUTOwed;
+        window._bignutenTreasuryDeficit = Math.max(0, owed - bal);
+        window.dispatchEvent(new CustomEvent('bignuten:treasury-deficit-changed', {
+          detail: { owed, balance: bal, deficit: window._bignutenTreasuryDeficit },
+        }));
         const settleBtn = document.getElementById('payroll-settle-btn');
         if (statusEl) {
           if (owed <= 0) {
@@ -7550,138 +7554,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // (The old details-toggle trigger is replaced by the modal open event in initAdminModals.)
     window.loadTreasuryMetrics = loadTreasuryMetrics;
 
-    // Quick Mint form
-    const quickMintBtn    = document.getElementById('treasury-quick-mint-btn');
-    const quickMintStatus = document.getElementById('treasury-quick-mint-status');
-    const mintToTreasuryCb = document.getElementById('treasury-mint-to-treasury');
-    const mintAddrEl       = document.getElementById('treasury-quick-mint-addr');
-
-    // Pre-fill treasury address display and wire "Mint to Treasury" checkbox
+    // Deficit funding: one direct mint-to-treasury flow
     const transferAddrDisplay = document.getElementById('treasury-transfer-addr-display');
     if (transferAddrDisplay) {
       const { TREASURY_ADDR, ACTIVE_NETWORK_LABEL } = getTreasuryConfig();
       transferAddrDisplay.textContent = TREASURY_ADDR || `Not deployed on ${ACTIVE_NETWORK_LABEL}`;
     }
+    const deficitInput = document.getElementById('treasury-deficit-amount');
+    const deficitStatus = document.getElementById('treasury-deficit-status');
+    const fundDeficitBtn = document.getElementById('treasury-fund-deficit-btn');
 
-    if (mintToTreasuryCb && mintAddrEl) {
-      mintToTreasuryCb.addEventListener('change', () => {
-        const { TREASURY_ADDR } = getTreasuryConfig();
-        if (mintToTreasuryCb.checked) {
-          mintAddrEl.value = TREASURY_ADDR;
-          mintAddrEl.disabled = true;
-        } else {
-          mintAddrEl.value = '';
-          mintAddrEl.disabled = false;
-        }
-      });
+    function syncTreasuryDeficitInput() {
+      const deficit = Number(window._bignutenTreasuryDeficit || 0);
+      if (deficitInput && deficit > 0) deficitInput.value = deficit.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
     }
 
-    if (quickMintBtn) {
-      quickMintBtn.addEventListener('click', async () => {
-        const { TREASURY_ADDR } = getTreasuryConfig();
-        const mintToTreasury = mintToTreasuryCb?.checked || false;
-        const toAddr = mintToTreasury
-          ? TREASURY_ADDR
-          : (mintAddrEl?.value || '').trim();
-        const amount = Number(document.getElementById('treasury-quick-mint-amount')?.value || 0);
-        const reason = (document.getElementById('treasury-quick-mint-reason')?.value || '').trim();
+    syncTreasuryDeficitInput();
+    window.addEventListener('bignuten:treasury-deficit-changed', syncTreasuryDeficitInput);
 
-        if (!toAddr || !toAddr.startsWith('0x') || toAddr.length !== 42) {
-          if (quickMintStatus) quickMintStatus.textContent = '⚠️ Enter a valid wallet address.';
-          return;
-        }
-        if (!amount || amount <= 0) {
-          if (quickMintStatus) quickMintStatus.textContent = '⚠️ Enter a positive amount.';
-          return;
-        }
-
-        quickMintBtn.disabled = true;
-        if (quickMintStatus) quickMintStatus.textContent = `⏳ Minting${mintToTreasury ? ' to treasury' : ''} via MetaMask…`;
-
-        try {
-          const defaultReason = mintToTreasury ? 'treasury fund' : 'Quick mint';
-          const txHash = await mintBnutToAddress(toAddr, amount, reason || defaultReason);
-          if (quickMintStatus) {
-            const txUrl = `${getActiveExplorerUrl('tx', txHash)}`;
-            const dest  = mintToTreasury ? ' to treasury' : '';
-            quickMintStatus.innerHTML = `✅ Minted ${amount} $BNUT${dest}! <a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View tx ↗</a>`;
-          }
-          if (!mintToTreasury && mintAddrEl) mintAddrEl.value = '';
-          const amtEl    = document.getElementById('treasury-quick-mint-amount');
-          const reasonEl = document.getElementById('treasury-quick-mint-reason');
-          if (amtEl)    amtEl.value    = '';
-          if (reasonEl) reasonEl.value = '';
-          // Refresh metrics after mint
-          await loadTreasuryMetrics();
-        } catch (err) {
-          if (quickMintStatus) quickMintStatus.textContent = `❌ Mint failed: ${err.reason || err.message || err}`;
-        } finally {
-          quickMintBtn.disabled = false;
-        }
-      });
-    }
-
-    // Transfer to Treasury form
-    const transferBtn    = document.getElementById('treasury-transfer-btn');
-    const transferStatus = document.getElementById('treasury-transfer-status');
-
-    if (transferBtn) {
-      transferBtn.addEventListener('click', async () => {
-        const { BNUT_ADDR, TREASURY_ADDR, ACTIVE_CHAIN_ID, ACTIVE_NETWORK_LABEL } = getTreasuryConfig();
-        const amount = Number(document.getElementById('treasury-transfer-amount')?.value || 0);
-
-        if (!amount || amount <= 0) {
-          if (transferStatus) transferStatus.textContent = '⚠️ Enter a positive amount.';
-          return;
-        }
-        if (!TREASURY_ADDR || TREASURY_ADDR === '0x0000000000000000000000000000000000000000') {
-          if (transferStatus) transferStatus.textContent = `⚠️ Treasury is not deployed on ${ACTIVE_NETWORK_LABEL} yet. Base migration is in progress.`;
-          return;
-        }
-        if (!window.ethereum) {
-          if (transferStatus) transferStatus.textContent = '⚠️ MetaMask not detected.';
-          return;
-        }
-
-        transferBtn.disabled = true;
-        if (transferStatus) transferStatus.textContent = '⏳ Sending via MetaMask…';
-
-        try {
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          const network  = await provider.getNetwork();
-          if (Number(network.chainId) !== ACTIVE_CHAIN_ID) {
-            throw new Error(`Please switch MetaMask to ${ACTIVE_NETWORK_LABEL} (chain ID ${ACTIVE_CHAIN_ID}).`);
-          }
-          const signer = await provider.getSigner();
-          const bnut   = new ethers.Contract(BNUT_ADDR, [
-            'function transfer(address to, uint256 amount) returns (bool)',
-            'function balanceOf(address account) view returns (uint256)',
-          ], signer);
-
-          const amountWei  = ethers.parseEther(String(amount));
-          const walletAddr = await signer.getAddress();
-          const balance    = await bnut.balanceOf(walletAddr);
-          if (balance < amountWei) {
-            throw new Error(`Insufficient $BNUT balance. You have ${Number(ethers.formatEther(balance)).toLocaleString(undefined, { maximumFractionDigits: 2 })} $BNUT.`);
-          }
-
-          const tx = await bnut.transfer(TREASURY_ADDR, amountWei);
-          await tx.wait();
-
-          if (transferStatus) {
-            const txUrl = `${getActiveExplorerUrl('tx', tx.hash)}`;
-            transferStatus.innerHTML = `✅ Transferred ${amount} $BNUT to treasury! <a href="${txUrl}" target="_blank" rel="noopener" style="color:#00e5ff;">View tx ↗</a>`;
-          }
-          const amtEl = document.getElementById('treasury-transfer-amount');
-          if (amtEl) amtEl.value = '';
-          await loadTreasuryMetrics();
-        } catch (err) {
-          if (transferStatus) transferStatus.textContent = `❌ Transfer failed: ${err.reason || err.message || err}`;
-        } finally {
-          transferBtn.disabled = false;
-        }
-      });
-    }
+    fundDeficitBtn?.addEventListener('click', async () => {
+      const { TREASURY_ADDR, ACTIVE_NETWORK_LABEL } = getTreasuryConfig();
+      const amount = Number(deficitInput?.value || 0);
+      if (!TREASURY_ADDR || TREASURY_ADDR === '0x0000000000000000000000000000000000000000') {
+        if (deficitStatus) deficitStatus.textContent = `⚠️ Treasury is not deployed on ${ACTIVE_NETWORK_LABEL}.`;
+        return;
+      }
+      if (!amount || amount <= 0) {
+        if (deficitStatus) deficitStatus.textContent = '✅ No treasury deficit detected.';
+        return;
+      }
+      fundDeficitBtn.disabled = true;
+      if (deficitStatus) deficitStatus.textContent = `⏳ Minting ${amount} BNUT directly to treasury — confirm in MetaMask…`;
+      try {
+        const txHash = await mintBnutToAddress(TREASURY_ADDR, amount, 'payroll treasury deficit');
+        if (deficitStatus) deficitStatus.innerHTML = `✅ Treasury funded with ${amount} BNUT. <a href="${getActiveExplorerUrl('tx', txHash)}" target="_blank" rel="noopener" style="color:#00e5ff;">View tx ↗</a>`;
+        if (deficitInput) deficitInput.value = '';
+        window._bignutenTreasuryDeficit = 0;
+        await loadTreasuryMetrics();
+      } catch (err) {
+        if (deficitStatus) deficitStatus.textContent = `❌ Treasury funding failed: ${err.reason || err.message || err}`;
+      } finally {
+        fundDeficitBtn.disabled = false;
+      }
+    });
   })();
 
   // ── Community Data Dashboard ──────────────────────────────────────────────
