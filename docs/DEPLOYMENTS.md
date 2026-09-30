@@ -41,7 +41,10 @@ npm run deploy:base
 It preflights chain ID `8453`, deploys BNUT, BigNutenTreasury, BigNutenGov, and
 BigNutenNetworkRegistry, and writes `deployments/base.json`. StreakBetEscrow is
 deployed in the same run only when `BASE_AAVE_POOL_ADDRESS` is configured. The
-script does not transfer the initial BNUT supply or configure router roles
+script can also deploy the canonical DecentNFT and DecentEscrow artifacts from
+the sibling repositories when `DECENT_NFT_ARTIFACT` and `DECENT_ESCROW_ARTIFACT`
+are supplied. For DecentNFT, set the Base URI, royalty receiver, and royalty BPS.
+The script does not transfer the initial BNUT supply or configure router roles
 automatically; those are explicit Remix/MetaMask review steps.
 
 The shared Settlements Router is already deployed on Base at

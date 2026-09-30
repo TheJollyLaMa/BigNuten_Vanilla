@@ -16,6 +16,18 @@ async function deploy(factoryName, args) {
   return { contract, address };
 }
 
+async function deployArtifact(label, artifactPath, args) {
+  const resolvedPath = path.resolve(artifactPath);
+  if (!fs.existsSync(resolvedPath)) throw new Error(`${label} artifact not found: ${resolvedPath}`);
+  const artifact = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
+  const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, (await ethers.getSigners())[0]);
+  const contract = await factory.deploy(...args);
+  await contract.waitForDeployment();
+  const address = await contract.getAddress();
+  console.log(`${label}: ${address}`);
+  return { contract, address };
+}
+
 async function main() {
   if (network.name !== 'base') {
     throw new Error(`This script is Base Mainnet only. Use --network base, not ${network.name}.`);
@@ -44,6 +56,8 @@ async function main() {
     networkRegistry: registry.address,
     streakBetEscrow: null,
     aavePool: null,
+    decentNft: null,
+    decentEscrow: null,
     notes: [
       'BNUT initial supply remains in the deployer wallet until an explicit funding transfer is made.',
       'Configure the shared Settlements Router bignuten-data-rewards fund before registry rewards.',
@@ -59,6 +73,28 @@ async function main() {
     deployments.aavePool = aavePool;
   } else {
     console.log('StreakBetEscrow skipped: set BASE_AAVE_POOL_ADDRESS after verifying the Base Aave deployment.');
+  }
+
+  const nftArtifact = String(process.env.DECENT_NFT_ARTIFACT || '').trim();
+  if (nftArtifact) {
+    const baseUri = String(process.env.BASE_DECENT_NFT_BASE_URI || '').trim();
+    const royaltyReceiver = String(process.env.BASE_DECENT_NFT_ROYALTY_RECEIVER || deployer.address).trim();
+    const royaltyBps = Number(process.env.BASE_DECENT_NFT_ROYALTY_BPS || 500);
+    if (!baseUri || !ethers.isAddress(royaltyReceiver) || royaltyBps < 0 || royaltyBps > 10_000) {
+      throw new Error('BASE_DECENT_NFT_BASE_URI, BASE_DECENT_NFT_ROYALTY_RECEIVER, and valid BASE_DECENT_NFT_ROYALTY_BPS are required for DecentNFT');
+    }
+    const nft = await deployArtifact('DecentNFT_v0_2', nftArtifact, [baseUri, royaltyReceiver, royaltyBps]);
+    deployments.decentNft = nft.address;
+  } else {
+    console.log('DecentNFT skipped: set DECENT_NFT_ARTIFACT after compiling DecentMarket.');
+  }
+
+  const escrowArtifact = String(process.env.DECENT_ESCROW_ARTIFACT || '').trim();
+  if (escrowArtifact) {
+    const escrow = await deployArtifact('DecentEscrow_v0_1', escrowArtifact, []);
+    deployments.decentEscrow = escrow.address;
+  } else {
+    console.log('DecentEscrow skipped: set DECENT_ESCROW_ARTIFACT after compiling DecentEscrow.');
   }
 
   const outputDir = path.join(__dirname, '..', 'deployments');
