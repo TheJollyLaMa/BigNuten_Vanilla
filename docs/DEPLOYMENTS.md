@@ -30,6 +30,20 @@ The following Base Mainnet addresses are **not yet known** and are intentionally
 - `Aave V3 Pool`
 - `Alchemix V2`
 
+## Prepared Base deployment
+
+The production deployment command is intentionally Base-only:
+
+```sh
+npm run deploy:base
+```
+
+It preflights chain ID `8453`, deploys BNUT, BigNutenTreasury, BigNutenGov, and
+BigNutenNetworkRegistry, and writes `deployments/base.json`. StreakBetEscrow is
+deployed in the same run only when `BASE_AAVE_POOL_ADDRESS` is configured. The
+script does not transfer the initial BNUT supply or configure router roles
+automatically; those are explicit Remix/MetaMask review steps.
+
 The shared Settlements Router is already deployed on Base at
 `0x8ecca903e2a6Daa8CCbB933700e4F2C58C44A4B5`. The planned
 `BigNutenNetworkRegistry` will use the `bignuten-data-rewards` fund for
