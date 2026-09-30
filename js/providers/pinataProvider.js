@@ -1,5 +1,5 @@
 import { StorageProvider, computeSnapshotHash, saveSnapshotMeta, loadSnapshotMeta } from '../storageProvider.js';
-import { connectPinataSession, restorePinataSession, uploadPinnedSnapshot, uploadViaStorageRelay, fetchSnapshotData } from '../pinataStorage.js';
+import { connectPinataSession, restorePinataSession, uploadPinnedSnapshot, uploadViaStorageRelay, uploadIpfsDesktopSnapshot, fetchSnapshotData } from '../pinataStorage.js';
 import { loadSnapshotManifest, recordSnapshotUpload } from '../snapshotLifecycle.js';
 
 export class PinataProvider extends StorageProvider {
@@ -33,9 +33,9 @@ export class PinataProvider extends StorageProvider {
     };
   }
 
-  async connect() {
+  async connect(mode = 'hosted') {
     try {
-      const session = await connectPinataSession();
+      const session = await connectPinataSession({ mode });
       if (session) {
         this._session = session;
         this._syncSessionSnapshotContext();
@@ -77,7 +77,11 @@ export class PinataProvider extends StorageProvider {
       fileName: manifest.current.fileName || '',
     } : null;
     try {
-      const upload = this._session.relay ? uploadViaStorageRelay : uploadPinnedSnapshot;
+      const upload = this._session.desktop
+        ? uploadIpfsDesktopSnapshot
+        : this._session.relay
+          ? uploadViaStorageRelay
+          : uploadPinnedSnapshot;
       const { cid } = await upload(data, {
         fileName: 'bignuten-snapshot.json',
         ...(this._session.relay ? { wallet: this._session.wallet, signer: this._session.signer } : {}),

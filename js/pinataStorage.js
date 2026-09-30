@@ -41,7 +41,7 @@ function readSession() {
   const session = window._lighthouseSessionRef || window._pinataSessionRef || null;
   if (!session) return null;
   const token = session.jwt || session.apiKey || session.authToken || null;
-  if (!token && !session.relay) return null;
+  if (!token && !session.relay && !session.desktop) return null;
   return {
     ...session,
     jwt: session.jwt || token,
@@ -156,8 +156,13 @@ function createPinataHeaders(token) {
   };
 }
 
-export async function connectPinataSession() {
-  if (STORAGE_RELAY_URL && window.ethereum) {
+export async function connectPinataSession({ mode = 'hosted' } = {}) {
+  if (mode === 'desktop') {
+    const response = await fetch('http://127.0.0.1:5001/api/v0/version');
+    if (!response.ok) throw new Error('IPFS Desktop is not reachable. Start IPFS Desktop and allow this site in its CORS settings.');
+    return saveSession({ desktop: true, identity: 'IPFS Desktop', publicKey: 'ipfs-desktop' });
+  }
+  if (mode === 'hosted' && STORAGE_RELAY_URL && window.ethereum) {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     const wallet = await signer.getAddress();
@@ -263,6 +268,26 @@ export async function uploadViaStorageRelay(data, {
   const cid = result.IpfsHash || result.cid || result.data?.cid;
   if (!cid) throw new Error('Pinata upload response did not include a CID.');
   return { cid: String(cid), session: { relay: true, wallet, identity: wallet } };
+}
+
+export async function uploadIpfsDesktopSnapshot(data, {
+  fileName = 'bignuten-snapshot.json',
+  snapshotMeta = null,
+  apiUrl = 'http://127.0.0.1:5001',
+} = {}) {
+  const payload = wrapSnapshotPayload(data, snapshotMeta || {});
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const form = new FormData();
+  form.append('file', new Blob([bytes], { type: 'application/json' }), fileName);
+  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/v0/add?cid-version=1&pin=true`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!response.ok) throw new Error(`IPFS Desktop upload failed (${response.status})`);
+  const result = await response.json();
+  const cid = result.Hash || result.cid;
+  if (!cid) throw new Error('IPFS Desktop response did not include a CID.');
+  return { cid: String(cid), session: { desktop: true, identity: 'IPFS Desktop' } };
 }
 
 export async function fetchSnapshotData(cid, { session: providedSession = null } = {}) {

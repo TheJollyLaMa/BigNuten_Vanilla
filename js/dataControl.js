@@ -109,7 +109,7 @@ export function initDataControl({
   const activeProvider = providerArg ?? null;
 
   if (activeProvider && !connectFn) {
-    connectFn = () => activeProvider.connect().then(r => {
+    connectFn = mode => activeProvider.connect(mode).then(r => {
       if (r.connected) return { spaceDid: r.identity, client: activeProvider.client ?? null };
       return null;
     });
@@ -151,7 +151,17 @@ export function initDataControl({
   // ── Educational overlay buttons ────────────────────────────────────────────
   document.getElementById('ipfs-edu-connect-btn')?.addEventListener('click', async () => {
     _closeOverlay();
-    document.getElementById('ipfs-dialog-connect-btn')?.click();
+    await _doConnect(connectFn, 'hosted');
+  });
+
+  document.getElementById('ipfs-edu-own-btn')?.addEventListener('click', async () => {
+    _closeOverlay();
+    await _doConnect(connectFn, 'own');
+  });
+
+  document.getElementById('ipfs-edu-desktop-btn')?.addEventListener('click', async () => {
+    _closeOverlay();
+    await _doConnect(connectFn, 'desktop');
   });
 
   document.getElementById('ipfs-edu-skip-btn')?.addEventListener('click', () => {
@@ -162,7 +172,17 @@ export function initDataControl({
 
   // ── Condensed connect dialog buttons ──────────────────────────────────────
   document.getElementById('ipfs-dialog-connect-btn')?.addEventListener('click', async () => {
-    await _doConnect(connectFn);
+    await _doConnect(connectFn, 'hosted');
+    _closeConnectDialog();
+  });
+
+  document.getElementById('ipfs-dialog-own-btn')?.addEventListener('click', async () => {
+    await _doConnect(connectFn, 'own');
+    _closeConnectDialog();
+  });
+
+  document.getElementById('ipfs-dialog-desktop-btn')?.addEventListener('click', async () => {
+    await _doConnect(connectFn, 'desktop');
     _closeConnectDialog();
   });
 
@@ -347,10 +367,10 @@ function _closeConnectDialog() {
 
 // ── Connect helper ────────────────────────────────────────────────────────────
 
-async function _doConnect(connectFn) {
+async function _doConnect(connectFn, mode = 'hosted') {
   const statusEl = document.getElementById('ipfs-edu-connect-status')
                 || document.getElementById('ipfs-dialog-status');
-  _showEl(statusEl, '⏳ Signing in — approve the wallet prompt to unlock Pinata…', 'info');
+  _showEl(statusEl, mode === 'desktop' ? '⏳ Checking IPFS Desktop…' : mode === 'own' ? '⏳ Connecting your Pinata account…' : '⏳ Authorizing BigNuten hosted Pinata…', 'info');
 
   if (typeof connectFn !== 'function') {
     _showEl(statusEl, '⚠️ Storage provider not available. Please reload and try again.', 'error');
@@ -358,7 +378,7 @@ async function _doConnect(connectFn) {
   }
 
   try {
-    const result = await connectFn();
+    const result = await connectFn(mode);
     const identity = result?.spaceDid || result?.identity || null;
     if (identity || result?.connected) {
       setStorageMode('w3up');

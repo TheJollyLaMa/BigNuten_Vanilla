@@ -158,27 +158,12 @@ export async function getFitnessData() {
   const snapshot = loadLatestSnapshotFromStorage();
   const current = localStorage.getItem(STORAGE_KEY);
 
-  // Inserted logic for no local snapshot or current
+  // First-time users start with a clean local profile. Restoring an old CID is
+  // an explicit action from the storage panel, never an initialization prompt.
   if (!snapshot && !current) {
-    const cid = prompt("No local history found. Enter CID to restore from an IPFS snapshot, or cancel to start fresh:");
-    if (cid) {
-      try {
-        const data = await fetchSnapshotData(cid);
-        if (data.weightLogs || data.supplements || data.exercises) {
-          const normalized = normalizeFitnessData(data);
-          saveFitnessData(normalized);
-          alert("Snapshot restored from Lighthouse.");
-          return normalized;
-        } else {
-          alert("Invalid snapshot structure.");
-        }
-      } catch (err) {
-        console.error("CID restore failed:", err);
-        alert("Restore from Lighthouse CID failed.");
-      }
-    } else {
-      alert("No historical data restored. Starting fresh from this session.");
-    }
+    const fresh = cloneDefaultData();
+    saveFitnessData(fresh);
+    return fresh;
   }
 
   if (snapshot && !current) {

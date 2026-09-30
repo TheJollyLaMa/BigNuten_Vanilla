@@ -972,14 +972,14 @@
         <h3>🔑 Your Data &amp; IPFS Storage</h3>
 
         <p class="about-payment-desc">
-          Your data lives in your browser. Connect Pinata to enable automatic content-addressed snapshots — or export a JSON file anytime.
-          <strong>Data is not encrypted</strong> — only share what you're comfortable with.
+          Your daily logs start in this browser. For private backups, use BigNuten's hosted Pinata relay, your own Pinata account, or local IPFS Desktop. Community sharing is always a separate opt-in action.
+          <strong>Encrypt sensitive data before sharing it.</strong>
           <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="dc-notice-link">📚 Learn about IPFS →</a>
         </p>
 
         <div class="dc-about-actions">
           <button id="about-ipfs-connect-btn" class="dc-about-open-btn" type="button">
-            🔆 Connect Pinata
+            🔆 Choose private storage
           </button>
           <button id="about-json-download-btn" class="dc-about-json-btn" type="button">
             ⬇️ Download JSON Backup
@@ -1254,9 +1254,7 @@
         Nobody can sell it, lose it, or lock you out of it. Not even us.
       </p>
       <p class="edu-body">
-        To enable automatic cloud backup, connect <strong>Pinata</strong>.
-        Currently supported: <strong>Pinata</strong> (IPFS storage, JWT-backed uploads).
-        More providers can be added without changing any of your data.
+        To enable private backups, choose one of three paths: BigNuten's hosted Pinata relay, your own Pinata account, or IPFS Desktop running on your computer. The relay receives authorization only; uploads go directly to Pinata.
         <a href="https://pinata.cloud/" target="_blank" rel="noopener noreferrer" class="edu-link">📚 Learn about IPFS &amp; Pinata →</a>
       </p>
 
@@ -1264,7 +1262,7 @@
         <div class="edu-step">
           <span class="edu-step-num">1</span>
           <div>
-            <strong>Connect Pinata</strong> (JWT-backed)
+            <strong>Choose a private storage provider</strong>
           </div>
         </div>
         <div class="edu-step">
@@ -1273,7 +1271,7 @@
         </div>
         <div class="edu-step">
           <span class="edu-step-num">3</span>
-          <div>Click <strong>"Connect Pinata"</strong> below</div>
+          <div>Your data remains yours; community sharing is a separate opt-in action.</div>
         </div>
       </div>
 
@@ -1286,8 +1284,10 @@
 
       <div class="edu-actions">
         <button id="ipfs-edu-connect-btn" class="edu-connect-btn" type="button">
-          🔆 Connect Pinata
+          🔆 Use BigNuten hosted Pinata
         </button>
+        <button id="ipfs-edu-own-btn" class="edu-skip-btn" type="button">🔐 Use my Pinata account</button>
+        <button id="ipfs-edu-desktop-btn" class="edu-skip-btn" type="button">💻 Use IPFS Desktop</button>
         <p id="ipfs-edu-connect-status" class="dc-status" aria-live="polite" style="display:none;"></p>
         <button id="ipfs-edu-skip-btn" class="edu-skip-btn" type="button">
           → Skip for now, I'll use JSON export
@@ -1301,15 +1301,16 @@
   <div id="ipfs-connect-dialog" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="ipfs-dialog-title">
     <div class="modal dc-modal">
       <button class="modal-close" id="ipfs-dialog-close-btn" aria-label="Close">×</button>
-      <h3 id="ipfs-dialog-title" style="color:#00e5ff;margin-top:0;">🔆 Connect Pinata</h3>
+      <h3 id="ipfs-dialog-title" style="color:#00e5ff;margin-top:0;">🔆 Choose private storage</h3>
       <p style="color:#8ab0c4;font-size:0.85rem;">
-        Connect Pinata to enable automatic content-addressed snapshots.
-        Your data lives in <em>your</em> space — BigNuten cannot access it.
+        Start with BigNuten's hosted Pinata relay, use your own Pinata JWT, or connect local IPFS Desktop. Your data stays in your chosen storage path; community sharing is separate.
         <a href="https://pinata.cloud/" target="_blank" rel="noopener noreferrer" class="dc-notice-link">Learn Pinata →</a>
       </p>
       <button id="ipfs-dialog-connect-btn" class="dc-action-btn dc-btn-w3s" type="button" style="width:100%;margin-bottom:0.6rem;">
-        🔆 Connect Pinata
+        🔆 Use BigNuten hosted Pinata
       </button>
+      <button id="ipfs-dialog-own-btn" class="dc-action-btn dc-btn-secondary" type="button" style="width:100%;margin-bottom:0.6rem;">🔐 Use my Pinata account</button>
+      <button id="ipfs-dialog-desktop-btn" class="dc-action-btn dc-btn-secondary" type="button" style="width:100%;margin-bottom:0.6rem;">💻 Use IPFS Desktop</button>
       <p id="ipfs-dialog-status" class="dc-status" aria-live="polite" style="display:none;"></p>
       <div style="margin-top:0.75rem;border-top:1px solid rgba(0,229,255,0.1);padding-top:0.75rem;">
         <div class="dc-json-utility-title">📁 JSON Backup — No Account Needed</div>
@@ -1557,13 +1558,11 @@
         </p>
       </section>
 
-      <!-- Pinata JWT Section -->
+      <!-- Personal Pinata JWT fallback -->
       <section class="settings-section">
-        <h3>🔐 Pinata JWT</h3>
+        <h3>🔐 Personal Pinata account</h3>
         <p class="settings-desc">
-          Optional fallback for encrypted IPFS uploads and restores. Enter the personal key
-          from Pinata when prompted; BigNuten keeps it only for the current tab and
-          clears it after use.
+          Optional personal provider. New users can start with BigNuten's hosted Pinata relay and do not need a Pinata account. Use this only when you want your own Pinata workspace.
         </p>
         <div class="genie-apikey-section" id="pinata-key-section">
           <label class="genie-settings-label" for="pinata-key-input">
@@ -2801,6 +2800,13 @@
             <li>✅ Stored on IPFS — community pools are publicly auditable</li>
           </ul>
           <p class="comm-privacy-policy-link">📄 Full privacy policy &amp; data usage details: <a href="docs/TOKENOMICS.md" target="_blank" rel="noopener noreferrer">TOKENOMICS.md → Data Sharing Rewards</a></p>
+        </div>
+
+        <div class="comm-optin-card">
+          <h5 class="comm-chart-title">📤 Publish a community snapshot</h5>
+          <p>Only the summarized preview below is published. Your private fitness logs remain in your chosen personal storage provider.</p>
+          <button class="comm-claim-btn" id="cd-publish-share-btn">📤 Publish sanitized snapshot</button>
+          <p class="comm-claim-status" id="cd-publish-share-status" style="display:none;"></p>
         </div>
 
         <!-- Earn BNUT — reward status card -->

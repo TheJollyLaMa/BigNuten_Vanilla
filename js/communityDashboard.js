@@ -22,6 +22,7 @@ import {
   revokeDataConsent,
   DATA_SHARING_REWARDS,
 } from './dataSharing.js';
+import { providerRegistry } from './storageProvider.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -529,6 +530,26 @@ function refreshDataPreview(data, optIn) {
   }
 }
 
+async function publishCommunitySnapshot(data, optIn) {
+  const provider = providerRegistry.active;
+  if (!provider || provider.id === 'json-only') {
+    throw new Error('Choose hosted Pinata, your own Pinata account, or IPFS Desktop in Data Storage first.');
+  }
+  const selected = ['exercise', 'nutrition', 'weight', 'supplements']
+    .filter(key => optIn[key] !== false);
+  const payload = {
+    schema: 'bignuten-community-share-v1',
+    kind: 'sanitized-community-snapshot',
+    createdAt: new Date().toISOString(),
+    consent: { categories: selected },
+    data: buildDataPreview(data, optIn),
+  };
+  const result = await provider.put(payload);
+  localStorage.setItem('communityLastShareCid', result.cid);
+  localStorage.setItem('communityLastShareAt', new Date().toISOString());
+  return result;
+}
+
 /**
  * Render the reward-status section of the Data Pool tab.
  * Reads on-chain history if a wallet is connected.
@@ -700,6 +721,8 @@ export function initCommunityDashboard() {
     revokeBtn.addEventListener('click', () => {
       if (!confirm('Revoke all data-sharing consent? This will clear your opt-in state and end your current streak.')) return;
       revokeDataConsent();
+      localStorage.removeItem('communityLastShareCid');
+      localStorage.removeItem('communityLastShareAt');
       // Un-tick all toggles
       ['exercise', 'nutrition', 'weight', 'supplements'].forEach(key => {
         const cb = document.getElementById(`cd-opt-${key}`);
@@ -718,6 +741,13 @@ export function initCommunityDashboard() {
     claimBtn.dataset.wired = '1';
     claimBtn.addEventListener('click', async () => {
       if (!claimStatus) return;
+
+      if (!localStorage.getItem('communityLastShareCid')) {
+        claimStatus.style.display = 'block';
+        claimStatus.className = 'comm-claim-status comm-claim-warn';
+        claimStatus.textContent = '⚠️ Publish a sanitized community snapshot before requesting the BNUT reward.';
+        return;
+      }
 
       let addr = null;
       if (window.ethereum) {
@@ -739,6 +769,31 @@ export function initCommunityDashboard() {
         `✅ Reward request noted! Your wallet (${addr.slice(0, 6)}…${addr.slice(-4)}) ` +
         `has been registered for the next batch payout. ` +
         `The owner will process pending requests periodically via the Treasury contract.`;
+    });
+  }
+
+  function wirePublishButton() {
+    const publishBtn = document.getElementById('cd-publish-share-btn');
+    const statusEl = document.getElementById('cd-publish-share-status');
+    if (!publishBtn || publishBtn.dataset.wired) return;
+    publishBtn.dataset.wired = '1';
+    publishBtn.addEventListener('click', async () => {
+      const data = loadLocalData() || {};
+      const optIn = loadOptIn();
+      if (!['exercise', 'nutrition', 'weight', 'supplements'].some(key => optIn[key] !== false)) {
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⚠️ Select at least one category before publishing.'; }
+        return;
+      }
+      publishBtn.disabled = true;
+      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Publishing sanitized snapshot…'; }
+      try {
+        const result = await publishCommunitySnapshot(data, optIn);
+        if (statusEl) statusEl.textContent = `✅ Published ${result.cid.slice(0, 12)}…`;
+      } catch (error) {
+        if (statusEl) statusEl.textContent = `❌ ${error.message}`;
+      } finally {
+        publishBtn.disabled = false;
+      }
     });
   }
 
@@ -766,4 +821,5 @@ export function initCommunityDashboard() {
   // Wire revoke consent + claim buttons (safe to call multiple times — guarded by dataset.wired)
   wireRevokeButton();
   wireClaimButton();
+  wirePublishButton();
 }
