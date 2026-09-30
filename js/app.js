@@ -6864,17 +6864,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (actionsEl) actionsEl.style.display = 'none';
             if (settleBtn) settleBtn.disabled = false;
           } else if (bal >= owed * 1.25) {
-            statusEl.textContent = `⚠️ Treasury is running low — consider minting or transferring $BNUT`;
+            statusEl.textContent = `⚠️ Treasury is running low — review the funding flow before the next payroll`;
             statusEl.style.color = '#ffcc00';
             if (actionsEl) actionsEl.style.display = 'flex';
             if (settleBtn) settleBtn.disabled = false;
           } else if (bal >= owed) {
-            statusEl.textContent = `🔴 Treasury critically low — mint or transfer before next payroll`;
+            statusEl.textContent = `🔴 Treasury is near its payroll minimum — review the funding flow before the next payroll`;
             statusEl.style.color = '#ff8c00';
             if (actionsEl) actionsEl.style.display = 'flex';
             if (settleBtn) settleBtn.disabled = false;
           } else {
-            statusEl.textContent = `🚨 Insufficient funds! Treasury cannot cover pending payroll. Mint or transfer $BNUT now.`;
+            statusEl.textContent = `🚨 Treasury is short ${(owed - bal).toLocaleString(undefined, { maximumFractionDigits: 6 })} BNUT. Fund the exact deficit before settling.`;
             statusEl.style.color = '#ff4444';
             if (actionsEl) actionsEl.style.display = 'flex';
             if (settleBtn) {
@@ -7017,35 +7017,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // ── Treasury quick-action scroll links ────────────────────────────────
-
-    const mintLink = document.getElementById('payroll-treasury-mint-link');
-    if (mintLink) {
-      mintLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.getElementById('payroll-modal')?.classList.add('modal-hidden');
-        // Open treasury admin modal and focus mint section
-        const bnutAdminBtn = document.getElementById('admin-bnut-btn');
-        if (bnutAdminBtn) bnutAdminBtn.click();
-        setTimeout(() => {
-          document.getElementById('bnut-mint-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 300);
-      });
-    }
-
-    const transferLink = document.getElementById('payroll-treasury-transfer-link');
-    if (transferLink) {
-      transferLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.getElementById('payroll-modal')?.classList.add('modal-hidden');
-        // Open treasury admin modal and focus transfer section
-        const treasuryAdminBtn = document.getElementById('admin-treasury-btn');
-        if (treasuryAdminBtn) treasuryAdminBtn.click();
-        setTimeout(() => {
-          document.getElementById('treasury-transfer-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 300);
-      });
-    }
+    // ── Treasury deficit action ──────────────────────────────────────────
+    document.getElementById('payroll-treasury-fund-link')?.addEventListener('click', () => {
+      document.getElementById('payroll-modal')?.classList.add('modal-hidden');
+      document.getElementById('admin-treasury-btn')?.click();
+      setTimeout(() => document.getElementById('treasury-deficit-amount')?.focus(), 300);
+    });
 
     // ── Settle All Pending button — uses treasury.settlePayroll() ─────────
 

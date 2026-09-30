@@ -2468,10 +2468,7 @@
         <p id="payroll-treasury-balance" class="gov-wallet-balance"></p>
         <p id="payroll-treasury-status" class="payroll-treasury-status"></p>
         <div id="payroll-treasury-actions" style="display:none;" class="payroll-treasury-actions">
-          <span style="font-size:0.8rem;color:#aacfdd;">Quick actions: </span>
-          <a href="#" id="payroll-treasury-mint-link" class="payroll-treasury-action-link">🪙 Mint $BNUT</a>
-          <span style="color:#555;margin:0 0.3rem;">·</span>
-          <a href="#" id="payroll-treasury-transfer-link" class="payroll-treasury-action-link">💸 Transfer to Treasury</a>
+          <button id="payroll-treasury-fund-link" class="payroll-treasury-action-link" type="button">⚡ Fund exact deficit</button>
         </div>
       </div>
 
@@ -2498,7 +2495,7 @@
             <li>Connect MetaMask and click <strong>Settle All Pending</strong> to send a single batch transaction. Wallets without a registered address are skipped with a warning.</li>
             <li>After settlement, the <strong>Recently Settled</strong> section is populated live from <code>ContributorPaid</code> events on-chain.</li>
           </ol>
-          <p>Default network: <strong>Base Mainnet</strong> · Fallback: <strong>Optimism Mainnet</strong> · Token: <strong>$BNUT</strong></p>
+          <p>Default network: <strong>Base Mainnet</strong> · Legacy queue settlement: <strong>Optimism Mainnet</strong> · Token: <strong>$BNUT</strong></p>
           <p>
             📜 Contract:
             <span class="payroll-wallet-addr">Base treasury deployment pending · Optimism fallback treasury: <a href="https://optimistic.etherscan.io/address/0x143cC41AC075FFA40be1993827DA6ffB4638A363" target="_blank" rel="noopener" class="payroll-explorer-link"><code class="payroll-wallet-addr">0x143c…363</code></a></span>
