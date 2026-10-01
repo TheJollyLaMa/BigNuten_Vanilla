@@ -9,7 +9,7 @@ import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 import { initCompetitions, loadCompetitionsList } from './competitions.js';
 import { initYogaFlow } from './yoga.js';
-import { getManualLighthouseToken, setManualLighthouseToken, clearManualLighthouseToken, pinataGatewayUrl } from './lighthouseStorage.js';
+import { getManualPinataToken, setManualPinataToken, clearManualPinataToken, ipfsGatewayUrl } from './ipfsStorage.js';
 import { loadSnapshotManifest } from './snapshotLifecycle.js';
 
 function getActiveExplorerUrl(kind, value) {
@@ -904,7 +904,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 import { providerRegistry } from './storageProvider.js';
-import { W3upProvider } from './providers/w3upProvider.js';
+import { PinataProvider } from './providers/pinataProvider.js';
 import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
 import { initCommunityDashboard } from './communityDashboard.js';
 import { initCorrelationGraph } from './correlationGraph.js';
@@ -2865,7 +2865,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       const shortCid = `${prefix}${ipfsIcons}${suffix}`;
       return `<div class="${colorClass}">
         <strong>${date}</strong><br>
-        <a href="${pinataGatewayUrl(cid)}" target="_blank" style="text-decoration:none;color:inherit;">
+        <a href="${ipfsGatewayUrl(cid)}" target="_blank" style="text-decoration:none;color:inherit;">
           ${shortCid}
         </a>
       </div>`;
@@ -2944,7 +2944,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         div.className = 'snapshot-item';
         const date = h.timestamp ? formatInUserTz(h.timestamp) : '(No timestamp)';
         const shortCid = `${h.cid.slice(0, 6)}...${h.cid.slice(-4)}`;
-        div.innerHTML = `<strong>${date}</strong><br><a href="${pinataGatewayUrl(h.cid)}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
+        div.innerHTML = `<strong>${date}</strong><br><a href="${ipfsGatewayUrl(h.cid)}" target="_blank" style="text-decoration:none;color:inherit;">${shortCid}</a>`;
         div.style.margin = '8px 0';
         content.appendChild(div);
       });
@@ -3008,7 +3008,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.appendChild(dateSpan);
         row.appendChild(document.createTextNode(' — '));
         const link = document.createElement('a');
-        link.href = pinataGatewayUrl(entry.cid);
+        link.href = ipfsGatewayUrl(entry.cid);
         link.target = '_blank';
         link.rel = 'noopener';
         link.style.color = '#ff00cc';
@@ -3092,7 +3092,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         row.appendChild(dateSpan);
         row.appendChild(document.createTextNode(' — '));
         const link = document.createElement('a');
-        link.href = pinataGatewayUrl(entry.cid);
+        link.href = ipfsGatewayUrl(entry.cid);
         link.target = '_blank';
         link.rel = 'noopener';
         link.style.color = '#00e5ff';
@@ -3564,7 +3564,7 @@ if (measurementForm) {
         document.getElementById('current-weight-display').style.display = 'block';
         displayCurrentWeight();
 
-        // Wallet connection is handled here; Pinata storage is connected from
+        // Wallet connection is handled here; IPFS backup is connected from
         // the Data Storage controls so wallet sign-in stays reliable.
 
       } catch (error) {
@@ -4904,10 +4904,10 @@ document.addEventListener('DOMContentLoaded', () => {
       closeAesDropdown();
       if (cycleInput) cycleInput.value = getDayCycleStart();
       if (cycleStatus) cycleStatus.textContent = '';
-      if (pinataKeyInput) pinataKeyInput.value = getManualLighthouseToken();
+      if (pinataKeyInput) pinataKeyInput.value = getManualPinataToken();
       if (pinataKeyStatus) {
-        pinataKeyStatus.textContent = getManualLighthouseToken() ? '✅ Key ready' : '';
-        pinataKeyStatus.className = getManualLighthouseToken()
+        pinataKeyStatus.textContent = getManualPinataToken() ? '✅ Key ready' : '';
+        pinataKeyStatus.className = getManualPinataToken()
           ? 'genie-apikey-status saved'
           : 'genie-apikey-status';
       }
@@ -4947,14 +4947,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pinataKeySaveBtn) {
       pinataKeySaveBtn.addEventListener('click', () => {
         const val = pinataKeyInput?.value?.trim() || '';
-        setManualLighthouseToken(val);
-        if (window._lighthouseSessionRef) {
-          window._lighthouseSessionRef.authToken = val;
-          window._lighthouseSessionRef.jwt = val;
-          window._lighthouseSessionRef.apiKey = val;
-          window._lighthouseSessionRef.manualToken = true;
-          if (!window._lighthouseSessionRef.signedMessage) {
-            window._lighthouseSessionRef.signedMessage = val;
+        setManualPinataToken(val);
+        if (window._ipfsSessionRef) {
+          window._ipfsSessionRef.authToken = val;
+          window._ipfsSessionRef.jwt = val;
+          window._ipfsSessionRef.apiKey = val;
+          window._ipfsSessionRef.manualToken = true;
+          if (!window._ipfsSessionRef.signedMessage) {
+            window._ipfsSessionRef.signedMessage = val;
           }
         }
         if (pinataKeyInput) pinataKeyInput.value = val;
@@ -4969,13 +4969,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (pinataKeyClearBtn) {
       pinataKeyClearBtn.addEventListener('click', () => {
-        clearManualLighthouseToken();
-        if (window._lighthouseSessionRef?.manualToken) {
-          window._lighthouseSessionRef.authToken = '';
-          window._lighthouseSessionRef.jwt = '';
-          window._lighthouseSessionRef.apiKey = '';
-          window._lighthouseSessionRef.signedMessage = '';
-          window._lighthouseSessionRef.manualToken = false;
+        clearManualPinataToken();
+        if (window._ipfsSessionRef?.manualToken) {
+          window._ipfsSessionRef.authToken = '';
+          window._ipfsSessionRef.jwt = '';
+          window._ipfsSessionRef.apiKey = '';
+          window._ipfsSessionRef.signedMessage = '';
+          window._ipfsSessionRef.manualToken = false;
         }
         if (pinataKeyInput) pinataKeyInput.value = '';
         if (pinataKeyStatus) {
@@ -5152,7 +5152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mode     = getStorageMode();
     if (!educSeen) {
       import('./dataControl.js').then(m => m._openOverlay());
-    } else if (mode !== 'w3up' && mode !== 'own-w3s') {
+    } else if (mode !== 'ipfs') {
       const dialog = document.getElementById('ipfs-connect-dialog');
       if (dialog) {
         dialog.classList.remove('modal-hidden');
@@ -7608,10 +7608,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initCommunityDashboard();
 
   // ── Data Control (educational overlay + snapshot panel) ──────────────────
-  // Register providers and pass the W3up adapter to initDataControl.
-  const pinataProvider = new W3upProvider();
-  providerRegistry.register(pinataProvider);
-  initDataControl({ provider: pinataProvider });
+  // Register the IPFS provider and connect the storage controls.
+  const ipfsProvider = new PinataProvider();
+  providerRegistry.register(ipfsProvider);
+  initDataControl({ provider: ipfsProvider });
 
   // ── Apply initial IPFS glow state ─────────────────────────────────────────
   {
@@ -7621,7 +7621,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusRing = document.getElementById('ipfs-status');
     if (statusRing) statusRing.dataset.storageMode = initMode;
 
-    // Wire About-modal "Connect Pinata" button
+    // Wire About-modal IPFS connect button
     document.getElementById('about-ipfs-connect-btn')?.addEventListener('click', async () => {
       document.getElementById('about-modal')?.classList.add('modal-hidden');
       document.getElementById('ipfsIcon')?.click();

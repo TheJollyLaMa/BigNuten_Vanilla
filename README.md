@@ -7,7 +7,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 ![Built With](https://img.shields.io/badge/built%20with-Vanilla%20JS-yellow?style=flat-square)
 ![Solidity](https://img.shields.io/badge/contracts-Solidity%200.8.20-363636?style=flat-square&logo=ethereum)
-![Storage](https://img.shields.io/badge/storage-IPFS%20via%20Pinata-blueviolet?style=flat-square)
+![Storage](https://img.shields.io/badge/storage-IPFS%20backups-blueviolet?style=flat-square)
 ![Wallet](https://img.shields.io/badge/wallet-MetaMask-orange?style=flat-square)
 [![Early Supporter DNFT](https://img.shields.io/badge/Early%20Access-100%20DNFTs-8b00ff?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
 [![v2.0.0 DNFT Minted](https://img.shields.io/badge/v2.0.0%20DNFT-Minted%20%E2%9C%94-gold?style=flat-square&logo=ethereum)](https://thejollylama.github.io/DecentMarket/)
@@ -136,8 +136,8 @@ Everything accessible to every user in the browser — no wallet required to sta
 
 ### Data Ownership
 
-- **IPFS backup & restore** via hosted Pinata relay, personal Pinata, or local IPFS Desktop
-- **Private-by-default storage** — Render authorizes uploads while file contents travel directly from the browser to Pinata
+- **IPFS backup & restore** via BigNuten’s hosted relay, a personal pinning account, or local IPFS Desktop
+- **Private-by-default storage** — the relay authorizes uploads while file contents travel directly from the browser to the configured pinning service
 - **MetaMask wallet connection** for Base Mainnet Web3 identity
 - **No backend** — fully client-side; if the servers go dark, your browser still works
 
@@ -285,7 +285,7 @@ open index.html   # macOS
 
 - Start logging weight, supplements, food, and exercise — no wallet needed
 - Connect **MetaMask** on Base to unlock Base-deployed on-chain features
-- Use the left-header IPFS control to choose hosted Pinata, personal Pinata, or local IPFS Desktop
+- Use the left-header IPFS control to choose hosted IPFS backup, a personal pinning account, or local IPFS Desktop
 - Join a StreakBet competition and put real money on your health goals 💪
 
 ### 🛠️ I'm a Builder
@@ -802,7 +802,7 @@ npx hardhat run scripts/deploy.js --network optimism
 |-------|-----------|
 | **Frontend** | HTML5, CSS3, Vanilla JavaScript (ES Modules) — no framework, no bundler |
 | **Charts** | Chart.js + chartjs-adapter-date-fns |
-| **Storage** | Pinata client (IPFS) |
+| **Storage** | IPFS provider (hosted relay, personal pinning, or local Desktop) |
 | **Wallet** | MetaMask / EIP-1193 |
 | **Smart Contracts** | Solidity ^0.8.20, OpenZeppelin v5, Hardhat |
 | **Contract Testing** | Hardhat + @nomicfoundation/hardhat-network-helpers |
@@ -855,7 +855,7 @@ cd BigNuten_Vanilla
 
 1. Open `index.html` in your browser — **no build step needed!**
 2. Connect your **MetaMask** wallet using the wallet button on Base Mainnet
-3. Connect **IPFS** via the IPFS icon (requires a Pinata JWT)
+3. Connect **IPFS** via the IPFS icon (the current personal provider uses a Pinata JWT)
 4. Start logging your weight, supplements, food, and exercise!
 
 > Owner wallets automatically see the **Admin Panel** in the top navigation. See [Admin Panel](#️-admin-panel) above.

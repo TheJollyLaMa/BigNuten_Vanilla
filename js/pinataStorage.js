@@ -38,7 +38,7 @@ export function clearManualPinataToken() {
 }
 
 function readSession() {
-  const session = window._lighthouseSessionRef || window._pinataSessionRef || null;
+  const session = window._ipfsSessionRef || null;
   if (!session) return null;
   const token = session.jwt || session.apiKey || session.authToken || null;
   if (!token && !session.relay && !session.desktop) return null;
@@ -53,19 +53,18 @@ function readSession() {
 
 function saveSession(session) {
   const token = session.jwt || session.apiKey || session.authToken || null;
-  window._lighthouseSessionRef = {
+  window._ipfsSessionRef = {
     ...session,
     jwt: token,
     apiKey: token,
     authToken: token,
-    publicKey: session.publicKey || 'pinata',
-    identity: session.identity || 'Pinata',
+    publicKey: session.publicKey || 'ipfs',
+    identity: session.identity || 'IPFS',
     signedMessage: session.signedMessage || token,
     manualToken: !!session.manualToken,
     createdAt: new Date().toISOString(),
   };
-  window._pinataSessionRef = window._lighthouseSessionRef;
-  return window._lighthouseSessionRef;
+  return window._ipfsSessionRef;
 }
 
 function promptForPinataToken(purpose) {
@@ -182,11 +181,10 @@ export async function restorePinataSession() {
 }
 
 export function clearPinataSession() {
-  window._lighthouseSessionRef = null;
-  window._pinataSessionRef = null;
+  window._ipfsSessionRef = null;
 }
 
-export function pinataGatewayUrl(cid) {
+export function ipfsGatewayUrl(cid) {
   return `${PINATA_GATEWAY_BASE}${encodeURIComponent(String(cid || '').trim())}`;
 }
 
@@ -295,7 +293,7 @@ export async function fetchSnapshotData(cid, { session: providedSession = null }
   if (!trimmedCid) throw new Error('No CID provided.');
 
   const fetchViaGateway = async () => {
-    const response = await fetch(pinataGatewayUrl(trimmedCid));
+    const response = await fetch(ipfsGatewayUrl(trimmedCid));
     if (!response.ok) return null;
     const text = await response.text();
     try {
@@ -311,11 +309,4 @@ export async function fetchSnapshotData(cid, { session: providedSession = null }
   throw new Error('Failed to fetch from Pinata gateway.');
 }
 
-export const getManualLighthouseToken = getManualPinataToken;
-export const setManualLighthouseToken = setManualPinataToken;
-export const clearManualLighthouseToken = clearManualPinataToken;
-export const connectLighthouseSession = connectPinataSession;
-export const restoreLighthouseSession = restorePinataSession;
-export const clearLighthouseSession = clearPinataSession;
-export const lighthouseGatewayUrl = pinataGatewayUrl;
-export const uploadEncryptedSnapshot = uploadPinnedSnapshot;
+export const uploadIpfsSnapshot = uploadPinnedSnapshot;

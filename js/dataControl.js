@@ -2,14 +2,13 @@
 // BigNuten Data Control — provider-agnostic backup, snapshot panel, JSON backup/restore.
 //
 // Storage modes (saved to localStorage key 'storageMode'):
-//   'w3up'      — User has connected Pinata IPFS storage (encrypted snapshots)
-//   'own-w3s'   — Legacy alias for 'w3up' (kept for backwards compatibility)
-//   'json-only' — No remote storage; local browser only (DEFAULT for new users)
+//   'ipfs'      — Remote IPFS backup is connected
+//   'json-only' — No remote storage; local browser only (default for new users)
 
 import { normalizeFitnessData, mergeSnapshotData, importAndMergeFromCID, getFitnessData } from './fitnessData.js';
 import { providerRegistry, loadSnapshotMeta } from './storageProvider.js';
 import { getCurrentSnapshotPointer, getSnapshotLifecycleSummary, loadSnapshotManifest } from './snapshotLifecycle.js';
-import { lighthouseGatewayUrl } from './lighthouseStorage.js';
+import { ipfsGatewayUrl } from './ipfsStorage.js';
 
 const STORAGE_KEY        = 'fitnessTrackerData';
 const STORAGE_MODE_KEY   = 'storageMode';
@@ -17,27 +16,23 @@ const EDUC_SEEN_KEY      = 'ipfsEducationSeen';
 
 /** Human-readable labels for each storage mode. */
 export const STORAGE_MODE_LABELS = {
-  'w3up':      '🔐 Pinata',
-  'own-w3s':   '🔐 Pinata',
+  'ipfs':      '🌐 IPFS Backup',
   'json-only': '📁 JSON File (local)',
 };
 
 // ── Public mode helpers ───────────────────────────────────────────────────────
 
 export function getStorageMode() {
-  return localStorage.getItem(STORAGE_MODE_KEY) || 'json-only';
-}
-
-/** Map legacy 'own-w3s' to 'w3up' for the provider registry. */
-function _modeToProviderId(mode) {
-  return mode === 'own-w3s' ? 'w3up' : mode;
+  const storedMode = localStorage.getItem(STORAGE_MODE_KEY);
+  if (!storedMode) return 'json-only';
+  return storedMode === 'json-only' ? 'json-only' : 'ipfs';
 }
 
 export function setStorageMode(mode) {
-  localStorage.setItem(STORAGE_MODE_KEY, mode);
-  const providerId = _modeToProviderId(mode);
-  try { providerRegistry.setActive(providerId); } catch { /* provider not registered yet — no-op */ }
-  _applyIpfsIndicator(mode);
+  const activeMode = mode === 'json-only' ? 'json-only' : 'ipfs';
+  localStorage.setItem(STORAGE_MODE_KEY, activeMode);
+  try { providerRegistry.setActive(activeMode); } catch { /* provider not registered yet — no-op */ }
+  _applyIpfsIndicator(activeMode);
 }
 
 // ── JSON Export ───────────────────────────────────────────────────────────────
@@ -91,38 +86,20 @@ export function importDataFromJSONFile(file) {
  *
  * Call once after DOMContentLoaded.
  *
- * Preferred usage (provider-agnostic):
- *   initDataControl({ provider: providerRegistry.get('w3up') })
- *
- * Legacy usage still accepted for backwards compatibility:
- *   initDataControl({ connectW3upClient, tryAutoRestoreW3upClient, uploadDataToIPFS })
+ * The selected IPFS provider is supplied through the provider registry.
  */
-export function initDataControl({
-  provider: providerArg,
-  connectW3upClient: connectFn,
-  tryAutoRestoreW3upClient: restoreFn,
-  uploadDataToIPFS: uploadFn,
-} = {}) {
-
-  // If a provider is passed, expose its methods as legacy callbacks so the
-  // rest of this function works unchanged.
-  const activeProvider = providerArg ?? null;
-
-  if (activeProvider && !connectFn) {
-    connectFn = mode => activeProvider.connect(mode).then(r => {
-      if (r.connected) return { spaceDid: r.identity, client: activeProvider.client ?? null };
-      return null;
-    });
-  }
-  if (activeProvider && !restoreFn) {
-    restoreFn = () => activeProvider.restore().then(r => {
-      if (r?.connected) return { spaceDid: r.identity };
-      return null;
-    });
-  }
-  if (activeProvider && !uploadFn) {
-    uploadFn = (data) => activeProvider.put(data).then(r => r.cid);
-  }
+export function initDataControl({ provider: activeProvider = providerRegistry.get('ipfs') } = {}) {
+  const connectFn = activeProvider
+    ? mode => activeProvider.connect(mode).then(result => result.connected
+      ? { identity: result.identity, client: activeProvider.client ?? null }
+      : null)
+    : null;
+  const restoreFn = activeProvider
+    ? () => activeProvider.restore().then(result => result?.connected
+      ? { identity: result.identity, client: activeProvider.client ?? null }
+      : null)
+    : null;
+  const uploadFn = activeProvider ? data => activeProvider.put(data).then(result => result.cid) : null;
 
   // Expose upload reference for icon click handler
   window._ipfsUploadFn = uploadFn;
@@ -242,12 +219,12 @@ export function initDataControl({
       if (!result || !(result.connected || result.spaceDid || result.identity)) return null;
 
       localStorage.setItem(EDUC_SEEN_KEY, '1');
-      setStorageMode('w3up');
+      setStorageMode('ipfs');
       if (activeProvider?.client && typeof window._bignutenScheduleHourlySnapshot === 'function') {
         try {
           window._bignutenScheduleHourlySnapshot(activeProvider.client, activeProvider.put.bind(activeProvider));
         } catch (err) {
-          console.warn('[DataControl] Failed to start hourly Pinata snapshots after restore:', err);
+          console.warn('[DataControl] Failed to start hourly IPFS snapshots after restore:', err);
         }
       }
       return result;
@@ -270,7 +247,7 @@ export function initDataControl({
 async function _handleIpfsIconClick() {
   const isMobile = _isMobile();
   const mode = getStorageMode();
-  const isConnected = mode === 'w3up' || mode === 'own-w3s';
+  const isConnected = mode === 'ipfs';
 
   if (isConnected) {
     // Connected — push a snapshot then show the panel
@@ -280,14 +257,14 @@ async function _handleIpfsIconClick() {
       _setSnapshotPanelStatus('⏳ Pushing snapshot…', 'info');
       try {
         const data = normalizeFitnessData(await getFitnessData());
-        const client = window._w3upClientRef;
+        const client = providerRegistry.get('ipfs')?.client ?? null;
         const cid = await uploadFn(data, client);
         if (cid) {
           const short = `${cid.slice(0,8)}…${cid.slice(-4)}`;
           const isHash = !cid.startsWith('bafy');
           const link = isHash
             ? `<code>${short}</code>`
-            : `<a href="${lighthouseGatewayUrl(cid)}" target="_blank" rel="noopener noreferrer">${short}</a>`;
+            : `<a href="${ipfsGatewayUrl(cid)}" target="_blank" rel="noopener noreferrer">${short}</a>`;
           _setSnapshotPanelStatus(`✅ Pushed — ${link}`, 'success');
           localStorage.setItem('lastAutoSnapshotTimestamp', String(Date.now()));
           _renderSnapshotHistory();
@@ -370,7 +347,7 @@ function _closeConnectDialog() {
 async function _doConnect(connectFn, mode = 'hosted') {
   const statusEl = document.getElementById('ipfs-edu-connect-status')
                 || document.getElementById('ipfs-dialog-status');
-  _showEl(statusEl, mode === 'desktop' ? '⏳ Checking IPFS Desktop…' : mode === 'own' ? '⏳ Connecting your Pinata account…' : '⏳ Authorizing BigNuten hosted Pinata…', 'info');
+  _showEl(statusEl, mode === 'desktop' ? '⏳ Checking IPFS Desktop…' : mode === 'own' ? '⏳ Connecting your IPFS pinning account…' : '⏳ Authorizing BigNuten hosted IPFS backup…', 'info');
 
   if (typeof connectFn !== 'function') {
     _showEl(statusEl, '⚠️ Storage provider not available. Please reload and try again.', 'error');
@@ -381,18 +358,17 @@ async function _doConnect(connectFn, mode = 'hosted') {
     const result = await connectFn(mode);
     const identity = result?.spaceDid || result?.identity || null;
     if (identity || result?.connected) {
-      setStorageMode('w3up');
+      setStorageMode('ipfs');
       localStorage.setItem(EDUC_SEEN_KEY, '1');
-      // Store client ref for legacy upload path
-      if (result.client) window._w3upClientRef = result.client;
-      if (result.client && typeof window._bignutenScheduleHourlySnapshot === 'function' && activeProvider?.put) {
+      const ipfsProvider = providerRegistry.get('ipfs');
+      if (result.client && typeof window._bignutenScheduleHourlySnapshot === 'function' && ipfsProvider?.put) {
         try {
-          window._bignutenScheduleHourlySnapshot(result.client, activeProvider.put.bind(activeProvider));
+          window._bignutenScheduleHourlySnapshot(result.client, ipfsProvider.put.bind(ipfsProvider));
         } catch (err) {
-          console.warn('[DataControl] Failed to start hourly Pinata snapshots after connect:', err);
+          console.warn('[DataControl] Failed to start hourly IPFS snapshots after connect:', err);
         }
       }
-      _showEl(statusEl, identity ? `✅ Signed in! Space: ${identity.slice(0, 20)}…` : '✅ Signed in to Pinata!', 'success');
+      _showEl(statusEl, identity ? `✅ Connected! Space: ${identity.slice(0, 20)}…` : '✅ Connected to IPFS!', 'success');
       document.getElementById('about-modal')?.classList.add('modal-hidden');
       setTimeout(() => {
         _closeOverlay();
@@ -537,7 +513,7 @@ function _renderSnapshotHistory() {
     const short = ref.length > 12 ? `${ref.slice(0, 8)}…${ref.slice(-4)}` : ref;
     const isIpfsCid = ref.startsWith('bafy') || ref.startsWith('Qm');
     const refLink = isIpfsCid
-      ? `<a class="sp-history-cid" href="${lighthouseGatewayUrl(ref)}" target="_blank" rel="noopener noreferrer">${short}</a>`
+      ? `<a class="sp-history-cid" href="${ipfsGatewayUrl(ref)}" target="_blank" rel="noopener noreferrer">${short}</a>`
       : `<code class="sp-history-cid">${short}</code>`;
     const providerBadge = h.provider ? `<span class="sp-provider-badge">${h.provider}</span>` : '';
     const tierBadge = h.tier ? `<span class="sp-provider-badge">${h.tier}</span>` : '';
@@ -593,7 +569,7 @@ function _syncIpfsTicker(mode) {
   const ticker = document.getElementById('ticker-circle');
   if (!ticker) return;
 
-  const isConnected = mode === 'w3up' || mode === 'own-w3s';
+  const isConnected = mode === 'ipfs';
   if (!isConnected) {
     ticker.innerHTML = '';
     ticker.style.transform = '';
@@ -606,15 +582,16 @@ function _syncIpfsTicker(mode) {
 
   const manifest = loadSnapshotManifest();
   const lastMeta = manifest.current
-    || manifest.snapshots.find(m => m.provider === 'w3up' || m.provider === 'own-w3s')
+    || manifest.snapshots.find(m => m.provider && m.provider !== 'json-only')
     || loadSnapshotMeta()[0]
     || null;
+  const ipfsSession = providerRegistry.get('ipfs')?.client;
   const ref = lastMeta?.cid
     || lastMeta?.hash
-    || window._w3upClientRef?.linkedSnapshotCid
-    || window._w3upClientRef?.snapshotContext?.currentCid
-    || window._w3upClientRef?.publicKey
-    || window._w3upClientRef?.identity
+    || ipfsSession?.linkedSnapshotCid
+    || ipfsSession?.snapshotContext?.currentCid
+    || ipfsSession?.publicKey
+    || ipfsSession?.identity
     || '';
   const shortRef = _shortRef(ref);
   if (!shortRef) {
@@ -686,29 +663,30 @@ function _applyIpfsIndicator(mode) {
   const statusRing = document.getElementById('ipfs-status');
   const manifest = loadSnapshotManifest();
   const activeMeta = manifest.current
-    || manifest.snapshots.find(m => m.provider === 'w3up' || m.provider === 'own-w3s')
+    || manifest.snapshots.find(m => m.provider && m.provider !== 'json-only')
     || loadSnapshotMeta()[0]
     || null;
+  const ipfsSession = providerRegistry.get('ipfs')?.client;
   const shortRef = _shortRef(
     activeMeta?.cid
     || activeMeta?.hash
-    || window._w3upClientRef?.linkedSnapshotCid
-    || window._w3upClientRef?.snapshotContext?.currentCid
-    || window._w3upClientRef?.publicKey
-    || window._w3upClientRef?.identity
+    || ipfsSession?.linkedSnapshotCid
+    || ipfsSession?.snapshotContext?.currentCid
+    || ipfsSession?.publicKey
+    || ipfsSession?.identity
   );
 
   if (icon) {
     icon.dataset.storageMode = mode;
     icon.setAttribute(
       'aria-label',
-      mode === 'w3up' || mode === 'own-w3s'
-        ? `Pinata storage — ready${shortRef ? ` (${shortRef})` : ''}`
-        : 'Pinata storage — local only'
+      mode === 'ipfs'
+        ? `IPFS storage — ready${shortRef ? ` (${shortRef})` : ''}`
+        : 'IPFS storage — local only'
     );
-    icon.title = mode === 'w3up' || mode === 'own-w3s'
-      ? `🔆 Pinata — ready to push snapshots${shortRef ? ` (${shortRef})` : ''}.`
-      : '🔆 Local only — click to connect Pinata.';
+    icon.title = mode === 'ipfs'
+      ? `🔆 IPFS backup — ready to push snapshots${shortRef ? ` (${shortRef})` : ''}.`
+      : '🔆 Local only — click to connect IPFS backup.';
   }
   if (statusRing) statusRing.dataset.storageMode = mode;
 
@@ -716,15 +694,14 @@ function _applyIpfsIndicator(mode) {
     el.dataset.storageMode = mode;
   });
 
-  const isConnected = mode === 'w3up' || mode === 'own-w3s';
+  const isConnected = mode === 'ipfs';
   const activeLabel = STORAGE_MODE_LABELS[mode] || providerRegistry.active?.label || 'Storage';
   const tipMap = {
-    'w3up':      `🔆 ${activeLabel} — ready. Click to push snapshot.`,
-    'own-w3s':   `🔆 ${activeLabel} — ready. Click to push snapshot.`,
-    'json-only': '🔆 Local only — no remote backup. Click to connect Pinata.',
+    'ipfs':      `🔆 ${activeLabel} — ready. Click to push snapshot.`,
+    'json-only': '🔆 Local only — no remote backup. Click to connect IPFS backup.',
   };
   if (icon) {
-    icon.title = tipMap[mode] || '🔆 Pinata storage';
+    icon.title = tipMap[mode] || '🔆 IPFS storage';
   }
 
   // Refresh about-modal badge if visible (supports both old and new element IDs)

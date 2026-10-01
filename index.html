@@ -18,12 +18,12 @@
   
   <header>
     <div id="header-left">
-      <div id="ipfs-status" style="display:block;" title="Pinata storage — click to manage your data options">
+      <div id="ipfs-status" style="display:block;" title="IPFS storage — click to manage your data options">
         <div class="ticker-wrapper">
           <div class="ticker-circle-ipfs" id="ticker-circle"></div>
         </div>
         <div id="ipfsIconWrapper">
-          <button id="ipfsIcon" type="button" data-storage-mode="json-only" aria-label="Pinata storage — local only" title="Pinata storage — local only">
+          <button id="ipfsIcon" type="button" data-storage-mode="json-only" aria-label="IPFS storage — local only" title="IPFS storage — local only">
             <img src="img/IPFS_Logo.png" class="ipfs-logo" alt="" aria-hidden="true" />
           </button>
           <div id="ipfsHoverPopup" class="hover-popup"></div>
@@ -982,7 +982,7 @@
         <h3>🔑 Your Data &amp; IPFS Storage</h3>
 
         <p class="about-payment-desc">
-          Your daily logs start in this browser. For private backups, use BigNuten's hosted Pinata relay, your own Pinata account, or local IPFS Desktop. Community sharing is always a separate opt-in action.
+          Your daily logs start in this browser. For private backups, use BigNuten's hosted IPFS backup, a personal IPFS pinning account, or local IPFS Desktop. Community sharing is always a separate opt-in action.
           <strong>Encrypt sensitive data before sharing it.</strong>
           <a href="https://colab.research.google.com/drive/1PtsnLahwgP-uBz-IdESUfXBp8uwB6wcM?usp=sharing" target="_blank" rel="noopener noreferrer" class="dc-notice-link">📚 Learn about IPFS →</a>
         </p>
@@ -1274,8 +1274,8 @@
         Nobody can sell it, lose it, or lock you out of it. Not even us.
       </p>
       <p class="edu-body">
-        To enable private backups, choose one of three paths: BigNuten's hosted Pinata relay, your own Pinata account, or IPFS Desktop running on your computer. The relay receives authorization only; uploads go directly to Pinata.
-        <a href="https://pinata.cloud/" target="_blank" rel="noopener noreferrer" class="edu-link">📚 Learn about IPFS &amp; Pinata →</a>
+        To enable private backups, choose one of three paths: BigNuten's hosted IPFS backup, a personal IPFS pinning account, or IPFS Desktop running on your computer. The hosted relay receives authorization only; file contents go directly to the configured pinning service.
+        <a href="https://docs.ipfs.tech/" target="_blank" rel="noopener noreferrer" class="edu-link">📚 Learn about IPFS →</a>
       </p>
 
       <div class="edu-steps">
@@ -1304,7 +1304,7 @@
 
       <div class="edu-actions">
         <button id="ipfs-edu-connect-btn" class="edu-connect-btn" type="button">
-          🔆 Use BigNuten hosted Pinata
+          🔆 Use BigNuten hosted IPFS backup
         </button>
         <button id="ipfs-edu-own-btn" class="edu-skip-btn" type="button">🔐 Use my Pinata account</button>
         <button id="ipfs-edu-desktop-btn" class="edu-skip-btn" type="button">💻 Use IPFS Desktop</button>
@@ -1323,11 +1323,11 @@
       <button class="modal-close" id="ipfs-dialog-close-btn" aria-label="Close">×</button>
       <h3 id="ipfs-dialog-title" style="color:#00e5ff;margin-top:0;">🔆 Choose private storage</h3>
       <p style="color:#8ab0c4;font-size:0.85rem;">
-        Start with BigNuten's hosted Pinata relay, use your own Pinata JWT, or connect local IPFS Desktop. Your data stays in your chosen storage path; community sharing is separate.
-        <a href="https://pinata.cloud/" target="_blank" rel="noopener noreferrer" class="dc-notice-link">Learn Pinata →</a>
+        Start with BigNuten's hosted IPFS backup, use a personal pinning account, or connect local IPFS Desktop. Personal JWT setup currently supports Pinata. Your data stays in your chosen storage path; community sharing is separate.
+        <a href="https://docs.ipfs.tech/" target="_blank" rel="noopener noreferrer" class="dc-notice-link">Learn about IPFS →</a>
       </p>
-      <button id="ipfs-dialog-connect-btn" class="dc-action-btn dc-btn-w3s" type="button" style="width:100%;margin-bottom:0.6rem;">
-        🔆 Use BigNuten hosted Pinata
+      <button id="ipfs-dialog-connect-btn" class="dc-action-btn dc-btn-hosted-ipfs" type="button" style="width:100%;margin-bottom:0.6rem;">
+        🔆 Use BigNuten hosted IPFS backup
       </button>
       <button id="ipfs-dialog-own-btn" class="dc-action-btn dc-btn-secondary" type="button" style="width:100%;margin-bottom:0.6rem;">🔐 Use my Pinata account</button>
       <button id="ipfs-dialog-desktop-btn" class="dc-action-btn dc-btn-secondary" type="button" style="width:100%;margin-bottom:0.6rem;">💻 Use IPFS Desktop</button>
@@ -1403,7 +1403,7 @@
       <p id="mobile-sheet-status" class="dc-status" aria-live="polite" style="display:none;"></p>
 
       <p class="mobile-sheet-hint">
-        Want cloud sync? Open on desktop to connect Pinata.
+        Want cloud sync? Open on desktop to connect IPFS backup.
       </p>
     </div>
   </div>
@@ -1582,7 +1582,7 @@
       <section class="settings-section">
         <h3>🔐 Personal Pinata account</h3>
         <p class="settings-desc">
-          Optional personal provider. New users can start with BigNuten's hosted Pinata relay and do not need a Pinata account. Use this only when you want your own Pinata workspace.
+          Optional personal provider. New users can start with BigNuten's hosted IPFS backup and do not need a Pinata account. Use this only when you want your own Pinata workspace.
         </p>
         <div class="genie-apikey-section" id="pinata-key-section">
           <label class="genie-settings-label" for="pinata-key-input">

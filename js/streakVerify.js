@@ -5,7 +5,7 @@
  * Provides:
  *  - checkDataForDate(source, dateStr) — check if user logged data for a given day
  *  - buildDailyReport(comp, verifications, previousCID) — build chained IPFS report
- *  - publishDailyReport(report) — upload report to Lighthouse IPFS
+ *  - publishDailyReport(report) — upload report to IPFS
  *  - runAutoVerify() — on app load, auto-check & submit reports for active comps
  *
  * Data source mapping:
@@ -21,7 +21,7 @@
  * Related issue: #71 (v3.1.0 Epic).
  */
 
-import { uploadEncryptedSnapshot } from './lighthouseStorage.js';
+import { uploadIpfsSnapshot } from './ipfsStorage.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -179,14 +179,14 @@ export function buildDailyReport(comp, verifications, previousCID) {
 // ─── IPFS Publishing ──────────────────────────────────────────────────────────
 
 /**
- * Publish a daily report to Lighthouse IPFS.
+ * Publish a daily report to IPFS.
  * Returns the CID string or null on failure.
  * @param {object} report — built by buildDailyReport()
  * @returns {Promise<string|null>}
  */
 export async function publishDailyReport(report) {
   try {
-    const { cid: cidStr } = await uploadEncryptedSnapshot(report, { fileName: 'bignuten-daily-report.json' });
+    const { cid: cidStr } = await uploadIpfsSnapshot(report, { fileName: 'bignuten-daily-report.json' });
 
     // Update local report chain
     _saveToChain(report.compId, cidStr, report);

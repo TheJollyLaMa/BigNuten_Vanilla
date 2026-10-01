@@ -1306,17 +1306,15 @@ header {
 
 #ipfsIcon[data-storage-mode="json-only"] .ipfs-logo { opacity: 0.8; }
 
-/* own-w3s — green glow (user holds the keys) */
-#ipfsIcon[data-storage-mode="own-w3s"],
-#ipfsIcon[data-storage-mode="w3up"] {
+/* Connected IPFS backup */
+#ipfsIcon[data-storage-mode="ipfs"] {
   filter: drop-shadow(0 0 10px #00e676) drop-shadow(0 0 24px rgba(0, 220, 100, 0.7));
   opacity: 1;
-  animation: ipfs-lighthouse-pulse 2.3s ease-in-out infinite;
+  animation: ipfs-backup-pulse 2.3s ease-in-out infinite;
 }
 
 /* Corresponding border on the status ring */
-#ipfs-status[data-storage-mode="own-w3s"],
-#ipfs-status[data-storage-mode="w3up"] {
+#ipfs-status[data-storage-mode="ipfs"] {
   border-color: #00e676;
   box-shadow: 0 0 12px #00e676, 0 0 30px rgba(0, 230, 118, 0.35);
 }
@@ -1325,7 +1323,7 @@ header {
   box-shadow: none;
 }
 
-@keyframes ipfs-lighthouse-pulse {
+@keyframes ipfs-backup-pulse {
   0%, 100% {
     filter: drop-shadow(0 0 10px #00e676) drop-shadow(0 0 24px rgba(0, 220, 100, 0.7));
     box-shadow: 0 0 10px #00e676, 0 0 24px rgba(0, 230, 118, 0.32);
@@ -1347,8 +1345,7 @@ header {
 }
 
 /* Ticker letter colour per mode */
-.ticker-letter[data-storage-mode="own-w3s"],
-.ticker-letter[data-storage-mode="w3up"] { color: #00e676; text-shadow: 0 0 4px #00e676; }
+.ticker-letter[data-storage-mode="ipfs"] { color: #00e676; text-shadow: 0 0 4px #00e676; }
 
 
 
@@ -6389,8 +6386,7 @@ svg text {
   color: #00e5ff;
 }
 
-.dc-mode-badge[data-mode="own-w3s"],
-.dc-mode-badge[data-mode="w3up"] {
+.dc-mode-badge[data-mode="ipfs"] {
   background: rgba(0, 230, 118, 0.12);
   border-color: rgba(0, 230, 118, 0.45);
   color: #00e676;
@@ -6437,12 +6433,12 @@ svg text {
   transform: translateY(-1px);
 }
 
-.dc-btn-w3s {
+.dc-btn-hosted-ipfs {
   background: linear-gradient(135deg, rgba(0, 200, 100, 0.35), rgba(0, 130, 60, 0.55));
   border: 1px solid rgba(0, 230, 118, 0.5);
   color: #00e676;
 }
-.dc-btn-w3s:hover {
+.dc-btn-hosted-ipfs:hover {
   background: linear-gradient(135deg, rgba(0, 220, 110, 0.5), rgba(0, 150, 70, 0.65));
   box-shadow: 0 3px 14px rgba(0, 210, 100, 0.38);
   transform: translateY(-1px);

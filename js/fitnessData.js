@@ -1,6 +1,6 @@
 // fitnessData.js
 
-import { fetchSnapshotData } from './lighthouseStorage.js';
+import { fetchSnapshotData } from './ipfsStorage.js';
 
 const STORAGE_KEY = 'fitnessTrackerData';
 const DATA_VERSION = 1;
@@ -350,7 +350,7 @@ export function mergeSnapshotData(current, imported) {
 }
 
 /**
- * Fetches a fitness snapshot from Lighthouse/IPFS by CID and merges it into the current local data.
+ * Fetches a fitness snapshot from IPFS by CID and merges it into the current local data.
  * Deduplicates entries so re-importing the same CID is safe.
  * @param {string} cid - The IPFS CID to fetch
  * @returns {Promise<{merged: Object, added: {weightLogs: number, exercises: number, sessionLog: number}}>}

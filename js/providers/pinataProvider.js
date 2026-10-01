@@ -8,8 +8,8 @@ export class PinataProvider extends StorageProvider {
     this._session = null;
   }
 
-  get id() { return 'pinata'; }
-  get label() { return '🔐 Pinata'; }
+  get id() { return 'ipfs'; }
+  get label() { return '🌐 IPFS Backup'; }
 
   _syncSessionSnapshotContext(manifest = loadSnapshotManifest()) {
     if (!this._session) return;
@@ -39,10 +39,8 @@ export class PinataProvider extends StorageProvider {
       if (session) {
         this._session = session;
         this._syncSessionSnapshotContext();
-        window._pinataClientRef = session;
-        window._pinataClient = session;
-        window._pinataSessionRef = session;
-        return { connected: true, identity: session.identity || 'Pinata' };
+        window._ipfsSessionRef = session;
+        return { connected: true, identity: session.identity || 'IPFS' };
       }
       return { connected: false, error: 'Connection cancelled or failed.' };
     } catch (err) {
@@ -53,18 +51,18 @@ export class PinataProvider extends StorageProvider {
   async status() {
     if (this._session) {
       const manifest = loadSnapshotManifest();
-      const pointer = manifest.current?.provider === this.id
+      const pointer = manifest.current?.provider !== 'json-only' && manifest.current
         ? manifest.current
-        : manifest.snapshots.find(m => m.provider === this.id) || null;
-      const metas = loadSnapshotMeta().filter(m => m.provider === this.id);
+        : manifest.snapshots.find(m => m.provider && m.provider !== 'json-only') || null;
+      const metas = loadSnapshotMeta().filter(m => m.provider && m.provider !== 'json-only');
       const lastBackup = pointer?.timestamp ?? metas[0]?.timestamp ?? null;
-      return { connected: true, identity: this._session.identity || 'Pinata', lastBackup };
+      return { connected: true, identity: this._session.identity || 'IPFS', lastBackup };
     }
     return { connected: false };
   }
 
   async put(data) {
-    if (!this._session) throw new Error('Pinata provider not connected. Call connect() first.');
+    if (!this._session) throw new Error('IPFS provider not connected. Call connect() first.');
     const hash = await computeSnapshotHash(data);
     const now = new Date().toISOString();
     const manifest = loadSnapshotManifest();
@@ -87,7 +85,7 @@ export class PinataProvider extends StorageProvider {
         ...(this._session.relay ? { wallet: this._session.wallet, signer: this._session.signer } : {}),
         snapshotMeta: {
           createdAt: now,
-          sessionAddress: this._session.identity || 'Pinata',
+          sessionAddress: this._session.identity || 'IPFS',
           sourceHash: hash,
           previousSnapshot,
           lineage: manifest.snapshots.slice(0, 25).map(snapshot => ({
@@ -106,7 +104,7 @@ export class PinataProvider extends StorageProvider {
         const remoteHash = await computeSnapshotHash(remoteData);
         verified = remoteHash === hash;
       } catch (verifyErr) {
-        console.warn('[Pinata] Snapshot verification failed:', verifyErr);
+        console.warn('[IPFS] Snapshot verification failed:', verifyErr);
       }
       try {
         const lifecycle = recordSnapshotUpload({
@@ -114,15 +112,15 @@ export class PinataProvider extends StorageProvider {
           hash,
           timestamp: now,
           provider: this.id,
-          source: 'pinata-upload',
-          sessionAddress: this._session.identity || 'Pinata',
+          source: 'ipfs-upload',
+          sessionAddress: this._session.identity || 'IPFS',
           verified,
         });
         if (lifecycle.cleanupCandidates.length) {
-          console.info('[Pinata] Cleanup queue updated:', lifecycle.cleanupCandidates.length);
+          console.info('[IPFS] Cleanup queue updated:', lifecycle.cleanupCandidates.length);
         }
       } catch (lifecycleErr) {
-        console.warn('[Pinata] Snapshot manifest update failed:', lifecycleErr);
+        console.warn('[IPFS] Snapshot manifest update failed:', lifecycleErr);
       }
       this._syncSessionSnapshotContext();
       this._session.linkedSnapshotCid = cid;
@@ -152,10 +150,8 @@ export class PinataProvider extends StorageProvider {
       if (session) {
         this._session = session;
         this._syncSessionSnapshotContext();
-        window._pinataClientRef = session;
-        window._pinataClient = session;
-        window._pinataSessionRef = session;
-        return { connected: true, identity: session.identity || 'Pinata' };
+        window._ipfsSessionRef = session;
+        return { connected: true, identity: session.identity || 'IPFS' };
       }
       return null;
     } catch {

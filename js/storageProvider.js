@@ -61,7 +61,7 @@ export function saveSnapshotMeta(entry) {
  * Subclasses must override: id, label, connect(), status(), put(), get(), list(), restore().
  */
 export class StorageProvider {
-  /** Unique machine-readable identifier, e.g. 'w3up', 'json-only'. */
+  /** Unique machine-readable identifier, e.g. 'ipfs', 'json-only'. */
   get id() { return 'base'; }
 
   /** Human-readable label shown in UI. */

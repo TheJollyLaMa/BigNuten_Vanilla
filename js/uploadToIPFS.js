@@ -1,14 +1,14 @@
-// uploadToIPFS.js — legacy compatibility wrapper for Lighthouse uploads.
-// Prefer js/lighthouseStorage.js from new code.
+// uploadToIPFS.js — compatibility wrapper for IPFS uploads.
+// Prefer js/ipfsStorage.js from new code.
 
-import { uploadEncryptedSnapshot } from './lighthouseStorage.js';
+import { uploadIpfsSnapshot } from './ipfsStorage.js';
 
 export async function uploadDataToIPFS(data, client) {
   try {
-    const { cid } = await uploadEncryptedSnapshot(data);
+    const { cid } = await uploadIpfsSnapshot(data);
     return cid;
   } catch (err) {
-    console.error('Lighthouse upload error:', err);
+    console.error('IPFS upload error:', err);
     return null;
   }
 }

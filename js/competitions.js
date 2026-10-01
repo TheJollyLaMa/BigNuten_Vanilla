@@ -27,7 +27,7 @@ import {
   getReportChain,
   runAutoVerify,
 } from './streakVerify.js';
-import { lighthouseGatewayUrl } from './lighthouseStorage.js';
+import { ipfsGatewayUrl } from './ipfsStorage.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -633,13 +633,13 @@ async function adminDailyReport(compId) {
 
     if (cid) {
       if (statusEl) {
-        statusEl.innerHTML = `✅ Daily report published! CID: <a href="${lighthouseGatewayUrl(cid)}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">${cid.slice(0, 12)}…</a>`;
+        statusEl.innerHTML = `✅ Daily report published! CID: <a href="${ipfsGatewayUrl(cid)}" target="_blank" rel="noopener noreferrer" style="color:#00e5ff;">${cid.slice(0, 12)}…</a>`;
         statusEl.style.color = '#00e676';
       }
       renderReportChain(compId);
     } else {
       if (statusEl) {
-        statusEl.textContent = '⚠️ Report compiled but IPFS upload unavailable. Connect Lighthouse first.';
+        statusEl.textContent = '⚠️ Report compiled but IPFS upload unavailable. Connect IPFS storage first.';
         statusEl.style.color = '#ffd740';
       }
       // Still store locally for reference
@@ -669,7 +669,7 @@ function renderReportChain(compId) {
       <div class="comp-report-entry">
         <span class="comp-report-date">${escHtml(r.date)}</span>
         <span class="comp-report-stats">✅ ${r.verified} · ❌ ${r.failed}</span>
-        <a class="comp-report-link" href="${lighthouseGatewayUrl(r.cid)}" target="_blank" rel="noopener noreferrer">${r.cid.slice(0, 12)}…</a>
+        <a class="comp-report-link" href="${ipfsGatewayUrl(r.cid)}" target="_blank" rel="noopener noreferrer">${r.cid.slice(0, 12)}…</a>
       </div>
     `;
   }
