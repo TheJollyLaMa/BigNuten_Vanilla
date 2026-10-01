@@ -1,6 +1,7 @@
 // fitnessData.js
 
 import { fetchSnapshotData } from './ipfsStorage.js';
+import { getTodayInUserTz } from './timezone.js';
 
 const STORAGE_KEY = 'fitnessTrackerData';
 const DATA_VERSION = 1;
@@ -191,6 +192,23 @@ export async function getFitnessData() {
 export function saveFitnessData(data) {
   const normalized = normalizeFitnessData(data);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+}
+
+export function syncWaterIntakeAfterRestore(data) {
+  const history = isPlainObject(data?.waterDailyHistory) ? data.waterDailyHistory : {};
+  localStorage.setItem('waterDailyHistory', JSON.stringify(history));
+
+  const today = getTodayInUserTz();
+  let current = {};
+  try { current = JSON.parse(localStorage.getItem('waterTrackerData') || '{}'); } catch {}
+  const count = Object.prototype.hasOwnProperty.call(history, today)
+    ? Number(history[today]) || 0
+    : current.date === today ? Number(current.count) || 0 : 0;
+  localStorage.setItem('waterTrackerData', JSON.stringify({ date: today, count }));
+
+  if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('bignuten:fitness-data-restored'));
+  }
 }
 
 // Rebuilds the full snapshotHistory from all fitnessTrackerSnapshot-* entries on every load
@@ -389,6 +407,7 @@ export async function importAndMergeFromCID(cid) {
 
   const merged = mergeSnapshotData(current, imported);
   saveFitnessData(merged);
+  syncWaterIntakeAfterRestore(merged);
 
   // Track imported CIDs so users can see their import history
   const importedList = JSON.parse(localStorage.getItem('importedSnapshotCIDs') || '[]');

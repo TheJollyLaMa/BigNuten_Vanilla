@@ -4435,6 +4435,40 @@ svg text {
   transition: color 0.3s;
 }
 
+.payroll-coverage-panel {
+  margin: 0.55rem 0;
+  padding: 0.55rem 0;
+  border-top: 1px solid rgba(0, 229, 255, 0.16);
+}
+
+.payroll-coverage-summary,
+.payroll-coverage-note {
+  margin: 0;
+  color: #aacfdd;
+  font-size: 0.82rem;
+}
+
+.payroll-coverage-summary.is-covered { color: #68d391; }
+.payroll-coverage-summary.is-short { color: #ff8c7a; }
+.payroll-coverage-summary.is-unavailable { color: #ffcc7a; }
+
+.payroll-coverage-note { margin-top: 0.3rem; color: #ffcc7a; }
+
+.payroll-coverage-issues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.8rem;
+  margin-top: 0.35rem;
+}
+
+.payroll-coverage-issues a {
+  color: #80d8e8;
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+
+.payroll-coverage-issues a:hover { text-decoration: underline; }
+
 .payroll-treasury-actions {
   display: flex;
   align-items: center;

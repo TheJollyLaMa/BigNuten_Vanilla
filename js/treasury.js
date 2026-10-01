@@ -20,6 +20,10 @@
 const PAYROLL_QUEUE_URL =
   'https://raw.githubusercontent.com/TheJollyLaMa/BigNuten_Vanilla/main/payroll-queue.json';
 const SETTLEMENT_ROUTER_CONFIG_URL = 'settlement-router.json';
+const BOUNTY_ISSUES_URL = 'https://api.github.com/repos/TheJollyLaMa/BigNuten_Vanilla/issues';
+const BOUNTY_LABEL_RE = /^(?:test-)?bounty:\s*(\d+(?:\.\d+)?)\s*bnut$/i;
+const BOUNTY_COVERAGE_CACHE_MS = 60_000;
+let bountyCoverageCache = null;
 
 /** Shared Settlement Router network: Base. */
 const SETTLEMENT_CHAIN_ID = 8453;
@@ -126,6 +130,61 @@ export async function loadPayrollQueue() {
     pending: Array.isArray(queue.pending) ? queue.pending : [],
     settled: Array.isArray(queue.settled) ? queue.settled : [],
   };
+}
+
+export function summarizeBountyIssues(issues) {
+  const byIssue = new Map();
+  let rewardCount = 0;
+  for (const issue of Array.isArray(issues) ? issues : []) {
+    if (!issue || issue.pull_request || (issue.state && issue.state !== 'open')) continue;
+    let amount = 0;
+    const matchedLabels = [];
+    for (const label of Array.isArray(issue.labels) ? issue.labels : []) {
+      const name = typeof label === 'string' ? label : String(label?.name || '');
+      const match = BOUNTY_LABEL_RE.exec(name.trim());
+      if (!match) continue;
+      const value = Number(match[1]);
+      if (!Number.isFinite(value) || value <= 0) continue;
+      amount = Math.round((amount + value) * 1e6) / 1e6;
+      rewardCount += 1;
+      matchedLabels.push(name);
+    }
+    if (matchedLabels.length) {
+      byIssue.set(issue.number, {
+        number: issue.number,
+        title: String(issue.title || `Issue #${issue.number}`),
+        url: String(issue.html_url || `https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/${issue.number}`),
+        amount,
+        labels: matchedLabels,
+      });
+    }
+  }
+  const bountyIssues = [...byIssue.values()].sort((left, right) => right.amount - left.amount || left.number - right.number);
+  const totalBnut = Math.round(bountyIssues.reduce((sum, issue) => sum + issue.amount, 0) * 1e6) / 1e6;
+  return { totalBnut, issueCount: bountyIssues.length, rewardCount, issues: bountyIssues };
+}
+
+export async function getBountyCoverage({ forceRefresh = false, fetchImpl = fetch } = {}) {
+  const now = Date.now();
+  if (!forceRefresh && bountyCoverageCache && now - bountyCoverageCache.fetchedAt < BOUNTY_COVERAGE_CACHE_MS) {
+    return bountyCoverageCache;
+  }
+  const allIssues = [];
+  let partial = false;
+  const maxPages = 10;
+  for (let page = 1; page <= maxPages; page += 1) {
+    const response = await fetchImpl(`${BOUNTY_ISSUES_URL}?state=open&per_page=100&page=${page}`, {
+      headers: { Accept: 'application/vnd.github+json' },
+    });
+    if (!response.ok) throw new Error(`GitHub bounty lookup failed (${response.status}).`);
+    const issues = await response.json();
+    if (!Array.isArray(issues)) throw new Error('GitHub returned an invalid issue list.');
+    allIssues.push(...issues);
+    if (issues.length < 100) break;
+    if (page === maxPages) partial = true;
+  }
+  bountyCoverageCache = { ...summarizeBountyIssues(allIssues), fetchedAt: now, partial };
+  return bountyCoverageCache;
 }
 
 // ─── Exported: getTreasuryBalance ─────────────────────────────────────────────

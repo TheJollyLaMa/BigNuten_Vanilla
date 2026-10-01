@@ -5,7 +5,7 @@
 //   'ipfs'      — Remote IPFS backup is connected
 //   'json-only' — No remote storage; local browser only (default for new users)
 
-import { normalizeFitnessData, mergeSnapshotData, importAndMergeFromCID, getFitnessData } from './fitnessData.js';
+import { normalizeFitnessData, mergeSnapshotData, importAndMergeFromCID, getFitnessData, syncWaterIntakeAfterRestore } from './fitnessData.js';
 import { providerRegistry, loadSnapshotMeta } from './storageProvider.js';
 import { getCurrentSnapshotPointer, getSnapshotLifecycleSummary, loadSnapshotManifest } from './snapshotLifecycle.js';
 import { ipfsGatewayUrl } from './ipfsStorage.js';
@@ -69,6 +69,7 @@ export function importDataFromJSONFile(file) {
         // Use mergeSnapshotData — the single deduplication function
         const merged = mergeSnapshotData(existing, normalized);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        syncWaterIntakeAfterRestore(merged);
         resolve(merged);
       } catch (err) {
         reject(new Error('Invalid JSON file: ' + err.message));

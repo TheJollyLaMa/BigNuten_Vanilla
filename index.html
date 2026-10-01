@@ -1861,6 +1861,10 @@
             <span class="treasury-metric-label">Treasury Contract Balance</span>
             <span id="treasury-wallet-bal" class="treasury-metric-value">—</span>
           </div>
+          <div class="treasury-metric">
+            <span class="treasury-metric-label">Open BNUT Bounties</span>
+            <span id="treasury-bounty-coverage" class="treasury-metric-value" aria-live="polite">—</span>
+          </div>
         </div>
         <button id="treasury-refresh-btn" class="gov-admin-action-btn" style="margin-bottom:1rem;">🔄 Refresh Metrics</button>
 
@@ -2504,6 +2508,9 @@
       <div id="payroll-treasury-health" style="display:none;">
         <p id="payroll-treasury-balance" class="gov-wallet-balance"></p>
         <p id="payroll-treasury-status" class="payroll-treasury-status"></p>
+        <div id="payroll-bounty-coverage" class="payroll-coverage-panel" aria-live="polite">
+          <p class="payroll-coverage-summary">Open BNUT bounty coverage loads with the selected settlement source.</p>
+        </div>
         <div class="payroll-settlement-source">
           <label for="payroll-settlement-source-select">Settlement source</label>
           <select id="payroll-settlement-source-select" class="gov-input">

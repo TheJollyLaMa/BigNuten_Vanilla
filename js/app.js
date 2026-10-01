@@ -1,6 +1,6 @@
 import { initDnftPayPalPurchase, initDnftStripePurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
-import { loadPayrollQueue, getTreasuryBalance, getPayrollSettlementOptions, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
+import { loadPayrollQueue, getTreasuryBalance, getPayrollSettlementOptions, getBountyCoverage, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS, _openConnectDialog } from './dataControl.js';
@@ -3125,16 +3125,10 @@ window.addEventListener('DOMContentLoaded', async () => {
         const { added } = result;
         feedback.innerHTML = `✅ Merged successfully!<br>
           Added: ${added.weightLogs} weight log(s), ${added.exercises} exercise entry(s), ${added.sessionLog} session(s), ${added.waterDays} hydration day(s).<br>
-          <em style="color:#aaa;">Reload the page to see all merged data.</em>`;
+          <em style="color:#aaa;">Your trackers and summaries have been refreshed.</em>`;
         feedback.style.color = '#00ff99';
         cidInput.value = '';
         importBtn.disabled = false;
-
-        setTimeout(() => {
-          if (confirm('Import successful! Reload the page to see all merged data?')) {
-            window.location.reload();
-          }
-        }, 500);
       } catch (err) {
         feedback.textContent = `❌ ${err.message}`;
         feedback.style.color = '#ff4444';
@@ -3315,6 +3309,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   loadMeasurementChart('all');
+  window.addEventListener('bignuten:fitness-data-restored', () => {
+    loadMeasurementChart(document.getElementById('measurement-chart-select')?.value || 'all');
+  });
 // --- Measurements Modal Logic ---
 const measurementForm = document.getElementById('measurement-form');
 const measurementTypeSelect = document.getElementById('measurement-type');
@@ -3645,6 +3642,15 @@ if (measurementForm) {
   const roundButtons = document.querySelectorAll('.round-button');
 
   let weightChart = null;
+  window.addEventListener('bignuten:fitness-data-restored', () => {
+    if (!weightChart) return;
+    const data = getFitnessData();
+    weightChart.data.datasets[0].data = (data.weightLogs || []).map(entry => ({
+      x: new Date(entry.timestamp),
+      y: Number(entry.weight),
+    }));
+    weightChart.update();
+  });
 
   const modals = {
     weight: document.getElementById('weight-modal'),
@@ -4083,6 +4089,10 @@ if (exerciseForm) {
   });
   // Load on page load
   loadExercises();
+  window.addEventListener('bignuten:fitness-data-restored', () => {
+    populateExerciseTypeDropdown();
+    loadExercises();
+  });
 }
 
 // Expose requestLocation globally
@@ -4323,6 +4333,18 @@ window.addEventListener('DOMContentLoaded', () => {
       hideModal('water-modal');
     }
   });
+});
+
+window.addEventListener('bignuten:fitness-data-restored', () => {
+  updateWaterMeter();
+  refreshChakraAura();
+  displayCurrentWeight();
+  loadSupplements();
+  displayRecentFoods();
+  displayRecentSupplements();
+  displayRecentExercises();
+  renderDietAllTimeLog();
+  renderRawIntakeDVCard();
 });
 // ===== End Water Intake Tracker =====
 
@@ -6179,6 +6201,48 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    async function renderBountyCoverage(settlementOption) {
+      const panel = document.getElementById('payroll-bounty-coverage');
+      if (!panel) return;
+      panel.replaceChildren();
+      const summary = document.createElement('p');
+      summary.className = 'payroll-coverage-summary';
+      summary.textContent = 'Checking open BNUT bounty labels…';
+      panel.appendChild(summary);
+      try {
+        const coverage = await getBountyCoverage();
+        const available = Number(settlementOption?.balance || 0);
+        const difference = available - coverage.totalBnut;
+        summary.className = `payroll-coverage-summary ${difference >= 0 ? 'is-covered' : 'is-short'}`;
+        summary.textContent = coverage.issueCount === 0
+          ? `No open BNUT bounty labels found · ${available.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT available in ${settlementOption?.label || 'selected source'}`
+          : `${coverage.totalBnut.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNUT required across ${coverage.issueCount} open issues · ${available.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNUT in ${settlementOption?.label || 'selected source'} · ${difference >= 0 ? `${difference.toLocaleString(undefined, { maximumFractionDigits: 4 })} surplus` : `${(-difference).toLocaleString(undefined, { maximumFractionDigits: 4 })} deficit`}`;
+        if (coverage.partial) {
+          const note = document.createElement('p');
+          note.className = 'payroll-coverage-note';
+          note.textContent = 'Issue scan reached its 1,000-issue page limit; totals may be incomplete.';
+          panel.appendChild(note);
+        }
+        if (coverage.issues.length) {
+          const list = document.createElement('div');
+          list.className = 'payroll-coverage-issues';
+          coverage.issues.slice(0, 5).forEach(issue => {
+            const link = document.createElement('a');
+            const expectedUrl = `https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/${issue.number}`;
+            link.href = issue.url === expectedUrl ? issue.url : expectedUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = `#${issue.number} ${issue.title} · ${issue.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNUT`;
+            list.appendChild(link);
+          });
+          panel.appendChild(list);
+        }
+      } catch (error) {
+        summary.className = 'payroll-coverage-summary is-unavailable';
+        summary.textContent = `Bounty coverage unavailable: ${error.message}`;
+      }
+    }
+
     // ── Bounty bot config (read from raw GitHub URL) ──────────────────────
     const BOT_CONFIG_RAW_URL =
       'https://raw.githubusercontent.com/TheJollyLaMa/BigNuten_Vanilla/main/bounty-bot-config.json';
@@ -6881,6 +6945,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSettlementSources(sourceOptions);
         const source = selectedSettlementSource();
         const selectedOption = sourceOptions.find(option => option.source === source) || sourceOptions.find(option => option.available);
+        renderBountyCoverage(selectedOption);
         const bal = selectedOption?.balance || 0;
         if (balanceEl) {
           balanceEl.textContent = `🏦 ${selectedOption?.label || 'Settlement source'}: ${bal.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT available · ${_totalBNUTOwed.toLocaleString(undefined, { maximumFractionDigits: 2 })} BNUT owed`;
@@ -7470,14 +7535,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const el = (id) => document.getElementById(id);
         let treasuryBal = '—';
+        let treasuryAmount = null;
         if (BNUT_ADDR && TREASURY_ADDR && TREASURY_ADDR !== '0x0000000000000000000000000000000000000000') {
           try {
             const bnut = new ethers.Contract(BNUT_ADDR, ['function balanceOf(address) view returns (uint256)'], provider);
             const balWei = await bnut.balanceOf(TREASURY_ADDR);
+            treasuryAmount = Number(ethers.formatEther(balWei));
             treasuryBal = fmt(balWei) + ' BNUT';
           } catch (_) { /* treasury not deployed */ }
         }
         if (el('treasury-wallet-bal')) el('treasury-wallet-bal').textContent = treasuryBal;
+        const coverageEl = el('treasury-bounty-coverage');
+        if (coverageEl) {
+          try {
+            const coverage = await getBountyCoverage();
+            const required = coverage.totalBnut.toLocaleString(undefined, { maximumFractionDigits: 4 });
+            const difference = treasuryAmount === null ? null : treasuryAmount - coverage.totalBnut;
+            coverageEl.className = `treasury-metric-value payroll-coverage-summary ${difference === null ? 'is-unavailable' : difference >= 0 ? 'is-covered' : 'is-short'}`;
+            coverageEl.textContent = `${required} BNUT required across ${coverage.issueCount} open issues · ${difference === null ? 'Treasury balance unavailable' : `${Math.abs(difference).toLocaleString(undefined, { maximumFractionDigits: 4 })} BNUT ${difference >= 0 ? 'surplus' : 'deficit'}`}${coverage.partial ? ' · Issue scan incomplete' : ''}`;
+          } catch (error) {
+            coverageEl.className = 'treasury-metric-value payroll-coverage-summary is-unavailable';
+            coverageEl.textContent = `Bounty coverage unavailable: ${error.message}`;
+          }
+        }
 
       } catch (err) {
         console.warn('[treasury] loadTreasuryMetrics error:', err.message);
