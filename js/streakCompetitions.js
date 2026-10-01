@@ -60,6 +60,10 @@ function streakAddress() {
 function escapeText(value) {
   return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
+function localDateTimeInput(timestamp) {
+  const date = new Date(Number(timestamp) * 1000);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
 function challengeImageUrl(value) {
   const image = String(value || '').trim();
   if (/^https:\/\//i.test(image)) return image;
@@ -256,7 +260,7 @@ async function renderStreakChallenges() {
             : peerEntrant.disqualified ? 'rejected by majority'
               : disputed ? `disputed · ${approvals} support / ${rejections} dispute`
                 : `${approvals} support / ${rejections} dispute`;
-          const inviteButton = isCaptain && disputed
+          const inviteButton = isCaptain && disputed && reviewOpen
             ? `<button data-streak-action="invite-reviewer" data-comp="${compId}" data-week="${index}" data-peer="${peer}">Invite tie-break reviewer</button>` : '';
           return `<li><code>${escapeText(peer.slice(0, 6))}…${escapeText(peer.slice(-4))}</code> · ${attendance.weeklyActivityDays}/${7} qualifying days · ${reviewStatus}${canReview ? `<button data-streak-action="approve" data-comp="${compId}" data-week="${index}" data-peer="${peer}">Confirm</button><button data-streak-action="reject" data-comp="${compId}" data-week="${index}" data-peer="${peer}">Dispute</button>` : ''}${inviteButton}</li>`;
         }));
@@ -267,7 +271,9 @@ async function renderStreakChallenges() {
         const meetupLink = meetup.meetingUrl ? `<a href="${escapeText(meetup.meetingUrl)}" target="_blank" rel="noopener noreferrer">Open call</a>` : '';
         const revealCode = isCaptain && inCall && participantWallets.length
           ? `<button data-streak-action="reveal" data-comp="${compId}" data-week="${index}" data-attendees="${addresses.length}">Confirm call roster and reveal code</button>` : '';
-        cardsForMeetups.push(`<li><strong>Week ${index + 1}</strong> · ${formatInUserTz(Number(meetup.opensAt) * 1000)} · ${addresses.length} attendees ${meetupLink}${joinCall}${revealCode}<ul>${roster.join('') || '<li>No check-ins yet.</li>'}</ul></li>`);
+        const updateCall = isCaptain && now < Number(meetup.opensAt)
+          ? `<button data-streak-action="schedule" data-comp="${compId}" data-week="${index}" data-start="${localDateTimeInput(meetup.opensAt)}" data-url="${escapeText(meetup.meetingUrl)}">Update call and rotate code</button>` : '';
+        cardsForMeetups.push(`<li><strong>Week ${index + 1}</strong> · ${formatInUserTz(Number(meetup.opensAt) * 1000)} · ${addresses.length} attendees ${meetupLink}${joinCall}${revealCode}${updateCall}<ul>${roster.join('') || '<li>No check-ins yet.</li>'}</ul></li>`);
       }
 
       const joinButton = !entrantIndex && wallet && Number(competition.status) === 0
@@ -324,6 +330,8 @@ function bindStreakActions(root) {
       } else if (button.dataset.streakAction === 'schedule') {
         node('streak-schedule-comp').value = compId;
         node('streak-schedule-week').value = week + 1;
+        if (button.dataset.start) node('streak-meetup-start').value = button.dataset.start;
+        if (button.dataset.url) node('streak-meetup-url').value = button.dataset.url;
         node('streak-meetup-start').focus();
         node('streak-schedule-button').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
