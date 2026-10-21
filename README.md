@@ -4,7 +4,7 @@
 > **BigNuten is a privacy-first, Web3-powered wellness platform** that lets you log every dimension of your health — nutrition, workouts, supplements, emotions, breathwork, yoga, and more — while earning $BNUT tokens, participating in on-chain StreakBet competitions with real stakes, and governing the future of the platform as a DAO member. Built with zero backend, zero build steps, and open to every kind of contributor.
 
 ![Version](https://img.shields.io/badge/version-v3.1.0-blue?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square)](LICENSE)
 ![Built With](https://img.shields.io/badge/built%20with-Vanilla%20JS-yellow?style=flat-square)
 ![Solidity](https://img.shields.io/badge/contracts-Solidity%200.8.20-363636?style=flat-square&logo=ethereum)
 ![Storage](https://img.shields.io/badge/storage-IPFS%20backups-blueviolet?style=flat-square)
@@ -882,7 +882,8 @@ Full deployment guide: [`docs/DEPLOYMENTS.md`](docs/DEPLOYMENTS.md)
 
 ## 📄 License
 
-[MIT](LICENSE)
+Code: [Apache-2.0](LICENSE) · Art and docs: [CC BY 4.0](LICENSES/CC-BY-4.0.txt) · Please keep the [NOTICE](NOTICE) and give The Jolly LaMa / A Decent Agency a head nod when you reuse this work.
+Support the work with a [Supporter DNFT](https://thejollylama.github.io/DecentMarket/).
 
 ---
 
