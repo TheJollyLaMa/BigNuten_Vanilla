@@ -1,24 +1,13 @@
 'use strict';
 
-const { test, before, beforeEach } = require('node:test');
+const { test, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { setImmediate: flush } = require('node:timers/promises');
 
+const original = Object.fromEntries(['window', 'localStorage', 'fetch', 'requestIdleCallback', 'document'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+after(() => { for (const [key, descriptor] of Object.entries(original)) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; } });
 const values = new Map();
 const nodes = new Map();
-global.localStorage = {
-  getItem: key => values.get(key) ?? null,
-  setItem: (key, value) => values.set(key, String(value)),
-  removeItem: key => values.delete(key),
-};
-global.window = { BIGNUTEN_STORAGE_RELAY_URL: '', innerWidth: 1024 };
-global.requestIdleCallback = () => 0;
-global.document = {
-  getElementById: id => nodes.get(id) || null,
-  querySelector: () => null, querySelectorAll: () => [],
-  body: { classList: { add() {}, remove() {} } },
-};
-global.fetch = async () => { throw new Error('UI test must not make provider requests'); };
 
 function element(...classes) {
   const names = new Set(classes);
@@ -33,6 +22,20 @@ function element(...classes) {
 
 let control, registry;
 before(async () => {
+global.localStorage = {
+  getItem: key => values.get(key) ?? null,
+  setItem: (key, value) => values.set(key, String(value)),
+  removeItem: key => values.delete(key),
+};
+global.window = { BIGNUTEN_STORAGE_RELAY_URL: '', innerWidth: 1024 };
+global.requestIdleCallback = () => 0;
+global.document = {
+  getElementById: id => nodes.get(id) || null,
+  querySelector: () => null, querySelectorAll: () => [],
+  body: { classList: { add() {}, remove() {} } },
+};
+global.fetch = async () => { throw new Error('UI test must not make provider requests'); };
+
   control = await import('../js/dataControl.js');
   ({ providerRegistry: registry } = await import('../js/storageProvider.js'));
 });

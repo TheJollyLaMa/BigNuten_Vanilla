@@ -1,3 +1,5 @@
+import { computeSnapshotHash } from './snapshotHash.js';
+import { validateFitnessSnapshot } from './fitnessSchema.js';
 function getPinataToken({ strict = true } = {}) {
   const token =
     window.pinataToken ||
@@ -323,10 +325,13 @@ export async function fetchSnapshotData(cid, { session: providedSession = null }
   } catch {
     throw new Error('Snapshot response is not a valid JSON object.');
   }
+  const sourceHash = payload?.__bignutenSnapshot ? payload.sourceHash : null;
   payload = unwrapSnapshotPayload(payload);
+  if (sourceHash && await computeSnapshotHash(payload) !== sourceHash) throw new Error('Snapshot content hash mismatch.');
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new Error('Snapshot must contain a JSON object.');
   }
+  validateFitnessSnapshot(payload);
   return payload;
 }
 

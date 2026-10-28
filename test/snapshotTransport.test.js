@@ -8,13 +8,7 @@ const original = {
   window: global.window, localStorage: global.localStorage, fetch: global.fetch,
   requestIdleCallback: global.requestIdleCallback,
 };
-global.window = { BIGNUTEN_STORAGE_RELAY_URL: '', dispatchEvent() {} };
-global.requestIdleCallback = () => 0;
-global.localStorage = {
-  getItem: key => values.get(key) ?? null,
-  setItem: (key, value) => values.set(key, String(value)),
-  removeItem: key => values.delete(key),
-};
+
 let transport, lifecycle, PinataProvider;
 const sample = { dataVersion: 1, weightLogs: [], exercises: { entries: [] }, waterDailyHistory: { '2026-10-20': 3 } };
 const reply = (data, status = 200) => ({
@@ -23,6 +17,13 @@ const reply = (data, status = 200) => ({
 });
 
 before(async () => {
+global.window = { BIGNUTEN_STORAGE_RELAY_URL: '', dispatchEvent() {} };
+global.requestIdleCallback = () => 0;
+global.localStorage = {
+  getItem: key => values.get(key) ?? null,
+  setItem: (key, value) => values.set(key, String(value)),
+  removeItem: key => values.delete(key),
+};
   transport = await import('../js/pinataStorage.js');
   lifecycle = await import('../js/snapshotLifecycle.js');
   ({ PinataProvider } = await import('../js/providers/pinataProvider.js'));
@@ -159,7 +160,7 @@ test('mismatched verification rejects and preserves the last known-good pointer'
   global.fetch = async url => {
     if (url.includes('/version')) return reply({ Version: 'test' });
     if (url.includes('/add?')) return reply({ Hash: 'bafybadsnapshot' });
-    return reply({ wrong: 'synthetic data' });
+    return reply({ ...sample, waterDailyHistory: {} });
   };
   const provider = new PinataProvider();
   await provider.connect('desktop');

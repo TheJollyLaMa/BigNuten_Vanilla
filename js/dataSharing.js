@@ -1,3 +1,4 @@
+import { chainHistory } from './chainHistory.js';
 /**
  * js/dataSharing.js
  * BigNuten Data Sharing Rewards — Opt-In Tracking & Treasury Integration
@@ -168,34 +169,14 @@ export function getNextMilestone() {
 
 // ─── On-Chain Reward History ──────────────────────────────────────────────────
 
-/**
- * Maximum block range to query in a single eth_getLogs request.
- * Many RPC providers (e.g. Infura, Alchemy, public Optimism nodes) reject
- * queries that span more than 100 000 blocks ("Block range is too large").
- */
-const MAX_LOG_RANGE_BLOCKS = 100_000;
-
-/**
- * Read all DataSharingRewarded events emitted for a given wallet address
- * from the BigNutenTreasury contract.
- *
- * Queries only the most recent MAX_LOG_RANGE_BLOCKS blocks to avoid
- * "Block range is too large" errors from RPC providers.  If the query
- * still fails (e.g. a provider that enforces a smaller limit), the range
- * is halved and retried up to three times before returning an empty array.
- *
- * Returns an empty array if the treasury is not yet deployed or ethers is unavailable.
- *
- * @param {string} walletAddress  Checksummed or lower-case wallet address.
- * @returns {Promise<Array<{amount: number, ref: string, txHash: string}>>}
- */
+/** Fetch bounded, checkpointed reward history. Failed queries reject; cached events are not empty success. */
 export async function getOnChainDataSharingHistory(walletAddress) {
   const activeConfig = window.CONTRACTS || {};
   const activeLabel = activeConfig.label || 'selected network';
   const activeChainId = Number(activeConfig.chainId || 8453);
 
   if (!walletAddress || typeof ethers === 'undefined') {
-    return [];
+    throw new Error('Connect a wallet and load ethers to retrieve reward history.');
   }
 
   console.time('[dataSharing] history fetch');
@@ -207,7 +188,7 @@ export async function getOnChainDataSharingHistory(walletAddress) {
     let getReference;
     if (activeChainId === 8453) {
       const configResponse = await fetch(DATA_SHARING_ROUTER_CONFIG_URL);
-      if (!configResponse.ok) return [];
+      if (!configResponse.ok) throw new Error('Reward router configuration is unavailable.');
       const config = await configResponse.json();
       const router = new ethers.Contract(config.routerAddress, DATA_SHARING_ROUTER_ABI, provider);
       const fundId = ethers.keccak256(ethers.toUtf8Bytes(config.fundSlug));
@@ -219,65 +200,26 @@ export async function getOnChainDataSharingHistory(walletAddress) {
       const treasuryAddress = activeConfig.treasury || window.TREASURY_CONTRACT_ADDRESS || '';
       if (!treasuryAddress || treasuryAddress === '0x0000000000000000000000000000000000000000') {
         console.info(`[dataSharing] Treasury is not deployed on ${activeLabel}; on-chain reward history is unavailable.`);
-        return [];
+        throw new Error('Reward history is unavailable: treasury not deployed.');
       }
       const response = await fetch('abis/BigNutenTreasury.json');
-      if (!response.ok) return [];
+      if (!response.ok) throw new Error('Treasury ABI is unavailable.');
       eventSource = new ethers.Contract(treasuryAddress, await response.json(), provider);
       filter = eventSource.filters.DataSharingRewarded(walletAddress);
       formatAmount = amount => Number(ethers.formatEther(amount));
       getReference = ref => ref;
     }
 
-    // Determine a bounded recent range to avoid "Block range is too large" errors.
-    let latestBlock;
-    try {
-      latestBlock = await provider.getBlockNumber();
-    } catch (_) {
-      latestBlock = null;
-    }
-
-    let range = MAX_LOG_RANGE_BLOCKS;
-    let logs  = null;
-    const maxRetries = 3;
-
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const fromBlock = latestBlock !== null
-        ? Math.max(0, latestBlock - range)
-        : 0;
-      try {
-        logs = await eventSource.queryFilter(filter, fromBlock, 'latest');
-        break; // success
-      } catch (queryErr) {
-        const msg = String(queryErr?.message || queryErr).toLowerCase();
-        const isRangeError =
-          msg.includes('block range') ||
-          msg.includes('too large') ||
-          msg.includes('query returned more than') ||
-          msg.includes('exceed') ||
-          msg.includes('limit');
-
-        if (isRangeError && attempt < maxRetries - 1) {
-          range = Math.floor(range / 2);
-          console.warn(
-            `[dataSharing] RPC range error — retrying with range ${range} blocks (attempt ${attempt + 2}/${maxRetries})`
-          );
-        } else {
-          throw queryErr;
-        }
-      }
-    }
-
-    if (!logs) return [];
-
-    return logs.map(log => ({
-      amount:  formatAmount(log.args.amount),
-      ref:     getReference(activeChainId === 8453 ? log.args.metadataUri : log.args.ref),
-      txHash:  log.transactionHash,
-    }));
-  } catch (err) {
-    console.warn('[dataSharing] Could not fetch on-chain history:', err);
-    return [];
+    const latestBlock = await provider.getBlockNumber();
+    const result = await chainHistory.scan({
+      scope: `${activeChainId}:${String(eventSource.target).toLowerCase()}:rewards:${walletAddress.toLowerCase()}`,
+      latestBlock,
+      query: (from, to) => eventSource.queryFilter(filter, from, to),
+      project: log => ({ amount: formatAmount(log.args.amount), ref: getReference(activeChainId === 8453 ? log.args.metadataUri : log.args.ref) }),
+    });
+    const history = result.events;
+    Object.defineProperty(history, 'scanStatus', { value: { state: result.state, cursor: result.cursor, latestBlock } });
+    return history;
   } finally {
     console.timeEnd('[dataSharing] history fetch');
   }
@@ -292,6 +234,7 @@ export async function getOnChainDataSharingHistory(walletAddress) {
  */
 export async function getConfirmedDataSharingBnut(walletAddress) {
   const history = await getOnChainDataSharingHistory(walletAddress);
+  if (history.scanStatus.state !== 'success') throw new Error('Reward history scan is pending. Retry to finish recovery.');
   return history.reduce((sum, h) => sum + h.amount, 0);
 }
 
@@ -319,15 +262,22 @@ export async function getDataSharingStatus(walletAddress) {
   const earnedBnut    = calculateEarnedBnut();
   const nextMilestone = getNextMilestone();
 
-  let confirmedBnut = 0;
+  let confirmedBnut = null;
   let onChainHistory = [];
+  let historyStatus = { state: 'unavailable' };
 
   if (walletAddress) {
-    onChainHistory  = await getOnChainDataSharingHistory(walletAddress);
-    confirmedBnut   = onChainHistory.reduce((s, h) => s + h.amount, 0);
+    try {
+      onChainHistory = await getOnChainDataSharingHistory(walletAddress);
+      historyStatus = onChainHistory.scanStatus;
+      if (historyStatus.state === 'success') confirmedBnut = onChainHistory.reduce((s, h) => s + h.amount, 0);
+    } catch (error) {
+      historyStatus = error.historyStatus || { state: 'failure', error: error.message };
+      onChainHistory = error.history || [];
+    }
   }
 
-  const pendingBnut = Math.max(0, earnedBnut - confirmedBnut);
+  const pendingBnut = confirmedBnut === null ? null : Math.max(0, earnedBnut - confirmedBnut);
 
   return {
     optedIn,
@@ -338,6 +288,7 @@ export async function getDataSharingStatus(walletAddress) {
     pendingBnut,
     nextMilestone,
     onChainHistory,
+    historyStatus,
   };
 }
 

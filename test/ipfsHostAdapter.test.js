@@ -1,10 +1,15 @@
 'use strict';
 
-const { test, before, beforeEach } = require('node:test');
+const { test, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
 
+const original = Object.fromEntries(['window', 'localStorage', 'fetch', 'requestIdleCallback', 'document', 'MutationObserver'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+after(() => { for (const [key, descriptor] of Object.entries(original)) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; } });
 const values = new Map();
 const nodes = new Map();
+
+let createHost, registry, focused, statusCalls, providerStatus;
+before(async () => {
 global.localStorage = {
   getItem: key => values.get(key) ?? null,
   setItem: (key, value) => values.set(key, String(value)),
@@ -22,8 +27,6 @@ global.document = {
 };
 global.fetch = async () => { throw new Error('Adapter tests must not request provider bytes'); };
 
-let createHost, registry, focused, statusCalls, providerStatus;
-before(async () => {
   ({ createBigNutenIPFSHost: createHost } = await import('../js/ipfsHostAdapter.js'));
   ({ providerRegistry: registry } = await import('../js/storageProvider.js'));
 });

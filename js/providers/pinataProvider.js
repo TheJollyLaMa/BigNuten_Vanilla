@@ -1,3 +1,4 @@
+import { validateFitnessSnapshot } from '../fitnessSchema.js';
 import { StorageProvider, computeSnapshotHash, saveSnapshotMeta, loadSnapshotMeta } from '../storageProvider.js';
 import { connectPinataSession, restorePinataSession, uploadPinnedSnapshot, uploadViaStorageRelay, uploadIpfsDesktopSnapshot, fetchSnapshotData } from '../pinataStorage.js';
 import { loadSnapshotManifest, recordSnapshotUpload } from '../snapshotLifecycle.js';
@@ -6,6 +7,7 @@ export class PinataProvider extends StorageProvider {
   constructor() {
     super();
     this._session = null;
+    this.backupStatus = { state: 'idle' };
   }
 
   get id() { return 'ipfs'; }
@@ -56,13 +58,15 @@ export class PinataProvider extends StorageProvider {
         : manifest.snapshots.find(m => m.provider && m.provider !== 'json-only') || null;
       const metas = loadSnapshotMeta().filter(m => m.provider && m.provider !== 'json-only' && m.status === 'ok');
       const lastBackup = pointer?.timestamp ?? metas[0]?.timestamp ?? null;
-      return { connected: true, identity: this._session.identity || 'IPFS', lastBackup };
+      return { connected: true, identity: this._session.identity || 'IPFS', lastBackup, backup: this.backupStatus };
     }
     return { connected: false };
   }
 
   async put(data) {
     if (!this._session) throw new Error('IPFS provider not connected. Call connect() first.');
+    validateFitnessSnapshot(data);
+    this.backupStatus = { state: 'pending' };
     const hash = await computeSnapshotHash(data);
     const now = new Date().toISOString();
     const manifest = loadSnapshotManifest();
@@ -105,6 +109,7 @@ export class PinataProvider extends StorageProvider {
       if (remoteHash !== hash) {
         throw new Error('Snapshot verification hash mismatch. Previous recovery pointer was not replaced.');
       }
+      saveSnapshotMeta({ hash, cid, timestamp: now, provider: this.id, status: 'ok' });
       const lifecycle = recordSnapshotUpload({
         cid,
         hash,
@@ -121,12 +126,12 @@ export class PinataProvider extends StorageProvider {
       this._syncSessionSnapshotContext();
       this._session.linkedSnapshotCid = cid;
       this._session.linkedSnapshotHash = hash;
-      const meta = { hash, cid, timestamp: now, provider: this.id, status: 'ok' };
-      saveSnapshotMeta(meta);
+      this.backupStatus = { state: 'success', timestamp: now };
       return { cid, hash };
     } catch (err) {
       const meta = { hash, cid: uploadedCid, timestamp: now, provider: this.id, status: 'error', error: err.message };
-      saveSnapshotMeta(meta);
+      this.backupStatus = { state: 'failure', error: err.message };
+      try { saveSnapshotMeta(meta); } catch {}
       throw err;
     }
   }

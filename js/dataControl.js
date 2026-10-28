@@ -1,3 +1,5 @@
+import { fitnessRecovery } from './snapshotRecovery.js';
+import { validateFitnessSnapshot } from './fitnessSchema.js';
 // js/dataControl.js
 // BigNuten Data Control — provider-agnostic backup, snapshot panel, JSON backup/restore.
 //
@@ -61,14 +63,14 @@ export function importDataFromJSONFile(file) {
     reader.onload = (e) => {
       try {
         const parsed     = JSON.parse(e.target.result);
-        const normalized = normalizeFitnessData(parsed);
+        const normalized = validateFitnessSnapshot(parsed);
         const existing   = (() => {
           try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
           catch { return {}; }
         })();
         // Use mergeSnapshotData — the single deduplication function
         const merged = mergeSnapshotData(existing, normalized);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        fitnessRecovery.save(merged);
         syncWaterIntakeAfterRestore(merged);
         resolve(merged);
       } catch (err) {

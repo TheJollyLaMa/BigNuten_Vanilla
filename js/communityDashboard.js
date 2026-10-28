@@ -622,7 +622,13 @@ async function renderRewardStatus() {
         .send('eth_accounts', []).catch(() => []))[0] || null
     : null;
 
+  const historyNotice = document.getElementById('cd-history-status');
+  if (historyNotice) historyNotice.textContent = 'Reward history scan pending…';
   const status = await getDataSharingStatus(walletAddress);
+  if (historyNotice) historyNotice.textContent = status.historyStatus.state === 'success'
+    ? 'Reward history scan complete.' : status.historyStatus.state === 'pending'
+      ? 'Reward history scan pending; reopen to continue. Cached records may be incomplete.'
+      : 'Reward history unavailable. Cached records are retained; retry later.';
 
   const revokeBar       = document.getElementById('cd-revoke-bar');
   const earnNoOptin     = document.getElementById('cd-earn-no-optin');
@@ -637,8 +643,8 @@ async function renderRewardStatus() {
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     set('cd-streak-weeks',  `${status.streakWeeks} week${status.streakWeeks !== 1 ? 's' : ''}`);
     set('cd-earned-bnut',   `${status.earnedBnut.toLocaleString()} BNUT`);
-    set('cd-confirmed-bnut', `${status.confirmedBnut.toLocaleString()} BNUT`);
-    set('cd-pending-bnut',  `${status.pendingBnut.toLocaleString()} BNUT`);
+    set('cd-confirmed-bnut', status.confirmedBnut === null ? 'Unavailable / scanning' : `${status.confirmedBnut.toLocaleString()} BNUT`);
+    set('cd-pending-bnut',  status.pendingBnut === null ? 'Unavailable / scanning' : `${status.pendingBnut.toLocaleString()} BNUT`);
 
     const milestoneRow  = document.getElementById('cd-milestone-row');
     const milestoneText = document.getElementById('cd-milestone-text');

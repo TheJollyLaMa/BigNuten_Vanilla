@@ -1,3 +1,4 @@
+import { chainHistory } from './chainHistory.js';
 import { getDateInUserTz, getTodayInUserTz, formatInUserTz } from './timezone.js';
 import { uploadViaStorageRelay, uploadIpfsDesktopSnapshot } from './pinataStorage.js';
 import { evaluateStreakRules, validateStreakRules } from './streakRules.mjs';
@@ -233,8 +234,9 @@ async function renderStreakChallenges() {
       let rosterUnavailable = false;
       if (Number(competition.entrantCount) > 0) {
         try {
-          const joinedEvents = await contract.queryFilter(contract.filters.EntrantJoined(compId));
-          participantWallets = [...new Set(joinedEvents.map(log => log.args.entrant.toLowerCase()))];
+          const history = await scanStreakHistory(contract, `joined:${compId}`, contract.filters.EntrantJoined(compId));
+          participantWallets = [...new Set(history.events.map(log => log.entrant))];
+          rosterUnavailable = history.state !== 'success';
         } catch (error) {
           console.warn('[Streak] Could not load entrant history:', error);
           rosterUnavailable = true;
@@ -254,8 +256,9 @@ async function renderStreakChallenges() {
         let addresses = [];
         if (Number(competition.entrantCount) > 0) {
           try {
-            const checkIns = await contract.queryFilter(contract.filters.MeetupSelfCheckedIn(compId, index));
-            addresses = [...new Set(checkIns.map(log => log.args.entrant.toLowerCase()))];
+            const history = await scanStreakHistory(contract, `checkins:${compId}:${index}`, contract.filters.MeetupSelfCheckedIn(compId, index));
+            addresses = [...new Set(history.events.map(log => log.entrant))];
+            rosterUnavailable ||= history.state !== 'success';
           } catch (error) {
             console.warn('[Streak] Could not load meetup history:', error);
             rosterUnavailable = true;
@@ -288,11 +291,11 @@ async function renderStreakChallenges() {
           ? `<label class="streak-public-consent"><input type="checkbox" data-public-stats="${compId}:${index}" /> Publish wallet-linked progress details to public IPFS <small>Includes selected weight/exercise/food details; anyone can read them and pins may persist. If configured, request community-node replication too.</small></label><button data-streak-action="checkin" data-comp="${compId}" data-week="${index}">Check in · confirm ${escapeText(config.meetupGoal)}</button>`
           : '';
         const meetupLink = meetup.meetingUrl ? `<a href="${escapeText(meetup.meetingUrl)}" target="_blank" rel="noopener noreferrer">Open call</a>` : '';
-        const revealCode = isCaptain && inCall && participantWallets.length
+        const revealCode = isCaptain && !rosterUnavailable && inCall && participantWallets.length
           ? `<button data-streak-action="reveal" data-comp="${compId}" data-week="${index}" data-attendees="${addresses.length}">Confirm call roster and reveal code</button>` : '';
         const updateCall = isCaptain && now < Number(meetup.opensAt)
           ? `<button data-streak-action="schedule" data-comp="${compId}" data-week="${index}" data-start="${localDateTimeInput(meetup.opensAt)}" data-url="${escapeText(meetup.meetingUrl)}">Update call and rotate code</button>` : '';
-        cardsForMeetups.push(`<li><strong>Week ${index + 1}</strong> · ${formatInUserTz(Number(meetup.opensAt) * 1000)} · ${addresses.length} attendees ${meetupLink}${joinCall}${revealCode}${updateCall}<ul>${roster.join('') || '<li>No check-ins yet.</li>'}</ul></li>`);
+        cardsForMeetups.push(`<li><strong>Week ${index + 1}</strong> · ${formatInUserTz(Number(meetup.opensAt) * 1000)} · ${addresses.length} attendees ${meetupLink}${joinCall}${revealCode}${updateCall}<ul>${roster.join('') || (rosterUnavailable ? '<li>History unavailable or still scanning; retry to complete.</li>' : '<li>No check-ins yet.</li>')}</ul></li>`);
       }
 
       const active = Number(competition.status) === 0;
@@ -569,3 +572,12 @@ function initStreakCompetitions() {
 }
 
 document.addEventListener('DOMContentLoaded', initStreakCompetitions);
+
+async function scanStreakHistory(contract, name, filter) {
+  const latestBlock = await contract.runner.provider.getBlockNumber();
+  return chainHistory.scan({
+    scope: `${Number(window.CONTRACTS?.chainId)}:${streakAddress().toLowerCase()}:${name}`,
+    latestBlock, query: (from, to) => contract.queryFilter(filter, from, to),
+    project: log => ({ entrant: log.args.entrant.toLowerCase() }),
+  });
+}

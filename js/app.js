@@ -1,3 +1,5 @@
+import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
+initializeSnapshotRecovery();
 import { initDnftPayPalPurchase, initDnftStripePurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
 import { loadPayrollQueue, getTreasuryBalance, getPayrollSettlementOptions, getBountyCoverage, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
@@ -807,6 +809,7 @@ const defaultData = {
 };
 
 function getFitnessData() {
+  fitnessRecovery.recover();
   let data = localStorage.getItem(STORAGE_KEY);
   if (data) {
     const normalized = normalizeFitnessData(JSON.parse(data));
@@ -821,7 +824,7 @@ function getFitnessData() {
 
 function saveFitnessData(data) {
   const normalized = normalizeFitnessData(data);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  fitnessRecovery.save(normalized);
   refreshChakraAura();
 }
 
