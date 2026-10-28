@@ -310,15 +310,6 @@ try {
       await modal('yoga-genie-panel', '#yoga-genie-btn', '#yoga-genie-chat-close', ['[data-panel="workout-set-list"].panel-toggle-btn', '#yoga-flow-btn']);
       await click('#yoga-close-btn');
       if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
-      await modal('workout-timer-modal', '#start-workout-button', '#cancel-workout-button', ['[data-panel="workout-set-list"].panel-toggle-btn']);
-      // The legacy prep countdown still fires after Cancel and opens the feeling
-      // prompt. Settle and dismiss it explicitly so it cannot cover later dialogs.
-      await page.waitForTimeout(11_500);
-      if (await page.locator('#emotion-modal').isVisible()) {
-        await click('#emotion-modal .modal-close');
-        await hidden('#emotion-modal');
-      }
-      if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
       if (name === 'mobile') await modal('mobile-data-sheet', '#ipfsIcon', '#mobile-sheet-close-btn');
       await modal('ipfs-connect-dialog', '#aes-storage-btn', '#ipfs-dialog-close-btn', ['#aesculapius-right']);
       // A prepared storage-mode preference is a UI fixture, not a connected IPFS
@@ -326,6 +317,11 @@ try {
       await page.evaluate(() => localStorage.setItem('storageMode', 'ipfs'));
       await modal('ipfs-snapshot-panel', '#aes-storage-btn', '#snapshot-panel-close', ['#aesculapius-right']);
       await page.evaluate(() => localStorage.setItem('storageMode', 'json-only'));
+      // #362: Cancel does not clear the legacy prep timer. Freeze timers for
+      // this final immediate-cancel check so it cannot cover subsequent dialogs.
+      await page.clock.pauseAt(new Date('2026-10-28T12:00:00Z'));
+      await modal('workout-timer-modal', '#start-workout-button', '#cancel-workout-button', ['[data-panel="workout-set-list"].panel-toggle-btn']);
+      if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
       const exclusions = new Map([
         ...(name === 'desktop' ? [['mobile-data-sheet', 'Mobile-only IPFS menu by design.']] : [['ipfs-edu-overlay', 'Desktop-only onboarding by design.']]),
       ]);
