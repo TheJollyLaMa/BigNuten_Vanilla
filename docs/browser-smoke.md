@@ -53,6 +53,27 @@ there are no forced clicks or replaced app functions.
   commented error allowlist in the runner is **empty**. Future entries must have
   a narrow matcher and justification, and are always printed in the run output.
 
+## Surface audit additions (#348)
+
+See [AUDIT.md](AUDIT.md) for the source-backed surface matrix, scoped results and
+bug links. The runner additionally checks chakra/aura canvas dimensions,
+moon/sun text and ekadasi links, timezone selection persistence, all community
+dashboard tabs, the actual Supporter DNFT menu route and purchase form presence,
+and an active Yoga breathing/timer session through confirmed End. No prompt,
+financial transaction or external upload is sent.
+
+Workout cancellation has a known leaked preparation callback
+([#362](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/362)). Its immediate
+open/cancel check runs last with Playwright's clock paused so it cannot interrupt
+unrelated dialogs. This is explicitly **not** timer lifecycle correctness coverage.
+The legacy raw-food surface remains asserted present/hidden with its missing
+opener recorded under #361, rather than silently counted as reachable.
+
+`npm run test:node` also runs `test/fitnessRoundTrip.test.js`: synthetic, populated
+values for every default schema key pass through the real JSON export handler,
+clear/import handler and local snapshot recovery. Schema additions fail the
+fixture key-set guard until covered. See the matrix for remaining acceptance gaps.
+
 ## Hermetic fixtures and boundaries
 
 All external requests are intercepted. Chart.js, the bundled date-fns adapter,
