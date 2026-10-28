@@ -3532,16 +3532,12 @@ if (measurementForm) {
 
         function positionWalletLetters() {
           const letters = walletTicker.querySelectorAll('.ticker-letter');
-          const centerX = 65;
-          const centerY = 65;
-          const radius = 54;
+          const radiusPercent = (54 / 130) * 100;
           const angleStep = (2 * Math.PI) / letters.length;
           letters.forEach((letter, index) => {
             const angle = index * angleStep;
-            const x = centerX + radius * Math.cos(angle);
-            const y = centerY + radius * Math.sin(angle);
-            letter.style.left = `${x}px`;
-            letter.style.top = `${y}px`;
+            letter.style.left = `${50 + radiusPercent * Math.cos(angle)}%`;
+            letter.style.top = `${50 + radiusPercent * Math.sin(angle)}%`;
           });
         }
         positionWalletLetters();

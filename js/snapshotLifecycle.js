@@ -168,6 +168,7 @@ export function recordSnapshotUpload({
   source = 'upload',
   sessionAddress = '',
   fileName = 'bignuten-health-data.json',
+  verified = true,
 } = {}) {
   const entry = normalizeEntry({
     cid,
@@ -177,6 +178,7 @@ export function recordSnapshotUpload({
     source,
     sessionAddress,
     fileName,
+    verified,
   });
 
   if (!entry) throw new Error('Cannot record an empty snapshot entry.');
