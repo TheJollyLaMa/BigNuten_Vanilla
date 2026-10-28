@@ -2437,6 +2437,7 @@ const startWorkoutButton = document.getElementById('start-workout-button');
 
 let workoutSequence = [];
 let currentStepIndex = 0;
+// Preparation, work and rest countdowns are sequential and share one timer handle.
 let workoutTimerInterval = null;
 let paused = false;
 
@@ -2470,7 +2471,13 @@ startWorkoutButton?.addEventListener('click', () => {
   }
 });
 
+function clearWorkoutTimer() {
+  clearInterval(workoutTimerInterval);
+  workoutTimerInterval = null;
+}
+
 function prepareWorkoutSequence(sequence) {
+  clearWorkoutTimer();
   // Remove final rest period if last item is a rest
   if (sequence.length && sequence[sequence.length - 1].type === 'rest') {
     sequence.pop();
@@ -2502,18 +2509,20 @@ function prepareWorkoutSequence(sequence) {
 
   // 10-second audible countdown before workout starts
   let countdown = 10;
-  const prepInterval = setInterval(() => {
+  workoutTimerInterval = setInterval(() => {
     workoutTimerDisplay.textContent = `00:${String(countdown).padStart(2, '0')}`;
     playBeep();
     countdown--;
     if (countdown < 0) {
-      clearInterval(prepInterval);
+      clearWorkoutTimer();
       runWorkoutStep();
     }
   }, 1000);
 }
 
 function runWorkoutStep() {
+  if (!workoutSequence.length) return;
+  clearWorkoutTimer();
   // --- Modal UI additions: time left, completed/upcoming lists ---
   const modalDiv = workoutModal.querySelector('.modal');
   // Add time left display if not present
@@ -2652,12 +2661,12 @@ function runWorkoutStep() {
       let prep = 10;
       workoutTitle.textContent = 'Prepare';
       workoutCurrent.textContent = `Get Ready for: ${next?.name || 'Exercise'}`;
-      const prepInterval = setInterval(() => {
+      workoutTimerInterval = setInterval(() => {
         workoutTimerDisplay.textContent = `00:${String(prep).padStart(2, '0')}`;
         playBeep();
         prep--;
         if (prep < 0) {
-          clearInterval(prepInterval);
+          clearWorkoutTimer();
           currentStepIndex++;
           runWorkoutStep();
         }
@@ -2669,15 +2678,14 @@ function runWorkoutStep() {
 function startCountdown(seconds, onComplete) {
   let time = seconds;
   workoutTimerDisplay.textContent = `00:${String(time).padStart(2, '0')}`;
-  if (workoutTimerInterval) clearInterval(workoutTimerInterval);
+  clearWorkoutTimer();
   workoutTimerInterval = setInterval(() => {
     if (!paused) {
       time--;
       workoutTimerDisplay.textContent = `00:${String(time).padStart(2, '0')}`;
       if (time <= 10) playBeep();
       if (time <= 0) {
-        clearInterval(workoutTimerInterval);
-        workoutTimerInterval = null;
+        clearWorkoutTimer();
         onComplete();
         // --- Update exercise and set lists after workout completion ---
         // Only call after the final runWorkoutStep() (i.e., after workout completion)
@@ -2767,8 +2775,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         // Close the modal and reset state
         workoutModal.classList.add('modal-hidden');
-        if (workoutTimerInterval) clearInterval(workoutTimerInterval);
-        workoutTimerInterval = null;
+        clearWorkoutTimer();
         workoutSequence = [];
         currentStepIndex = 0;
         alert('Workout canceled. Progress so far has been saved.');
