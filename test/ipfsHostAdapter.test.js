@@ -138,3 +138,12 @@ test('Escape dismisses host controls, restores integration focus, and removes te
   assert.equal(nodes.get('ipfs-connect-dialog').handlers.size, 0);
   assert.equal(nodes.get('ipfs-dialog-close-btn').handlers.size, 0);
 });
+
+test('provider backup pending and failure map to explicit host states instead of ready', async () => {
+  values.set('storageMode', 'ipfs');
+  const host = createHost();
+  providerStatus = { connected: true, backup: { state: 'pending' } };
+  assert.equal((await host.getStatus()).backup.state, 'pending');
+  providerStatus = { connected: true, backup: { state: 'failure' } };
+  assert.equal((await host.getStatus()).backup.state, 'error');
+});

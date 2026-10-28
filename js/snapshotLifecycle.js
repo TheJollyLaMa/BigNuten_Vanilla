@@ -103,8 +103,8 @@ export function saveSnapshotManifest(manifest) {
   return withSnapshotTransaction(() => writeSnapshotManifest(manifest));
 }
 
-function withSnapshotTransaction(write) {
-  const keys = [MANIFEST_KEY, POINTER_KEY, 'snapshotHistory', 'lastAutoSnapshotTimestamp'];
+export function withSnapshotTransaction(write) {
+  const keys = [MANIFEST_KEY, POINTER_KEY, 'snapshotHistory', 'lastAutoSnapshotTimestamp', 'snapshotMeta'];
   const previous = keys.map(key => [key, localStorage.getItem(key)]);
   try { return write(); }
   catch (error) {

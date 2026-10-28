@@ -72,6 +72,118 @@ an older successful CID explicitly to merge it, rather than importing a failed
 upload. JSON download/import remains available without IPFS or a wallet.
 No remote unpinning or automatic destructive restore is added by this repair.
 
+## Local recovery, versions and user exports (#341)
+
+There is **one fitness schema**, `dataVersion: 1`, defined by
+`js/fitnessSchema.js`. Legacy unversioned fitness objects and the existing
+legacy field aliases/wrappers remain importable; the existing IPFS v1 envelope
+and plain JSON exports are unchanged. Import validates shape before normalization
+or merging. Unknown/newer `dataVersion` or envelope versions are rejected with
+an update-app message, without rewriting the saved object. Export remains
+available even when the app cannot interpret that version. This is not a
+migration to a second snapshot format.
+
+The browser keeps **three distinct last-known-good local recovery points** under
+`bignutenRecoveryPoints.v1`. These health-data copies stay in this browser;
+they are never included in provider uploads, community manifests or lineage.
+They do not change the existing IPFS hourly/monthly/annual retention policy.
+Clearing site storage removes local recovery too: download an external JSON
+backup before clearing data or moving browsers.
+
+On load, missing or invalid primary fitness data is restored automatically from
+the newest valid local point. Invalid candidates are skipped; legacy
+`fitnessTrackerSnapshot-*` files are eligible through the same validated path.
+**Valid current data is never automatically replaced or merged with an older
+snapshot.** A visible notice names the recovered point's timestamp and provides
+**Undo recovery** and **Export saved data**. Undo restores the exact original
+primary and water-cache bytes (including originally absent keys). The original
+state remains in `bignutenRecoveryUndo.v1`; it is not deleted by undo. Undo refuses
+to overwrite subsequent edits. Export those edits before further recovery.
+Local writes/quota failures reject rather than report a successful recovery.
+
+Recovery procedure:
+
+1. **Missing/corrupt primary:** use the automatic recovery notice; inspect the
+   dated data before continuing, or undo. If no valid point exists, preserve the
+   original bytes and use **Export saved data** before importing your own backup.
+2. **Missing/unavailable/invalid CID:** reconnect the selected provider, retry
+   after it is available, or explicitly import an older successful CID. Failed
+   fetches do not write an empty profile or advance the remote recovery pointer.
+3. **Stale but valid snapshot:** it is not automatically substituted for current
+   data. Export current data first, then explicitly import the older JSON/CID to
+   merge missing records. Current water counts win overlapping dates; distinct
+   array records use a stable record ID, or canonical content when no ID exists,
+   so simultaneous records are not dropped just because timestamps match.
+4. **Unsupported future version:** update the app; do not normalize it down to
+   v1. Export the saved data while waiting. No automatic down-migration occurs.
+5. **User export/import:** About → JSON download, or the IPFS snapshot panel's
+   JSON controls; mobile local mode offers the JSON data sheet. Download does
+   not require a wallet or IPFS. Reimport merges rather than clears current data;
+   repeated imports are idempotent. An error is not a successful import.
+
+Round-trip coverage includes water daily history, weights, supplements, foods,
+measurements, exercise types/entries, workout sessions, pain, emotions and Genie
+sessions/insights. Water-widget caches are synchronized on restore. This supports
+#257's existing schema/restore boundary; new water collection UX and broader
+#257/#204/#265 features remain separate Level 2 work. Settings, credentials and
+chain-history caches are not added to the existing health export format.
+
+## Durable chain history
+
+`js/chainHistory.js` adapts the Busking checkpoint pattern with browser-injected
+storage, not its ledger schema. Streak entrant/check-in queries and reward
+payment queries use explicit numeric block windows (10,000 blocks/request,
+maximum ten windows per invocation). Checkpoints are scoped by chain, contract,
+wallet/filter identity. A restart continues from the saved cursor; a 12-block
+overlap is re-read and replaced to handle recent reorgs. Deep historical reorgs
+require an explicit full reindex; this is not a finality guarantee.
+
+Each completed window atomically saves events and cursor in one localStorage
+value. Events dedupe by transaction hash plus log index, not amount, wallet or
+observation time. Malformed RPC events, unavailable block heads, failed queries
+and failed checkpoint writes reject. Prior completed windows remain available;
+a failure never becomes an empty successful result. Scans begin at block zero
+for completeness (no deployment-height assumptions); the first recovery may
+require reopening the view several times to catch up. Cached data is not a
+claim that the full history has been scanned.
+
+The reward panel and Streak cards distinguish pending, success and failure.
+Provider backup status is exposed in a visible live status notice (including
+hourly uploads) and the opt-in host adapter maps pending/failure to host
+`pending`/`error` rather than reporting connection readiness as backup success.
+Incomplete/unavailable reward scans do not display zero as a confirmed total or
+calculate a misleading pending payout. A retry/reopen continues recovery. RPC
+access is still required; an RPC that refuses the configured window must be
+retried with a compatible provider. Chain caches are derived/auditable state,
+not the authority for user-owned fitness exports.
+
+## Reuse decision
+
+Need: recover browser-owned snapshots and bounded chain history without new
+public health-data sharing. Canopy's `durable-checkpoints` inventory was a lead;
+current donor source/tests and unfinished work were inspected read-only.
+
+- **Adapt concepts:** DecentBusking `js/personal-play-recovery.mjs`
+  (`023c278`), injected storage/validation/explicit failure; `discord-bot/checkpoint-history.js`
+  (`63e4563`), verified retained history and stable identities;
+  `discord-bot/checkpoint-mirror.js` (`e60b91d`), bounded verification;
+  `discord-bot/ipfs-state.js` (`e60b91d`), `fund-ledger.js` (`b98fb67`),
+  `payment-ledger.js` (`a256c8e`) and `weekly-payflow.js` (`d97b93f`), checkpointed recovery.
+- **Preserve/adapt:** steward WIP's IPFS host adapter and storage validation
+  workflow, checked against DecentHead `js/ipfs-host.js` and
+  `.github/workflows/validate-ipfs-host.yml` at `426ccb7` (host v1,
+  explicit states, Node 24, read-only workflow permissions).
+- **Incompatibilities:** Busking's wallet purchases, server filesystem, Node
+  crypto/IPFS importer dependencies, radio/payment schemas and public checkpoint
+  retention do not fit private browser health recovery. Existing BigNuten v1
+  schema/providers/hash helper remain authoritative. No new dependencies,
+  extracted shared package, external service or public inventory update.
+
+Both donor projects use Apache-2.0; credit remains with The Jolly LaMa / A Decent
+Agency. This is a conceptual adaptation, not a copied donor application/schema.
+Receiving-app tests are the synthetic Node recovery/transport/history tests and
+existing Hardhat suite; no live provider integration or encryption claim.
+
 ## Opt-in DecentHead adapter (local validation)
 
 `js/ipfsHostAdapter.js` exports `createBigNutenIPFSHost({ returnFocus })` for
@@ -236,10 +348,12 @@ Run the relay tests with:
 ```sh
 npm run test:storage-relay
 npm run test:metadata-publisher
-node --test test/snapshotTransport.test.js test/dataControlStorage.test.js test/ipfsHostAdapter.test.js
+node --test test/snapshotTransport.test.js test/dataControlStorage.test.js test/ipfsHostAdapter.test.js test/snapshotRecovery.test.js test/chainHistory.test.js test/dataSharingHistory.test.js
 ```
 
-The snapshot transport tests mock all provider requests and use synthetic
+The recovery/history tests cover legacy/v1 validation, future-version rejection,
+three local points, dated recovery notice, exact undo, repeated JSON/CID imports,
+failed writes, stable event dedupe and checkpoint restart. The transport tests mock all provider requests and use synthetic
 records/credentials. They exercise Desktop save/verification/restore, personal
 credential reuse, hosted signed-URL routing, malformed responses, timeouts,
 failed writes and last-known-good retention. They are not evidence of a real

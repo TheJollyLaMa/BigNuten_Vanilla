@@ -1,11 +1,13 @@
+import { getTodayInUserTz } from './timezone.js';
 import { validateFitnessSnapshot } from './fitnessSchema.js';
 
 const DATA_KEY = 'fitnessTrackerData';
 const POINTS_KEY = 'bignutenRecoveryPoints.v1';
 const UNDO_KEY = 'bignutenRecoveryUndo.v1';
+const DATA_KEYS = [DATA_KEY, 'waterDailyHistory', 'waterTrackerData'];
 
 // Adapted from DecentBusking's injected browser recovery store (023c278).
-export function createSnapshotRecovery(storage = globalThis.localStorage, now = () => new Date().toISOString()) {
+export function createSnapshotRecovery(storage = globalThis.localStorage, now = () => new Date().toISOString(), todayInUserTz = getTodayInUserTz) {
   function points() {
     const raw = storage.getItem(POINTS_KEY);
     if (!raw) return [];
@@ -30,8 +32,15 @@ export function createSnapshotRecovery(storage = globalThis.localStorage, now = 
       catch (error) { if (error.code === 'UNSUPPORTED_SNAPSHOT_VERSION') throw error; }
       if (valid) remember(previous);
     }
-    storage.setItem(DATA_KEY, raw);
-    remember(raw);
+    const previousPoints = storage.getItem(POINTS_KEY);
+    try {
+      storage.setItem(DATA_KEY, raw);
+      remember(raw);
+    } catch (error) {
+      try { if (previous === null) storage.removeItem(DATA_KEY); else storage.setItem(DATA_KEY, previous); } catch {}
+      try { if (previousPoints === null) storage.removeItem(POINTS_KEY); else storage.setItem(POINTS_KEY, previousPoints); } catch {}
+      throw error;
+    }
     return normalized;
   }
   function recover() {
@@ -40,12 +49,36 @@ export function createSnapshotRecovery(storage = globalThis.localStorage, now = 
       try { validateFitnessSnapshot(JSON.parse(raw)); return null; }
       catch (error) { if (error.code === 'UNSUPPORTED_SNAPSHOT_VERSION') throw error; }
     }
-    for (const point of points()) {
-      try { validateFitnessSnapshot(JSON.parse(point.raw)); }
+    let candidates = points();
+    if (!candidates.length) {
+      candidates = (storage.keys ? storage.keys() : Object.keys(storage)).filter(key => key.startsWith('fitnessTrackerSnapshot-')).sort().reverse().flatMap(key => {
+        try {
+          const snapshot = JSON.parse(storage.getItem(key));
+          const date = key.slice('fitnessTrackerSnapshot-'.length);
+          if (!Number.isFinite(Date.parse(date))) return [];
+          return [{ date, raw: JSON.stringify(validateFitnessSnapshot(snapshot.data)) }];
+        } catch { return []; }
+      }).slice(0, 3);
+    }
+    for (const point of candidates) {
+      try {
+        if (!point || typeof point.raw !== 'string' || !Number.isFinite(Date.parse(point.date))) continue;
+        validateFitnessSnapshot(JSON.parse(point.raw));
+      }
       catch { continue; }
-      const undo = { raw, date: point.date, recoveredRaw: point.raw };
+      const before = Object.fromEntries(DATA_KEYS.map(key => [key, storage.getItem(key)]));
+      const history = validateFitnessSnapshot(JSON.parse(point.raw)).waterDailyHistory;
+      const today = todayInUserTz();
+      const after = { [DATA_KEY]: point.raw, waterDailyHistory: JSON.stringify(history), waterTrackerData: JSON.stringify({ date: today, count: history[today] || 0 }) };
+      const undo = { raw, date: point.date, recoveredRaw: point.raw, before, after };
       storage.setItem(UNDO_KEY, JSON.stringify(undo));
-      storage.setItem(DATA_KEY, point.raw);
+      try { for (const [key, value] of Object.entries(after)) storage.setItem(key, value); }
+      catch (error) {
+        for (const [key, value] of Object.entries(before)) {
+          try { if (value === null) storage.removeItem(key); else storage.setItem(key, value); } catch {}
+        }
+        throw error;
+      }
       return undo;
     }
     if (raw !== null) throw new Error('Saved fitness data is invalid and no valid recovery point is available. Export before importing a backup.');
@@ -54,21 +87,37 @@ export function createSnapshotRecovery(storage = globalThis.localStorage, now = 
   function undo() {
     const entry = JSON.parse(storage.getItem(UNDO_KEY) || 'null');
     if (!entry) throw new Error('No recovery to undo.');
-    if (storage.getItem(DATA_KEY) !== entry.recoveredRaw) throw new Error('Data changed after recovery. Export it before undoing.');
-    if (entry.raw === null) storage.removeItem(DATA_KEY);
-    else storage.setItem(DATA_KEY, entry.raw);
+    if (Object.entries(entry.after).some(([key, value]) => storage.getItem(key) !== value)) throw new Error('Data changed after recovery. Export it before undoing.');
+    try {
+      for (const [key, value] of Object.entries(entry.before)) {
+        if (value === null) storage.removeItem(key);
+        else storage.setItem(key, value);
+      }
+    } catch (error) {
+      for (const [key, value] of Object.entries(entry.after)) {
+        try { storage.setItem(key, value); } catch {}
+      }
+      throw error;
+    }
     // Keep the exact original bytes available even after undo.
     return entry;
   }
   return { points, remember, save, recover, undo, pending: () => JSON.parse(storage.getItem(UNDO_KEY) || 'null') };
 }
 
-export const fitnessRecovery = createSnapshotRecovery();
+export const fitnessRecovery = createSnapshotRecovery({
+  keys: () => Object.keys(globalThis.localStorage),
+  getItem: key => globalThis.localStorage.getItem(key),
+  setItem: (key, value) => globalThis.localStorage.setItem(key, value),
+  removeItem: key => globalThis.localStorage.removeItem(key),
+});
 
 export function initializeSnapshotRecovery() {
   let recovered;
   let error;
-  try { recovered = fitnessRecovery.recover() || fitnessRecovery.pending(); } catch (failure) { error = failure; }
+  try { recovered = fitnessRecovery.recover();
+    if (!recovered) { const pending = fitnessRecovery.pending(); if (pending?.recoveredRaw === localStorage.getItem(DATA_KEY)) recovered = pending; }
+  } catch (failure) { error = failure; }
   if (!recovered && !error) return;
   const show = () => {
     if (document.getElementById('snapshot-recovery-notice')) return;

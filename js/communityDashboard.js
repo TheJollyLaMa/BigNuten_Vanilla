@@ -624,6 +624,7 @@ async function renderRewardStatus() {
 
   const historyNotice = document.getElementById('cd-history-status');
   if (historyNotice) historyNotice.textContent = 'Reward history scan pending…';
+  for (const id of ['cd-confirmed-bnut', 'cd-pending-bnut']) { const element = document.getElementById(id); if (element) element.textContent = 'Scanning…'; }
   const status = await getDataSharingStatus(walletAddress);
   if (historyNotice) historyNotice.textContent = status.historyStatus.state === 'success'
     ? 'Reward history scan complete.' : status.historyStatus.state === 'pending'

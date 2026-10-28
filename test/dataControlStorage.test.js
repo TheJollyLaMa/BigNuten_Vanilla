@@ -104,3 +104,18 @@ test('mobile local-only startup also clears a stale connected preference', () =>
   assert.equal(control.getStorageMode(), 'json-only');
   assert.equal(nodes.get('ipfsIcon').dataset.storageMode, 'json-only');
 });
+
+test('background upload failures are exposed in a visible live status notice', () => {
+  let listener, notice;
+  window.addEventListener = (name, callback) => { if (name === 'bignuten:backup-status') listener = callback; };
+  document.createElement = () => element();
+  document.body.appendChild = node => { notice = node; nodes.set(node.id, node); };
+  init();
+  listener({ detail: { state: 'pending' } });
+  assert.equal(notice.dataset.state, 'pending');
+  listener({ detail: { state: 'failure', error: 'Synthetic gateway unavailable' } });
+  assert.equal(notice.attributes.role, 'status');
+  assert.match(notice.textContent, /Upload failed: Synthetic gateway unavailable/);
+  listener({ detail: { state: 'success' } });
+  assert.equal(notice.dataset.state, 'success');
+});

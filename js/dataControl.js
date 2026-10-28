@@ -105,6 +105,25 @@ export function initDataControl({ provider: activeProvider = providerRegistry.ge
     : null;
   const uploadFn = activeProvider ? data => activeProvider.put(data).then(result => result.cid) : null;
 
+  if (!window._bignutenBackupStatusListener && typeof window.addEventListener === 'function') {
+    window._bignutenBackupStatusListener = true;
+    window.addEventListener('bignuten:backup-status', event => {
+      const state = event.detail?.state;
+      let notice = document.getElementById('backup-operation-status');
+      if (!notice) {
+        notice = document.createElement('p');
+        notice.id = 'backup-operation-status';
+        notice.setAttribute('role', 'status');
+        notice.setAttribute('aria-live', 'polite');
+        notice.style.cssText = 'position:fixed;top:80px;right:16px;z-index:300001;max-width:90vw;padding:12px;background:#222;color:white';
+        document.body.appendChild(notice);
+      }
+      notice.dataset.state = state;
+      notice.textContent = state === 'pending' ? '⏳ Pushing snapshot…' : state === 'success'
+        ? '✅ Pushed — snapshot verified.' : `❌ Upload failed: ${event.detail?.error || 'Storage unavailable.'}`;
+    });
+  }
+
   // Expose upload reference for icon click handler
   window._ipfsUploadFn = uploadFn;
   window._ipfsConnectFn = connectFn;

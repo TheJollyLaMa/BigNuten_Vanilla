@@ -1,17 +1,20 @@
 // Adapted from DecentBusking's bounded ledgers and txHash/logIndex identities.
 export function createChainHistory(storage = globalThis.localStorage) {
   const states = new Map();
+  const tasks = new Map();
   function read(scope) {
     const raw = storage.getItem(`bignutenChainHistory.v1:${scope}`);
     if (!raw) return { version: 1, cursor: -1, events: [] };
     const value = JSON.parse(raw);
     if (value.version !== 1 || !Number.isSafeInteger(value.cursor) || value.cursor < -1 || !Array.isArray(value.events) ||
-        value.events.some(event => typeof event.id !== 'string' || !Number.isSafeInteger(event.blockNumber))) {
+        value.events.some(event => !event || !/^0x[0-9a-f]{64}$/i.test(event.txHash || '') ||
+          !Number.isSafeInteger(event.logIndex) || event.logIndex < 0 || event.id !== `${event.txHash.toLowerCase()}:${event.logIndex}` ||
+          !Number.isSafeInteger(event.blockNumber) || event.blockNumber < 0 || event.blockNumber > value.cursor)) {
       throw new Error('Invalid saved chain history. Existing checkpoint was not replaced.');
     }
     return value;
   }
-  async function scan({ scope, latestBlock, query, project, startBlock = 0, chunkSize = 10000, maxChunks = 10 }) {
+  async function scanWindow({ scope, latestBlock, query, project, startBlock = 0, chunkSize = 10000, maxChunks = 10 }) {
     states.set(scope, { state: 'pending' });
     let saved;
     try {
@@ -24,7 +27,7 @@ export function createChainHistory(storage = globalThis.localStorage) {
         const to = Math.min(latestBlock, from + chunkSize - 1);
         const logs = await query(from, to);
         if (!Array.isArray(logs)) throw new Error('Invalid RPC history response.');
-        const events = new Map(saved.events.map(event => [event.id, event]));
+        const events = new Map(saved.events.filter(event => event.blockNumber < from || event.blockNumber > to).map(event => [event.id, event]));
         for (const log of logs) {
           const txHash = log.transactionHash;
           const index = log.index ?? log.logIndex;
@@ -49,6 +52,13 @@ export function createChainHistory(storage = globalThis.localStorage) {
       error.history = saved?.events || [];
       throw error;
     }
+  }
+  function scan(options) {
+    const prior = tasks.get(options.scope) || Promise.resolve();
+    const result = prior.catch(() => {}).then(() => scanWindow(options));
+    tasks.set(options.scope, result);
+    result.finally(() => { if (tasks.get(options.scope) === result) tasks.delete(options.scope); }).catch(() => {});
+    return result;
   }
   return { scan, read, status: scope => states.get(scope) || { state: 'idle' } };
 }

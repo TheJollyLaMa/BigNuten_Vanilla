@@ -182,6 +182,7 @@ export async function getOnChainDataSharingHistory(walletAddress) {
   console.time('[dataSharing] history fetch');
   try {
     const provider = new ethers.JsonRpcProvider(activeConfig.rpcUrl || 'https://mainnet.base.org');
+    if (Number((await provider.getNetwork()).chainId) !== activeChainId) throw new Error('RPC network does not match the selected reward network.');
     let eventSource;
     let filter;
     let formatAmount;
@@ -227,7 +228,7 @@ export async function getOnChainDataSharingHistory(walletAddress) {
 
 /**
  * Return the cumulative on-chain confirmed BNUT for this wallet.
- * Falls back to 0 if the treasury is not yet deployed.
+ * Rejects unavailable/incomplete scans rather than inventing a zero total.
  *
  * @param {string} walletAddress
  * @returns {Promise<number>} Total confirmed BNUT (whole tokens).

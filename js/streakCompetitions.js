@@ -232,14 +232,18 @@ async function renderStreakChallenges() {
       const imageUrl = challengeImageUrl(rules.image);
       let participantWallets = [];
       let rosterUnavailable = false;
+      let historyState = 'success';
       if (Number(competition.entrantCount) > 0) {
         try {
           const history = await scanStreakHistory(contract, `joined:${compId}`, contract.filters.EntrantJoined(compId));
           participantWallets = [...new Set(history.events.map(log => log.entrant))];
           rosterUnavailable = history.state !== 'success';
+          if (rosterUnavailable) historyState = 'pending';
         } catch (error) {
           console.warn('[Streak] Could not load entrant history:', error);
           rosterUnavailable = true;
+          historyState = 'failure';
+          participantWallets = [...new Set((error.history || []).map(event => event.entrant))];
         }
       }
       const cardsForMeetups = [];
@@ -259,9 +263,12 @@ async function renderStreakChallenges() {
             const history = await scanStreakHistory(contract, `checkins:${compId}:${index}`, contract.filters.MeetupSelfCheckedIn(compId, index));
             addresses = [...new Set(history.events.map(log => log.entrant))];
             rosterUnavailable ||= history.state !== 'success';
+            if (history.state !== 'success' && historyState !== 'failure') historyState = 'pending';
           } catch (error) {
             console.warn('[Streak] Could not load meetup history:', error);
             rosterUnavailable = true;
+            historyState = 'failure';
+            addresses = [...new Set((error.history || []).map(event => event.entrant))];
           }
         }
         const roster = await Promise.all(addresses.map(async peer => {
@@ -316,7 +323,7 @@ async function renderStreakChallenges() {
       const settleButton = isCaptain && Number(competition.status) === 0 && Date.now() / 1000 >= Number(competition.endTime)
         ? `<button data-streak-action="settle" data-comp="${compId}">Settle challenge</button>` : '';
       const participantList = participantWallets.map(account => `<li>${escapeText(account.slice(0, 6))}…${escapeText(account.slice(-4))}</li>`).join('');
-      cards.push(`<article class="comp-card"><header class="comp-card-header"><img class="streak-challenge-art" src="${escapeText(imageUrl)}" alt="" onerror="this.onerror=null;this.src='img/BigNuten.png'" /><h4>${escapeText(competition.name)}</h4><span>${active ? paused ? 'Paused' : registrationOpen ? 'Registration open' : 'Registration closed' : Number(competition.status) === 1 ? 'Settled' : 'Cancelled'}</span></header><div class="comp-card-body"><p>Metrics: ${escapeText(ruleLabel)}</p><p>Challenge: ${config.requiredActivityDays} qualifying days · ${config.requiredMeetups} weekly calls · meetup goal: ${escapeText(config.meetupGoal)}</p><p>Your app progress: ${progress.totalDays} / ${config.requiredActivityDays} days · ${entrantStatus}</p><p>${escapeText(registrationText)}</p><p class="streak-peer-note">Logs stay in your browser unless you explicitly opt to publish a wallet-linked progress report to public IPFS. During the call, share the app progress screen with a peer.</p><details><summary>Joined wallets (${rosterUnavailable ? 'unavailable' : participantWallets.length})</summary><ul>${rosterUnavailable ? '<li>Roster temporarily unavailable.</li>' : participantList || '<li>No entrants yet.</li>'}</ul></details><ol>${cardsForMeetups.join('')}</ol>${joinButton}${cancelButton}${settleButton}</div></article>`);
+      cards.push(`<article class="comp-card"><header class="comp-card-header"><img class="streak-challenge-art" src="${escapeText(imageUrl)}" alt="" onerror="this.onerror=null;this.src='img/BigNuten.png'" /><h4>${escapeText(competition.name)}</h4><span>${active ? paused ? 'Paused' : registrationOpen ? 'Registration open' : 'Registration closed' : Number(competition.status) === 1 ? 'Settled' : 'Cancelled'}</span></header><div class="comp-card-body"><p>Metrics: ${escapeText(ruleLabel)}</p><p>Challenge: ${config.requiredActivityDays} qualifying days · ${config.requiredMeetups} weekly calls · meetup goal: ${escapeText(config.meetupGoal)}</p><p>Your app progress: ${progress.totalDays} / ${config.requiredActivityDays} days · ${entrantStatus}</p><p>${escapeText(registrationText)}</p><p role="status" data-history-state="${historyState}">History scan: ${historyState}${rosterUnavailable ? ' · cached records may be incomplete; reopen to retry.' : ''}</p><p class="streak-peer-note">Logs stay in your browser unless you explicitly opt to publish a wallet-linked progress report to public IPFS. During the call, share the app progress screen with a peer.</p><details><summary>Joined wallets (${rosterUnavailable ? 'unavailable' : participantWallets.length})</summary><ul>${rosterUnavailable ? '<li>Roster temporarily unavailable.</li>' : participantList || '<li>No entrants yet.</li>'}</ul></details><ol>${cardsForMeetups.join('')}</ol>${joinButton}${cancelButton}${settleButton}</div></article>`);
     }
     renderAll(cards.length ? cards.join('') : '<p>No monthly challenges are active.</p>');
     targets.forEach(bindStreakActions);
@@ -574,7 +581,9 @@ function initStreakCompetitions() {
 document.addEventListener('DOMContentLoaded', initStreakCompetitions);
 
 async function scanStreakHistory(contract, name, filter) {
-  const latestBlock = await contract.runner.provider.getBlockNumber();
+  const provider = contract.runner.provider;
+  if (Number((await provider.getNetwork()).chainId) !== Number(window.CONTRACTS?.chainId)) throw new Error('RPC network does not match the selected challenge network.');
+  const latestBlock = await provider.getBlockNumber();
   return chainHistory.scan({
     scope: `${Number(window.CONTRACTS?.chainId)}:${streakAddress().toLowerCase()}:${name}`,
     latestBlock, query: (from, to) => contract.queryFilter(filter, from, to),

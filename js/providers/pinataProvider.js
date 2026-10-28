@@ -1,7 +1,7 @@
 import { validateFitnessSnapshot } from '../fitnessSchema.js';
 import { StorageProvider, computeSnapshotHash, saveSnapshotMeta, loadSnapshotMeta } from '../storageProvider.js';
 import { connectPinataSession, restorePinataSession, uploadPinnedSnapshot, uploadViaStorageRelay, uploadIpfsDesktopSnapshot, fetchSnapshotData } from '../pinataStorage.js';
-import { loadSnapshotManifest, recordSnapshotUpload } from '../snapshotLifecycle.js';
+import { loadSnapshotManifest, recordSnapshotUpload, withSnapshotTransaction } from '../snapshotLifecycle.js';
 
 export class PinataProvider extends StorageProvider {
   constructor() {
@@ -64,22 +64,16 @@ export class PinataProvider extends StorageProvider {
   }
 
   async put(data) {
-    if (!this._session) throw new Error('IPFS provider not connected. Call connect() first.');
-    validateFitnessSnapshot(data);
-    this.backupStatus = { state: 'pending' };
-    const hash = await computeSnapshotHash(data);
     const now = new Date().toISOString();
-    const manifest = loadSnapshotManifest();
-    const previousSnapshot = manifest.current ? {
-      cid: manifest.current.cid,
-      hash: manifest.current.hash,
-      timestamp: manifest.current.timestamp,
-      provider: manifest.current.provider,
-      sessionAddress: manifest.current.sessionAddress || '',
-      fileName: manifest.current.fileName || '',
-    } : null;
+    let hash = null;
     let uploadedCid = null;
+    this._reportBackupStatus({ state: 'pending' });
     try {
+      if (!this._session) throw new Error('IPFS provider not connected. Call connect() first.');
+      validateFitnessSnapshot(data);
+      hash = await computeSnapshotHash(data);
+      const manifest = loadSnapshotManifest();
+      const previousSnapshot = manifest.current ? { ...manifest.current } : null;
       const upload = this._session.desktop
         ? uploadIpfsDesktopSnapshot
         : this._session.relay
@@ -109,8 +103,8 @@ export class PinataProvider extends StorageProvider {
       if (remoteHash !== hash) {
         throw new Error('Snapshot verification hash mismatch. Previous recovery pointer was not replaced.');
       }
-      saveSnapshotMeta({ hash, cid, timestamp: now, provider: this.id, status: 'ok' });
-      const lifecycle = recordSnapshotUpload({
+      const lifecycle = withSnapshotTransaction(() => {
+      const recorded = recordSnapshotUpload({
         cid,
         hash,
         timestamp: now,
@@ -120,19 +114,29 @@ export class PinataProvider extends StorageProvider {
         fileName: 'bignuten-snapshot.json',
         verified: true,
       });
+      saveSnapshotMeta({ hash, cid, timestamp: now, provider: this.id, status: 'ok' });
+      return recorded;
+      });
       if (lifecycle.cleanupCandidates.length) {
         console.info('[IPFS] Cleanup queue updated:', lifecycle.cleanupCandidates.length);
       }
-      this._syncSessionSnapshotContext();
+      this._syncSessionSnapshotContext(lifecycle.manifest);
       this._session.linkedSnapshotCid = cid;
       this._session.linkedSnapshotHash = hash;
-      this.backupStatus = { state: 'success', timestamp: now };
+      this._reportBackupStatus({ state: 'success', timestamp: now });
       return { cid, hash };
     } catch (err) {
       const meta = { hash, cid: uploadedCid, timestamp: now, provider: this.id, status: 'error', error: err.message };
-      this.backupStatus = { state: 'failure', error: err.message };
+      this._reportBackupStatus({ state: 'failure', error: err.message });
       try { saveSnapshotMeta(meta); } catch {}
       throw err;
+    }
+  }
+
+  _reportBackupStatus(status) {
+    this.backupStatus = status;
+    if (typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bignuten:backup-status', { detail: status }));
     }
   }
 

@@ -7,12 +7,22 @@ on:
       - js/dataControl.js
       - js/ipfsHostAdapter.js
       - js/fitnessData.js
+      - js/fitnessSchema.js
+      - js/snapshotRecovery.js
+      - js/snapshotHash.js
+      - js/chainHistory.js
+      - js/streakCompetitions.js
+      - js/dataSharing.js
+      - js/communityDashboard.js
       - js/timezone.js
       - js/storageProvider.js
       - js/snapshotLifecycle.js
       - js/pinataStorage.js
       - js/ipfsStorage.js
       - js/providers/pinataProvider.js
+      - test/snapshotRecovery.test.js
+      - test/chainHistory.test.js
+      - test/dataSharingHistory.test.js
       - test/snapshotTransport.test.js
       - test/dataControlStorage.test.js
       - test/ipfsHostAdapter.test.js
@@ -23,12 +33,22 @@ on:
       - js/dataControl.js
       - js/ipfsHostAdapter.js
       - js/fitnessData.js
+      - js/fitnessSchema.js
+      - js/snapshotRecovery.js
+      - js/snapshotHash.js
+      - js/chainHistory.js
+      - js/streakCompetitions.js
+      - js/dataSharing.js
+      - js/communityDashboard.js
       - js/timezone.js
       - js/storageProvider.js
       - js/snapshotLifecycle.js
       - js/pinataStorage.js
       - js/ipfsStorage.js
       - js/providers/pinataProvider.js
+      - test/snapshotRecovery.test.js
+      - test/chainHistory.test.js
+      - test/dataSharingHistory.test.js
       - test/snapshotTransport.test.js
       - test/dataControlStorage.test.js
       - test/ipfsHostAdapter.test.js
@@ -46,4 +66,4 @@ jobs:
         with:
           node-version: '24'
       - name: Test synthetic snapshot storage and error visibility
-        run: node --test test/snapshotTransport.test.js test/dataControlStorage.test.js test/ipfsHostAdapter.test.js
+        run: node --test test/snapshotTransport.test.js test/dataControlStorage.test.js test/ipfsHostAdapter.test.js test/snapshotRecovery.test.js test/chainHistory.test.js test/dataSharingHistory.test.js

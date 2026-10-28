@@ -5,7 +5,7 @@ import { validateFitnessSnapshot } from './fitnessSchema.js';
 // All backup/restore operations go through a StorageProvider.
 // Business logic never calls vendor SDKs directly — it calls provider methods.
 
-import { loadSnapshotManifest, recordSnapshotUpload } from './snapshotLifecycle.js';
+import { loadSnapshotManifest, recordSnapshotUpload, withSnapshotTransaction } from './snapshotLifecycle.js';
 
 // ── Snapshot content-addressing ───────────────────────────────────────────────
 
@@ -114,14 +114,17 @@ export class JsonOnlyProvider extends StorageProvider {
     const now = new Date().toISOString();
     localStorage.setItem(`fitnessTrackerSnapshot-${now}`, JSON.stringify({ cid: hash, hash, data }));
     const meta = { hash, cid: hash, timestamp: now, provider: this.id, status: 'ok' };
-    saveSnapshotMeta(meta);
     try {
-      const lifecycle = recordSnapshotUpload({
+      const lifecycle = withSnapshotTransaction(() => {
+      const recorded = recordSnapshotUpload({
         cid: hash,
         hash,
         timestamp: now,
         provider: this.id,
         source: 'local-json',
+      });
+      saveSnapshotMeta(meta);
+      return recorded;
       });
 
       lifecycle.cleanupCandidates.forEach(candidate => {

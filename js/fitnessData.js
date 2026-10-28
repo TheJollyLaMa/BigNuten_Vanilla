@@ -8,35 +8,16 @@ import { normalizeFitnessData, validateFitnessSnapshot, cloneDefaultData, defaul
 import { fitnessRecovery } from './snapshotRecovery.js';
 export { normalizeFitnessData, validateFitnessSnapshot } from './fitnessSchema.js';
 
-function loadLatestSnapshotFromStorage() {
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('fitnessTrackerSnapshot-')).sort().reverse();
-  for (const key of keys) {
-    try {
-      const snapshot = JSON.parse(localStorage.getItem(key));
-      validateFitnessSnapshot(snapshot.data);
-      return snapshot;
-    } catch { /* Try an older valid local snapshot without overwriting invalid bytes. */ }
-  }
-  return null;
-}
-
 export async function getFitnessData() {
   fitnessRecovery.recover();
-  const snapshot = loadLatestSnapshotFromStorage();
   const current = localStorage.getItem(STORAGE_KEY);
 
   // First-time users start with a clean local profile. Restoring an old CID is
   // an explicit action from the storage panel, never an initialization prompt.
-  if (!snapshot && !current) {
+  if (!current) {
     const fresh = cloneDefaultData();
     saveFitnessData(fresh);
     return fresh;
-  }
-
-  if (snapshot && !current) {
-    const normalized = normalizeFitnessData(snapshot.data);
-    saveFitnessData(normalized);
-    return normalized;
   }
 
   const currentData = normalizeFitnessData(JSON.parse(current));
@@ -160,24 +141,31 @@ if (typeof localStorage !== 'undefined' && typeof requestIdleCallback === 'funct
 }
 
 /**
- * Merges two fitness data objects, deduplicating array entries by timestamp.
+ * Merges two fitness data objects, deduplicating array entries by stable record ID or canonical content.
  * Handles the exercises object structure ({types, entries}) as well as simple arrays.
  * @param {Object} current - Current local fitness data
  * @param {Object} imported - Fitness data fetched from an IPFS snapshot
  * @returns {Object} Merged fitness data with duplicates removed, sorted chronologically
  */
-export function mergeSnapshotData(current, imported) {
-  const merged = { ...current, timeZone: current.timeZone || imported.timeZone || '' };
+function recordIdentity(entry) {
+  if (entry.id !== undefined) return `id:${entry.id}`;
+  const canonical = value => Array.isArray(value) ? value.map(canonical) : isPlainObject(value)
+    ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
+  return JSON.stringify(canonical(entry));
+}
 
-  // Simple array fields — deduplicate by timestamp (or full JSON if no timestamp)
+export function mergeSnapshotData(current, imported) {
+  const merged = { ...current, dataVersion: 1, timeZone: current.timeZone || imported.timeZone || '' };
+
+  // Preserve distinct records even if they share a timestamp.
   const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions', 'genieSessions', 'genieInsights'];
   simpleArrayFields.forEach(field => {
     const a = Array.isArray(current[field]) ? current[field] : [];
     const b = Array.isArray(imported[field]) ? imported[field] : [];
-    const seen = new Set(a.map(e => e.timestamp || JSON.stringify(e)));
+    const seen = new Set(a.map(e => recordIdentity(e)));
     const combined = [...a];
     b.forEach(entry => {
-      const key = entry.timestamp || JSON.stringify(entry);
+      const key = recordIdentity(entry);
       if (!seen.has(key)) {
         seen.add(key);
         combined.push(entry);
@@ -202,10 +190,10 @@ export function mergeSnapshotData(current, imported) {
   const currentTypes = Array.isArray(ce?.types) ? ce.types : [];
   const importedTypes = Array.isArray(ie?.types) ? ie.types : [];
 
-  const seenEntries = new Set(currentEntries.map(e => e.timestamp || JSON.stringify(e)));
+  const seenEntries = new Set(currentEntries.map(e => recordIdentity(e)));
   const mergedEntries = [...currentEntries];
   importedEntries.forEach(entry => {
-    const key = entry.timestamp || JSON.stringify(entry);
+    const key = recordIdentity(entry);
     if (!seenEntries.has(key)) {
       seenEntries.add(key);
       mergedEntries.push(entry);

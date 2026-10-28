@@ -4,10 +4,7 @@ const { test, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
 
 const values = new Map();
-const original = {
-  window: global.window, localStorage: global.localStorage, fetch: global.fetch,
-  requestIdleCallback: global.requestIdleCallback,
-};
+const original = Object.fromEntries(['window', 'localStorage', 'fetch', 'requestIdleCallback'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
 
 let transport, lifecycle, PinataProvider;
 const sample = { dataVersion: 1, weightLogs: [], exercises: { entries: [] }, waterDailyHistory: { '2026-10-20': 3 } };
@@ -36,10 +33,7 @@ beforeEach(() => {
   global.fetch = async () => { throw new Error('Unexpected network request'); };
 });
 after(() => {
-  global.window = original.window;
-  global.localStorage = original.localStorage;
-  global.fetch = original.fetch;
-  global.requestIdleCallback = original.requestIdleCallback;
+  for (const [key, descriptor] of Object.entries(original)) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; }
 });
 
 test('hosted mode never falls back to requesting a personal credential; invalid modes fail', async () => {
@@ -265,4 +259,95 @@ test('failed local manifest persistence is not reported as a successful backup',
   } finally {
     localStorage.setItem = setItem;
   }
+});
+
+test('exported JSON restores all supported records repeatedly without losing simultaneous records', async () => {
+  const fitness = await import('../js/fitnessData.js');
+  const control = await import('../js/dataControl.js');
+  const current = fitness.normalizeFitnessData({
+    weightLogs: [{ timestamp: '2026-10-28T10:00:00Z', weight: 70 }, { timestamp: '2026-10-28T10:00:00Z', weight: 71 }],
+    waterDailyHistory: { '2026-10-28': 8 },
+    supplements: [{ name: 'synthetic' }], foods: [{ name: 'synthetic' }], measurements: [{ value: 1 }],
+    exercises: { types: ['synthetic'], entries: [{ reps: 1 }] }, sessionLog: [{ name: 'synthetic' }], painLogs: [{ value: 1 }],
+    emotions: [{ value: 1 }], genieSessions: [{ text: 'synthetic' }], genieInsights: [{ text: 'synthetic' }],
+  });
+  values.set('fitnessTrackerData', JSON.stringify(current));
+  const saved = Object.fromEntries(['document', 'FileReader'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const create = URL.createObjectURL, revoke = URL.revokeObjectURL;
+  let exported;
+  try {
+    global.document = { createElement: () => ({ click() {} }), body: { appendChild() {}, removeChild() {} } };
+    URL.createObjectURL = blob => { exported = blob; return 'blob:synthetic'; };
+    URL.revokeObjectURL = () => {};
+    global.FileReader = class {
+      readAsText(file) { file.text().then(text => this.onload({ target: { result: text } })); }
+    };
+    control.exportDataAsJSON();
+    values.delete('fitnessTrackerData');
+    const merged = await control.importDataFromJSONFile(exported);
+    assert.deepEqual(merged, current);
+    assert.deepEqual(await control.importDataFromJSONFile(exported), current);
+    const before = values.get('fitnessTrackerData');
+    await assert.rejects(control.importDataFromJSONFile(new Blob(['{"dataVersion":2,"weightLogs":[]}'])), /Update the app/);
+    assert.equal(values.get('fitnessTrackerData'), before);
+  } finally {
+    URL.createObjectURL = create; URL.revokeObjectURL = revoke;
+    for (const [key, descriptor] of Object.entries(saved)) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; }
+  }
+});
+
+test('every manifest write failure keeps the last known-good pointer and success timestamp', () => {
+  for (const failedKey of ['bignutenSnapshotManifest', 'bignutenSnapshotPointer', 'snapshotHistory', 'lastAutoSnapshotTimestamp']) {
+    values.clear();
+    lifecycle.recordSnapshotUpload({ cid: 'bafyknown', hash: 'known', timestamp: '2026-10-20T12:00:00Z' });
+    const before = new Map(values);
+    const set = localStorage.setItem;
+    localStorage.setItem = (key, value) => { if (key === failedKey) throw new Error('quota'); return set(key, value); };
+    try { assert.throws(() => lifecycle.recordSnapshotUpload({ cid: 'bafynew', hash: 'new' }), /quota/); }
+    finally { localStorage.setItem = set; }
+    assert.deepEqual(values, before, failedKey);
+  }
+});
+
+test('v1 source hashes are checked during restore and unavailable CIDs do not touch current data', async () => {
+  const { computeSnapshotHash } = await import('../js/snapshotHash.js');
+  const hash = await computeSnapshotHash(sample);
+  global.fetch = async () => reply({ __bignutenSnapshot: true, version: 1, sourceHash: hash, data: { ...sample, waterDailyHistory: {} } });
+  await assert.rejects(transport.fetchSnapshotData('bafytest'), /hash mismatch/);
+  const fitness = await import('../js/fitnessData.js');
+  values.set('fitnessTrackerData', JSON.stringify(sample));
+  global.fetch = async () => reply({}, 503);
+  await assert.rejects(fitness.importAndMergeFromCID('bafytest'), /503/);
+  assert.equal(values.get('fitnessTrackerData'), JSON.stringify(sample));
+});
+
+test('provider status distinguishes pending verification, successful backup and failed backup', async () => {
+  let entered, finish;
+  const enteredUpload = new Promise(resolve => { entered = resolve; });
+  global.fetch = async url => {
+    if (url.includes('/version')) return reply({ Version: 'test' });
+    if (url.includes('/add?')) { entered(); return new Promise(resolve => { finish = () => resolve(reply({ Hash: 'bafystatus' })); }); }
+    return reply(sample);
+  };
+  const provider = new PinataProvider(); await provider.connect('desktop');
+  const operation = provider.put(sample); await enteredUpload;
+  assert.equal((await provider.status()).backup.state, 'pending');
+  finish(); await operation;
+  assert.equal((await provider.status()).backup.state, 'success');
+  global.fetch = async () => reply({}, 503);
+  await assert.rejects(provider.put(sample), /503/);
+  assert.equal((await provider.status()).backup.state, 'failure');
+  assert.equal(lifecycle.getCurrentSnapshotPointer().cid, 'bafystatus');
+});
+
+test('failed metadata persistence rolls back the manifest and local provider does not swallow failures', async () => {
+  lifecycle.recordSnapshotUpload({ cid: 'bafyknown', hash: 'known', timestamp: '2026-10-20T12:00:00Z' });
+  const { JsonOnlyProvider } = await import('../js/storageProvider.js');
+  const before = values.get('bignutenSnapshotManifest');
+  const set = localStorage.setItem;
+  localStorage.setItem = (key, value) => { if (key === 'snapshotMeta') throw new Error('metadata quota'); set(key, value); };
+  try { await assert.rejects(new JsonOnlyProvider().put(sample), /metadata quota/); }
+  finally { localStorage.setItem = set; }
+  assert.equal(values.get('bignutenSnapshotManifest'), before);
+  assert.equal(lifecycle.getCurrentSnapshotPointer().cid, 'bafyknown');
 });

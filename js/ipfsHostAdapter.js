@@ -7,7 +7,9 @@ export function createBigNutenIPFSHost({ returnFocus } = {}) {
   if (returnFocus !== undefined && typeof returnFocus !== 'function') {
     throw new Error('BigNuten IPFS host requires a function for returnFocus.');
   }
+  let backupStatus = null;
   async function readConnection() {
+    backupStatus = null;
     if (getStorageMode() !== 'ipfs') return false;
     const provider = providerRegistry.get('ipfs');
     if (!provider || typeof provider.status !== 'function') {
@@ -18,6 +20,7 @@ export function createBigNutenIPFSHost({ returnFocus } = {}) {
       throw new Error('BigNuten IPFS provider returned an invalid connection status.');
     }
     if (status.error) throw new Error(status.error);
+    backupStatus = status.backup || null;
     return status.connected;
   }
 
@@ -35,8 +38,8 @@ export function createBigNutenIPFSHost({ returnFocus } = {}) {
       const connected = await readConnection();
       return {
         backup: {
-          state: connected ? 'ready' : 'idle',
-          detail: `${connected ? 'Provider connected; open snapshot controls.' : 'Local browser data; open backup options.'} ${PRIVACY_NOTICE}`,
+          state: !connected ? 'idle' : backupStatus?.state === 'pending' ? 'pending' : backupStatus?.state === 'failure' ? 'error' : 'ready',
+          detail: `${backupStatus?.state === 'pending' ? 'Snapshot upload/verification pending. ' : backupStatus?.state === 'failure' ? 'Snapshot backup failed; previous recovery point retained. ' : ''}${connected ? 'Provider connected; open snapshot controls.' : 'Local browser data; open backup options.'} ${PRIVACY_NOTICE}`,
         },
       };
     },
