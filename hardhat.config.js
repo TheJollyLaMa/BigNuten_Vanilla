@@ -185,10 +185,10 @@ module.exports = {
     currency: "USD",
   },
 
-  // ── Paths (Hardhat defaults — listed here for clarity) ───────────────────
+  // ── Paths (keep Mocha separate from native node:test files) ───────────────────
   paths: {
     sources: "./contracts",
-    tests: "./test",
+    tests: "./test/hardhat",
     cache: "./cache",
     artifacts: "./artifacts",
   },

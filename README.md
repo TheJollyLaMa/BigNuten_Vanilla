@@ -295,14 +295,15 @@ open index.html   # macOS
 git clone https://github.com/TheJollyLaMa/BigNuten_Vanilla.git
 cd BigNuten_Vanilla
 
-# 2. Install Hardhat toolchain (for contract work only)
-npm install
+# 2. Install locked development dependencies (Node.js 20)
+npm ci
 
 # 3. Compile contracts
 npx hardhat compile
 
-# 4. Run contract tests
-npx hardhat test
+# 4. Run all automated tests and validate payroll
+npm test
+npm run validate:payroll
 ```
 
 - Browse **[open issues with `bounty:` labels](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues?q=label%3Abounty)** — each has a $BNUT reward
@@ -310,6 +311,15 @@ npx hardhat test
 - Open a PR with `Closes #N` in the body — the Bounty Bot queues your $BNUT automatically on merge
 - Frontend is Vanilla JS (no framework, no bundler) — `js/` for modules, `css/styles.css`, `index.html`
 - Smart contracts are in `contracts/` — Solidity 0.8.20, tested with Hardhat + OZ 5.x
+
+`npm test` runs `test:hardhat` followed by `test:node`. Mocha tests live in
+`test/hardhat/` and run only under Hardhat (local in-process network); native
+`node:test` files live in `test/*.test.js` and run in isolated Node.js processes.
+Keep new tests in the matching directory so both runners discover them without
+mixing test lifecycles. Existing focused commands such as `test:payroll` and
+`test:scenarios` remain available. No wallet, RPC credentials, or `.env` is needed.
+The PR/main workflow `.github/workflows/test.yml` runs the same tests, payroll
+validation, and a first-party JavaScript syntax check.
 
 ### 🗳️ I'm a DAO / Governance Participant
 
@@ -863,9 +873,9 @@ cd BigNuten_Vanilla
 ### For Contract Development
 
 ```bash
-npm install                              # Install Hardhat + OZ dependencies
+npm ci                                   # Install locked development dependencies
 npx hardhat compile                      # Compile Solidity contracts
-npx hardhat test                         # Run contract test suite
+npm test                                 # Run Hardhat + Node.js test suites
 npx hardhat run scripts/deploy.js --network optimism   # Deploy to Optimism
 ```
 

@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test",
+    "test": "npm run test:hardhat && npm run test:node",
     "test:payroll": "node --test test/payroll.test.js test/commentArt.test.js",
     "validate:payroll": "node scripts/validatePayrollQueue.js",
     "storage:serve": "node services/storageRelay.js",
@@ -16,7 +16,7 @@
     "network:index": "node scripts/indexBignutenCommunity.js",
     "network:node": "node scripts/bignutenNodeKeeper.js",
     "deploy:network-registry": "hardhat run scripts/deployNetworkRegistry.js --network base",
-    "test:scenarios": "hardhat test test/StreakBetEscrow.scenarios.test.js",
+    "test:scenarios": "hardhat test test/hardhat/StreakBetEscrow.scenarios.test.js",
     "sim": "hardhat run scripts/streakbot-sim.js",
     "sim:live:estimate": "SIM_PHASE=estimate hardhat run scripts/streakbot-live.js --network optimism",
     "sim:live:setup": "SIM_PHASE=setup hardhat run scripts/streakbot-live.js --network optimism",
@@ -30,7 +30,9 @@
     "verify:polygon": "hardhat verify --network polygon_mumbai",
     "verify:base": "hardhat verify --network base_sepolia",
     "verify:optimism": "hardhat verify --network optimism_sepolia",
-    "clean": "hardhat clean"
+    "clean": "hardhat clean",
+    "test:hardhat": "hardhat test",
+    "test:node": "node --test test/*.test.js"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",

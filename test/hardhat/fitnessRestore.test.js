@@ -1,30 +1,43 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { before, describe, it } = require('mocha');
+const { beforeEach, afterEach, describe, it } = require('mocha');
 
 const values = new Map();
 const events = [];
-globalThis.localStorage = {
-  getItem(key) { return values.has(key) ? values.get(key) : null; },
-  setItem(key, value) { values.set(key, String(value)); },
-  removeItem(key) { values.delete(key); },
-};
-globalThis.CustomEvent = class CustomEvent {
-  constructor(type) { this.type = type; }
-};
-globalThis.window = {
-  BIGNUTEN_STORAGE_RELAY_URL: '',
-  dispatchEvent(event) { events.push(event.type); },
-};
 
 let syncWaterIntakeAfterRestore;
 let getTodayInUserTz;
 
 describe('fitness snapshot restore', () => {
-  before(async () => {
-    ({ syncWaterIntakeAfterRestore } = await import('../js/fitnessData.js'));
-    ({ getTodayInUserTz } = await import('../js/timezone.js'));
+  let originalGlobals;
+
+  beforeEach(async () => {
+    originalGlobals = Object.fromEntries(
+      ['localStorage', 'CustomEvent', 'window'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)])
+    );
+    globalThis.localStorage = {
+      getItem(key) { return values.has(key) ? values.get(key) : null; },
+      setItem(key, value) { values.set(key, String(value)); },
+      removeItem(key) { values.delete(key); },
+    };
+    globalThis.CustomEvent = class CustomEvent {
+      constructor(type) { this.type = type; }
+    };
+    globalThis.window = {
+      BIGNUTEN_STORAGE_RELAY_URL: '',
+      dispatchEvent(event) { events.push(event.type); },
+    };
+
+    ({ syncWaterIntakeAfterRestore } = await import('../../js/fitnessData.js'));
+    ({ getTodayInUserTz } = await import('../../js/timezone.js'));
+  });
+
+  afterEach(() => {
+    for (const [key, descriptor] of Object.entries(originalGlobals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
   });
 
   it('synchronizes water history and today widget, then notifies the UI', () => {
