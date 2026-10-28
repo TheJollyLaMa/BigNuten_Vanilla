@@ -36,7 +36,7 @@ The matrix below retains its original e260f1a audit scope; see the current
 | Nutrient goal / manage nutrients → `js/app.js`, `#dv-goal-modal`, `#dv-manage-modal` | Yes | PASS / smoke: reachable from nutrition panel | B | — |
 | Exercise log / recent exercises → `js/app.js`, `#exercise-modal`, `#recent-exercises-list` | Yes | PASS / smoke: submit synthetic Push-ups, six reps, weight ten; recent log and add-to-workout button appear | B | — |
 | Workout set list → `js/app.js`, `#workout-set-list` | Yes | PASS / smoke: add logged exercise, content and Genie | B | — |
-| Workout timer / cancellation → `js/app.js`, `#workout-timer-modal` | Yes | PASS / render and immediate cancel only; KNOWN GAP: pending preparation survives cancel. Timer check runs last with clock paused, not a lifecycle pass | B | **New:** [#362](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/362) |
+| Workout timer / cancellation → `js/app.js`, `#workout-timer-modal` | Yes | PASS / fake-clock cancellation during initial and between-set preparation; advance 12s and assert no emotion modal or completed session | B; `test/workoutTimer.test.js` | Fixed: [#362](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/362) |
 | Weight → `js/app.js`, `#weight-modal` | Yes | PASS / smoke: modal and real Chart.js initialization, no device acquisition | B; `test/fitnessRoundTrip.test.js` (record preservation) | — |
 | Water meter / log → `js/app.js`, `#water-tracker`, `#water-modal` | Yes | PASS / smoke: visible meter and modal; not a persistence acceptance pass | B; `test/fitnessRoundTrip.test.js`, `test/snapshotRecovery.test.js` | [#257](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/257), [#265](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/265), [#204](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/204), concurrent worker |
 | Supplements panel / form → `js/app.js`, `#recent-supplements-list`, `#supplements-modal` | Yes | PASS / smoke: panel, form modal and Genie | B; `test/fitnessRoundTrip.test.js` | — |
@@ -92,9 +92,10 @@ not a replacement serializer. Snapshot restore uses the production injected-stor
 helper and checks each persisted key. Clearing is an isolated in-memory test
 operation, **not** certification of a user-facing “delete my data” flow (#359).
 
-The timer bug #362 is deliberately not fixed here. Pausing the browser clock for
-its final immediate-cancel smoke keeps that known delayed callback out of other
-surface checks; it does not mark countdown/cancellation correctness as passing.
+The #362 timer lifecycle fix shares one handle across preparation, work and rest
+countdowns and clears it on cancel. An empty-sequence guard blocks stale step
+callbacks. Desktop/mobile smoke advances a fake clock after both initial and
+between-set preparation cancellation and verifies no delayed modal or session write.
 Known water and Genie/raw-food issues remain with their coordinated workers.
 No duplicate issues were filed for those. The only new audit issue is #362.
 
@@ -119,3 +120,16 @@ inventory as a curated lead, not a live/complete code index; checked local statu
 and worktrees and left concurrent water/Genie implementations untouched.
 Acceptance is the receiving checkout's `npm test` and `npm run test:smoke`, not
 a donor test result. No private findings were added to a public Canopy snapshot.
+
+### Workout cancellation (#362)
+
+Need: cancel every workout countdown without delayed completion. Adapted the
+existing sequential countdowns in `js/app.js#prepareWorkoutSequence`,
+`runWorkoutStep` and `startCountdown` at `d962efc`; all now share the existing
+workout timer handle and a single cleanup helper. No external runtime, storage,
+auth or deployment contract changes. Reused the receiving app's browser fixture
+and fake clock; node tests execute the production workout block in an isolated
+VM. Search scope was this worktree's workout sources/tests, current open PRs and
+existing reuse notes above; no new cross-repo extraction was needed. Acceptance:
+`npm test` and desktop/mobile `npm run test:smoke`, covering initial preparation,
+between-set preparation and unchanged successful completion.

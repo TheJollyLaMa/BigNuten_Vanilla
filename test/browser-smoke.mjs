@@ -424,6 +424,48 @@ try {
       await click('#yoga-genie-chat-close');
       await click('#yoga-close-btn');
       if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
+      await page.clock.pauseAt(new Date('2026-10-28T12:00:00Z'));
+      if (!(await page.locator('#workout-set-list').isVisible())) await click('[data-panel="workout-set-list"].panel-toggle-btn');
+      await page.locator('#work-duration').fill('1');
+      await page.locator('#rest-duration').fill('1');
+      await page.locator('.workout-set-item .workout-sets').fill('2');
+      for (const input of await page.locator('.workout-set-item .set-reps').all()) await input.fill('6');
+      for (const input of await page.locator('.workout-set-item .set-weight').all()) await input.fill('10');
+      // Step each countdown tick without rendering every decorative animation frame.
+      async function advanceWorkoutClock(seconds) {
+        for (let second = 0; second < seconds; second++) await page.clock.fastForward(1_000);
+      }
+      const sessions = () => page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).sessionLog || []);
+      async function cancelCountdown(title) {
+        assert.equal(await page.locator('#workout-current-title').innerText(), title);
+        const beforeCancel = await sessions();
+        await click('#cancel-workout-button');
+        await hidden('#workout-timer-modal');
+        const canceled = await sessions();
+        assert.equal(canceled.length, beforeCancel.length + 1, 'Cancel records exactly one session');
+        assert.equal(canceled.at(-1).completed, false, 'Canceled session is not completed');
+        await advanceWorkoutClock(12);
+        await hidden('#emotion-modal');
+        await hidden('#workout-timer-modal');
+        assert.deepEqual(await sessions(), canceled, 'No delayed workout completion after cancel');
+        console.log(`${name}: canceled ${title} countdown stays canceled after 12s`);
+      }
+      await click('#start-workout-button');
+      await visible('#workout-timer-modal');
+      covered.add('workout-timer-modal');
+      await cancelCountdown('Starting Soon');
+      // Repeat through the work/rest transition to cover the second preparation timer.
+      if (!(await page.locator('#workout-set-list').isVisible())) await click('[data-panel="workout-set-list"].panel-toggle-btn');
+      await click('#start-workout-button');
+      await visible('#workout-timer-modal');
+      await advanceWorkoutClock(11);
+      assert.equal(await page.locator('#workout-current-title').innerText(), 'Exercise');
+      page.once('dialog', dialog => dialog.accept());
+      await advanceWorkoutClock(1);
+      await page.waitForFunction(() => document.getElementById('workout-current-title').textContent === 'Rest');
+      await advanceWorkoutClock(1);
+      await cancelCountdown('Prepare');
+      if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
       if (name === 'mobile') await modal('mobile-data-sheet', '#ipfsIcon', '#mobile-sheet-close-btn');
       await modal('ipfs-connect-dialog', '#aes-storage-btn', '#ipfs-dialog-close-btn', ['#aesculapius-right']);
       // A prepared storage-mode preference is a UI fixture, not a connected IPFS
@@ -431,12 +473,6 @@ try {
       await page.evaluate(() => localStorage.setItem('storageMode', 'ipfs'));
       await modal('ipfs-snapshot-panel', '#aes-storage-btn', '#snapshot-panel-close', ['#aesculapius-right']);
       await page.evaluate(() => localStorage.setItem('storageMode', 'json-only'));
-      // #362: cancellation leaks its preparation timer. Check the real cancel
-      // control last with timers paused; do not let the known delayed callback
-      // interfere with independent surfaces or claim timer lifecycle coverage.
-      await page.clock.pauseAt(new Date('2026-10-28T12:00:00Z'));
-      await modal('workout-timer-modal', '#start-workout-button', '#cancel-workout-button', ['[data-panel="workout-set-list"].panel-toggle-btn']);
-      if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
       const exclusions = new Map([
         ...(name === 'desktop' ? [['mobile-data-sheet', 'Mobile-only IPFS menu by design.']] : [['ipfs-edu-overlay', 'Desktop-only onboarding by design.']]),
       ]);
