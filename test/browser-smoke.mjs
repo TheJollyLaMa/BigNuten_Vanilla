@@ -116,11 +116,16 @@ try {
         removeListener(event, listener) { listeners.get(event)?.delete(listener); return this; },
       };
     });
+    const hostedRequests = [];
     await page.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url());
       if (url.origin === origin) return route.continue();
       external.add(request.url());
       if (libraries.has(request.url())) return route.fulfill({ contentType: 'text/javascript', body: await readFile(resolve(root, libraries.get(request.url()))) });
+      if (['models.inference.ai.azure.com', 'api.openai.com'].includes(url.hostname)) {
+        hostedRequests.push({ hostname: url.hostname, body: request.postDataJSON() });
+        return route.fulfill({ json: { choices: [{ message: { content: 'Synthetic health response' } }] } });
+      }
       if (url.hostname === 'fonts.googleapis.com') return route.fulfill({ contentType: 'text/css', body: '' });
       if (request.resourceType() === 'image') return route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') });
       if (request.method() === 'POST' && /base\.org|publicnode\.com|optimism\.io|llamarpc\.com/.test(url.hostname)) {
@@ -184,13 +189,32 @@ try {
       await page.locator('#exercise-form button[type="submit"]').click();
       assert.ok(await page.locator('#exercises-last7days .exercise-add-btn').count(), 'Exercise form populated recent logs');
       await click('#exercise-modal .modal-close');
+      await modal('rawFoodModal', '#dietQuickLogBtn', '#closeRawFoodModal', ['#dietBtn']);
+      await visible('#dietModal');
+      await click('#dietQuickLogBtn');
+      await page.locator('#rawFoodName').fill('Smoke carrot');
+      await page.locator('#rawFoodAmount').fill('0.5');
+      await page.locator('#rawFoodUnit').fill('cup');
+      await page.locator('#rawFoodProtein').fill('1.2');
+      await click('#rawFoodForm button[type="submit"]');
+      await hidden('#rawFoodModal');
+      await visible('#dietModal');
+      assert.match(await page.locator('#dietAllTimeLog').innerText(), /Smoke carrot/);
+      const food = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).foods.find(food => food.name === 'Smoke carrot'));
+      assert.equal(food.type, 'diet'); assert.equal(food.amount, 0.5); assert.equal(food.unit, 'cup');
+      assert.deepEqual(food.nutr, { protein: 1.2 });
+      await click('#closeDietModal');
+      await click('[data-panel="recent-foods-list"].panel-toggle-btn');
+      assert.match(await page.locator('#recent-foods-list').innerText(), /Smoke carrot/);
+      await click('[data-panel="recent-foods-list"].panel-toggle-btn');
       const panels = await page.locator('.dashboard-panel').evaluateAll(els => els.map(el => el.id));
       assert.equal(panels.length, 4, 'Update coverage when dashboard panels change');
-      // Enable the assistant UI without sending prompts/downloading a model.
+      // Enable the assistant UI; hosted responses below are local synthetic fixtures.
       await click('#aesculapius-right'); await click('#aes-settings-btn');
       await click('label:has(#genie-enabled-toggle)');
       assert.equal(await page.locator('#genie-enabled-toggle').isChecked(), true);
       await click('#settings-modal-close');
+      await page.evaluate(() => localStorage.setItem('genieApiKey', 'synthetic-smoke-key'));
       for (const id of panels) {
         await click(`[data-panel="${id}"].panel-toggle-btn`);
         await visible(`#${id}`);
@@ -207,6 +231,43 @@ try {
         await click(`.genie-icon-btn[data-panel="${id}"]`);
         await visible(`.genie-chat-window[data-panel="${id}"]`);
         await shot(`${id}-genie`);
+        if (id === panels[0]) {
+          const chat = `.genie-chat-window[data-panel="${id}"]`;
+          async function ask() {
+            await page.locator(`${chat} .genie-chat-input`).fill('Review my health today');
+            await click(`${chat} .genie-chat-send`);
+          }
+          await ask();
+          await visible('#genie-consent-dialog');
+          assert.match(await page.locator('#genie-consent-dialog').innerText(), /GitHub Models/);
+          assert.match(await page.locator('#genie-consent-dialog ul').innerText(), /Food \/ Diet Log/);
+          assert.equal(hostedRequests.length, 0, 'No hosted request before permission');
+          await shot('genie-consent');
+          await click('[data-consent-action="cancel"]');
+          await hidden('#genie-consent-dialog');
+          await page.locator(`${chat} .genie-chat-input`).waitFor({ state: 'visible' });
+          await page.waitForFunction(selector => !document.querySelector(selector).disabled, `${chat} .genie-chat-input`);
+          assert.equal(hostedRequests.length, 0, 'Cancel sends nothing');
+          await ask();
+          await visible('#genie-consent-dialog');
+          await click('[data-consent-action="allow"]');
+          await page.waitForFunction(selector => !document.querySelector(selector).disabled, `${chat} .genie-chat-input`);
+          assert.equal(hostedRequests.length, 1);
+          assert.match(await page.locator(`${chat} .genie-chat-messages`).innerText(), /Synthetic health response/);
+          await ask();
+          await page.waitForFunction(selector => !document.querySelector(selector).disabled, `${chat} .genie-chat-input`);
+          assert.equal(hostedRequests.length, 2, 'Permission remembered for GitHub Models');
+          await hidden('#genie-consent-dialog');
+          await page.evaluate(async () => { const genie = await import('/js/genieChat.js'); genie.setGenieBackend('openai'); });
+          await ask();
+          await visible('#genie-consent-dialog');
+          assert.match(await page.locator('#genie-consent-dialog').innerText(), /OpenAI/);
+          await click('[data-consent-action="local"]');
+          await page.waitForFunction(selector => !document.querySelector(selector).disabled, `${chat} .genie-chat-input`);
+          assert.equal(await page.evaluate(() => localStorage.getItem('genieBackend')), 'webllm');
+          assert.equal(hostedRequests.length, 2, 'Local alternative sends nothing to either hosted backend');
+          covered.add('genie-consent-dialog');
+        }
         await click(`.genie-chat-window[data-panel="${id}"] .genie-chat-close`);
         await hidden(`.genie-chat-window[data-panel="${id}"]`);
         await click(`[data-panel="${id}"].panel-toggle-btn`);
@@ -233,6 +294,10 @@ try {
         ['bounty-register-modal', '#aes-bounty-register-btn'],
       ]) await modal(id, trigger, undefined, ['#aesculapius-right']);
       await modal('genie-memory-modal', '#genie-memory-review-btn', undefined, ['#aesculapius-right', '#aes-settings-btn']);
+      await click('#genie-revoke-consent');
+      assert.match(await page.locator('#genie-consent-status').innerText(), /permissions reset/);
+      assert.equal(await page.evaluate(() => localStorage.getItem('genieHostedConsent:v1:github-models')), null);
+      assert.equal(await page.locator('input[name="genie-backend"][value="webllm"]').isChecked(), true);
       await click('#settings-modal-close');
       await modal('admin-add-contributor-modal', '#admin-contrib-add-btn', undefined, ['#aesculapius-left', '#admin-contributors-btn']);
       await click('#contributors-admin-modal-close');
@@ -246,6 +311,11 @@ try {
       await click('#yoga-close-btn');
       if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
       await modal('workout-timer-modal', '#start-workout-button', '#cancel-workout-button', ['[data-panel="workout-set-list"].panel-toggle-btn']);
+      // The legacy prep countdown still fires after Cancel and opens the feeling
+      // prompt. Settle and dismiss it explicitly so it cannot cover later dialogs.
+      await visible('#emotion-modal');
+      await click('#emotion-modal .modal-close');
+      await hidden('#emotion-modal');
       if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
       if (name === 'mobile') await modal('mobile-data-sheet', '#ipfsIcon', '#mobile-sheet-close-btn');
       await modal('ipfs-connect-dialog', '#aes-storage-btn', '#ipfs-dialog-close-btn', ['#aesculapius-right']);
@@ -255,7 +325,6 @@ try {
       await modal('ipfs-snapshot-panel', '#aes-storage-btn', '#snapshot-panel-close', ['#aesculapius-right']);
       await page.evaluate(() => localStorage.setItem('storageMode', 'json-only'));
       const exclusions = new Map([
-        ['rawFoodModal', 'Legacy dialog has no #dietButton opener; #dietBtn opens #dietModal instead.'],
         ...(name === 'desktop' ? [['mobile-data-sheet', 'Mobile-only IPFS menu by design.']] : [['ipfs-edu-overlay', 'Desktop-only onboarding by design.']]),
       ]);
       const discovered = await page.locator('.modal-overlay[id], #dietModal, #rawFoodModal, [role="dialog"], #ipfs-snapshot-panel').evaluateAll(els => els.map(el => el.id));

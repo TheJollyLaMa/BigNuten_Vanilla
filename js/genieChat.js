@@ -27,6 +27,8 @@
  *     long-term (pinned insights).
  */
 
+import { geniePrivacyNotice, hasGenieHostedConsent, ensureGenieHostedConsent } from './geniePrivacy.js';
+
 import {
   saveSessionMessages, loadSessionMessages, clearSessionMessages,
   getGenieSessions, saveGenieSession,
@@ -195,6 +197,8 @@ export function getGenieBackend() {
 
 export function setGenieBackend(backend) {
   localStorage.setItem(LS_BACKEND, backend);
+  document.dispatchEvent(new CustomEvent('genie-backend-changed', { detail: backend }));
+  document.querySelectorAll('.genie-chat-hint').forEach(hint => { hint.innerHTML = _buildGenieHint(); });
   // Force WebLLM engine reset if switching away from it and back
   if (backend !== 'webllm') {
     _engine        = null;
@@ -532,8 +536,8 @@ function _buildGenieHint() {
   const backend = getGenieBackend();
   const hints = {
     'webllm':        '🔒 Local &amp; private — powered by WebLLM',
-    'github-models': '⭐ Powered by GitHub Models (Claude/GPT-4o)',
-    'openai':        '🟢 Powered by OpenAI API',
+    'github-models': '⭐ GitHub Models — health context sent only with permission',
+    'openai':        '🟢 OpenAI — health context sent only with permission',
   };
   return hints[backend] || hints['webllm'];
 }
@@ -726,7 +730,7 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
     }
 
     statusEl.textContent = '🧞 Thinking…';
-    const reply = await _chat(text, panelId, statusEl);
+    const reply = await chatWithGenie(text, panelId, statusEl);
     _appendMessage(messagesEl, 'genie', reply, panelId);
     statusEl.textContent = '';
   } catch (err) {
@@ -841,7 +845,7 @@ async function _generateSessionSummary(panelId) {
   const backend = getGenieBackend();
 
   // Only attempt summary via hosted backends (need API key)
-  if (backend === 'webllm' || !hasGenieApiKey()) {
+  if (backend === 'webllm' || !hasGenieApiKey() || !hasGenieHostedConsent(backend)) {
     // Fallback: save a simple summary without LLM
     const topicWords = messages
       .filter(m => m.role === 'user')
@@ -1255,7 +1259,7 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
 // Chat logic (with BigNuten context injection)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function _chat(userMessage, panelId, statusEl) {
+export async function chatWithGenie(userMessage, panelId, statusEl) {
   // Short-circuit meta-questions about the assistant's data source — these need
   // no data block and would otherwise hit the same token budget as any other query.
   if (META_QUESTION_RE.test(userMessage)) {
@@ -1267,7 +1271,7 @@ async function _chat(userMessage, panelId, statusEl) {
     }[backend] || backend;
     return `🧞 I read your locally-stored BigNuten fitness logs. ` +
            `Currently running via: ${backendLabel}. ` +
-           `Your fitness data never leaves your device. ` +
+           `${geniePrivacyNotice(backend)} ` +
            `I can see: exercises, workout sessions, nutrition, supplements, emotions, pain logs, weight, and body measurements. ` +
            `Use the 🗂 Data button to control which categories I include.`;
   }
@@ -1297,7 +1301,8 @@ async function _chat(userMessage, panelId, statusEl) {
     ? sections.join('\n\n')
     : '(no data logged yet)';
 
-  const systemPrompt = _buildSystemPromptText(contextBlock, trimmed, targetDate);
+  const memory = _buildMemoryContext();
+  const systemPrompt = _buildSystemPromptText(contextBlock, trimmed, targetDate, memory);
   const fullTokenEst = _estimateTokens(systemPrompt) + _estimateTokens(userMessage);
 
   if (fullTokenEst > contextTokens - TOKEN_RESERVE_REPLY - 300) {
@@ -1308,6 +1313,16 @@ async function _chat(userMessage, panelId, statusEl) {
     { role: 'system', content: systemPrompt },
     { role: 'user',   content: userMessage  },
   ];
+
+  // Derive the notice from the very sections and memory blocks in this prompt.
+  const categories = sections.map(section => section.split('\n')[0].replace(/^## /, ''));
+  categories.push(...memory.categories, 'Your message');
+  const action = await ensureGenieHostedConsent(backend, categories);
+  if (action === 'local') {
+    setGenieBackend('webllm');
+    return '🔒 Switched to local WebLLM. Nothing was sent. Send your question again to load the local model.';
+  }
+  if (action !== 'allow' || getGenieBackend() !== backend) return 'Request cancelled. Nothing was sent.';
 
   // ── Dispatch to the selected backend ──────────────────────────────────
   if (backend === 'github-models') {
@@ -1327,6 +1342,7 @@ async function _chat(userMessage, panelId, statusEl) {
  * Key is read from localStorage — never hardcoded.
  */
 async function _chatViaGitHubModels(messages, statusEl) {
+  if (!hasGenieHostedConsent('github-models')) throw new Error('Hosted health-context permission required.');
   const key = getGenieApiKey();
   if (!key) {
     throw new Error(
@@ -1385,6 +1401,7 @@ async function _chatViaGitHubModels(messages, statusEl) {
  * Key is read from localStorage — never hardcoded.
  */
 async function _chatViaOpenAI(messages, statusEl) {
+  if (!hasGenieHostedConsent('openai')) throw new Error('Hosted health-context permission required.');
   const key = getGenieApiKey();
   if (!key) {
     throw new Error(
@@ -1453,7 +1470,15 @@ async function _chatViaWebLLM(messages, statusEl) {
   return reply.trim() || '(no response)';
 }
 
-function _buildSystemPromptText(contextBlock, trimmed, targetDate = null) {
+function _buildMemoryContext() {
+  const blocks = [
+    ['Recent conversation summaries', buildRecentSessionsPrompt()],
+    ['Pinned health insights', buildInsightsPrompt()],
+  ].filter(([, text]) => Boolean(text));
+  return { text: blocks.map(([, text]) => text).join('\n\n'), categories: blocks.map(([category]) => category) };
+}
+
+function _buildSystemPromptText(contextBlock, trimmed, targetDate = null, memory = _buildMemoryContext()) {
   const now = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
   const trimNote = trimmed
     ? '\nNote: Some older log entries were omitted to fit the context window.'
@@ -1462,14 +1487,8 @@ function _buildSystemPromptText(contextBlock, trimmed, targetDate = null) {
     ? `\nFocus date: ${targetDate} — the user is asking about THIS calendar day only.`
     : '';
 
-  // Inject memory context (Tier 2 + Tier 3)
-  const recentSessionsBlock = buildRecentSessionsPrompt();
-  const insightsBlock = buildInsightsPrompt();
-  const memorySection = [recentSessionsBlock, insightsBlock]
-    .filter(Boolean)
-    .join('\n\n');
-  const memoryBlock = memorySection
-    ? `\n\n--- GENIE MEMORY ---\n${memorySection}\n--- END MEMORY ---\n`
+  const memoryBlock = memory.text
+    ? `\n\n--- GENIE MEMORY ---\n${memory.text}\n--- END MEMORY ---\n`
     : '';
 
   return `You are Genie, a knowledgeable and compassionate AI health companion \
