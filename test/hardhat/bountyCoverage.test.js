@@ -8,7 +8,7 @@ let summarizeBountyIssues;
 
 describe('Payroll bounty coverage', () => {
   before(async () => {
-    ({ getBountyCoverage, summarizeBountyIssues } = await import('../js/treasury.js'));
+    ({ getBountyCoverage, summarizeBountyIssues } = await import('../../js/treasury.js'));
   });
 
   it('summarizes open BNUT and test-bounty labels while ignoring PRs, closed issues, and other tokens', () => {

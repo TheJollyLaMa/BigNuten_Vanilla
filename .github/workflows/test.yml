@@ -1,0 +1,24 @@
+name: Test BigNuten
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run validate:payroll
+      - name: Check first-party JavaScript syntax
+        run: find js scripts -type f \( -name '*.js' -o -name '*.mjs' \) -not -path 'js/vendor/*' -print0 | xargs -0 -n 1 node --check

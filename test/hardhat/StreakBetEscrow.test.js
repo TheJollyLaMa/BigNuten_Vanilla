@@ -1,5 +1,5 @@
 /**
- * test/StreakBetEscrow.test.js
+ * test/hardhat/StreakBetEscrow.test.js
  *
  * Hardhat tests for the v3.1.1 security-hardened StreakBetEscrow contract.
  * Covers: ReentrancyGuard, SafeERC20, Pausable, joinDeadline,

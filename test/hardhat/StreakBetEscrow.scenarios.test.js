@@ -1,5 +1,5 @@
 /**
- * test/StreakBetEscrow.scenarios.test.js
+ * test/hardhat/StreakBetEscrow.scenarios.test.js
  *
  * End-to-end scenario suite for StreakBetEscrow (v3.1.1).
  * Covers every realistic competition outcome with multiple signers (Alice/Bob/Carol/Dave).
@@ -19,7 +19,7 @@
  *   L – Zero entrants → settle empty competition cleanly
  *
  * Run locally:
- *   npx hardhat test test/StreakBetEscrow.scenarios.test.js
+ *   npx hardhat test test/hardhat/StreakBetEscrow.scenarios.test.js
  */
 
 const { expect } = require("chai");
