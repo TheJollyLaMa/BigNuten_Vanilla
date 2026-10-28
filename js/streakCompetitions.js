@@ -19,6 +19,7 @@ const ABI = [
   'function meetupAttendance(uint256,uint8,address) view returns (uint8 totalActivityDays,uint8 weeklyActivityDays,bytes32 progressHash,bool checkedIn,bool peerApproved)',
   'function meetupPeerReviewed(uint256,uint8,address,address) view returns (bool)',
   'function reviewPolicyVersion() view returns (uint8)',
+  'function paused() view returns (bool)',
   'function meetupReviewerInvited(uint256,uint8,address,address) view returns (bool)',
   'function getMeetupReviewTally(uint256,uint8,address) view returns (uint32 approvals,uint32 rejections)',
   'function createCompetition(tuple(string name,address stakeToken,uint256 stakeAmount,uint256 totalWeeks,uint256 startTime,uint256 endTime,uint256 joinDeadline,bool yieldEnabled,string metadataCID) p)',
@@ -35,7 +36,7 @@ const ABI = [
   'event EntrantJoined(uint256 indexed compId,address indexed entrant,uint256 amount)',
   'event MeetupSelfCheckedIn(uint256 indexed compId,uint8 indexed meetupIndex,address indexed entrant,uint8 totalActivityDays,bytes32 progressHash)',
 ];
-const ERC20_ABI = ['function approve(address,uint256) returns (bool)', 'function allowance(address,address) view returns (uint256)'];
+const ERC20_ABI = ['function approve(address,uint256) returns (bool)', 'function allowance(address,address) view returns (uint256)', 'function balanceOf(address) view returns (uint256)'];
 const NFT_ROLE_ABI = [
   'function MINTER_ROLE() view returns (bytes32)',
   'function hasRole(bytes32,address) view returns (bool)',
@@ -174,7 +175,7 @@ async function getWallet(connect = false) {
 }
 async function readContract() {
   return streakAddress()
-    ? new ethers.Contract(streakAddress(), ABI, new ethers.JsonRpcProvider(window.CONTRACTS?.rpcUrl || 'https://mainnet.base.org'))
+    ? new ethers.Contract(streakAddress(), ABI, new ethers.JsonRpcProvider('https://base-rpc.publicnode.com'))
     : null;
 }
 async function signerContract() {
@@ -212,6 +213,7 @@ async function renderStreakChallenges() {
     const wallet = await getWallet();
     const captain = await contract.owner();
     const isCaptain = wallet && wallet.toLowerCase() === captain.toLowerCase();
+    const paused = await contract.paused();
     const total = Number(await contract.nextCompId());
     const cards = [];
     for (let compId = 0; compId < total; compId += 1) {
@@ -227,8 +229,17 @@ async function renderStreakChallenges() {
       const entrantIndex = entrant?.joined ? 1 : 0;
       const progress = readActivityProgress(competition, rules, 0);
       const imageUrl = challengeImageUrl(rules.image);
-      const joinedEvents = await contract.queryFilter(contract.filters.EntrantJoined(compId));
-      const participantWallets = [...new Set(joinedEvents.map(log => log.args.entrant.toLowerCase()))];
+      let participantWallets = [];
+      let rosterUnavailable = false;
+      if (Number(competition.entrantCount) > 0) {
+        try {
+          const joinedEvents = await contract.queryFilter(contract.filters.EntrantJoined(compId));
+          participantWallets = [...new Set(joinedEvents.map(log => log.args.entrant.toLowerCase()))];
+        } catch (error) {
+          console.warn('[Streak] Could not load entrant history:', error);
+          rosterUnavailable = true;
+        }
+      }
       const cardsForMeetups = [];
 
       for (let index = 0; index < Number(config.requiredMeetups); index += 1) {
@@ -240,8 +251,16 @@ async function renderStreakChallenges() {
         const now = Date.now() / 1000;
         const inCall = now >= Number(meetup.opensAt) && now <= Number(meetup.closesAt);
         const ownAttendance = wallet && entrantIndex ? await contract.meetupAttendance(compId, index, wallet) : null;
-        const checkIns = await contract.queryFilter(contract.filters.MeetupSelfCheckedIn(compId, index));
-        const addresses = [...new Set(checkIns.map(log => log.args.entrant.toLowerCase()))];
+        let addresses = [];
+        if (Number(competition.entrantCount) > 0) {
+          try {
+            const checkIns = await contract.queryFilter(contract.filters.MeetupSelfCheckedIn(compId, index));
+            addresses = [...new Set(checkIns.map(log => log.args.entrant.toLowerCase()))];
+          } catch (error) {
+            console.warn('[Streak] Could not load meetup history:', error);
+            rosterUnavailable = true;
+          }
+        }
         const roster = await Promise.all(addresses.map(async peer => {
           const [attendance, reviewed, tally, invited, peerEntrant] = await Promise.all([
             contract.meetupAttendance(compId, index, peer),
@@ -276,15 +295,25 @@ async function renderStreakChallenges() {
         cardsForMeetups.push(`<li><strong>Week ${index + 1}</strong> · ${formatInUserTz(Number(meetup.opensAt) * 1000)} · ${addresses.length} attendees ${meetupLink}${joinCall}${revealCode}${updateCall}<ul>${roster.join('') || '<li>No check-ins yet.</li>'}</ul></li>`);
       }
 
-      const joinButton = !entrantIndex && wallet && Number(competition.status) === 0
-        ? `<button class="comp-user-btn comp-join" data-streak-action="join" data-comp="${compId}">Join · ${ethers.formatUnits(competition.stakeAmount, 18)} BNUT</button>` : '';
+      const active = Number(competition.status) === 0;
+      const registrationOpen = active && !paused && Date.now() / 1000 <= Number(competition.joinDeadline);
+      const registrationText = !active ? '' : paused ? 'Entries are paused by the captain.'
+        : registrationOpen ? `Registration closes ${formatInUserTz(Number(competition.joinDeadline) * 1000)}.`
+          : 'Registration has closed. Ask the captain to start a new challenge.';
+      const joinButton = !entrantIndex && registrationOpen
+        ? wallet
+          ? `<button class="comp-user-btn comp-join" data-streak-action="join" data-comp="${compId}">Join · ${ethers.formatUnits(competition.stakeAmount, 18)} BNUT</button>`
+          : `<button class="comp-user-btn comp-join" data-streak-action="connect" data-comp="${compId}">Connect wallet to join · ${ethers.formatUnits(competition.stakeAmount, 18)} BNUT</button>`
+        : '';
+      const cancelButton = isCaptain && active && !registrationOpen && !paused && Number(competition.entrantCount) === 0
+        ? `<button data-streak-action="cancel" data-comp="${compId}">Cancel expired empty challenge</button>` : '';
       const entrantStatus = entrant
         ? `${entrant.verifiedActivityDays}/${config.requiredActivityDays} tracked days · ${entrant.verifiedMeetups}/${config.requiredMeetups} peer-approved meetups · ${entrant.disqualified ? 'Disqualified' : entrant.status === 1n ? 'Monthly challenge complete' : 'In progress'}`
-        : 'Connect and join to participate.';
+        : registrationOpen ? wallet ? 'Not enrolled.' : 'Connect your wallet to join.' : 'Not enrolled.';
       const settleButton = isCaptain && Number(competition.status) === 0 && Date.now() / 1000 >= Number(competition.endTime)
         ? `<button data-streak-action="settle" data-comp="${compId}">Settle challenge</button>` : '';
       const participantList = participantWallets.map(account => `<li>${escapeText(account.slice(0, 6))}…${escapeText(account.slice(-4))}</li>`).join('');
-      cards.push(`<article class="comp-card"><header class="comp-card-header"><img class="streak-challenge-art" src="${escapeText(imageUrl)}" alt="" onerror="this.onerror=null;this.src='img/BigNuten.png'" /><h4>${escapeText(competition.name)}</h4><span>${Number(competition.status) === 0 ? 'Active' : Number(competition.status) === 1 ? 'Settled' : 'Cancelled'}</span></header><div class="comp-card-body"><p>Metrics: ${escapeText(ruleLabel)}</p><p>Challenge: ${config.requiredActivityDays} qualifying days · ${config.requiredMeetups} weekly calls · meetup goal: ${escapeText(config.meetupGoal)}</p><p>Your app progress: ${progress.totalDays} / ${config.requiredActivityDays} days · ${entrantStatus}</p><p class="streak-peer-note">Logs stay in your browser unless you explicitly opt to publish a wallet-linked progress report to public IPFS. During the call, share the app progress screen with a peer.</p><details><summary>Joined wallets (${participantWallets.length})</summary><ul>${participantList || '<li>No entrants yet.</li>'}</ul></details><ol>${cardsForMeetups.join('')}</ol>${joinButton}${settleButton}</div></article>`);
+      cards.push(`<article class="comp-card"><header class="comp-card-header"><img class="streak-challenge-art" src="${escapeText(imageUrl)}" alt="" onerror="this.onerror=null;this.src='img/BigNuten.png'" /><h4>${escapeText(competition.name)}</h4><span>${active ? paused ? 'Paused' : registrationOpen ? 'Registration open' : 'Registration closed' : Number(competition.status) === 1 ? 'Settled' : 'Cancelled'}</span></header><div class="comp-card-body"><p>Metrics: ${escapeText(ruleLabel)}</p><p>Challenge: ${config.requiredActivityDays} qualifying days · ${config.requiredMeetups} weekly calls · meetup goal: ${escapeText(config.meetupGoal)}</p><p>Your app progress: ${progress.totalDays} / ${config.requiredActivityDays} days · ${entrantStatus}</p><p>${escapeText(registrationText)}</p><p class="streak-peer-note">Logs stay in your browser unless you explicitly opt to publish a wallet-linked progress report to public IPFS. During the call, share the app progress screen with a peer.</p><details><summary>Joined wallets (${rosterUnavailable ? 'unavailable' : participantWallets.length})</summary><ul>${rosterUnavailable ? '<li>Roster temporarily unavailable.</li>' : participantList || '<li>No entrants yet.</li>'}</ul></details><ol>${cardsForMeetups.join('')}</ol>${joinButton}${cancelButton}${settleButton}</div></article>`);
     }
     renderAll(cards.length ? cards.join('') : '<p>No monthly challenges are active.</p>');
     targets.forEach(bindStreakActions);
@@ -316,17 +345,41 @@ async function renderCaptainSetup(contract, isCaptain) {
 
 function bindStreakActions(root) {
   root.querySelectorAll('[data-streak-action]').forEach(button => button.addEventListener('click', async () => {
+    if (button.disabled) return;
+    button.disabled = true;
     const compId = Number(button.dataset.comp);
     const week = Number(button.dataset.week);
     try {
+      if (button.dataset.streakAction === 'connect') {
+        await signerContract();
+        await renderStreakChallenges();
+        return;
+      }
       const { account, signer, contract } = await signerContract();
-      const competition = await contract.getCompetition(compId);
-      const config = await contract.getStreakChallenge(compId);
+      const reader = await readContract();
+      const competition = await reader.getCompetition(compId);
+      const config = await reader.getStreakChallenge(compId);
       if (button.dataset.streakAction === 'join') {
+        if (Number(competition.status) !== 0 || Date.now() / 1000 > Number(competition.joinDeadline)) {
+          throw new Error('Registration is closed. Ask the captain to create the next challenge. No BNUT was staked.');
+        }
+        if (await reader.paused()) throw new Error('Entries are paused by the captain. No BNUT was staked.');
+        if (competition.stakeToken.toLowerCase() !== window.CONTRACTS?.bnut?.toLowerCase()) {
+          throw new Error('This challenge does not use the configured Base BNUT token. No BNUT was staked.');
+        }
         const token = new ethers.Contract(competition.stakeToken, ERC20_ABI, signer);
-        const allowance = await token.allowance(account, address());
-        if (allowance < competition.stakeAmount) await (await token.approve(address(), competition.stakeAmount)).wait();
+        const readToken = new ethers.Contract(competition.stakeToken, ERC20_ABI, reader.runner);
+        const balance = await readToken.balanceOf(account);
+        if (balance < competition.stakeAmount) {
+          throw new Error(`You need ${ethers.formatUnits(competition.stakeAmount, 18)} BNUT to join; this wallet has ${ethers.formatUnits(balance, 18)} BNUT. Ask the captain about an onboarding allocation. No approval or stake was sent.`);
+        }
+        const allowance = await readToken.allowance(account, streakAddress());
+        if (allowance < competition.stakeAmount) await (await token.approve(streakAddress(), competition.stakeAmount)).wait();
         await (await contract.joinCompetition(compId)).wait();
+      } else if (button.dataset.streakAction === 'cancel') {
+        if (Number(competition.entrantCount) !== 0 || Number(competition.status) !== 0) throw new Error('Only an active empty challenge can be cancelled here.');
+        if (!confirm(`Cancel expired challenge #${compId}? This cannot be undone. Create a new challenge afterward.`)) return;
+        await (await contract.cancelCompetition(compId)).wait();
       } else if (button.dataset.streakAction === 'schedule') {
         node('streak-schedule-comp').value = compId;
         node('streak-schedule-week').value = week + 1;
@@ -402,6 +455,8 @@ function bindStreakActions(root) {
       await renderStreakChallenges();
     } catch (error) {
       alert(error.shortMessage || error.reason || error.message);
+    } finally {
+      button.disabled = false;
     }
   }));
 }
@@ -417,10 +472,10 @@ function bindStreakAdmin() {
       if (!ethers.isAddress(nftAddress)) throw new Error('Enter the deployed DecentNFT address.');
       const nft = new ethers.Contract(nftAddress, NFT_ROLE_ABI, signer);
       const minterRole = await nft.MINTER_ROLE();
-      if (await nft.hasRole(minterRole, address())) {
+      if (await nft.hasRole(minterRole, streakAddress())) {
         showStatus('streak-setup-status', 'StreakBetEscrow already has MINTER_ROLE.');
       } else {
-        await (await nft.grantRole(minterRole, address())).wait();
+        await (await nft.grantRole(minterRole, streakAddress())).wait();
         showStatus('streak-setup-status', 'StreakBetEscrow can now mint Achievement DNFTs.');
       }
     } catch (error) { showStatus('streak-setup-status', error.shortMessage || error.reason || error.message, true); }
@@ -437,8 +492,12 @@ function bindStreakAdmin() {
     } catch (error) { showStatus('streak-setup-status', error.shortMessage || error.reason || error.message, true); }
   });
   node('streak-create-button')?.addEventListener('click', async () => {
+    const createButton = node('streak-create-button');
+    if (createButton.disabled) return;
+    createButton.disabled = true;
     try {
       const { contract } = await signerContract();
+      const reader = await readContract();
       const name = node('streak-create-name').value.trim();
       const habitType = node('streak-create-habit').value;
       const rulesCID = node('streak-create-rules-cid').value.trim();
@@ -447,20 +506,22 @@ function bindStreakAdmin() {
       const endTime = startTime + 30 * DAY;
       const meetupGoal = node('streak-create-meetup-goal').value.trim();
       const dailyGoal = Number(node('streak-create-goal').value);
-      const compId = Number(await contract.nextCompId());
+      const compId = Number(await reader.nextCompId());
       if (!name || !meetupGoal || !Number.isInteger(dailyGoal) || dailyGoal < 1) throw new Error('Complete all challenge fields.');
+      if (!Number.isFinite(startTime) || startTime <= Date.now() / 1000) throw new Error('Choose a challenge start time in the future.');
       if (habitType === 'multi' && !/^ipfs:\/\/[a-zA-Z0-9]+$/.test(rulesCID)) throw new Error('Publish streak-rules.json and enter its ipfs://CID.');
       if (rulesCID && !/^ipfs:\/\/[a-zA-Z0-9]+$/.test(rulesCID)) throw new Error('Rules CID must use ipfs://<CID>.');
       const metadataCID = rulesCID || `habit:${habitType}`;
       await (await contract.createCompetition({
-        name, stakeToken: await contract.challengeStakeToken(), stakeAmount, totalWeeks: FOUR_WEEKS,
-        startTime, endTime, joinDeadline: startTime, yieldEnabled: false,
+        name, stakeToken: await reader.challengeStakeToken(), stakeAmount, totalWeeks: FOUR_WEEKS,
+        startTime, endTime, joinDeadline: startTime + DAY, yieldEnabled: false,
         metadataCID,
       })).wait();
       await (await contract.configureStreakChallenge(compId, habitType, meetupGoal, 28, FOUR_WEEKS, 5, dailyGoal)).wait();
       showStatus('streak-create-status', `Monthly challenge #${compId} created.`);
       await renderStreakChallenges();
     } catch (error) { showStatus('streak-create-status', error.shortMessage || error.reason || error.message, true); }
+    finally { createButton.disabled = false; }
   });
 
   node('streak-schedule-button')?.addEventListener('click', async () => {

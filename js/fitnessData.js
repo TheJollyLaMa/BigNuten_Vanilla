@@ -184,9 +184,9 @@ export async function getFitnessData() {
     return merged;
   }
 
-  // fallback: no data found — return default
-  saveFitnessData(defaultData);
-  return JSON.parse(JSON.stringify(defaultData));
+  const currentData = normalizeFitnessData(JSON.parse(current));
+  saveFitnessData(currentData);
+  return currentData;
 }
 
 export function saveFitnessData(data) {
@@ -313,7 +313,7 @@ if (typeof localStorage !== 'undefined' && typeof requestIdleCallback === 'funct
  * @returns {Object} Merged fitness data with duplicates removed, sorted chronologically
  */
 export function mergeSnapshotData(current, imported) {
-  const merged = { ...current };
+  const merged = { ...current, timeZone: current.timeZone || imported.timeZone || '' };
 
   // Simple array fields — deduplicate by timestamp (or full JSON if no timestamp)
   const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions', 'genieSessions', 'genieInsights'];

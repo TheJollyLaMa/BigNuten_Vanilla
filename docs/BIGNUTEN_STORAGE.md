@@ -3,7 +3,7 @@
 BigNuten uses a provider-neutral IPFS data layer:
 
 - **IPFS Desktop** is the direct local provider for users who run Kubo locally.
-- **Pinata through the Render relay** is the always-awake onboarding path for users who do not run IPFS Desktop yet.
+- **Pinata through the Render relay** is the hosted onboarding path for users who do not run IPFS Desktop yet. Availability depends on the deployed service; a free Render instance can sleep.
 - The browser uploads directly to Pinata using a short-lived signed URL. The Render relay never receives file contents and never stores a central database copy.
 - CIDs remain portable `ipfs://` references. Pinata is a pinning provider, not the ownership authority.
 
@@ -37,11 +37,98 @@ window.BIGNUTEN_STORAGE_RELAY_URL = 'https://your-service.onrender.com';
 
 A relay restart clears its in-memory nonce store; this only invalidates outstanding upload authorizations.
 
+Hosted selection requires a configured relay and an injected wallet. Missing
+configuration or wallet access is an explicit error, not a fallback prompt for
+personal credentials. **Use my Pinata account** is the separate credential path:
+its JWT is kept only in memory for the page session and reused for subsequent
+uploads. Clearing it in Settings clears the cached personal session. A page
+reload does not restore that credential or authorize new uploads; reconnect
+deliberately. The saved storage preference alone does not establish a connection.
+
+## Verified snapshot recovery
+
+Collecting the current profile preserves `fitnessTrackerData` even when there
+are no older browser snapshot files. Previously this combination overwrote the
+profile with defaults before snapshot collection. CID merges retain an existing
+profile timezone, or restore the imported timezone when the current one is empty.
+
+All provider requests have a 75-second timeout. IPFS Desktop uses POST for
+Kubo's version, add and cat endpoints. With Desktop selected, verification and
+restore retrieve from the local node, not a public gateway that may not yet
+know the new CID. Hosted/personal Pinata retrieval uses the Pinata gateway.
+
+After upload, BigNuten retrieves the snapshot, unwraps the supported v1 envelope
+(legacy plain JSON objects remain supported), and compares the canonical data
+hash. Only a successful match advances the recovery manifest and hourly-success
+timestamp. Unavailable bytes, malformed JSON, unsupported wrappers, mismatched
+hashes, or manifest write failures reject the backup instead of reporting success.
+An uploaded-but-unverified CID is recorded as an error in snapshot metadata;
+it is not a replacement for the previous recovery point.
+
+If a new snapshot fails, keep using the existing browser data and export JSON
+before further recovery attempts. Reconnect the intended provider and retry.
+The snapshot panel retains the previous known-good pointer and history; select
+an older successful CID explicitly to merge it, rather than importing a failed
+upload. JSON download/import remains available without IPFS or a wallet.
+No remote unpinning or automatic destructive restore is added by this repair.
+
+## Opt-in DecentHead adapter (local validation)
+
+`js/ipfsHostAdapter.js` exports `createBigNutenIPFSHost({ returnFocus })` for
+the DecentHead v1 host contract. It is not imported by the production app and
+does not change the existing IPFS icon behavior. No CDN dependency or
+unreviewed `@main` integration is introduced.
+
+The adapter advertises **backup only**. Community replication and rewards
+remain unavailable until their own public-manifest and eligibility integrations
+are implemented. Local status is `idle`; a connected provider reports `ready`
+with an explicit warning that connection is not backup verification. Status
+reads do not connect, prompt, restore a session, collect health records or upload.
+Provider errors and malformed connection states propagate to the header.
+
+Opening backup controls rechecks the selected provider and delegates to
+`openBackupControls()` in the existing data-control module:
+
+- Connected provider: snapshot history/import/export panel, **without** the
+  legacy icon's automatic upload.
+- Disconnected desktop: existing hosted/personal/Desktop choices and JSON tools.
+- Disconnected mobile: existing local JSON sheet.
+
+Missing panels reject explicitly. The opener focuses the close control, handles
+Escape, wraps Tab within existing modal panels, and releases its listeners on
+close (including automatic close after connection). Supply `returnFocus` to
+focus the invoking header control after close: the header temporarily disables
+its button during handoff, so the current document focus alone is insufficient.
+The snapshot panel remains nonmodal, preserving its existing behavior.
+
+For a **synthetic, isolated test only**, initialize the normal provider registry
+and data controls once, create this adapter, then set
+`DECENT_CONFIG.ipfsMode = 'host'` and `DECENT_CONFIG.ipfsAdapter = adapter`
+before mounting the tested DecentHead element. Load a reviewed, pinned header
+revision; do not replace the existing app header or enable real health uploads
+as part of this example. The adapter's synthetic label/warning is not a technical
+upload restriction: its panels still call the normal storage implementation.
+
+Cross-repository isolated Chrome checks passed for hosted, personal Pinata and
+Desktop: inert mount/open, panel handoff without upload, explicit synthetic
+save/read-back, CID merge, JSON download, failed-retrieval pointer retention,
+modal keyboard wrap, Escape/focus return and 390px local-only controls. Provider
+responses and the wallet signer were mocked; no real provider traffic occurred.
+These are consumer-boundary checks, not proof of real wallet authentication,
+provider availability, full application boot or production rollout.
+
 ## Privacy and ownership
 
 The relay does not make public IPFS content private. Anyone who learns a CID can retrieve its content. Sensitive health or identity data must be encrypted in the browser before upload, with the decryption key shared only with intended participants. Never put Pinata credentials, private keys, email addresses, or plaintext sensitive records in the repository or an IPFS document.
 
-The community-sharing flow must remain separate from private backup. A user can keep a private snapshot in their own provider and explicitly publish a separate sanitized dataset for community aggregation and BNUT rewards. Sharing a record must be an explicit wallet-confirmed action; the relay must not infer consent from a backup upload.
+The community-sharing flow must remain separate from personal backup. A user can keep a snapshot in their own provider and explicitly publish a separate sanitized dataset for community aggregation and BNUT rewards. Sharing a record must be an explicit wallet-confirmed action; the relay must not infer consent from a backup upload.
+
+**Current implementation is not encrypted private backup.** The transport repair
+is validated with synthetic records only. Do not upload real health data through
+these snapshot paths until client-side encryption and a recoverable key policy
+have been decided and tested. A personal Pinata account, local Kubo pin, wallet
+signature or secret CID is not a confidentiality boundary. The relay sees
+authorization metadata; Pinata receives the uploaded file bytes.
 
 ## IPFS Desktop
 
@@ -149,4 +236,22 @@ Run the relay tests with:
 ```sh
 npm run test:storage-relay
 npm run test:metadata-publisher
+node --test test/snapshotTransport.test.js test/dataControlStorage.test.js test/ipfsHostAdapter.test.js
 ```
+
+The snapshot transport tests mock all provider requests and use synthetic
+records/credentials. They exercise Desktop save/verification/restore, personal
+credential reuse, hosted signed-URL routing, malformed responses, timeouts,
+failed writes and last-known-good retention. They are not evidence of a real
+Pinata upload, independent pin availability, encryption or reward payment.
+The **Validate Snapshot Storage** workflow runs the dependency-free transport
+and control tests on Node 24 when related modules change.
+
+Separate isolated Chrome checks use the actual markup/styles and storage
+modules with synthetic data and mocked Kubo responses. They cover pointer
+activation of the IPFS button, visible connection failure, verified upload,
+repeat CID merge, mismatch retention and a 390px local-only sheet. The IPFS
+control has its own stacking level so the positioned title cannot intercept it.
+These checks do not boot unrelated app scripts or prove full-app startup,
+production provider access or complete application layout. They are not part
+of the Node CI workflow.
