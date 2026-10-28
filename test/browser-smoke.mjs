@@ -164,6 +164,45 @@ try {
         await visible(`#${id}`);
         const box = await page.locator(`#${id}`).boundingBox();
         assert.ok(box.width > 0 && box.height > 0, `${id} renders`);
+        // Surface-specific checks supplement the shared render/open/close assertion.
+        if (id === 'moon-modal') {
+          assert.match(await page.locator('#moon-info').innerText(), /Moon Day:.*Sun Day:/);
+          assert.match(await page.locator('#location-info').innerText(), /Location not linked/);
+          assert.ok(await page.locator('#ekadasi-links a').count(), 'Ekadasi reference links render even outside a fasting day');
+        }
+        if (id === 'about-modal') {
+          await visible('#tz-clock');
+          await page.locator('#tz-select').selectOption('Pacific/Honolulu');
+          assert.equal(await page.evaluate(() => localStorage.getItem('userTimezone')), 'Pacific/Honolulu');
+          await page.locator('#tz-select').selectOption('UTC');
+        }
+        if (id === 'about-modal' && trigger === '#aes-dnft-btn') {
+          await visible('#dnft-supporter-section');
+          await visible('#dnft-buy-cards');
+          assert.ok((await page.locator('#dnft-buy-cards').innerText()).trim(), 'DNFT editions or deployment-unavailable message renders');
+          await visible('#dnft-fiat-wallet');
+        }
+        if (id === 'data-sharing-modal') {
+          for (const tab of ['exercise', 'nutrition', 'bnut', 'datapool']) {
+            await click(`.comm-tab[data-tab="${tab}"]`);
+            await visible(`#comm-tab-${tab}`);
+            assert.equal(await page.locator(`.comm-tab[data-tab="${tab}"]`).getAttribute('aria-selected'), 'true');
+            assert.ok((await page.locator(`#comm-tab-${tab}`).innerText()).trim(), `${tab} community content`);
+          }
+        }
+        if (id === 'achievements-modal') {
+          await visible('#comp-user-list');
+          assert.ok((await page.locator('#comp-user-list').innerText()).trim(), 'StreakBet empty/unavailable state is explicit');
+        }
+        if (id === 'yoga-flow-modal') {
+          await click('#yoga-start-btn');
+          await visible('#yoga-active-screen');
+          await visible('#yoga-breath-aura');
+          assert.match(await page.locator('#yoga-breath-label').innerText(), /Inhale|Exhale|Hold/);
+          assert.match(await page.locator('#yoga-timer-display').innerText(), /\d+:\d{2}/);
+          await click('#yoga-end-btn'); await click('#yoga-end-btn');
+          await visible('#yoga-complete-screen');
+        }
         await shot(id);
         await click(close);
         await hidden(`#${id}`);
@@ -176,7 +215,9 @@ try {
       await click('#wallet-connect');
       await page.waitForFunction(() => document.getElementById('wallet-connect').dataset.walletState === 'connected');
       assert.equal(await page.locator('#wallet-connect').getAttribute('data-wallet-address'), wallet);
-      for (const selector of ['#body-figure-wrapper', '#water-tracker', 'footer', '#wallet-connect']) await visible(selector);
+      for (const selector of ['#body-figure-wrapper', '#water-tracker', 'footer', '#wallet-connect', '#chakra-aura-canvas', '.chakra-icon']) await visible(selector);
+      assert.equal(await page.evaluate(() => window.ethereum.request({ method: 'eth_chainId' })), '0x2105');
+      assert.ok(await page.locator('#chakra-aura-canvas').evaluate(canvas => canvas.width > 0 && canvas.height > 0), 'Aura canvas has drawing dimensions');
       await shot('dashboard');
       // Log one synthetic exercise through the real form to populate the workout
       // path. Fresh browser contexts guarantee this never touches user data.
@@ -293,6 +334,7 @@ try {
         ['subscription-modal', '#aes-sub-btn'], ['challenge-modal', '#aes-challenge-btn'],
         ['bounty-register-modal', '#aes-bounty-register-btn'],
       ]) await modal(id, trigger, undefined, ['#aesculapius-right']);
+      await modal('about-modal', '#aes-dnft-btn', undefined, ['#aesculapius-right']);
       await modal('genie-memory-modal', '#genie-memory-review-btn', undefined, ['#aesculapius-right', '#aes-settings-btn']);
       await click('#genie-revoke-consent');
       assert.match(await page.locator('#genie-consent-status').innerText(), /permissions reset/);
@@ -317,8 +359,9 @@ try {
       await page.evaluate(() => localStorage.setItem('storageMode', 'ipfs'));
       await modal('ipfs-snapshot-panel', '#aes-storage-btn', '#snapshot-panel-close', ['#aesculapius-right']);
       await page.evaluate(() => localStorage.setItem('storageMode', 'json-only'));
-      // #362: Cancel does not clear the legacy prep timer. Freeze timers for
-      // this final immediate-cancel check so it cannot cover subsequent dialogs.
+      // #362: cancellation leaks its preparation timer. Check the real cancel
+      // control last with timers paused; do not let the known delayed callback
+      // interfere with independent surfaces or claim timer lifecycle coverage.
       await page.clock.pauseAt(new Date('2026-10-28T12:00:00Z'));
       await modal('workout-timer-modal', '#start-workout-button', '#cancel-workout-button', ['[data-panel="workout-set-list"].panel-toggle-btn']);
       if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
