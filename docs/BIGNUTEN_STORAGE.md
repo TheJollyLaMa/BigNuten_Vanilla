@@ -101,6 +101,35 @@ state remains in `bignutenRecoveryUndo.v1`; it is not deleted by undo. Undo refu
 to overwrite subsequent edits. Export those edits before further recovery.
 Local writes/quota failures reject rather than report a successful recovery.
 
+The notice has an accessible **Dismiss recovery notice** button. Dismissal is
+stored in `bignutenRecoveryDismissed.v1` for that recovery event, not all future
+recoveries. Undo also records the exact pre-recovery primary state (including
+absence) in `bignutenRecoveryUndone.v1`, so reloading does not auto-restore the
+same state again. Different corrupt bytes, or corruption after a successful
+save/observed valid primary, allow a new recovery. Exact byte comparisons avoid
+changing the synchronous recovery contract to use the asynchronous canonical
+hash helper; undo does not normalize or hash away differences in corrupt bytes.
+
+### Delete/reset guardrail (#359)
+
+Any future **delete all local health data** or whole-profile reset must call
+`clearLocalHealthData()` from `js/snapshotRecovery.js`, not just remove
+`fitnessTrackerData`. This single helper removes the primary, both water caches,
+all three recovery points, the exact undo record, dismissal/undo-choice keys,
+and every legacy `fitnessTrackerSnapshot-*` copy. It removes recovery sources
+before primary data and propagates storage failures; do not report deletion as
+successful after an error. Download an external backup first if desired.
+Fresh recovery initialization after a successful clear cannot resurrect data.
+Unrelated preferences, credentials and remote backups are not removed.
+
+There is currently no whole-profile delete/reset control; none is added here.
+The data control panel imports/exports rather than deletes. Settings resets
+permissions/preferences, and Genie **Clear all memory** clears only Genie
+sessions/insights and session chat caches, preserving the rest of the profile.
+These scoped actions must not be routed to a whole-health-data deletion helper.
+Remote manifests/unpinning and deleting external JSON exports remain separate.
+
+
 Recovery procedure:
 
 1. **Missing/corrupt primary:** use the automatic recovery notice; inspect the

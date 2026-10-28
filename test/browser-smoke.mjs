@@ -127,6 +127,15 @@ try {
         removeListener(event, listener) { listeners.get(event)?.delete(listener); return this; },
       };
     });
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('smokeRecoverySeeded')) return;
+      sessionStorage.setItem('smokeRecoverySeeded', 'true');
+      localStorage.setItem('fitnessTrackerData', '{synthetic corrupt data');
+      localStorage.setItem('bignutenRecoveryPoints.v1', JSON.stringify([{
+        date: '2026-10-28T11:00:00Z',
+        raw: JSON.stringify({ dataVersion: 1, weightLogs: [], waterDailyHistory: {} }),
+      }]));
+    });
     const hostedRequests = [];
     await page.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url());
@@ -157,6 +166,20 @@ try {
     try {
       await page.goto(base, { waitUntil: 'networkidle' });
       await page.locator('#app-title-name').waitFor({ state: 'visible' });
+      const recoveryNotice = page.locator('#snapshot-recovery-notice');
+      await recoveryNotice.waitFor({ state: 'visible' });
+      assert.equal(await recoveryNotice.getAttribute('role'), 'alert');
+      assert.match(await recoveryNotice.innerText(), /Restored local recovery point from 2026-10-28T11:00:00Z/);
+      await recoveryNotice.getByRole('button', { name: 'Dismiss recovery notice', exact: true }).click();
+      await recoveryNotice.waitFor({ state: 'detached' });
+      const dismissal = await page.evaluate(() => localStorage.getItem('bignutenRecoveryDismissed.v1'));
+      assert.ok(dismissal, 'Dismissal persisted for this recovery event');
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.locator('#app-title-name').waitFor({ state: 'visible' });
+      assert.equal(await recoveryNotice.count(), 0, 'Dismissed recovery notice stays dismissed on reload');
+      assert.equal(await page.evaluate(() => localStorage.getItem('bignutenRecoveryDismissed.v1')), dismissal);
+      console.log(`${name}: recovery notice shown, dismissed accessibly and remains dismissed after reload`);
+
       // Decorative infinite transforms prevent actionability stability; motion
       // itself is not under test. Keep layout, hit testing and real clicks.
       await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; }' });

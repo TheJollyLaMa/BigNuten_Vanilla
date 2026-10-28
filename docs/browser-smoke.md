@@ -136,3 +136,12 @@ instead of requiring the donor CI's separate Python server. No speculative
 shared abstraction or library-wide synchronization was introduced. Acceptance:
 `npm run test:smoke` in this receiving checkout; both viewports pass with zero
 console/page/network errors and an empty error allowlist.
+
+
+## Recovery notice regression (#360)
+
+Both viewport runs seed synthetic corrupt fitness data and a valid local
+recovery point via `addInitScript` (once per browser session). They assert the
+alert contains the recovery timestamp, click its accessible dismiss button,
+verify persisted dismissal, and reload to verify the notice stays absent.
+The fixture does not use real health data or contact a backup provider.
