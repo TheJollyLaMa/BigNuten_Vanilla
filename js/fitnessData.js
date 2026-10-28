@@ -2,6 +2,7 @@
 
 import { fetchSnapshotData } from './ipfsStorage.js';
 import { getTodayInUserTz } from './timezone.js';
+import { syncWaterCaches } from './waterIntake.js';
 
 const STORAGE_KEY = 'fitnessTrackerData';
 import { normalizeFitnessData, validateFitnessSnapshot, cloneDefaultData, defaultData, isPlainObject } from './fitnessSchema.js';
@@ -30,16 +31,7 @@ export function saveFitnessData(data) {
 }
 
 export function syncWaterIntakeAfterRestore(data) {
-  const history = isPlainObject(data?.waterDailyHistory) ? data.waterDailyHistory : {};
-  localStorage.setItem('waterDailyHistory', JSON.stringify(history));
-
-  const today = getTodayInUserTz();
-  let current = {};
-  try { current = JSON.parse(localStorage.getItem('waterTrackerData') || '{}'); } catch {}
-  const count = Object.prototype.hasOwnProperty.call(history, today)
-    ? Number(history[today]) || 0
-    : current.date === today ? Number(current.count) || 0 : 0;
-  localStorage.setItem('waterTrackerData', JSON.stringify({ date: today, count }));
+  syncWaterCaches(localStorage, data, getTodayInUserTz());
 
   if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
     window.dispatchEvent(new CustomEvent('bignuten:fitness-data-restored'));

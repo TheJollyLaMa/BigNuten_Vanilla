@@ -1,6 +1,7 @@
 import { persistDietIntake } from './dietIntake.js';
 import { geniePrivacyNotice, revokeGenieHostedConsent } from './geniePrivacy.js';
 import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
+import { createWaterIntakeStore } from './waterIntake.js';
 initializeSnapshotRecovery();
 import { initDnftPayPalPurchase, initDnftStripePurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
@@ -4214,55 +4215,24 @@ function prepareGraphData(data, type) {
   return { labels, reps, weights, tooltips };
 }
 // ===== Water Intake Tracker =====
-const WATER_KEY = 'waterTrackerData';
-const WATER_HISTORY_KEY = 'waterDailyHistory';
 const WATER_MAX = 8;
 const WATER_ARC_RADIUS = 90; // SVG radius matching the path's 'A 90 90' arc
-const WATER_ARC_LENGTH = Math.PI * WATER_ARC_RADIUS; // semi-circle arc length ≈ 282.74
+const WATER_ARC_LENGTH = Math.PI * WATER_ARC_RADIUS;
+const waterIntake = createWaterIntakeStore(localStorage, fitnessRecovery, getTodayInUserTz);
 
 function getWaterData() {
-  const today = getTodayInUserTz();
-  const raw = localStorage.getItem(WATER_KEY);
-  if (raw) {
-    const data = JSON.parse(raw);
-    if (data.date === today) {
-      return data;
-    }
-    // New day — save yesterday's count to daily history before resetting
-    try {
-      const hist = JSON.parse(localStorage.getItem(WATER_HISTORY_KEY) || '{}');
-      hist[data.date] = data.count;
-      localStorage.setItem(WATER_HISTORY_KEY, JSON.stringify(hist));
-    } catch { /* ignore */ }
-  }
-  const fresh = { date: today, count: 0 };
-  localStorage.setItem(WATER_KEY, JSON.stringify(fresh));
-  return fresh;
+  return waterIntake.read();
 }
 
 function saveWaterData(data) {
-  localStorage.setItem(WATER_KEY, JSON.stringify(data));
-  // Keep daily history up-to-date for the correlation graph
-  try {
-    const hist = JSON.parse(localStorage.getItem(WATER_HISTORY_KEY) || '{}');
-    hist[data.date] = data.count;
-    localStorage.setItem(WATER_HISTORY_KEY, JSON.stringify(hist));
-    const fitnessData = getFitnessData();
-    fitnessData.waterDailyHistory = {
-      ...(fitnessData.waterDailyHistory && typeof fitnessData.waterDailyHistory === 'object' && !Array.isArray(fitnessData.waterDailyHistory)
-        ? fitnessData.waterDailyHistory
-        : {}),
-      [data.date]: data.count,
-    };
-    saveFitnessData(fitnessData);
-  } catch { /* ignore */ }
+  waterIntake.setCount(data);
   refreshChakraAura();
 }
 
 function updateWaterMeter() {
   const data = getWaterData();
-  const count = Math.min(data.count, WATER_MAX);
-  const filled = WATER_ARC_LENGTH * count / WATER_MAX;
+  const count = data.count;
+  const filled = WATER_ARC_LENGTH * Math.min(count, WATER_MAX) / WATER_MAX;
   const empty = WATER_ARC_LENGTH - filled;
 
   const fillPath = document.getElementById('water-meter-fill');
@@ -4281,42 +4251,31 @@ function updateWaterMeter() {
   }
 }
 
-function logWaterIntake() {
-  const data = getWaterData();
-  if (data.count < WATER_MAX) {
-    data.count += 1;
+function changeWaterIntake(delta) {
+  try {
+    const data = getWaterData();
+    data.count = Math.max(0, data.count + delta);
     saveWaterData(data);
+    updateWaterMeter();
+  } catch (error) {
+    window.alert(`Water intake was not saved: ${error.message}`);
   }
-  updateWaterMeter();
+}
+
+function logWaterIntake() {
+  changeWaterIntake(1);
 }
 
 function removeWaterIntake() {
-  const data = getWaterData();
-  if (data.count > 0) {
-    data.count -= 1;
-    saveWaterData(data);
-  }
-  updateWaterMeter();
+  changeWaterIntake(-1);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  updateWaterMeter();
   try {
-    const hist = JSON.parse(localStorage.getItem(WATER_HISTORY_KEY) || '{}');
-    const currentWater = getWaterData();
-    if (
-      (hist && typeof hist === 'object' && !Array.isArray(hist) && Object.keys(hist).length) ||
-      (currentWater && currentWater.count > 0)
-    ) {
-      const fitnessData = getFitnessData();
-      fitnessData.waterDailyHistory = {
-        ...(hist && typeof hist === 'object' && !Array.isArray(hist) ? hist : {}),
-        ...(currentWater?.count > 0 ? { [currentWater.date]: currentWater.count } : {}),
-      };
-      saveFitnessData(fitnessData);
-    }
-  } catch {
-    /* ignore hydration sync failures */
+    waterIntake.migrate();
+    updateWaterMeter();
+  } catch (error) {
+    window.alert(`Water intake could not be loaded: ${error.message}`);
   }
 
   // Both drop buttons open the water log modal
@@ -4343,6 +4302,7 @@ window.addEventListener('bignuten:fitness-data-restored', () => {
   refreshChakraAura();
   displayCurrentWeight();
   loadSupplements();
+  renderPainLogList();
   displayRecentFoods();
   displayRecentSupplements();
   displayRecentExercises();

@@ -93,6 +93,17 @@ try {
     walletCalls.length = 0;
     walletGranted = false;
     const context = await browser.newContext({ viewport, locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce', serviceWorkers: 'block' });
+    const restoredSnapshot = {
+      dataVersion: 1,
+      waterDailyHistory: { '2026-10-28': 4, '2026-10-27': 2 },
+      weightLogs: [{ weight: 178, timestamp: '2026-10-28T10:00:00Z' }],
+      foods: [{ name: 'Synthetic restore meal', amount: 1, unit: 'serving', date: '2026-10-28', nutr: { calories: 246, protein: 12 } }],
+      supplements: [{ name: 'Synthetic restore supplement', weight: 10, date: '2026-10-28', time: '10:00' }],
+      exercises: { types: ['Push-ups'], entries: [{ type: 'Push-ups', timestamp: '2026-10-28T10:00:00Z', sets: [{ reps: 8, weight: 10 }] }] },
+      measurements: [{ type: 'Bicep', measurement: '12', date: '2026-10-28', time: '10:00' }],
+      painLogs: [{ bodyArea: 'Synthetic restore area', severity: 2, timestamp: '2026-10-28T10:00:00Z' }],
+      emotions: [{ emotion: 'Joy', context: 'manual', timestamp: '2026-10-28T10:00:00Z' }],
+    };
     const page = await context.newPage();
     // Software-rendered canvas plus screenshot capture is slower on CI CPUs.
     page.setDefaultTimeout(30_000);
@@ -126,6 +137,7 @@ try {
         hostedRequests.push({ hostname: url.hostname, body: request.postDataJSON() });
         return route.fulfill({ json: { choices: [{ message: { content: 'Synthetic health response' } }] } });
       }
+      if (url.pathname.endsWith('/ipfs/bafysyntheticwaterrestore')) return route.fulfill({ json: restoredSnapshot });
       if (url.hostname === 'fonts.googleapis.com') return route.fulfill({ contentType: 'text/css', body: '' });
       if (request.resourceType() === 'image') return route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') });
       if (request.method() === 'POST' && /base\.org|publicnode\.com|optimism\.io|llamarpc\.com/.test(url.hostname)) {
@@ -219,6 +231,41 @@ try {
       assert.equal(await page.evaluate(() => window.ethereum.request({ method: 'eth_chainId' })), '0x2105');
       assert.ok(await page.locator('#chakra-aura-canvas').evaluate(canvas => canvas.width > 0 && canvas.height > 0), 'Aura canvas has drawing dimensions');
       await shot('dashboard');
+      await click('#water-drop-empty');
+      for (let count = 0; count < 10; count++) await click('#water-log-btn');
+      assert.equal(await page.locator('#water-modal-count').innerText(), '10 / 8');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).waterDailyHistory['2026-10-28']), 10);
+      await click('#water-modal-close');
+      await click('#graph-icon');
+      // A fresh data profile in an already running document is the incognito
+      // restore regression: no navigation/reload may be needed to fill panels.
+      for (const source of ['json', 'cid']) {
+        await page.evaluate(async ({ source, snapshot }) => {
+          for (const key of ['fitnessTrackerData', 'waterDailyHistory', 'waterTrackerData', 'bignutenRecoveryPoints.v1', 'bignutenRecoveryUndo.v1']) localStorage.removeItem(key);
+          if (source === 'json') {
+            const { importDataFromJSONFile } = await import('/js/dataControl.js');
+            await importDataFromJSONFile(new File([JSON.stringify(snapshot)], 'synthetic-restore.json', { type: 'application/json' }));
+          } else {
+            const { importAndMergeFromCID } = await import('/js/fitnessData.js');
+            await importAndMergeFromCID('bafysyntheticwaterrestore');
+          }
+        }, { source, snapshot: restoredSnapshot });
+        assert.equal(await page.locator('#water-count-label').innerText(), '4/8', `${source}: water restored without reload`);
+        assert.equal(await page.locator('#current-weight-display').innerText(), '178 lbs');
+        assert.match(await page.locator('#foods-last7days').textContent(), /Synthetic restore meal/);
+        assert.match(await page.locator('#supplement-entries').textContent(), /Synthetic restore supplement/);
+        assert.match(await page.locator('#exercises-last7days').textContent(), /Push-ups/);
+        assert.match(await page.locator('#exercise-list').textContent(), /8 reps/);
+        assert.match(await page.locator('#dietAllTimeLog').textContent(), /Synthetic restore meal/);
+        assert.match(await page.locator('#dv-card-content .dv-row').filter({ has: page.locator('[data-nutr-key="calories"]') }).textContent(), /246 \/ 2,000 kcal/);
+        assert.match(await page.locator('#pain-log-list').textContent(), /Synthetic restore area/);
+        assert.equal(await page.locator('#feelings-analytics .ew-analytics-empty').count(), 0);
+        assert.equal(await page.evaluate(() => Chart.getChart(document.getElementById('measurement-chart')).data.datasets[0].data[0].y), 12);
+        assert.equal(await page.evaluate(() => Chart.getChart(document.getElementById('correlationChart')).data.datasets.find(dataset => dataset.label.includes('Water')).data.at(-1).y), 4, `${source}: open water trend refreshed`);
+        await shot(`${source}-restored-dashboard`);
+        console.log(`${name}: ${source} restore repopulated water, weight, food/nutrition, supplements, exercises, measurements, pain and feelings without reload`);
+      }
+      await click('#correlation-graph-modal .modal-close');
       // Log one synthetic exercise through the real form to populate the workout
       // path. Fresh browser contexts guarantee this never touches user data.
       await click('#log-exercise');
