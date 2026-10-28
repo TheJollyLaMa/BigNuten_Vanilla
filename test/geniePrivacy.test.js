@@ -1,10 +1,11 @@
 'use strict';
 const { test, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
-const keys = ['localStorage', 'document', 'fetch', 'CustomEvent'];
+const keys = ['localStorage', 'document', 'fetch', 'CustomEvent', 'window', 'requestIdleCallback'];
 const originals = Object.fromEntries(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
 const values = new Map();
 let privacy, genie, dialogs, requests;
+let yogaElements;
 class Element {
   constructor(tag) { this.tag = tag; this.children = []; this.dataset = {}; this.events = {}; }
   setAttribute() {}
@@ -21,8 +22,10 @@ function act(action) { dialogs.at(-1).children.at(-1).children.find(button => bu
 function listed() { return dialogs.at(-1).children.find(child => child.tag === 'ul').children.map(child => child.textContent); }
 function seed(data) { values.set('fitnessTrackerData', JSON.stringify(data)); }
 before(async () => {
+  global.requestIdleCallback = () => {};
+  global.window = { dispatchEvent() {}, addEventListener() {} };
   global.localStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), removeItem: key => values.delete(key) };
-  global.document = { createElement: tag => new Element(tag), body: new Element('body'), querySelectorAll: () => [], dispatchEvent() {} };
+  global.document = { createElement: tag => new Element(tag), body: new Element('body'), querySelectorAll: () => [], getElementById: id => yogaElements?.[id] || null, dispatchEvent() {} };
   global.CustomEvent = class { constructor(type, options) { this.type = type; this.detail = options.detail; } };
   global.fetch = async (url, options) => { requests.push({ url, body: JSON.parse(options.body) }); return { ok: true, json: async () => ({ choices: [{ message: { content: 'Synthetic response' } }] }) }; };
   privacy = await import('../js/geniePrivacy.js');
@@ -168,4 +171,82 @@ test('failure to remember permission fails closed without a hosted fetch', async
   finally { localStorage.setItem = save; }
   assert.equal(requests.length, 0);
   assert.equal(privacy.hasGenieHostedConsent('github-models'), false);
+});
+
+
+let yogaImport = 0;
+async function yogaChat() {
+  yogaElements = Object.fromEntries(['input', 'send', 'messages', 'status'].map(name => [`yoga-genie-${name}`, new Element('div')]));
+  const yoga = await import(`../js/yoga.js?test=${++yogaImport}`);
+  return async text => { yogaElements['yoga-genie-input'].value = text; return yoga.sendGenieMessage(); };
+}
+async function waitForDialog() {
+  for (let count = 0; count < 20 && !dialogs.length; count++) await new Promise(resolve => setImmediate(resolve));
+  assert.equal(dialogs.length, 1);
+}
+
+for (const backend of ['github-models', 'openai']) {
+  test(`Yoga ${backend}: logged sessions cannot leave before consent; Allow remembered and reset gates again`, async () => {
+    genie.setGenieBackend(backend);
+    seed({ sessionLog: [{ type: 'yoga', date: new Date().toISOString(), name: 'Synthetic yoga session' }, { type: 'exercise', name: 'Not yoga' }] });
+    const send = await yogaChat();
+    let pending = send('Help with my pose');
+    await waitForDialog();
+    assert.equal(requests.length, 0);
+    assert.deepEqual(listed(), ['Current yoga flow', 'Recent yoga sessions', 'Your message']);
+    act('cancel'); await pending;
+    assert.equal(requests.length, 0);
+    pending = send('Try again');
+    await waitForDialog();
+    assert.ok(listed().includes('Yoga conversation history'));
+    act('allow'); await pending;
+    assert.equal(requests.length, 1);
+    assert.match(requests[0].body.messages[0].content, /Synthetic yoga session/);
+    assert.doesNotMatch(requests[0].body.messages[0].content, /Not yoga/);
+    assert.equal(requests[0].body.messages.filter(message => message.content === 'Try again').length, 1);
+    await send('Next question');
+    assert.equal(requests.length, 2);
+    privacy.revokeGenieHostedConsent();
+    pending = send('Ask after reset');
+    await waitForDialog();
+    assert.equal(requests.length, 2);
+    act('cancel'); await pending;
+    assert.equal(requests.length, 2);
+  });
+}
+
+test('Yoga local alternative switches to WebLLM, explains panel limitation and never fetches', async () => {
+  seed({ sessionLog: [] });
+  const send = await yogaChat();
+  const pending = send('Help with my pose');
+  await waitForDialog();
+  assert.deepEqual(listed(), ['Current yoga flow', 'Your message']);
+  act('local'); await pending;
+  assert.equal(genie.getGenieBackend(), 'webllm');
+  assert.equal(requests.length, 0);
+  assert.match(yogaElements['yoga-genie-messages'].children.at(-1).textContent, /Nothing was sent.*Yoga Genie needs a hosted backend/);
+  await send('Still local');
+  assert.equal(requests.length, 0);
+  assert.equal(dialogs.length, 0);
+});
+
+
+test('Yoga fetch defense fails closed if permission is revoked after the dialog resolves', async () => {
+  seed({ sessionLog: [] });
+  const send = await yogaChat();
+  const pending = send('Help with my pose');
+  await waitForDialog();
+  const get = localStorage.getItem;
+  const log = console.error;
+  const errors = [];
+  localStorage.getItem = key => {
+    if (key === 'genieApiKey') privacy.revokeGenieHostedConsent();
+    return get(key);
+  };
+  console.error = (...args) => errors.push(args);
+  try { act('allow'); await pending; }
+  finally { localStorage.getItem = get; console.error = log; }
+  assert.equal(requests.length, 0);
+  assert.equal(errors.length, 1);
+  assert.match(yogaElements['yoga-genie-messages'].children.at(-1).textContent, /Hosted health-context permission required/);
 });

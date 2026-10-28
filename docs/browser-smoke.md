@@ -38,6 +38,8 @@ there are no forced clicks or replaced app functions.
   In the first Genie chat, assert no hosted request before permission, Cancel,
   Allow/remembered permission, a separate OpenAI consent and local-WebLLM switch.
   Hosted responses use synthetic local fixtures; Settings reset is asserted.
+  Yoga Genie separately exercises consent before its prompt, Cancel and the local
+  switch, with no hosted request from either declined action.
 - Open/close moon/sun, water, emotion wheel, pain/body, weight (real Chart.js),
   measurements, supplements, diet, trends/correlation, exercise, About, Yoga Flow,
   Yoga Genie, workout timer (cancel), achievements, settings, Genie memory,
