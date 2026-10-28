@@ -3,7 +3,7 @@
 BigNuten uses a provider-neutral IPFS data layer:
 
 - **IPFS Desktop** is the direct local provider for users who run Kubo locally.
-- **Pinata through the Render relay** is the always-awake onboarding path for users who do not run IPFS Desktop yet.
+- **Pinata through the Render relay** is the hosted onboarding path for users who do not run IPFS Desktop yet. Availability depends on the deployed service; a free Render instance can sleep.
 - The browser uploads directly to Pinata using a short-lived signed URL. The Render relay never receives file contents and never stores a central database copy.
 - CIDs remain portable `ipfs://` references. Pinata is a pinning provider, not the ownership authority.
 
@@ -37,11 +37,210 @@ window.BIGNUTEN_STORAGE_RELAY_URL = 'https://your-service.onrender.com';
 
 A relay restart clears its in-memory nonce store; this only invalidates outstanding upload authorizations.
 
+Hosted selection requires a configured relay and an injected wallet. Missing
+configuration or wallet access is an explicit error, not a fallback prompt for
+personal credentials. **Use my Pinata account** is the separate credential path:
+its JWT is kept only in memory for the page session and reused for subsequent
+uploads. Clearing it in Settings clears the cached personal session. A page
+reload does not restore that credential or authorize new uploads; reconnect
+deliberately. The saved storage preference alone does not establish a connection.
+
+## Verified snapshot recovery
+
+Collecting the current profile preserves `fitnessTrackerData` even when there
+are no older browser snapshot files. Previously this combination overwrote the
+profile with defaults before snapshot collection. CID merges retain an existing
+profile timezone, or restore the imported timezone when the current one is empty.
+
+All provider requests have a 75-second timeout. IPFS Desktop uses POST for
+Kubo's version, add and cat endpoints. With Desktop selected, verification and
+restore retrieve from the local node, not a public gateway that may not yet
+know the new CID. Hosted/personal Pinata retrieval uses the Pinata gateway.
+
+After upload, BigNuten retrieves the snapshot, unwraps the supported v1 envelope
+(legacy plain JSON objects remain supported), and compares the canonical data
+hash. Only a successful match advances the recovery manifest and hourly-success
+timestamp. Unavailable bytes, malformed JSON, unsupported wrappers, mismatched
+hashes, or manifest write failures reject the backup instead of reporting success.
+An uploaded-but-unverified CID is recorded as an error in snapshot metadata;
+it is not a replacement for the previous recovery point.
+
+If a new snapshot fails, keep using the existing browser data and export JSON
+before further recovery attempts. Reconnect the intended provider and retry.
+The snapshot panel retains the previous known-good pointer and history; select
+an older successful CID explicitly to merge it, rather than importing a failed
+upload. JSON download/import remains available without IPFS or a wallet.
+No remote unpinning or automatic destructive restore is added by this repair.
+
+## Local recovery, versions and user exports (#341)
+
+There is **one fitness schema**, `dataVersion: 1`, defined by
+`js/fitnessSchema.js`. Legacy unversioned fitness objects and the existing
+legacy field aliases/wrappers remain importable; the existing IPFS v1 envelope
+and plain JSON exports are unchanged. Import validates shape before normalization
+or merging. Unknown/newer `dataVersion` or envelope versions are rejected with
+an update-app message, without rewriting the saved object. Export remains
+available even when the app cannot interpret that version. This is not a
+migration to a second snapshot format.
+
+The browser keeps **three distinct last-known-good local recovery points** under
+`bignutenRecoveryPoints.v1`. These health-data copies stay in this browser;
+they are never included in provider uploads, community manifests or lineage.
+They do not change the existing IPFS hourly/monthly/annual retention policy.
+Clearing site storage removes local recovery too: download an external JSON
+backup before clearing data or moving browsers.
+
+On load, missing or invalid primary fitness data is restored automatically from
+the newest valid local point. Invalid candidates are skipped; legacy
+`fitnessTrackerSnapshot-*` files are eligible through the same validated path.
+**Valid current data is never automatically replaced or merged with an older
+snapshot.** A visible notice names the recovered point's timestamp and provides
+**Undo recovery** and **Export saved data**. Undo restores the exact original
+primary and water-cache bytes (including originally absent keys). The original
+state remains in `bignutenRecoveryUndo.v1`; it is not deleted by undo. Undo refuses
+to overwrite subsequent edits. Export those edits before further recovery.
+Local writes/quota failures reject rather than report a successful recovery.
+
+Recovery procedure:
+
+1. **Missing/corrupt primary:** use the automatic recovery notice; inspect the
+   dated data before continuing, or undo. If no valid point exists, preserve the
+   original bytes and use **Export saved data** before importing your own backup.
+2. **Missing/unavailable/invalid CID:** reconnect the selected provider, retry
+   after it is available, or explicitly import an older successful CID. Failed
+   fetches do not write an empty profile or advance the remote recovery pointer.
+3. **Stale but valid snapshot:** it is not automatically substituted for current
+   data. Export current data first, then explicitly import the older JSON/CID to
+   merge missing records. Current water counts win overlapping dates; distinct
+   array records use a stable record ID, or canonical content when no ID exists,
+   so simultaneous records are not dropped just because timestamps match.
+4. **Unsupported future version:** update the app; do not normalize it down to
+   v1. Export the saved data while waiting. No automatic down-migration occurs.
+5. **User export/import:** About → JSON download, or the IPFS snapshot panel's
+   JSON controls; mobile local mode offers the JSON data sheet. Download does
+   not require a wallet or IPFS. Reimport merges rather than clears current data;
+   repeated imports are idempotent. An error is not a successful import.
+
+Round-trip coverage includes water daily history, weights, supplements, foods,
+measurements, exercise types/entries, workout sessions, pain, emotions and Genie
+sessions/insights. Water-widget caches are synchronized on restore. This supports
+#257's existing schema/restore boundary; new water collection UX and broader
+#257/#204/#265 features remain separate Level 2 work. Settings, credentials and
+chain-history caches are not added to the existing health export format.
+
+## Durable chain history
+
+`js/chainHistory.js` adapts the Busking checkpoint pattern with browser-injected
+storage, not its ledger schema. Streak entrant/check-in queries and reward
+payment queries use explicit numeric block windows (10,000 blocks/request,
+maximum ten windows per invocation). Checkpoints are scoped by chain, contract,
+wallet/filter identity. A restart continues from the saved cursor; a 12-block
+overlap is re-read and replaced to handle recent reorgs. Deep historical reorgs
+require an explicit full reindex; this is not a finality guarantee.
+
+Each completed window atomically saves events and cursor in one localStorage
+value. Events dedupe by transaction hash plus log index, not amount, wallet or
+observation time. Malformed RPC events, unavailable block heads, failed queries
+and failed checkpoint writes reject. Prior completed windows remain available;
+a failure never becomes an empty successful result. Scans begin at block zero
+for completeness (no deployment-height assumptions); the first recovery may
+require reopening the view several times to catch up. Cached data is not a
+claim that the full history has been scanned.
+
+The reward panel and Streak cards distinguish pending, success and failure.
+Provider backup status is exposed in a visible live status notice (including
+hourly uploads) and the opt-in host adapter maps pending/failure to host
+`pending`/`error` rather than reporting connection readiness as backup success.
+Incomplete/unavailable reward scans do not display zero as a confirmed total or
+calculate a misleading pending payout. A retry/reopen continues recovery. RPC
+access is still required; an RPC that refuses the configured window must be
+retried with a compatible provider. Chain caches are derived/auditable state,
+not the authority for user-owned fitness exports.
+
+## Reuse decision
+
+Need: recover browser-owned snapshots and bounded chain history without new
+public health-data sharing. Canopy's `durable-checkpoints` inventory was a lead;
+current donor source/tests and unfinished work were inspected read-only.
+
+- **Adapt concepts:** DecentBusking `js/personal-play-recovery.mjs`
+  (`023c278`), injected storage/validation/explicit failure; `discord-bot/checkpoint-history.js`
+  (`63e4563`), verified retained history and stable identities;
+  `discord-bot/checkpoint-mirror.js` (`e60b91d`), bounded verification;
+  `discord-bot/ipfs-state.js` (`e60b91d`), `fund-ledger.js` (`b98fb67`),
+  `payment-ledger.js` (`a256c8e`) and `weekly-payflow.js` (`d97b93f`), checkpointed recovery.
+- **Preserve/adapt:** steward WIP's IPFS host adapter and storage validation
+  workflow, checked against DecentHead `js/ipfs-host.js` and
+  `.github/workflows/validate-ipfs-host.yml` at `426ccb7` (host v1,
+  explicit states, Node 24, read-only workflow permissions).
+- **Incompatibilities:** Busking's wallet purchases, server filesystem, Node
+  crypto/IPFS importer dependencies, radio/payment schemas and public checkpoint
+  retention do not fit private browser health recovery. Existing BigNuten v1
+  schema/providers/hash helper remain authoritative. No new dependencies,
+  extracted shared package, external service or public inventory update.
+
+Both donor projects use Apache-2.0; credit remains with The Jolly LaMa / A Decent
+Agency. This is a conceptual adaptation, not a copied donor application/schema.
+Receiving-app tests are the synthetic Node recovery/transport/history tests and
+existing Hardhat suite; no live provider integration or encryption claim.
+
+## Opt-in DecentHead adapter (local validation)
+
+`js/ipfsHostAdapter.js` exports `createBigNutenIPFSHost({ returnFocus })` for
+the DecentHead v1 host contract. It is not imported by the production app and
+does not change the existing IPFS icon behavior. No CDN dependency or
+unreviewed `@main` integration is introduced.
+
+The adapter advertises **backup only**. Community replication and rewards
+remain unavailable until their own public-manifest and eligibility integrations
+are implemented. Local status is `idle`; a connected provider reports `ready`
+with an explicit warning that connection is not backup verification. Status
+reads do not connect, prompt, restore a session, collect health records or upload.
+Provider errors and malformed connection states propagate to the header.
+
+Opening backup controls rechecks the selected provider and delegates to
+`openBackupControls()` in the existing data-control module:
+
+- Connected provider: snapshot history/import/export panel, **without** the
+  legacy icon's automatic upload.
+- Disconnected desktop: existing hosted/personal/Desktop choices and JSON tools.
+- Disconnected mobile: existing local JSON sheet.
+
+Missing panels reject explicitly. The opener focuses the close control, handles
+Escape, wraps Tab within existing modal panels, and releases its listeners on
+close (including automatic close after connection). Supply `returnFocus` to
+focus the invoking header control after close: the header temporarily disables
+its button during handoff, so the current document focus alone is insufficient.
+The snapshot panel remains nonmodal, preserving its existing behavior.
+
+For a **synthetic, isolated test only**, initialize the normal provider registry
+and data controls once, create this adapter, then set
+`DECENT_CONFIG.ipfsMode = 'host'` and `DECENT_CONFIG.ipfsAdapter = adapter`
+before mounting the tested DecentHead element. Load a reviewed, pinned header
+revision; do not replace the existing app header or enable real health uploads
+as part of this example. The adapter's synthetic label/warning is not a technical
+upload restriction: its panels still call the normal storage implementation.
+
+Cross-repository isolated Chrome checks passed for hosted, personal Pinata and
+Desktop: inert mount/open, panel handoff without upload, explicit synthetic
+save/read-back, CID merge, JSON download, failed-retrieval pointer retention,
+modal keyboard wrap, Escape/focus return and 390px local-only controls. Provider
+responses and the wallet signer were mocked; no real provider traffic occurred.
+These are consumer-boundary checks, not proof of real wallet authentication,
+provider availability, full application boot or production rollout.
+
 ## Privacy and ownership
 
 The relay does not make public IPFS content private. Anyone who learns a CID can retrieve its content. Sensitive health or identity data must be encrypted in the browser before upload, with the decryption key shared only with intended participants. Never put Pinata credentials, private keys, email addresses, or plaintext sensitive records in the repository or an IPFS document.
 
-The community-sharing flow must remain separate from private backup. A user can keep a private snapshot in their own provider and explicitly publish a separate sanitized dataset for community aggregation and BNUT rewards. Sharing a record must be an explicit wallet-confirmed action; the relay must not infer consent from a backup upload.
+The community-sharing flow must remain separate from personal backup. A user can keep a snapshot in their own provider and explicitly publish a separate sanitized dataset for community aggregation and BNUT rewards. Sharing a record must be an explicit wallet-confirmed action; the relay must not infer consent from a backup upload.
+
+**Current implementation is not encrypted private backup.** The transport repair
+is validated with synthetic records only. Do not upload real health data through
+these snapshot paths until client-side encryption and a recoverable key policy
+have been decided and tested. A personal Pinata account, local Kubo pin, wallet
+signature or secret CID is not a confidentiality boundary. The relay sees
+authorization metadata; Pinata receives the uploaded file bytes.
 
 ## IPFS Desktop
 
@@ -149,4 +348,24 @@ Run the relay tests with:
 ```sh
 npm run test:storage-relay
 npm run test:metadata-publisher
+node --test test/snapshotTransport.test.js test/dataControlStorage.test.js test/ipfsHostAdapter.test.js test/snapshotRecovery.test.js test/chainHistory.test.js test/dataSharingHistory.test.js
 ```
+
+The recovery/history tests cover legacy/v1 validation, future-version rejection,
+three local points, dated recovery notice, exact undo, repeated JSON/CID imports,
+failed writes, stable event dedupe and checkpoint restart. The transport tests mock all provider requests and use synthetic
+records/credentials. They exercise Desktop save/verification/restore, personal
+credential reuse, hosted signed-URL routing, malformed responses, timeouts,
+failed writes and last-known-good retention. They are not evidence of a real
+Pinata upload, independent pin availability, encryption or reward payment.
+The **Validate Snapshot Storage** workflow runs the dependency-free transport
+and control tests on Node 24 when related modules change.
+
+Separate isolated Chrome checks use the actual markup/styles and storage
+modules with synthetic data and mocked Kubo responses. They cover pointer
+activation of the IPFS button, visible connection failure, verified upload,
+repeat CID merge, mismatch retention and a 390px local-only sheet. The IPFS
+control has its own stacking level so the positioned title cannot intercept it.
+These checks do not boot unrelated app scripts or prove full-app startup,
+production provider access or complete application layout. They are not part
+of the Node CI workflow.

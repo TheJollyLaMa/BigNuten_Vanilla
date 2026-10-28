@@ -1367,7 +1367,7 @@ header {
 
 .ticker-circle-metamask {
   position: absolute;
-  right: 49px;
+  right: 45px;
   width: 100%;
   height: 100%;
   transform-origin: center center;
@@ -2544,6 +2544,117 @@ svg text {
   text-shadow: 0 0 6px #7300ff;
 }
 
+.artizen-support {
+  margin-top: 1.2rem;
+}
+
+.artizen-support-link {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  max-width: 100%;
+  padding: 0.7rem 0.9rem;
+  overflow: hidden;
+  border: 1px solid rgba(249, 201, 123, 0.55);
+  border-radius: 6px;
+  background: linear-gradient(110deg, #1d2228, #332929 50%, #1d2228);
+  box-shadow: inset 0 1px rgba(255, 240, 205, 0.2), 0 0 18px rgba(224, 162, 93, 0.18);
+  color: #ffe4af;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+}
+
+.artizen-support-link:hover,
+.artizen-support-link:focus-visible {
+  border-color: #ffe4af;
+  box-shadow: inset 0 1px rgba(255, 240, 205, 0.35), 0 0 24px rgba(249, 201, 123, 0.4);
+  color: #fff4d6;
+  text-decoration: none;
+  transform: translateY(-2px);
+}
+
+.artizen-support-link:focus-visible {
+  outline: 2px solid #fff4d6;
+  outline-offset: 3px;
+}
+
+.artizen-support-link img {
+  position: relative;
+  z-index: 1;
+  width: 1.55rem;
+  height: 1.55rem;
+  flex: none;
+  object-fit: contain;
+  filter: drop-shadow(0 0 5px rgba(255, 224, 163, 0.6));
+}
+
+.artizen-support-link span {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(105deg, #ffe4af 20%, #fffdf0 45%, #e7aa65 65%, #ffe4af 85%);
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: artizen-shimmer 5s linear infinite;
+}
+
+.artizen-support-link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 32%, rgba(255, 240, 210, 0.24) 48%, transparent 62%);
+  transform: translateX(-125%);
+  animation: artizen-glint 5s ease-in-out infinite;
+}
+
+.artizen-support-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 9% 25%, #fff8dd 0 1px, transparent 2px),
+              radial-gradient(circle at 73% 12%, #fff8dd 0 1px, transparent 2px),
+              radial-gradient(circle at 93% 78%, #fff8dd 0 1px, transparent 2px);
+  animation: artizen-sparkle 3.5s ease-in-out infinite;
+}
+
+.artizen-support p {
+  margin: 0.65rem 0 0;
+  color: #c6d5dc;
+  font-size: 0.88rem;
+}
+
+@keyframes artizen-shimmer {
+  to { background-position: -250% 0; }
+}
+
+@keyframes artizen-glint {
+  0%, 45%, 100% { transform: translateX(-125%); }
+  65% { transform: translateX(125%); }
+}
+
+@keyframes artizen-sparkle {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.85; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artizen-support-link,
+  .artizen-support-link span,
+  .artizen-support-link::before,
+  .artizen-support-link::after {
+    animation: none;
+    transition: none;
+  }
+}
+
 .streak-invite-flyer {
   display: grid;
   grid-template-columns: 3.5rem minmax(0, 1fr);
@@ -3195,6 +3306,12 @@ svg text {
 }
 
 .about-footer {
+  display: block;
+  position: static;
+  width: auto;
+  padding: 0;
+  background: transparent;
+  opacity: 1;
   margin-top: 1.2rem;
   text-align: center;
   font-size: 0.8rem;
@@ -3615,20 +3732,29 @@ svg text {
     font-size: 0.65rem;
   }
   #wallet-controls {
-    top: 8px;
-    right: 6px;
+    top: 14px;
+    right: 14px;
     gap: 0.3rem;
   }
   #walletIconWrapper {
     width: 54px;
     height: 54px;
   }
+  .ticker-wrapper.wallet-ticker {
+    width: 74px;
+    height: 74px;
+  }
+  .wallet-ticker .ticker-circle-metamask {
+    right: 0;
+  }
   #wallet-connect {
     width: 50px;
     height: 50px;
-    right: 2px;
+    right: auto;
+    left: 50%;
+    transform: translate(-50%, -50%);
   }
-  #metamaskIcon {
+  #wallet-connect img {
     width: 46px;
     height: 46px;
   }
@@ -3733,6 +3859,18 @@ svg text {
     min-height: 44px;
     flex: 1;
   }
+}
+
+@media (max-width: 420px) {
+  #app-title { font-size: 1.6rem; }
+}
+
+@media (max-width: 360px) {
+  #app-title { font-size: 1.25rem; }
+}
+
+@media (min-width: 701px) and (max-width: 850px) {
+  #app-title { font-size: 2.4rem; }
 }
 
 /* ── DNFT buy card (escrow listing) ────────────────────────── */

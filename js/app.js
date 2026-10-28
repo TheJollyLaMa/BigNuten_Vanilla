@@ -1,3 +1,5 @@
+import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
+initializeSnapshotRecovery();
 import { initDnftPayPalPurchase, initDnftStripePurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
 import { loadPayrollQueue, getTreasuryBalance, getPayrollSettlementOptions, getBountyCoverage, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
@@ -807,6 +809,7 @@ const defaultData = {
 };
 
 function getFitnessData() {
+  fitnessRecovery.recover();
   let data = localStorage.getItem(STORAGE_KEY);
   if (data) {
     const normalized = normalizeFitnessData(JSON.parse(data));
@@ -821,7 +824,7 @@ function getFitnessData() {
 
 function saveFitnessData(data) {
   const normalized = normalizeFitnessData(data);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  fitnessRecovery.save(normalized);
   refreshChakraAura();
 }
 
@@ -3532,16 +3535,12 @@ if (measurementForm) {
 
         function positionWalletLetters() {
           const letters = walletTicker.querySelectorAll('.ticker-letter');
-          const centerX = 65;
-          const centerY = 65;
-          const radius = 54;
+          const radiusPercent = (54 / 130) * 100;
           const angleStep = (2 * Math.PI) / letters.length;
           letters.forEach((letter, index) => {
             const angle = index * angleStep;
-            const x = centerX + radius * Math.cos(angle);
-            const y = centerY + radius * Math.sin(angle);
-            letter.style.left = `${x}px`;
-            letter.style.top = `${y}px`;
+            letter.style.left = `${50 + radiusPercent * Math.cos(angle)}%`;
+            letter.style.top = `${50 + radiusPercent * Math.sin(angle)}%`;
           });
         }
         positionWalletLetters();

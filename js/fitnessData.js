@@ -4,194 +4,29 @@ import { fetchSnapshotData } from './ipfsStorage.js';
 import { getTodayInUserTz } from './timezone.js';
 
 const STORAGE_KEY = 'fitnessTrackerData';
-const DATA_VERSION = 1;
-const DEFAULT_EXERCISE_TYPES = ['Sit-ups', 'Push-ups', 'Pull-ups'];
-
-const LEGACY_DATA_KEYS = [
-  'data',
-  'fitnessData',
-  'fitnessTrackerData',
-  'bignutenData',
-  'BigNutenData',
-  'payload',
-  'backup',
-  'snapshot',
-];
-
-const defaultData = {
-  dataVersion: DATA_VERSION,
-  timeZone: '',
-  weightLogs: [],
-  waterDailyHistory: {},
-  supplements: [],
-  foods: [],
-  measurements: [],
-  exercises: {
-    types: DEFAULT_EXERCISE_TYPES,
-    entries: []
-  },
-  sessionLog: [],
-  painLogs: [],
-  emotions: [],
-  genieSessions: [],
-  genieInsights: []
-};
-
-function cloneDefaultData() {
-  return JSON.parse(JSON.stringify(defaultData));
-}
-
-function isPlainObject(value) {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function unwrapFitnessDataPayload(raw) {
-  let current = raw;
-  const seen = new Set();
-
-  while (isPlainObject(current) && !seen.has(current)) {
-    seen.add(current);
-    if (current.__bignutenSnapshot && isPlainObject(current.data)) {
-      current = current.data;
-      continue;
-    }
-
-    const wrapped = LEGACY_DATA_KEYS.map(key => current[key]).find(isPlainObject);
-    if (wrapped) {
-      current = wrapped;
-      continue;
-    }
-
-    break;
-  }
-
-  return current;
-}
-
-function coerceArray(source, keys) {
-  for (const key of keys) {
-    if (Array.isArray(source?.[key])) return source[key];
-  }
-  return [];
-}
-
-function coerceObject(source, keys) {
-  for (const key of keys) {
-    if (isPlainObject(source?.[key])) return source[key];
-  }
-  return {};
-}
-
-function normalizeExerciseBlock(source) {
-  const block = unwrapFitnessDataPayload(source);
-
-  if (Array.isArray(block)) {
-    return {
-      types: [...DEFAULT_EXERCISE_TYPES],
-      entries: block
-    };
-  }
-
-  if (!isPlainObject(block)) {
-    return {
-      types: [...DEFAULT_EXERCISE_TYPES],
-      entries: []
-    };
-  }
-
-  const rawTypes = coerceArray(block, ['types', 'exerciseTypes']);
-  const rawEntries = coerceArray(block, ['entries', 'logs', 'items', 'history']);
-
-  return {
-    types: rawTypes.length
-      ? [...new Set(rawTypes.map(type => String(type).trim()).filter(Boolean))]
-      : [...DEFAULT_EXERCISE_TYPES],
-    entries: rawEntries
-  };
-}
-
-/**
- * Normalizes a fitness data object to the current schema.
- * Guarantees all required arrays/objects exist with sensible defaults,
- * and stamps the dataVersion for forward-migration compatibility.
- * Safe to call on data loaded from older localStorage or IPFS snapshots.
- *
- * @param {object} data - Raw fitness data (may be from old schema)
- * @returns {object} Normalized data with dataVersion set
- */
-export function normalizeFitnessData(data) {
-  const source = unwrapFitnessDataPayload(data);
-  if (!isPlainObject(source)) {
-    return cloneDefaultData();
-  }
-
-  const normalized = cloneDefaultData();
-
-  normalized.timeZone = typeof source.timeZone === 'string' ? source.timeZone : '';
-  normalized.weightLogs = coerceArray(source, ['weightLogs', 'weightHistory', 'weights']);
-  normalized.waterDailyHistory = coerceObject(source, ['waterDailyHistory', 'waterHistory']);
-  normalized.supplements = coerceArray(source, ['supplements', 'supplementLogs', 'supplementHistory']);
-  normalized.foods = coerceArray(source, ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods']);
-  normalized.measurements = coerceArray(source, ['measurements', 'measurementLogs', 'bodyMeasurements']);
-  normalized.sessionLog = coerceArray(source, ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog']);
-  normalized.painLogs = coerceArray(source, ['painLogs', 'painLog']);
-  normalized.emotions = coerceArray(source, ['emotions', 'emotionLogs', 'feelings']);
-  normalized.genieSessions = coerceArray(source, ['genieSessions']);
-  normalized.genieInsights = coerceArray(source, ['genieInsights']);
-  normalized.exercises = normalizeExerciseBlock(source.exercises ?? source.exerciseLogs ?? source.workoutExercises);
-
-  normalized.dataVersion = DATA_VERSION;
-
-  return normalized;
-}
-
-
-function loadLatestSnapshotFromStorage() {
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('fitnessTrackerSnapshot-'));
-  if (!keys.length) return null;
-
-  const latestKey = keys.sort().reverse()[0];
-  const snapshot = localStorage.getItem(latestKey);
-  return snapshot ? JSON.parse(snapshot) : null;
-}
+import { normalizeFitnessData, validateFitnessSnapshot, cloneDefaultData, defaultData, isPlainObject } from './fitnessSchema.js';
+import { fitnessRecovery } from './snapshotRecovery.js';
+export { normalizeFitnessData, validateFitnessSnapshot } from './fitnessSchema.js';
 
 export async function getFitnessData() {
-  const snapshot = loadLatestSnapshotFromStorage();
+  fitnessRecovery.recover();
   const current = localStorage.getItem(STORAGE_KEY);
 
   // First-time users start with a clean local profile. Restoring an old CID is
   // an explicit action from the storage panel, never an initialization prompt.
-  if (!snapshot && !current) {
+  if (!current) {
     const fresh = cloneDefaultData();
     saveFitnessData(fresh);
     return fresh;
   }
 
-  if (snapshot && !current) {
-    const normalized = normalizeFitnessData(snapshot.data);
-    saveFitnessData(normalized);
-    return normalized;
-  }
-
-  if (snapshot && current) {
-    const currentData = normalizeFitnessData(JSON.parse(current));
-    const snapshotData = normalizeFitnessData(snapshot.data);
-    // Merge both sources so no entries are lost regardless of which has the
-    // newer weight log.  mergeSnapshotData deduplicates by timestamp, so
-    // re-merging on every load is safe.
-    const merged = mergeSnapshotData(currentData, snapshotData);
-    saveFitnessData(merged);
-    return merged;
-  }
-
-  // fallback: no data found — return default
-  saveFitnessData(defaultData);
-  return JSON.parse(JSON.stringify(defaultData));
+  const currentData = normalizeFitnessData(JSON.parse(current));
+  saveFitnessData(currentData);
+  return currentData;
 }
 
 export function saveFitnessData(data) {
-  const normalized = normalizeFitnessData(data);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  return fitnessRecovery.save(data);
 }
 
 export function syncWaterIntakeAfterRestore(data) {
@@ -306,24 +141,31 @@ if (typeof localStorage !== 'undefined' && typeof requestIdleCallback === 'funct
 }
 
 /**
- * Merges two fitness data objects, deduplicating array entries by timestamp.
+ * Merges two fitness data objects, deduplicating array entries by stable record ID or canonical content.
  * Handles the exercises object structure ({types, entries}) as well as simple arrays.
  * @param {Object} current - Current local fitness data
  * @param {Object} imported - Fitness data fetched from an IPFS snapshot
  * @returns {Object} Merged fitness data with duplicates removed, sorted chronologically
  */
-export function mergeSnapshotData(current, imported) {
-  const merged = { ...current };
+function recordIdentity(entry) {
+  if (entry.id !== undefined) return `id:${entry.id}`;
+  const canonical = value => Array.isArray(value) ? value.map(canonical) : isPlainObject(value)
+    ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
+  return JSON.stringify(canonical(entry));
+}
 
-  // Simple array fields — deduplicate by timestamp (or full JSON if no timestamp)
+export function mergeSnapshotData(current, imported) {
+  const merged = { ...current, dataVersion: 1, timeZone: current.timeZone || imported.timeZone || '' };
+
+  // Preserve distinct records even if they share a timestamp.
   const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions', 'genieSessions', 'genieInsights'];
   simpleArrayFields.forEach(field => {
     const a = Array.isArray(current[field]) ? current[field] : [];
     const b = Array.isArray(imported[field]) ? imported[field] : [];
-    const seen = new Set(a.map(e => e.timestamp || JSON.stringify(e)));
+    const seen = new Set(a.map(e => recordIdentity(e)));
     const combined = [...a];
     b.forEach(entry => {
-      const key = entry.timestamp || JSON.stringify(entry);
+      const key = recordIdentity(entry);
       if (!seen.has(key)) {
         seen.add(key);
         combined.push(entry);
@@ -348,10 +190,10 @@ export function mergeSnapshotData(current, imported) {
   const currentTypes = Array.isArray(ce?.types) ? ce.types : [];
   const importedTypes = Array.isArray(ie?.types) ? ie.types : [];
 
-  const seenEntries = new Set(currentEntries.map(e => e.timestamp || JSON.stringify(e)));
+  const seenEntries = new Set(currentEntries.map(e => recordIdentity(e)));
   const mergedEntries = [...currentEntries];
   importedEntries.forEach(entry => {
-    const key = entry.timestamp || JSON.stringify(entry);
+    const key = recordIdentity(entry);
     if (!seenEntries.has(key)) {
       seenEntries.add(key);
       mergedEntries.push(entry);
@@ -377,27 +219,10 @@ export async function importAndMergeFromCID(cid) {
   const trimmedCid = cid.trim();
   if (!trimmedCid) throw new Error('No CID provided.');
 
-  const imported = await fetchSnapshotData(trimmedCid);
-
-  if (!imported.weightLogs && !imported.supplements && !imported.exercises) {
-    throw new Error('Invalid snapshot structure: missing expected data fields.');
-  }
-
-  ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions'].forEach(f => {
-    if (!Array.isArray(imported[f])) imported[f] = [];
-  });
-  if (!imported.waterDailyHistory || typeof imported.waterDailyHistory !== 'object' || Array.isArray(imported.waterDailyHistory)) {
-    imported.waterDailyHistory = {};
-  }
-
+  const imported = validateFitnessSnapshot(await fetchSnapshotData(trimmedCid));
+  fitnessRecovery.recover();
   const currentRaw = localStorage.getItem(STORAGE_KEY);
-  const current = currentRaw ? JSON.parse(currentRaw) : { ...defaultData };
-  ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions'].forEach(f => {
-    if (!Array.isArray(current[f])) current[f] = [];
-  });
-  if (!current.waterDailyHistory || typeof current.waterDailyHistory !== 'object' || Array.isArray(current.waterDailyHistory)) {
-    current.waterDailyHistory = {};
-  }
+  const current = currentRaw ? validateFitnessSnapshot(JSON.parse(currentRaw)) : cloneDefaultData();
 
   const beforeWeightLogs = (current.weightLogs || []).length;
   const beforeExercises = Array.isArray(current.exercises)

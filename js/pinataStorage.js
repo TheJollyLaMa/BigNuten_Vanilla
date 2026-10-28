@@ -1,3 +1,5 @@
+import { computeSnapshotHash } from './snapshotHash.js';
+import { validateFitnessSnapshot } from './fitnessSchema.js';
 function getPinataToken({ strict = true } = {}) {
   const token =
     window.pinataToken ||
@@ -23,6 +25,17 @@ const PINATA_GATEWAY_BASE = 'https://gateway.pinata.cloud/ipfs/';
 const STORAGE_RELAY_URL = window.BIGNUTEN_STORAGE_RELAY_URL || '';
 let manualPinataTokenRef = '';
 
+async function storageFetch(url, options = {}) {
+  try {
+    return await fetch(url, { ...options, signal: AbortSignal.timeout(75000) });
+  } catch (error) {
+    if (error.name === 'TimeoutError') {
+      throw new Error('Storage request timed out after 75 seconds. Check the selected provider and retry.');
+    }
+    throw error;
+  }
+}
+
 export function getManualPinataToken() {
   return manualPinataTokenRef;
 }
@@ -35,6 +48,7 @@ export function setManualPinataToken(token) {
 
 export function clearManualPinataToken() {
   manualPinataTokenRef = '';
+  if (window._ipfsSessionRef?.manualToken) clearPinataSession();
 }
 
 function readSession() {
@@ -123,7 +137,10 @@ function wrapSnapshotPayload(data, snapshotMeta = {}) {
 
 function unwrapSnapshotPayload(payload) {
   if (!payload || typeof payload !== 'object') return payload;
-  if (payload.__bignutenSnapshot && Object.prototype.hasOwnProperty.call(payload, 'data')) {
+  if (payload.__bignutenSnapshot) {
+    if (payload.version !== 1 || !Object.prototype.hasOwnProperty.call(payload, 'data')) {
+      throw new Error('Unsupported or incomplete snapshot wrapper.');
+    }
     return payload.data;
   }
   return payload;
@@ -157,11 +174,18 @@ function createPinataHeaders(token) {
 
 export async function connectPinataSession({ mode = 'hosted' } = {}) {
   if (mode === 'desktop') {
-    const response = await fetch('http://127.0.0.1:5001/api/v0/version');
+    let response;
+    try {
+      response = await storageFetch('http://127.0.0.1:5001/api/v0/version', { method: 'POST' });
+    } catch (error) {
+      throw new Error(`IPFS Desktop connection failed: ${error.message}. Start IPFS Desktop and allow this site in its CORS settings.`);
+    }
     if (!response.ok) throw new Error('IPFS Desktop is not reachable. Start IPFS Desktop and allow this site in its CORS settings.');
     return saveSession({ desktop: true, identity: 'IPFS Desktop', publicKey: 'ipfs-desktop' });
   }
-  if (mode === 'hosted' && STORAGE_RELAY_URL && window.ethereum) {
+  if (mode === 'hosted') {
+    if (!STORAGE_RELAY_URL) throw new Error('BigNuten storage relay is not configured. Choose your own Pinata account or IPFS Desktop.');
+    if (!window.ethereum) throw new Error('Connect a wallet to authorize the hosted storage relay, or choose your own provider.');
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     const wallet = await signer.getAddress();
@@ -173,7 +197,8 @@ export async function connectPinataSession({ mode = 'hosted' } = {}) {
       publicKey: wallet,
     });
   }
-  return ensureSession({ promptIfMissing: true });
+  if (mode === 'own') return requestSession();
+  throw new Error(`Unsupported storage mode: ${mode}`);
 }
 
 export async function restorePinataSession() {
@@ -193,7 +218,7 @@ export async function uploadPinnedSnapshot(data, { fileName = 'bignuten-snapshot
   if (!session) throw new Error('Pinata JWT is required to upload snapshots.');
 
   const payload = wrapSnapshotPayload(data, snapshotMeta || {});
-  const response = await fetch(`${PINATA_API_BASE}/pinning/pinJSONToIPFS`, {
+  const response = await storageFetch(`${PINATA_API_BASE}/pinning/pinJSONToIPFS`, {
     method: 'POST',
     headers: createPinataHeaders(session.authToken || session.jwt || session.apiKey),
     body: JSON.stringify({
@@ -215,11 +240,6 @@ export async function uploadPinnedSnapshot(data, { fileName = 'bignuten-snapshot
   const cid = normalizeIpfsRef(extractHash(body));
   if (!cid) throw new Error('Pinata upload did not return a CID.');
 
-  if (session.manualToken) {
-    clearPinataSession();
-    clearManualPinataToken();
-  }
-
   return { cid: String(cid), session };
 }
 
@@ -234,7 +254,7 @@ export async function uploadViaStorageRelay(data, {
   const payload = wrapSnapshotPayload(data, snapshotMeta || {});
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   const origin = globalThis.location?.origin || 'unknown';
-  const nonceResponse = await fetch(`${relayUrl.replace(/\/$/, '')}/api/storage/nonce`, {
+  const nonceResponse = await storageFetch(`${relayUrl.replace(/\/$/, '')}/api/storage/nonce`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ wallet, origin }),
@@ -250,7 +270,7 @@ export async function uploadViaStorageRelay(data, {
     'Purpose: request a short-lived Pinata upload URL for public metadata or media; the relay never receives file contents.',
   ].join('\n');
   const signature = await signer.signMessage(message);
-  const signingResponse = await fetch(`${relayUrl.replace(/\/$/, '')}/api/pinata-upload-url`, {
+  const signingResponse = await storageFetch(`${relayUrl.replace(/\/$/, '')}/api/pinata-upload-url`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ wallet, origin, nonce, expiresAt, signature, name: fileName, size: bytes.byteLength, type: 'application/json' }),
@@ -260,7 +280,7 @@ export async function uploadViaStorageRelay(data, {
   const form = new FormData();
   form.append('file', new Blob([bytes], { type: 'application/json' }), fileName);
   form.append('network', 'public');
-  const uploadResponse = await fetch(url, { method: 'POST', body: form });
+  const uploadResponse = await storageFetch(url, { method: 'POST', body: form });
   if (!uploadResponse.ok) throw new Error(`Pinata upload failed (${uploadResponse.status})`);
   const result = await uploadResponse.json();
   const cid = result.IpfsHash || result.cid || result.data?.cid;
@@ -277,7 +297,7 @@ export async function uploadIpfsDesktopSnapshot(data, {
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   const form = new FormData();
   form.append('file', new Blob([bytes], { type: 'application/json' }), fileName);
-  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/v0/add?cid-version=1&pin=true`, {
+  const response = await storageFetch(`${apiUrl.replace(/\/$/, '')}/api/v0/add?cid-version=1&pin=true`, {
     method: 'POST',
     body: form,
   });
@@ -292,21 +312,27 @@ export async function fetchSnapshotData(cid, { session: providedSession = null }
   const trimmedCid = normalizeIpfsRef(cid);
   if (!trimmedCid) throw new Error('No CID provided.');
 
-  const fetchViaGateway = async () => {
-    const response = await fetch(ipfsGatewayUrl(trimmedCid));
-    if (!response.ok) return null;
-    const text = await response.text();
-    try {
-      return unwrapSnapshotPayload(JSON.parse(text));
-    } catch {
-      return unwrapSnapshotPayload(text);
-    }
-  };
-
-  const gatewayPayload = await fetchViaGateway();
-  if (gatewayPayload !== null) return gatewayPayload;
-
-  throw new Error('Failed to fetch from Pinata gateway.');
+  const session = providedSession || readSession();
+  const desktop = session?.desktop;
+  const endpoint = desktop
+    ? `http://127.0.0.1:5001/api/v0/cat?arg=${encodeURIComponent(trimmedCid)}`
+    : ipfsGatewayUrl(trimmedCid);
+  const response = await storageFetch(endpoint, desktop ? { method: 'POST' } : {});
+  if (!response.ok) throw new Error(`${desktop ? 'IPFS Desktop' : 'Pinata gateway'} snapshot fetch failed (HTTP ${response.status}).`);
+  let payload;
+  try {
+    payload = JSON.parse(await response.text());
+  } catch {
+    throw new Error('Snapshot response is not a valid JSON object.');
+  }
+  const sourceHash = payload?.__bignutenSnapshot ? payload.sourceHash : null;
+  payload = unwrapSnapshotPayload(payload);
+  if (sourceHash && await computeSnapshotHash(payload) !== sourceHash) throw new Error('Snapshot content hash mismatch.');
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('Snapshot must contain a JSON object.');
+  }
+  validateFitnessSnapshot(payload);
+  return payload;
 }
 
 export const uploadIpfsSnapshot = uploadPinnedSnapshot;

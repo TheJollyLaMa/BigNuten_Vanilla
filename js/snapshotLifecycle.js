@@ -88,7 +88,7 @@ export function loadSnapshotManifest() {
   return normalizeManifest(safeParse(localStorage.getItem(MANIFEST_KEY), {}));
 }
 
-export function saveSnapshotManifest(manifest) {
+function writeSnapshotManifest(manifest) {
   const normalized = normalizeManifest(manifest);
   localStorage.setItem(MANIFEST_KEY, JSON.stringify(normalized));
   if (normalized.current) {
@@ -97,6 +97,22 @@ export function saveSnapshotManifest(manifest) {
     localStorage.removeItem(POINTER_KEY);
   }
   return normalized;
+}
+
+export function saveSnapshotManifest(manifest) {
+  return withSnapshotTransaction(() => writeSnapshotManifest(manifest));
+}
+
+export function withSnapshotTransaction(write) {
+  const keys = [MANIFEST_KEY, POINTER_KEY, 'snapshotHistory', 'lastAutoSnapshotTimestamp', 'snapshotMeta'];
+  const previous = keys.map(key => [key, localStorage.getItem(key)]);
+  try { return write(); }
+  catch (error) {
+    for (const [key, value] of previous) {
+      try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* Preserve original failure. */ }
+    }
+    throw error;
+  }
 }
 
 export function clearSnapshotManifest() {
@@ -168,6 +184,7 @@ export function recordSnapshotUpload({
   source = 'upload',
   sessionAddress = '',
   fileName = 'bignuten-health-data.json',
+  verified = true,
 } = {}) {
   const entry = normalizeEntry({
     cid,
@@ -177,6 +194,7 @@ export function recordSnapshotUpload({
     source,
     sessionAddress,
     fileName,
+    verified,
   });
 
   if (!entry) throw new Error('Cannot record an empty snapshot entry.');
@@ -192,7 +210,8 @@ export function recordSnapshotUpload({
   const retainedSnapshots = snapshots.filter(snapshot => retainedSet.has(snapshot.cid));
   const cleanupCandidates = snapshots.filter(snapshot => !retainedSet.has(snapshot.cid));
 
-  const nextManifest = saveSnapshotManifest({
+  return withSnapshotTransaction(() => {
+  const nextManifest = writeSnapshotManifest({
     ...manifest,
     current: entry,
     updatedAt: entry.timestamp,
@@ -207,6 +226,7 @@ export function recordSnapshotUpload({
     manifest: nextManifest,
     cleanupCandidates,
   };
+  });
 }
 
 export function getSnapshotLifecycleSummary() {

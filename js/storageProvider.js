@@ -1,10 +1,11 @@
+import { validateFitnessSnapshot } from './fitnessSchema.js';
 // js/storageProvider.js
 // Provider-agnostic storage abstraction for BigNuten data backups.
 //
 // All backup/restore operations go through a StorageProvider.
 // Business logic never calls vendor SDKs directly — it calls provider methods.
 
-import { loadSnapshotManifest, recordSnapshotUpload } from './snapshotLifecycle.js';
+import { loadSnapshotManifest, recordSnapshotUpload, withSnapshotTransaction } from './snapshotLifecycle.js';
 
 // ── Snapshot content-addressing ───────────────────────────────────────────────
 
@@ -14,24 +15,8 @@ import { loadSnapshotManifest, recordSnapshotUpload } from './snapshotLifecycle.
  * @param {object} data
  * @returns {Promise<string>} hex digest, e.g. "a3f2…"
  */
-export async function computeSnapshotHash(data) {
-  const canonical = JSON.stringify(sortKeys(data));
-  const encoded = new TextEncoder().encode(canonical);
-  const buf = await crypto.subtle.digest('SHA-256', encoded);
-  return Array.from(new Uint8Array(buf))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-function sortKeys(value) {
-  if (Array.isArray(value)) return value.map(sortKeys);
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.keys(value).sort().map(k => [k, sortKeys(value[k])])
-    );
-  }
-  return value;
-}
+export { computeSnapshotHash } from './snapshotHash.js';
+import { computeSnapshotHash } from './snapshotHash.js';
 
 // ── Snapshot metadata ─────────────────────────────────────────────────────────
 
@@ -40,7 +25,8 @@ const SNAPSHOT_META_KEY = 'snapshotMeta';
 /** @returns {Array<{hash, cid, timestamp, provider, status, error?}>} */
 export function loadSnapshotMeta() {
   try {
-    return JSON.parse(localStorage.getItem(SNAPSHOT_META_KEY) || '[]');
+    const parsed = JSON.parse(localStorage.getItem(SNAPSHOT_META_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -123,18 +109,22 @@ export class JsonOnlyProvider extends StorageProvider {
   async status() { return { connected: true, identity: 'local' }; }
 
   async put(data) {
+    validateFitnessSnapshot(data);
     const hash = await computeSnapshotHash(data);
     const now = new Date().toISOString();
     localStorage.setItem(`fitnessTrackerSnapshot-${now}`, JSON.stringify({ cid: hash, hash, data }));
     const meta = { hash, cid: hash, timestamp: now, provider: this.id, status: 'ok' };
-    saveSnapshotMeta(meta);
     try {
-      const lifecycle = recordSnapshotUpload({
+      const lifecycle = withSnapshotTransaction(() => {
+      const recorded = recordSnapshotUpload({
         cid: hash,
         hash,
         timestamp: now,
         provider: this.id,
         source: 'local-json',
+      });
+      saveSnapshotMeta(meta);
+      return recorded;
       });
 
       lifecycle.cleanupCandidates.forEach(candidate => {
@@ -152,7 +142,8 @@ export class JsonOnlyProvider extends StorageProvider {
           });
       });
     } catch (err) {
-      console.warn('[Storage] Snapshot manifest update failed:', err);
+      try { saveSnapshotMeta({ ...meta, status: 'error', error: err.message }); } catch {}
+      throw err;
     }
     return { cid: hash, hash };
   }

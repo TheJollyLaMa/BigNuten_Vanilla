@@ -1,11 +1,13 @@
+import { validateFitnessSnapshot } from '../fitnessSchema.js';
 import { StorageProvider, computeSnapshotHash, saveSnapshotMeta, loadSnapshotMeta } from '../storageProvider.js';
 import { connectPinataSession, restorePinataSession, uploadPinnedSnapshot, uploadViaStorageRelay, uploadIpfsDesktopSnapshot, fetchSnapshotData } from '../pinataStorage.js';
-import { loadSnapshotManifest, recordSnapshotUpload } from '../snapshotLifecycle.js';
+import { loadSnapshotManifest, recordSnapshotUpload, withSnapshotTransaction } from '../snapshotLifecycle.js';
 
 export class PinataProvider extends StorageProvider {
   constructor() {
     super();
     this._session = null;
+    this.backupStatus = { state: 'idle' };
   }
 
   get id() { return 'ipfs'; }
@@ -54,27 +56,24 @@ export class PinataProvider extends StorageProvider {
       const pointer = manifest.current?.provider !== 'json-only' && manifest.current
         ? manifest.current
         : manifest.snapshots.find(m => m.provider && m.provider !== 'json-only') || null;
-      const metas = loadSnapshotMeta().filter(m => m.provider && m.provider !== 'json-only');
+      const metas = loadSnapshotMeta().filter(m => m.provider && m.provider !== 'json-only' && m.status === 'ok');
       const lastBackup = pointer?.timestamp ?? metas[0]?.timestamp ?? null;
-      return { connected: true, identity: this._session.identity || 'IPFS', lastBackup };
+      return { connected: true, identity: this._session.identity || 'IPFS', lastBackup, backup: this.backupStatus };
     }
     return { connected: false };
   }
 
   async put(data) {
-    if (!this._session) throw new Error('IPFS provider not connected. Call connect() first.');
-    const hash = await computeSnapshotHash(data);
     const now = new Date().toISOString();
-    const manifest = loadSnapshotManifest();
-    const previousSnapshot = manifest.current ? {
-      cid: manifest.current.cid,
-      hash: manifest.current.hash,
-      timestamp: manifest.current.timestamp,
-      provider: manifest.current.provider,
-      sessionAddress: manifest.current.sessionAddress || '',
-      fileName: manifest.current.fileName || '',
-    } : null;
+    let hash = null;
+    let uploadedCid = null;
+    this._reportBackupStatus({ state: 'pending' });
     try {
+      if (!this._session) throw new Error('IPFS provider not connected. Call connect() first.');
+      validateFitnessSnapshot(data);
+      hash = await computeSnapshotHash(data);
+      const manifest = loadSnapshotManifest();
+      const previousSnapshot = manifest.current ? { ...manifest.current } : null;
       const upload = this._session.desktop
         ? uploadIpfsDesktopSnapshot
         : this._session.relay
@@ -98,45 +97,51 @@ export class PinataProvider extends StorageProvider {
           })),
         },
       });
-      let verified = false;
-      try {
-        const remoteData = await fetchSnapshotData(cid, { session: this._session });
-        const remoteHash = await computeSnapshotHash(remoteData);
-        verified = remoteHash === hash;
-      } catch (verifyErr) {
-        console.warn('[IPFS] Snapshot verification failed:', verifyErr);
+      uploadedCid = cid;
+      const remoteData = await fetchSnapshotData(cid, { session: this._session });
+      const remoteHash = await computeSnapshotHash(remoteData);
+      if (remoteHash !== hash) {
+        throw new Error('Snapshot verification hash mismatch. Previous recovery pointer was not replaced.');
       }
-      try {
-        const lifecycle = recordSnapshotUpload({
-          cid,
-          hash,
-          timestamp: now,
-          provider: this.id,
-          source: 'ipfs-upload',
-          sessionAddress: this._session.identity || 'IPFS',
-          verified,
-        });
-        if (lifecycle.cleanupCandidates.length) {
-          console.info('[IPFS] Cleanup queue updated:', lifecycle.cleanupCandidates.length);
-        }
-      } catch (lifecycleErr) {
-        console.warn('[IPFS] Snapshot manifest update failed:', lifecycleErr);
+      const lifecycle = withSnapshotTransaction(() => {
+      const recorded = recordSnapshotUpload({
+        cid,
+        hash,
+        timestamp: now,
+        provider: this.id,
+        source: 'ipfs-upload',
+        sessionAddress: this._session.identity || 'IPFS',
+        fileName: 'bignuten-snapshot.json',
+        verified: true,
+      });
+      saveSnapshotMeta({ hash, cid, timestamp: now, provider: this.id, status: 'ok' });
+      return recorded;
+      });
+      if (lifecycle.cleanupCandidates.length) {
+        console.info('[IPFS] Cleanup queue updated:', lifecycle.cleanupCandidates.length);
       }
-      this._syncSessionSnapshotContext();
+      this._syncSessionSnapshotContext(lifecycle.manifest);
       this._session.linkedSnapshotCid = cid;
       this._session.linkedSnapshotHash = hash;
-      const meta = { hash, cid, timestamp: now, provider: this.id, status: 'ok' };
-      saveSnapshotMeta(meta);
+      this._reportBackupStatus({ state: 'success', timestamp: now });
       return { cid, hash };
     } catch (err) {
-      const meta = { hash, cid: null, timestamp: now, provider: this.id, status: 'error', error: err.message };
-      saveSnapshotMeta(meta);
+      const meta = { hash, cid: uploadedCid, timestamp: now, provider: this.id, status: 'error', error: err.message };
+      this._reportBackupStatus({ state: 'failure', error: err.message });
+      try { saveSnapshotMeta(meta); } catch {}
       throw err;
     }
   }
 
+  _reportBackupStatus(status) {
+    this.backupStatus = status;
+    if (typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bignuten:backup-status', { detail: status }));
+    }
+  }
+
   async get(ref) {
-    return fetchSnapshotData(ref);
+    return fetchSnapshotData(ref, { session: this._session });
   }
 
   async list() {
@@ -154,8 +159,9 @@ export class PinataProvider extends StorageProvider {
         return { connected: true, identity: session.identity || 'IPFS' };
       }
       return null;
-    } catch {
-      return null;
+    } catch (err) {
+      console.warn('[IPFS] Session restore failed:', err);
+      throw err;
     }
   }
 

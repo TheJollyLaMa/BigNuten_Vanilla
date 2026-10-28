@@ -1,3 +1,5 @@
+import { fitnessRecovery } from './snapshotRecovery.js';
+import { validateFitnessSnapshot } from './fitnessSchema.js';
 // js/dataControl.js
 // BigNuten Data Control — provider-agnostic backup, snapshot panel, JSON backup/restore.
 //
@@ -61,14 +63,14 @@ export function importDataFromJSONFile(file) {
     reader.onload = (e) => {
       try {
         const parsed     = JSON.parse(e.target.result);
-        const normalized = normalizeFitnessData(parsed);
+        const normalized = validateFitnessSnapshot(parsed);
         const existing   = (() => {
           try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
           catch { return {}; }
         })();
         // Use mergeSnapshotData — the single deduplication function
         const merged = mergeSnapshotData(existing, normalized);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        fitnessRecovery.save(merged);
         syncWaterIntakeAfterRestore(merged);
         resolve(merged);
       } catch (err) {
@@ -91,9 +93,10 @@ export function importDataFromJSONFile(file) {
  */
 export function initDataControl({ provider: activeProvider = providerRegistry.get('ipfs') } = {}) {
   const connectFn = activeProvider
-    ? mode => activeProvider.connect(mode).then(result => result.connected
-      ? { identity: result.identity, client: activeProvider.client ?? null }
-      : null)
+    ? mode => activeProvider.connect(mode).then(result => {
+      if (!result.connected) throw new Error(result.error || 'Connection cancelled or failed.');
+      return { identity: result.identity, client: activeProvider.client ?? null };
+    })
     : null;
   const restoreFn = activeProvider
     ? () => activeProvider.restore().then(result => result?.connected
@@ -101,6 +104,25 @@ export function initDataControl({ provider: activeProvider = providerRegistry.ge
       : null)
     : null;
   const uploadFn = activeProvider ? data => activeProvider.put(data).then(result => result.cid) : null;
+
+  if (!window._bignutenBackupStatusListener && typeof window.addEventListener === 'function') {
+    window._bignutenBackupStatusListener = true;
+    window.addEventListener('bignuten:backup-status', event => {
+      const state = event.detail?.state;
+      let notice = document.getElementById('backup-operation-status');
+      if (!notice) {
+        notice = document.createElement('p');
+        notice.id = 'backup-operation-status';
+        notice.setAttribute('role', 'status');
+        notice.setAttribute('aria-live', 'polite');
+        notice.style.cssText = 'position:fixed;top:80px;right:16px;z-index:300001;max-width:90vw;padding:12px;background:#222;color:white';
+        document.body.appendChild(notice);
+      }
+      notice.dataset.state = state;
+      notice.textContent = state === 'pending' ? '⏳ Pushing snapshot…' : state === 'success'
+        ? '✅ Pushed — snapshot verified.' : `❌ Upload failed: ${event.detail?.error || 'Storage unavailable.'}`;
+    });
+  }
 
   // Expose upload reference for icon click handler
   window._ipfsUploadFn = uploadFn;
@@ -128,18 +150,15 @@ export function initDataControl({ provider: activeProvider = providerRegistry.ge
 
   // ── Educational overlay buttons ────────────────────────────────────────────
   document.getElementById('ipfs-edu-connect-btn')?.addEventListener('click', async () => {
-    _closeOverlay();
-    await _doConnect(connectFn, 'hosted');
+    await _doConnect(connectFn, 'hosted', 'ipfs-edu-connect-status');
   });
 
   document.getElementById('ipfs-edu-own-btn')?.addEventListener('click', async () => {
-    _closeOverlay();
-    await _doConnect(connectFn, 'own');
+    await _doConnect(connectFn, 'own', 'ipfs-edu-connect-status');
   });
 
   document.getElementById('ipfs-edu-desktop-btn')?.addEventListener('click', async () => {
-    _closeOverlay();
-    await _doConnect(connectFn, 'desktop');
+    await _doConnect(connectFn, 'desktop', 'ipfs-edu-connect-status');
   });
 
   document.getElementById('ipfs-edu-skip-btn')?.addEventListener('click', () => {
@@ -151,17 +170,14 @@ export function initDataControl({ provider: activeProvider = providerRegistry.ge
   // ── Condensed connect dialog buttons ──────────────────────────────────────
   document.getElementById('ipfs-dialog-connect-btn')?.addEventListener('click', async () => {
     await _doConnect(connectFn, 'hosted');
-    _closeConnectDialog();
   });
 
   document.getElementById('ipfs-dialog-own-btn')?.addEventListener('click', async () => {
     await _doConnect(connectFn, 'own');
-    _closeConnectDialog();
   });
 
   document.getElementById('ipfs-dialog-desktop-btn')?.addEventListener('click', async () => {
     await _doConnect(connectFn, 'desktop');
-    _closeConnectDialog();
   });
 
   document.getElementById('ipfs-dialog-close-btn')?.addEventListener('click', () => {
@@ -205,9 +221,7 @@ export function initDataControl({ provider: activeProvider = providerRegistry.ge
   // ── First-visit: show educational overlay ─────────────────────────────────
   // On mobile, never show the overlay — silently default to json-only.
   if (_isMobile()) {
-    if (!localStorage.getItem(STORAGE_MODE_KEY)) {
-      setStorageMode('json-only');
-    }
+    setStorageMode('json-only');
     localStorage.setItem(EDUC_SEEN_KEY, '1');
     return;
   }
@@ -217,7 +231,10 @@ export function initDataControl({ provider: activeProvider = providerRegistry.ge
     if (typeof restoreFn !== 'function') return null;
     try {
       const result = await restoreFn();
-      if (!result || !(result.connected || result.spaceDid || result.identity)) return null;
+      if (!result || !(result.connected || result.spaceDid || result.identity)) {
+        setStorageMode('json-only');
+        return null;
+      }
 
       localStorage.setItem(EDUC_SEEN_KEY, '1');
       setStorageMode('ipfs');
@@ -229,7 +246,9 @@ export function initDataControl({ provider: activeProvider = providerRegistry.ge
         }
       }
       return result;
-    } catch {
+    } catch (err) {
+      console.warn('[DataControl] Session restore failed:', err);
+      setStorageMode('json-only');
       return null;
     }
   };
@@ -298,6 +317,57 @@ async function _handleIpfsIconClick() {
 
 // ── Educational overlay ───────────────────────────────────────────────────────
 
+let releaseBackupControls = null;
+
+export function openBackupControls({ connected = false, returnFocus } = {}) {
+  if (returnFocus !== undefined && typeof returnFocus !== 'function') {
+    throw new Error('BigNuten backup controls require a function for returnFocus.');
+  }
+  const [panelId, focusId, open, dismiss] = connected
+    ? ['ipfs-snapshot-panel', 'snapshot-panel-close', _openSnapshotPanel, _closeSnapshotPanel]
+    : _isMobile()
+      ? ['mobile-data-sheet', 'mobile-sheet-close-btn', _openMobileDataSheet, _closeMobileDataSheet]
+      : ['ipfs-connect-dialog', 'ipfs-dialog-close-btn', _openConnectDialog, _closeConnectDialog];
+  const panel = document.getElementById(panelId);
+  const close = document.getElementById(focusId);
+  if (!panel || !close) throw new Error(`BigNuten backup controls are not mounted: ${panelId}`);
+  releaseBackupControls?.();
+  let previousFocus = document.activeElement;
+  while (previousFocus?.shadowRoot?.activeElement) previousFocus = previousFocus.shadowRoot.activeElement;
+  open();
+  const events = new AbortController();
+  const observer = new MutationObserver(() => {
+    if (panel.hidden || panel.classList.contains('modal-hidden')) release();
+  });
+  const release = () => {
+    events.abort();
+    observer.disconnect();
+    releaseBackupControls = null;
+    if (returnFocus) returnFocus();
+    else previousFocus?.focus();
+  };
+  releaseBackupControls = release;
+  observer.observe(panel, { attributes: true, attributeFilter: ['hidden', 'class'] });
+  close.addEventListener('click', release, { signal: events.signal });
+  panel.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      dismiss();
+      release();
+    } else if (event.key === 'Tab' && panel.getAttribute('aria-modal') === 'true') {
+      const focusable = [...panel.querySelectorAll('button, input, select, textarea, a[href], [tabindex]')]
+        .filter(el => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length &&
+          getComputedStyle(el).visibility === 'visible');
+      const edge = event.shiftKey ? focusable[0] : focusable.at(-1);
+      if (document.activeElement === edge) {
+        event.preventDefault();
+        (event.shiftKey ? focusable.at(-1) : focusable[0])?.focus();
+      }
+    }
+  }, { signal: events.signal });
+  close.focus();
+}
+
 export function _openOverlay() {
   // On mobile, never show the IPFS educational overlay
   if (_isMobile()) return;
@@ -345,9 +415,8 @@ function _closeConnectDialog() {
 
 // ── Connect helper ────────────────────────────────────────────────────────────
 
-async function _doConnect(connectFn, mode = 'hosted') {
-  const statusEl = document.getElementById('ipfs-edu-connect-status')
-                || document.getElementById('ipfs-dialog-status');
+async function _doConnect(connectFn, mode = 'hosted', statusId = 'ipfs-dialog-status') {
+  const statusEl = document.getElementById(statusId);
   _showEl(statusEl, mode === 'desktop' ? '⏳ Checking IPFS Desktop…' : mode === 'own' ? '⏳ Connecting your IPFS pinning account…' : '⏳ Authorizing BigNuten hosted IPFS backup…', 'info');
 
   if (typeof connectFn !== 'function') {
@@ -492,7 +561,7 @@ function _renderSnapshotHistory() {
       timestamp: m.timestamp,
       provider: m.provider,
       tier: m.archiveTier || m.tier || 'hourly',
-      verified: true,
+      verified: m.status === 'ok',
       status: m.status,
     }));
   }

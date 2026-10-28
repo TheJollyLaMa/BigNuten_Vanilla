@@ -966,6 +966,14 @@
       <section class="about-section">
         <h3>About the Project</h3>
         <p>BigNuten helps you track the combined effects of regular exercise, vitamins, and supplements on your body over time. Log workouts, weight, nutrition, and emotions — all in one place, stored locally and optionally on IPFS for decentralized persistence.</p>
+        <div class="artizen-support">
+          <a class="artizen-support-link" href="https://artizen.fund/index/p/bignuten?season=7" target="_blank" rel="noopener noreferrer">
+            <img src="https://s3.amazonaws.com/appforest_uf/f1668644671737x335127645793037440/Artizen_Logomark_RGB_FullColor.svg" alt="" aria-hidden="true" />
+            <span>Support on Artizen</span>
+            <img src="https://s3.amazonaws.com/appforest_uf/f1668644671737x335127645793037440/Artizen_Logomark_RGB_FullColor.svg" alt="" aria-hidden="true" />
+          </a>
+          <p>Boost BigNuten, purchase an artifact, and discover other great Artizen projects.</p>
+        </div>
       </section>
 
       <section class="about-section streak-invite-flyer">
@@ -2355,6 +2363,7 @@
               <label class="gov-label">Challenge start<input id="streak-create-start" class="gov-input" type="datetime-local" /></label>
               <label class="gov-label">Monthly window<input class="gov-input" type="text" value="30 days · 28 tracked days · 4 meetups" readonly /></label>
             </div>
+            <p class="gov-admin-hint">Registration stays open through the first 24 hours after the start. The existing expired challenge cannot be reopened; cancel it from the list below and create a new one with a future start.</p>
             <p class="gov-admin-hint">Combined rules use daily gates that must all pass for a qualifying day, plus independent weekly gates. Publish a `streak-rules.json` file first. Four peer-approved calls and 28 qualifying days complete the month. Stats stay private unless a participant opts into public IPFS reporting.</p>
             <button id="streak-create-button" class="gov-admin-action-btn">Create monthly challenge</button>
             <p id="streak-create-status" class="gov-form-status"></p>
@@ -2890,6 +2899,7 @@
               <p class="comm-claim-status" id="cd-claim-status" style="display:none;"></p>
             </div>
 
+            <p id="cd-history-status" role="status" aria-live="polite"></p>
             <!-- On-chain history (shown when wallet connected and history exists) -->
             <div id="cd-history-section" style="display:none;">
               <h5 class="comm-history-title">📜 On-Chain Reward History</h5>
@@ -3101,6 +3111,7 @@
         <img src="img/BigNuten.png" alt="$BNUT" class="aes-stub-pool-icon" />
         <span>Stake: <strong>BNUT amount set by the captain</strong></span>
       </div>
+      <p class="streak-peer-note">Joining requires the listed BNUT stake and a little Base ETH for transaction fees. Need BNUT to get started? Ask the captain about a newcomer allocation.</p>
       <p class="streak-peer-note">This is a peer-verified leaderboard challenge, not a random lottery. Your app logs are browser-local; peers review your displayed progress during calls. The blockchain records self-claims, review votes, guest invitations, stakes, and payouts.</p>
       <div id="streak-challenge-list"><p class="gov-loading">Loading monthly challenges…</p></div>
     </div>
