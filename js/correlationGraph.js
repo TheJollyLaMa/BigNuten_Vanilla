@@ -546,6 +546,12 @@ export function initCorrelationGraph() {
     renderChart('correlationChart', [...activeSeries], activeDays, activeType, normalizeData);
   }
 
+  window.addEventListener('bignuten:fitness-data-restored', () => {
+    if (modal.classList.contains('modal-hidden')) return;
+    buildSeriesUI(modal, activeSeries, onToggleSeries);
+    refresh();
+  });
+
   // Series toggle callback
   function onToggleSeries(key, btn) {
     if (activeSeries.has(key)) {
