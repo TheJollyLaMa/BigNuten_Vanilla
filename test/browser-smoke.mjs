@@ -313,9 +313,11 @@ try {
       await modal('workout-timer-modal', '#start-workout-button', '#cancel-workout-button', ['[data-panel="workout-set-list"].panel-toggle-btn']);
       // The legacy prep countdown still fires after Cancel and opens the feeling
       // prompt. Settle and dismiss it explicitly so it cannot cover later dialogs.
-      await visible('#emotion-modal');
-      await click('#emotion-modal .modal-close');
-      await hidden('#emotion-modal');
+      await page.waitForTimeout(11_500);
+      if (await page.locator('#emotion-modal').isVisible()) {
+        await click('#emotion-modal .modal-close');
+        await hidden('#emotion-modal');
+      }
       if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
       if (name === 'mobile') await modal('mobile-data-sheet', '#ipfsIcon', '#mobile-sheet-close-btn');
       await modal('ipfs-connect-dialog', '#aes-storage-btn', '#ipfs-dialog-close-btn', ['#aesculapius-right']);
