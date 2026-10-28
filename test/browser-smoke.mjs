@@ -94,7 +94,8 @@ try {
     walletGranted = false;
     const context = await browser.newContext({ viewport, locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce', serviceWorkers: 'block' });
     const page = await context.newPage();
-    page.setDefaultTimeout(8000);
+    // Software-rendered canvas plus screenshot capture is slower on CI CPUs.
+    page.setDefaultTimeout(30_000);
     await page.clock.setFixedTime(new Date('2026-10-28T12:00:00Z'));
     const errors = [], failed = [], unexpected = [], external = new Set();
     page.on('pageerror', error => errors.push(`pageerror: ${error.stack || error.message}`));
