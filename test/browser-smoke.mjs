@@ -101,6 +101,10 @@ try {
     page.on('console', message => { if (message.type() === 'error') errors.push(`console: ${message.text()} ${JSON.stringify(message.location())}`); });
     page.on('requestfailed', request => failed.push(`${request.url()}: ${request.failure()?.errorText}`));
     page.on('response', response => { if (response.status() >= 400) failed.push(`${response.status()} ${response.url()}`); });
+    await page.routeWebSocket('**/*', socket => {
+      unexpected.push(`WebSocket ${socket.url()}`);
+      socket.close({ code: 1008, reason: 'Network disabled by smoke harness' });
+    });
     await page.exposeFunction('__smokeRpc', rpc);
     await page.addInitScript(() => {
       const listeners = new Map();
