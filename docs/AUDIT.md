@@ -4,6 +4,11 @@ Audit for [#348](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/348),
 2026-10-28, based on `origin/main` **e260f1a**. Existence was checked against
 `index.html` and the actual `js/` handlers, not a feature roadmap.
 
+Follow-up: [PR #364](https://github.com/TheJollyLaMa/BigNuten_Vanilla/pull/364)
+addresses Genie privacy/consent (#349) and the raw-food opener/persistence (#361).
+The matrix below retains its original e260f1a audit scope; see the current
+[smoke guide](browser-smoke.md) and README for the added acceptance coverage.
+
 ## Method and result vocabulary
 
 - **PASS / smoke**: real Chromium render/open/close assertions on desktop

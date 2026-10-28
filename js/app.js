@@ -1,3 +1,5 @@
+import { persistDietIntake } from './dietIntake.js';
+import { geniePrivacyNotice, revokeGenieHostedConsent } from './geniePrivacy.js';
 import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
 import { createWaterIntakeStore } from './waterIntake.js';
 initializeSnapshotRecovery();
@@ -31,26 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initDnftStripePurchase();
   // Initialise Yoga Flow mode
   initYogaFlow();
-
-  const dietButton = document.getElementById('dietButton');
-  const rawFoodModal = document.getElementById('rawFoodModal');
-  const closeRawFoodModal = document.getElementById('closeRawFoodModal');
-  if (dietButton && rawFoodModal) {
-    dietButton.addEventListener('click', () => {
-      rawFoodModal.style.display = 'block';
-    });
-  }
-  if (closeRawFoodModal && rawFoodModal) {
-    closeRawFoodModal.addEventListener('click', () => {
-      rawFoodModal.style.display = 'none';
-    });
-  }
-  // Hide modal if clicking outside modal-content
-  window.addEventListener('click', function (event) {
-    if (rawFoodModal && event.target === rawFoodModal) {
-      rawFoodModal.style.display = 'none';
-    }
-  });
 });
 // --- Moon & Sun Modal Logic ---
 const TITHI_NAMES = [
@@ -1073,16 +1055,57 @@ function refreshDietFoodSuggestions() {
   dl.innerHTML = names.map(n => `<option value="${n}"></option>`).join('');
 }
 
+function recordDietIntake(fields) {
+  const intake = persistDietIntake(fields, getFitnessData, saveFitnessData);
+  if (!intake) return null;
+  if (intake.nutr) setDietNutrCache(intake.name, intake.nutr, intake.amount, intake.unit);
+  displayRecentFoods();
+  refreshDietFoodSuggestions();
+  renderDietAllTimeLog();
+  return intake;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Diet button opens the diet modal
   const dietBtn = document.getElementById('dietBtn');
   const dietModal = document.getElementById('dietModal');
   const closeDietModal = document.getElementById('closeDietModal');
-  // Hide rawFoodModal on load to ensure it's not visible
   const rawFoodModal = document.getElementById('rawFoodModal');
-  if (rawFoodModal) {
+  const rawFoodForm = document.getElementById('rawFoodForm');
+  const quickLogButton = document.getElementById('dietQuickLogBtn');
+  function closeRawFood() {
     rawFoodModal.classList.add('hidden');
+    rawFoodModal.style.display = 'none';
+    rawFoodModal.removeAttribute('aria-modal');
+    dietModal.style.display = 'block';
+    dietModal.setAttribute('aria-modal', 'true');
+    quickLogButton.focus();
   }
+  quickLogButton?.addEventListener('click', () => {
+    dietModal.style.display = 'none';
+    dietModal.removeAttribute('aria-modal');
+    rawFoodModal.classList.remove('hidden');
+    rawFoodModal.style.display = 'block';
+    rawFoodModal.setAttribute('aria-modal', 'true');
+    document.getElementById('rawFoodName').focus();
+  });
+  document.getElementById('closeRawFoodModal')?.addEventListener('click', closeRawFood);
+  rawFoodModal?.addEventListener('click', event => { if (event.target === rawFoodModal) closeRawFood(); });
+  rawFoodModal?.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); closeRawFood(); }
+  });
+  rawFoodForm?.addEventListener('submit', event => {
+    event.preventDefault();
+    const intake = recordDietIntake({
+      name: document.getElementById('rawFoodName').value,
+      amount: document.getElementById('rawFoodAmount').value,
+      unit: document.getElementById('rawFoodUnit').value,
+      nutr: { protein: Number(document.getElementById('rawFoodProtein').value) },
+    });
+    if (!intake) return;
+    rawFoodForm.reset();
+    closeRawFood();
+  });
   if (dietBtn && dietModal) {
     dietBtn.addEventListener('click', function () {
       dietModal.style.display = 'block';
@@ -1150,26 +1173,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (val !== '' && val != null) { nutr[key] = parseFloat(val); hasNutr = true; }
       });
 
-      const intake = {
-        type: 'diet',
-        name,
-        amount,
-        unit,
-        nutr: hasNutr ? nutr : undefined,
-        date: new Date().toISOString()
-      };
-      // Cache nutritional info (with last-used amount and unit) so it pre-fills next time
-      if (hasNutr) setDietNutrCache(name, nutr, amount, unit);
-
-      // Add to foods list in fitness data
-      const data = getFitnessData();
-      data.foods.push(intake);
-      saveFitnessData(data);
-      // Re-render recent food list on main dashboard
-      if (typeof displayRecentFoods === 'function') displayRecentFoods();
-      // Update the all-time log and suggestions inside the modal
-      refreshDietFoodSuggestions();
-      renderDietAllTimeLog();
+      if (!recordDietIntake({ name, amount, unit, nutr: hasNutr ? nutr : undefined })) return;
       _dietNutrBase = null;
       dietForm.reset();
       updateNutrCardTitle();
@@ -7776,8 +7780,23 @@ document.addEventListener('DOMContentLoaded', () => {
         'openai':        '🟢 Uses your OpenAI API key. Billed per token at OpenAI rates — very cheap for personal use.',
         'webllm':        '🔒 All AI processing happens locally in your browser. No key needed. Model is downloaded once (~2.2 GB) and cached.',
       };
-      if (hintEl) hintEl.innerHTML = hints[backend] || '';
+      if (hintEl) {
+        hintEl.innerHTML = hints[backend] || '';
+        const privacy = document.createElement('span');
+        privacy.style.display = 'block';
+        privacy.textContent = geniePrivacyNotice(backend);
+        hintEl.appendChild(privacy);
+      }
     }
+
+    document.addEventListener('genie-backend-changed', event => {
+      backendRadios.forEach(radio => { radio.checked = radio.value === event.detail; });
+      _updateGenieSettingsUI(event.detail);
+    });
+    document.getElementById('genie-revoke-consent')?.addEventListener('click', () => {
+      revokeGenieHostedConsent();
+      document.getElementById('genie-consent-status').textContent = 'Hosted AI permissions reset. The next hosted request will ask again. Already-sent data cannot be recalled.';
+    });
 
     // Restore saved backend selection
     const savedBackend = getGenieBackend();
@@ -7796,7 +7815,6 @@ document.addEventListener('DOMContentLoaded', () => {
     backendRadios.forEach(radio => {
       radio.addEventListener('change', () => {
         setGenieBackend(radio.value);
-        _updateGenieSettingsUI(radio.value);
       });
     });
 

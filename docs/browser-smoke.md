@@ -33,6 +33,13 @@ there are no forced clicks or replaced app functions.
   raw intake/nutrition (daily/weekly/monthly/annual), exercises, workout set list.
   Check populated content, toggle open/closed, and open/close each panel's Genie
   assistant. Submit one synthetic exercise through the real exercise form.
+  Log a fractional raw-food serving through Diet → Raw food quick log; check
+  canonical foods persistence, protein nutrition, Diet history and the recent-food UI.
+  In the first Genie chat, assert no hosted request before permission, Cancel,
+  Allow/remembered permission, a separate OpenAI consent and local-WebLLM switch.
+  Hosted responses use synthetic local fixtures; Settings reset is asserted.
+  Yoga Genie separately exercises consent before its prompt, Cancel and the local
+  switch, with no hosted request from either declined action.
 - Open/close moon/sun, water, emotion wheel, pain/body, weight (real Chart.js),
   measurements, supplements, diet, trends/correlation, exercise, About, Yoga Flow,
   Yoga Genie, workout timer (cancel), achievements, settings, Genie memory,
@@ -43,11 +50,10 @@ there are no forced clicks or replaced app functions.
   prepared local storage-mode preference, **not** a connected provider or upload.
   Test first-visit education on desktop and the mobile data bottom sheet on mobile.
 - Require every discovered dialog to be covered or explicitly explained. There
-  are 35 reachable dialogs/storage surfaces per viewport (36 across both), plus
-  four panel Genie chats. The obsolete `rawFoodModal` is explicitly excluded:
-  its `dietButton` opener does not exist; the real `dietBtn` opens `dietModal`.
-  No replacement product flow is invented. Desktop education and the mobile
-  sheet are intentionally viewport-specific.
+  are 37 covered dialogs/storage surfaces per viewport (38 across both), plus
+  four panel Genie chats. Raw-food quick log is opened from the real Diet modal;
+  the dynamically created hosted-consent dialog is also exercised. Desktop
+  education and the mobile sheet are intentionally viewport-specific.
 - Fail on console errors, uncaught page exceptions, failed requests, HTTP status
   >=400, unknown external endpoints, or unfixed modal interactions. The explicit
   commented error allowlist in the runner is **empty**. Future entries must have
@@ -59,15 +65,15 @@ See [AUDIT.md](AUDIT.md) for the source-backed surface matrix, scoped results an
 bug links. The runner additionally checks chakra/aura canvas dimensions,
 moon/sun text and ekadasi links, timezone selection persistence, all community
 dashboard tabs, the actual Supporter DNFT menu route and purchase form presence,
-and an active Yoga breathing/timer session through confirmed End. No prompt,
-financial transaction or external upload is sent.
+and an active Yoga breathing/timer session through confirmed End. No prompt
+reaches a real hosted AI service; no financial transaction or external upload is sent.
 
 Workout cancellation has a known leaked preparation callback
 ([#362](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/362)). Its immediate
 open/cancel check runs last with Playwright's clock paused so it cannot interrupt
 unrelated dialogs. This is explicitly **not** timer lifecycle correctness coverage.
-The legacy raw-food surface remains asserted present/hidden with its missing
-opener recorded under #361, rather than silently counted as reachable.
+The raw-food gap #361 is addressed by the Diet quick-log route and persistence
+assertions; the raw-food discovery exclusion has been removed.
 
 `npm run test:node` also runs `test/fitnessRoundTrip.test.js`: synthetic, populated
 values for every default schema key pass through the real JSON export handler,
@@ -84,8 +90,11 @@ Hardhat peer requirements. Chart/date libraries' currently unversioned CDN URLs
 are similarly backed by the lockfile. No library is vendored into the app.
 Google Fonts returns empty CSS (system-font fallback), external images return a
 one-pixel image, GitHub lists return empty arrays, and public raw configuration
-requests use this checkout's JSON. Other endpoints, including IPFS/API/model
-services, cannot reach the network and fail unless explicitly fixture-mapped.
+requests use this checkout's JSON. GitHub Models/OpenAI endpoints return fixed
+synthetic responses and their request counts/bodies are captured for consent
+assertions; no API key or health data is sent externally. Other endpoints,
+including IPFS/API/model services, cannot reach the network and fail unless
+explicitly fixture-mapped.
 Base/Optimism RPC reads use actual ABI-encoded empty-chain values (zero balances,
 no competitions/proposals, no admin role), not live state. Unexpected wallet
 methods reject with EIP-1193 code 4200. Service workers are blocked.

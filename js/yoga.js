@@ -2,9 +2,10 @@
 // Provides a mindful yoga session with pose visuals, Sanskrit/Devanagari names,
 // breathing animations, and automatic session logging.
 
+import { ensureGenieHostedConsent, hasGenieHostedConsent } from './geniePrivacy.js';
 import { getFitnessData, saveFitnessData } from './fitnessData.js';
 import {
-  isGenieEnabled, getGenieBackend, getGenieApiKey, getGenieHostedModelName
+  isGenieEnabled, getGenieBackend, setGenieBackend, getGenieApiKey, getGenieHostedModelName
 } from './genieChat.js';
 
 const YOGA_POSES_KEY  = 'yogaCustomPoses';
@@ -1018,7 +1019,7 @@ function setGenieStatus(text) {
   if (el) el.textContent = text;
 }
 
-async function sendGenieMessage() {
+export async function sendGenieMessage() {
   const input = document.getElementById('yoga-genie-input');
   const sendBtn = document.getElementById('yoga-genie-send');
   if (!input) return;
@@ -1061,7 +1062,8 @@ Be warm, encouraging, and precise. Weave Sanskrit terms naturally into explanati
 For pose questions, mention both benefits and safety cues.
 Keep responses concise — 2-4 sentences unless a detailed explanation is requested.`;
 
-  const conversationHistory = genieMessages.slice(-8).map(m => ({
+  const previousMessages = genieMessages.slice(0, -1).slice(-8);
+  const conversationHistory = previousMessages.map(m => ({
     role: m.role === 'user' ? 'user' : 'assistant',
     content: m.text
   }));
@@ -1075,6 +1077,22 @@ Keep responses concise — 2-4 sentences unless a detailed explanation is reques
       setGenieStatus('🧞 (WebLLM not available in Yoga Panel — switch backend in Settings)');
       reply = 'Please switch to GitHub Models or OpenAI backend in Settings to use the Yoga Genie.';
     } else if (backend === 'openai' || backend === 'github-models') {
+      const categories = [currentPose ? 'Current yoga pose and breath cue' : 'Current yoga flow'];
+      if (yogaSessions.length) categories.push('Recent yoga sessions');
+      if (previousMessages.length) categories.push('Yoga conversation history');
+      categories.push('Your message');
+      const action = await ensureGenieHostedConsent(backend, categories);
+      if (action === 'local') {
+        setGenieBackend('webllm');
+        appendGenieMessage('genie', '🔒 Switched to local WebLLM. Nothing was sent. The Yoga Genie needs a hosted backend; use a dashboard Genie chat for local WebLLM.');
+        setGenieStatus('');
+        return;
+      }
+      if (action !== 'allow' || getGenieBackend() !== backend) {
+        appendGenieMessage('genie', 'Request cancelled. Nothing was sent.');
+        setGenieStatus('');
+        return;
+      }
       const apiKey = getGenieApiKey();
       const modelName = getGenieHostedModelName();
 
@@ -1094,6 +1112,7 @@ Keep responses concise — 2-4 sentences unless a detailed explanation is reques
         max_tokens: 512
       });
 
+      if (!hasGenieHostedConsent(backend)) throw new Error('Hosted health-context permission required.');
       const res = await fetch(endpoint, { method: 'POST', headers, body });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
