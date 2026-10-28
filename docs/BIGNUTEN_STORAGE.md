@@ -123,10 +123,45 @@ Recovery procedure:
 
 Round-trip coverage includes water daily history, weights, supplements, foods,
 measurements, exercise types/entries, workout sessions, pain, emotions and Genie
-sessions/insights. Water-widget caches are synchronized on restore. This supports
-#257's existing schema/restore boundary; new water collection UX and broader
-#257/#204/#265 features remain separate Level 2 work. Settings, credentials and
-chain-history caches are not added to the existing health export format.
+sessions/insights. Water-widget caches are synchronized on restore. Settings,
+credentials and chain-history caches are not added to the existing health export
+format.
+
+### Daily water and restored panels (#257, #265, #204)
+
+The existing water-drop modal is the daily logger: each **Log** adds one glass,
+**Remove** corrects one glass, and the total belongs to the user's configured
+personal day. Units and the existing eight-glass meter goal are unchanged; the
+arc stops at the goal, but intake totals can exceed it. This is a logging UI,
+not a medical recommendation. The existing correlation graph offers the water
+history series; no second tracker or new trend graph is introduced.
+
+`fitnessTrackerData.waterDailyHistory` is canonical: `{ "YYYY-MM-DD": count }`.
+The v1 schema retains daily totals, not individual drink timestamps. Every
+successful log updates that map, the derived `waterDailyHistory` and
+`waterTrackerData` caches, and the existing local recovery store. Failed writes
+show an error rather than displaying an unsaved increment. Startup adapts valid
+legacy cache-only days without replacing canonical snapshot totals. Missing or
+malformed caches do not hide valid fitness data. A new personal day starts at
+zero and retains previous days. JSON and IPFS serialize the same canonical map.
+
+PR #358 already supplied water normalization, validated JSON/CID merge,
+local recovery, backup transport and the restored-data event/core renderers.
+This follow-up closes the cache migration/failed-write gaps, removes stale
+water fallback on restore, and refreshes pain, feelings and an already-open correlation graph too.
+Successful JSON and CID imports dispatch `bignuten:fitness-data-restored` after
+synchronizing water caches; existing panel listeners read the restored canonical
+records without reloading. Historical records remain visible in all-time logs
+and charts even when outside a recent-period panel's date range.
+
+Validation uses synthetic records only: `test/waterPersistence.test.js` covers
+multiple logs, migration, rollover, cache/primary write failures, future-version
+retention, actual JSON export/import and mocked IPFS upload/CID import.
+`test/browser-smoke.mjs` verifies both JSON and CID restores populate water,
+weight, nutrition/food, supplements, exercises, measurements, pain and feelings
+and an already-open water trend in fresh desktop/mobile data profiles without
+navigation or reload. No real
+health records or remote uploads are used by these tests.
 
 ## Durable chain history
 

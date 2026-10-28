@@ -557,6 +557,9 @@ export function initFeelingsWheel() {
 
   buildWheel(slicesGrp, handleSelect);
   if (analytics) renderAnalytics(analytics);
+  window.addEventListener('bignuten:fitness-data-restored', () => {
+    if (analytics) renderAnalytics(analytics);
+  });
 }
 
 /** Helper to open the emotion modal (uses global showModal / hideModal from app.js) */

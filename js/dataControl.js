@@ -65,8 +65,14 @@ export function importDataFromJSONFile(file) {
         const parsed     = JSON.parse(e.target.result);
         const normalized = validateFitnessSnapshot(parsed);
         const existing   = (() => {
-          try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
-          catch { return {}; }
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            return raw === null ? {} : validateFitnessSnapshot(JSON.parse(raw));
+          }
+          catch (error) {
+            if (error.code === 'UNSUPPORTED_SNAPSHOT_VERSION') throw error;
+            return {};
+          }
         })();
         // Use mergeSnapshotData — the single deduplication function
         const merged = mergeSnapshotData(existing, normalized);
