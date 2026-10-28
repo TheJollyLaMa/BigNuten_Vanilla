@@ -1243,6 +1243,7 @@ header {
 
 #ipfs-status {
   position: absolute;
+  z-index: 1;
   top: 20px;
   left: 50px;
   display: flex;
@@ -6281,7 +6282,7 @@ svg text {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 1100;
+  z-index: 100010;
 }
 
 .contrib-modal-overlay.hidden,
@@ -6294,7 +6295,7 @@ svg text {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 1101;
+  z-index: 100011;
   background: #0d0d2a;
   border: 1px solid rgba(160, 112, 255, 0.5);
   border-radius: 12px;
@@ -6917,7 +6918,7 @@ svg text {
   border: 1px solid rgba(115, 0, 255, 0.5);
   border-radius: 12px;
   box-shadow: 0 6px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(115, 0, 255, 0.2);
-  z-index: 1150;
+  z-index: 99999;
   overflow: hidden;
   animation: genie-pop 0.2s ease;
 }
@@ -9467,6 +9468,9 @@ svg text {
   /* Stack genie panel below yoga content on small screens */
   .yoga-modal-inner {
     flex-direction: column;
+  }
+  .yoga-modal {
+    width: 100%;
   }
   .yoga-genie-panel {
     flex: 0 0 280px;

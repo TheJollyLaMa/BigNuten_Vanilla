@@ -405,7 +405,7 @@ function _positionChatWindow(win, panel) {
     win.style.height    = Math.min(curH, maxH) + 'px';
   }
   win.style.top       = top + 'px';
-  win.style.zIndex    = '1150';
+  win.style.zIndex    = '99999';
 
   if (_isMobile()) {
     // On mobile open chat ABOVE the panel.

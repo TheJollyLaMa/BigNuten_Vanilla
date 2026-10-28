@@ -141,3 +141,6 @@ cache/
 
 # StreakBot live sim state (written by streakbot-live.js setup phase)
 streakbot-live-state.json
+
+# Playwright browser smoke screenshots
+test-results/
