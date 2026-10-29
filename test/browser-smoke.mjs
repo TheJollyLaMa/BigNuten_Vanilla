@@ -422,6 +422,7 @@ try {
       await page.locator('#metric-picker').selectOption('rhr');
       await click('#heart-breathwork-tab');
       await visible('#heart-breathwork');
+      assert.equal(await page.locator('#breath-method').inputValue(), 'box');
       await page.locator('#breath-rounds').fill('1');
       await click('#breath-begin');
       assert.match(await page.locator('#breath-phase').innerText(), /Inhale/);

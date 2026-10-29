@@ -8,6 +8,7 @@ export function initHeartBreathwork({ modal, load, save }) {
   let pattern, sessionMethod, protocol, targetRounds, paused = false, pending = null, running = false;
   Object.entries(BREATH_METHODS).filter(([, value]) => !value.advanced).forEach(([key, value]) => method.add(new Option(value.label, key)));
   method.add(new Option('Custom', 'custom'));
+  method.value = 'box';
   BREATH_FEELINGS.forEach(feeling => find('feeling').add(new Option(feeling, feeling)));
   function selectMethod() {
     const custom = method.value === 'custom'; find('custom').hidden = !custom;
