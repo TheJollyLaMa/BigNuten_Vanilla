@@ -1,5 +1,5 @@
 import { initHeartMetrics } from './heartMetrics.js';
-import { persistDietIntake } from './dietIntake.js';
+import { persistDietIntake, summarizeCalories, summarizeCaloriesByDay, buildMealTimingInsights } from './dietIntake.js';
 import { geniePrivacyNotice, revokeGenieHostedConsent } from './geniePrivacy.js';
 import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
 import { createWaterIntakeStore } from './waterIntake.js';
@@ -8,7 +8,7 @@ import { initDnftPayPalPurchase, initDnftStripePurchase, listDecentEscrowPlans, 
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
 import { loadPayrollQueue, getTreasuryBalance, getPayrollSettlementOptions, getBountyCoverage, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
 import { settleDataSharingRewards } from './dataSharing.js';
-import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getGroupedTimezones } from './timezone.js';
+import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS, _openConnectDialog } from './dataControl.js';
 import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey, getHostedModelsForBackend, getGenieHostedModelName, setGenieHostedModelName, getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory, rateGenieSession, deleteGenieSession, MAX_INSIGHTS } from './genieChat.js';
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
@@ -991,6 +991,43 @@ function prefillDietNutr(foodName) {
 
 const KNOWN_NUTR_KEYS = new Set(['calories','protein','carbs','fat','fiber','potassium','sodium','sugar']);
 
+function calorieSummaryText(summary) {
+  const calories = summary.calories % 1 === 0 ? summary.calories.toLocaleString() : summary.calories.toFixed(1);
+  return `${calories} kcal · ${summary.entriesWithCalories} of ${summary.totalEntries} entries have calories`;
+}
+
+function renderDietDaySummary() {
+  const data = getFitnessData();
+  const today = getTodayInUserTz();
+  const todaySummary = summarizeCalories(data.foods || [], today);
+  const calories = document.getElementById('diet-today-calories');
+  if (calories) calories.textContent = `Today (${today}): ${calorieSummaryText(todaySummary)}`;
+
+  const totalsList = document.getElementById('diet-daily-totals-list');
+  if (totalsList) {
+    totalsList.innerHTML = summarizeCaloriesByDay(data.foods || []).map(summary =>
+      `<li><time>${escapeHtml(summary.day)}</time><span>${escapeHtml(calorieSummaryText(summary))}</span></li>`
+    ).join('') || '<li>No food entries yet.</li>';
+  }
+
+  const timeline = document.getElementById('diet-meal-timeline');
+  const gaps = document.getElementById('diet-meal-gaps');
+  if (!timeline || !gaps) return;
+  const sleepEntries = Array.isArray(data.metricLogs)
+    ? data.metricLogs.filter(entry => /sleep/i.test(entry.metric || ''))
+    : Array.isArray(data.metricLogs?.sleep) ? data.metricLogs.sleep
+      : Array.isArray(data.sleepLogs) ? data.sleepLogs : [];
+  const insight = buildMealTimingInsights({ foods: data.foods || [], workouts: data.sessionLog || [], sleepEntries, day: today });
+  timeline.innerHTML = insight.events.map(event =>
+    `<li class="diet-meal-timeline__${event.kind}"><time>${escapeHtml(event.time)}</time><span>${escapeHtml(event.label)}</span></li>`
+  ).join('') || '<li>No meals logged today.</li>';
+  const messages = insight.workoutGaps.map(item => `Last meal to ${item.label}: ${item.gap}`);
+  insight.sleepGaps.forEach(gap => messages.push(`Last meal to sleep: ${gap}`));
+  gaps.textContent = messages.join(' · ');
+  gaps.hidden = messages.length === 0;
+}
+
+
 /** Renders all-time diet log inside #dietAllTimeLog (latest first) */
 function renderDietAllTimeLog() {
   const list = document.getElementById('dietAllTimeLog');
@@ -1008,7 +1045,8 @@ function renderDietAllTimeLog() {
     const li = document.createElement('li');
     li.className = 'diet-log-entry';
     li.dataset.foodIdx = originalIndex;
-    const dateStr = food.date ? (food.date.length > 10 ? formatInUserTz(food.date) : food.date) : '';
+    const dateStr = food.date ? (food.date.length > 10 ? formatInUserTz(food.date, { hour: undefined, minute: undefined, second: undefined, timeZoneName: undefined }) : food.date) : '';
+    const mealTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(food.time || '') ? food.time : '';
     const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '';
     let nutrHtml = '';
     if (food.nutr) {
@@ -1028,15 +1066,15 @@ function renderDietAllTimeLog() {
         }
       });
       if (pills.length) {
-        nutrHtml = `<div class="diet-log-entry__nutr">${pills.map(p => `<span class="diet-log-entry__nutr-pill">${p}</span>`).join('')}</div>`;
+        nutrHtml = `<div class="diet-log-entry__nutr">${pills.map(p => `<span class="diet-log-entry__nutr-pill">${escapeHtml(p)}</span>`).join('')}</div>`;
       }
     }
     li.innerHTML = `
       <div class="diet-log-entry__top">
-        <span class="diet-log-entry__name">${food.name}</span>
-        <span class="diet-log-entry__amount">${amountStr}</span>
+        <span class="diet-log-entry__name">${escapeHtml(food.name)}</span>
+        <span class="diet-log-entry__amount">${escapeHtml(amountStr)}</span>
       </div>
-      <div class="diet-log-entry__date">${dateStr}</div>
+      <div class="diet-log-entry__date">${escapeHtml(dateStr)} · <span>${mealTime || 'time not recorded'}</span> <label>Time <input class="diet-log-time" type="time" aria-label="Edit meal time" value="${mealTime}" /></label></div>
       ${nutrHtml}
       <div class="diet-add-nutr-row">
         <button class="diet-add-nutr-btn" type="button">＋ Add Nutrient</button>
@@ -1068,6 +1106,7 @@ function recordDietIntake(fields) {
   displayRecentFoods();
   refreshDietFoodSuggestions();
   renderDietAllTimeLog();
+  renderDietDaySummary();
   return intake;
 }
 
@@ -1093,6 +1132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     rawFoodModal.classList.remove('hidden');
     rawFoodModal.style.display = 'block';
     rawFoodModal.setAttribute('aria-modal', 'true');
+    document.getElementById('rawFoodTime').value = getTimeInUserTz();
     document.getElementById('rawFoodName').focus();
   });
   document.getElementById('closeRawFoodModal')?.addEventListener('click', closeRawFood);
@@ -1106,7 +1146,8 @@ document.addEventListener('DOMContentLoaded', () => {
       name: document.getElementById('rawFoodName').value,
       amount: document.getElementById('rawFoodAmount').value,
       unit: document.getElementById('rawFoodUnit').value,
-      nutr: { protein: Number(document.getElementById('rawFoodProtein').value) },
+      nutr: { protein: Number(document.getElementById('rawFoodProtein').value), ...(document.getElementById('rawFoodCalories').value !== '' ? { calories: Number(document.getElementById('rawFoodCalories').value) } : {}) },
+      time: document.getElementById('rawFoodTime').value,
     });
     if (!intake) return;
     rawFoodForm.reset();
@@ -1118,6 +1159,8 @@ document.addEventListener('DOMContentLoaded', () => {
       dietModal.setAttribute('aria-modal', 'true');
       refreshDietFoodSuggestions();
       renderDietAllTimeLog();
+      renderDietDaySummary();
+      document.getElementById('dietFoodTime').value = getTimeInUserTz();
     });
   }
   if (closeDietModal && dietModal) {
@@ -1179,16 +1222,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (val !== '' && val != null) { nutr[key] = parseFloat(val); hasNutr = true; }
       });
 
-      if (!recordDietIntake({ name, amount, unit, nutr: hasNutr ? nutr : undefined })) return;
+      if (!recordDietIntake({ name, amount, unit, nutr: hasNutr ? nutr : undefined, time: document.getElementById('dietFoodTime').value })) return;
       _dietNutrBase = null;
       dietForm.reset();
       updateNutrCardTitle();
+      document.getElementById('dietFoodTime').value = getTimeInUserTz();
     });
   }
 
   // Event delegation for "Add Nutrient" buttons in the diet all-time log
   const dietLogList = document.getElementById('dietAllTimeLog');
   if (dietLogList) {
+    dietLogList.addEventListener('change', event => {
+      if (!event.target.matches('.diet-log-time')) return;
+      const li = event.target.closest('.diet-log-entry');
+      const index = Number(li?.dataset.foodIdx);
+      const data = getFitnessData();
+      if (!Number.isInteger(index) || !data.foods[index]) return;
+      if (event.target.value) data.foods[index].time = event.target.value;
+      else delete data.foods[index].time;
+      saveFitnessData(data);
+      renderDietAllTimeLog();
+      renderDietDaySummary();
+    });
     dietLogList.addEventListener('click', (e) => {
       const li = e.target.closest('.diet-log-entry');
       if (!li) return;
@@ -1415,6 +1471,7 @@ function renderRawIntakeDVCard() {
     });
   });
 
+  const todayCalories = summarizeCalories(data.foods || [], getTodayInUserTz());
   const goalMultiplier = days;
   const calGoal = getDVEffectiveGoal('calories') * goalMultiplier;
   // overallPct may exceed 100 when intake surpasses the daily calorie goal
@@ -1453,6 +1510,7 @@ function renderRawIntakeDVCard() {
       <span class="dv-summary-overpct">${overallPct}% DV</span>
     </div>
     <div class="dv-rows">${rows}</div>
+    <p class="dv-calorie-total" id="dv-daily-calories">Today's calories: ${escapeHtml(calorieSummaryText(todayCalories))}</p>
     <button class="dv-manage-btn" id="dv-manage-open-btn" title="Add or remove nutrients from tracking">⚙️ Manage Nutrients</button>
   `;
 }
@@ -1700,7 +1758,7 @@ function displayRecentFoods() {
     let desc = food.description ? ` (${food.description})` : '';
     const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '';
     const dateStr = food.date ? (food.date.length > 10 ? formatInUserTz(food.date, { year: 'numeric', month: 'short', day: 'numeric' }) : food.date) : '';
-    li.innerHTML = `<span class="supplement-name-hover">${food.name}</span>${desc} — ${amountStr} on ${dateStr}`;
+    li.innerHTML = `<span class="supplement-name-hover">${escapeHtml(food.name)}</span>${escapeHtml(desc)} — ${escapeHtml(amountStr)} on ${escapeHtml(dateStr)} · ${escapeHtml(food.time || 'time not recorded')}`;
     
     li.addEventListener('mouseenter', () => showFoodNutrPopup(food, li));
     li.addEventListener('mouseleave', hideFoodNutrPopup);
@@ -1712,7 +1770,7 @@ function displayRecentFoods() {
       const confirmSame = confirm(`Log same intake: "${last.amount}${last.unit ? ' ' + last.unit : ''}" for ${last.name}? Click cancel to change.`);
       const now = new Date();
       const date = now.toISOString().split('T')[0];
-      const time = now.toTimeString().slice(0, 5);
+      const time = getTimeInUserTz(now);
       if (confirmSame) {
         data.foods.push({ ...last, date: now.toISOString(), time });
       } else {

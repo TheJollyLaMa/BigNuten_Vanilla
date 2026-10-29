@@ -9676,3 +9676,57 @@ svg text {
 #heart-modal #metric-history { padding-left: 1rem; overflow-wrap: anywhere; }
 #heart-modal #metric-history li { margin-bottom: .75rem; }
 #heart-modal #metric-history button { margin-left: .5rem; }
+
+
+/* ── Diet daily totals and meal timeline ── */
+.diet-day-summary, .diet-daily-totals {
+  margin: 0.8rem 0 1.2rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(0, 20, 50, 0.45);
+}
+.diet-day-summary h3, .diet-daily-totals h3 {
+  margin: 0 0 0.5rem;
+  color: #00e5ff;
+  font-size: 0.88rem;
+}
+.diet-day-summary p, .diet-daily-totals li {
+  margin: 0.35rem 0;
+  color: rgba(220, 244, 255, 0.85);
+  font-size: 0.78rem;
+}
+.diet-meal-timeline, #diet-daily-totals-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.diet-meal-timeline li, #diet-daily-totals-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  font-size: 0.75rem;
+}
+.diet-meal-timeline time, #diet-daily-totals-list time { color: #7ecfef; font-variant-numeric: tabular-nums; }
+.diet-meal-timeline__workout span { color: #c5ffcf; }
+.diet-meal-timeline__sleep span { color: #d3c4ff; }
+.diet-meal-gaps { color: #ffdd8a !important; }
+.diet-log-entry__date label { margin-left: 0.4rem; color: rgba(126, 207, 239, 0.75); }
+.diet-log-time {
+  width: 6.5rem;
+  margin-left: 0.25rem;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 6px;
+  color: #e0f4ff;
+  background: rgba(0, 30, 60, 0.7);
+}
+.dv-calorie-total {
+  margin: 0.65rem 0;
+  color: rgba(220, 244, 255, 0.85);
+  font-size: 0.78rem;
+  text-align: center;
+}

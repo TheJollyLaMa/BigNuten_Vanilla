@@ -46,7 +46,7 @@ test('every defaultData key survives real JSON export → clear → import and s
       weightLogs: [{ timestamp: '2026-10-28T12:00:00Z', weight: 72 }],
       waterDailyHistory: { '2026-10-27': 3, '2026-10-28': 5 },
       supplements: [{ id: 'synthetic-supplement', name: 'Vitamin C', dose: 50 }],
-      foods: [{ id: 'synthetic-food', name: 'Apple', grams: 120 }],
+      foods: [{ id: 'synthetic-food', name: 'Apple', grams: 120, time: '08:15', nutr: { calories: 95 } }],
       measurements: [{ id: 'synthetic-measurement', waist: 80 }],
       metricLogs: [{ id: 'synthetic-rhr', metric: 'rhr', value: 62, unit: 'bpm', date: '2026-10-28', time: '10:00', note: 'Resting', source: 'self-reported' }, ...vitalLogs],
       exercises: { types: ['Push-ups', 'Synthetic exercise'], entries: [{ id: 'synthetic-exercise', reps: 6, weight: 10 }] },
