@@ -1,3 +1,4 @@
+import { sleepBedtimeDate } from './metrics.js';
 import { getDateInUserTz, getTimeInUserTz, getUserTimezone } from './timezone.js';
 
 /** Shared by the full Diet logger and raw-food quick log; callers use the app's recovery-aware store. */
@@ -104,7 +105,8 @@ export function buildMealTimingInsights({ foods = [], workouts = [], sleepEntrie
   for (const sleep of sleepEntries) {
     const start = sleep?.sleepStart || sleep?.bedtime || sleep?.start || sleep?.startedAt;
     if (typeof start !== 'string' || !start) continue;
-    const sleepDay = eventDate(sleep, [start, sleep?.date], dateInUserTz);
+    const sleepDay = sleep?.metric === 'sleep' && start === sleep.bedtime
+      ? sleepBedtimeDate(sleep) : eventDate(sleep, [start, sleep?.date], dateInUserTz);
     const minutes = clockMinutes(start, timeZone);
     if (sleepDay !== day || minutes === null) continue;
     const time = start.includes('T')

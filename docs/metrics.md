@@ -1,7 +1,7 @@
 # Heart hub metric registry
 
-Open the Heart chakra → **Vitals & Body**. The second tab is reserved for
-Breathwork (#289); this change does not implement or complete that issue.
+Open the Heart chakra → **Vitals & Body** for registry metrics, or
+**Breathwork** for guided gentle practice (the Heart portion of #289).
 Resting heart rate (`rhr`) is the reference metric. It accepts 30–220 bpm,
 multiple readings per day, an optional note and a local date/time. The trend
 supports day/week/month windows. The seven-day summary averages readings, not
@@ -258,3 +258,112 @@ unitless legacy tape readings cannot safely be converted. Validation includes
 field/legacy/timing Node tests, the real defaultData JSON/snapshot round trip and
 desktop/mobile smoke completing a timed workout then logging photo metadata and
 body fat through the existing forms.
+
+## Sleep and daily energy
+
+- `sleep`: canonical **seconds** (`s`), 0–86,400 inclusive. Enter duration as
+  **h:mm** (e.g. 7:30 → 27,000 seconds) in either unit preference. History,
+  summary and trend tooltip show h:mm; chart/correlation coordinates use hours.
+  The explicitly selected **wake date and local wake time** identify the night:
+  sleeping Oct 27 → Oct 28 belongs to **Oct 28**. This timestamp is not bedtime;
+  never infer a last-meal-to-bed interval from duration/wake time alone. One
+  record per wake date. Optional `bedtime` is a validated local **HH:mm** clock
+  time; omitted bedtime remains valid in legacy records. Its date is the most
+  recent occurrence at/before wake time: 23:00 → 07:30 wake belongs to the
+  previous day, while 01:00 → 07:30 belongs to the wake date. The pure
+  `sleepBedtimeDate` helper resolves calendar rollover (including leap days)
+  without guessing sleep onset from duration. Bedtime means recorded time in
+  bed, not a measured sleep-onset timestamp. Diet's existing explicit-time
+  consumer uses that bed date rather than incorrectly using the wake date.
+  No meal-to-sleep interval is shown when bedtime was not supplied.
+- Optional `sleepQuality` metadata is an **integer 1–10**, not seconds and not
+  a compound duration field. `optionalRating: { key, label, range }` enables the
+  shared optional rating control; the registry validator checks it on every
+  save/import. Omitted quality stays missing. The existing `note` field is
+  prominently labelled for dreams, stress, caffeine and interruptions.
+- `energy`: a subjective **integer 1–10**, one record per local date. Its
+  canonical unit is `rating`; display is identical in both unit systems.
+- Repeated dates are rejected rather than silently appending/replacing. Delete
+  the existing reading before correcting it. Snapshot merges preserve the local
+  daily reading on a same-metric/date conflict (even with different IDs), so a
+  restore cannot create an invalid duplicate day. Missing days remain absent (not
+  zero). Sleep summaries include rolling 7/30-day averages, extrema and highest
+  reported quality; longest duration is not labelled clinically “best”.
+
+Sleep's `input: { type: 'text', format: 'duration' }` opts into the shared
+h:mm duration widget. `parseSleepDuration` validates before storing integer
+seconds; affine display conversions remain numeric hours for chart consumers.
+`integer: true` opts scalar metrics into whole-number validation (energy).
+The correlation graph automatically offers sleep and energy alongside existing
+emotion, exercise/performance and nutrition series. Notes and quality accompany
+canonical readings in Genie's existing consent-controlled Vitals & Body context.
+No automatic correlations or medical conclusions are claimed.
+
+## Heart breathwork
+
+`js/breathwork.js` contains data-driven gentle presets: box, 4-7-8, coherent,
+Sama Vritti, extended exhale, and the existing Yoga Flow 4–2–6–2 cue. Yoga and
+Heart import the **same pattern/phase definitions**; Yoga's existing independent
+pose-session logger remains unchanged. It had a breathing animation but no
+standalone breathwork session store. The steward-approved **Wim Hof-style**
+adaptation is hidden until explicitly revealed and cannot start without the
+caution acknowledgement. Each round is **30 paced breaths** (2 seconds inhale,
+2 seconds exhale), then **10 fixed seconds of normal recovery breathing**, with
+**no retention or hyperventilation cue**. This is not a full Wim Hof protocol.
+The session includes `protocol: 'paced-recovery'`; validation fixes that
+protocol's pattern and uses 130 seconds per completed round. Acknowledgement
+is not stored: Save, Cancel, close or page exit resets it. There is also an
+explicit reset/hide control. Safety text requires sitting/lying down, never
+near water/driving/standing, stopping if dizzy/tingling/unwell, and avoiding the
+practice during pregnancy or with heart, epilepsy or blood-pressure conditions.
+The default remains gentle box breathing.
+
+Custom phases allow inhale/exhale 1–30 seconds, inhale hold 0–7, exhale hold 0–4.
+Skip holds by setting zero; never force breathing or practise in water/driving.
+
+Begin → Pause/Resume → End (or target rounds complete) → optional feeling/note
+→ **Save session**. Cancel, closing the hub, switching to Vitals, or page exit
+clears the single owned timer and discards an unsaved practice. Paused time is
+excluded; pausing explicitly cues normal breathing, never an indefinite hold.
+Partial ended sessions record completed rounds (possibly zero).
+Sessions live only in `fitnessTrackerData.breathworkSessions`:
+
+```js
+{
+  id: 'stable-uuid', method: 'Box Breathing',
+  pattern: { inhale: 4, holdIn: 4, exhale: 4, holdOut: 4 },
+  rounds: 2, durationSeconds: 32, notes: '', feeling: 'calm',
+  timestamp: '2026-10-28T07:30:00.000Z'
+}
+```
+
+This additive array defaults to empty in legacy profiles, validates on import,
+merges by stable ID, and follows JSON/IPFS/snapshot recovery and health-data
+wipe paths. Weekly totals and streaks use local calendar days. Saved practice
+today lights Heart; practice within seven days partially lights it, preserving
+existing emotion scoring. Saving also celebrates using existing chakra sparks.
+Reduced-motion preference suppresses the scaling animation; text cues remain.
+Breathwork is not sent to Genie (the separate category remains disabled).
+
+### Reuse decision for sleep / energy / breathwork
+
+Need: daily sleep/energy with correlation and safe guided practice. **Adapt**
+BigNuten `js/metrics.js`, `js/heartMetrics.js`, `js/fitnessSchema.js`,
+`js/fitnessData.js:mergeSnapshotData` and existing Chart.js consumers at
+`2d9969f`. Extract only Yoga's actual shared cue from
+`js/yoga.js:startBreathAnimation` into `YOGA_BREATH_PATTERN`/`BREATH_PHASES`;
+reuse its phase-class convention and `js/chakra.js:spawnSparks`. The Yoga timer
+uses recursive timeouts tied to pose UI, so do not import its lifecycle or write
+breathwork into exercise sessions. Build one dedicated, validated session array
+and one interval owned by the Heart panel, not another storage key or modal.
+
+Read-only scope: Canopy `data/agency-map.json` BigNuten offers/needs (storage
+leads only); local ZenBoost `boost.js`/README (CLI focus tool, no compatible
+breathing component); DecentHead `8542720` `js` JS/TS searches (decorative header “breathe”
+CSS only, not a phase timer). Existing BigNuten worktrees were checked for
+unfinished implementations; coordinate additive schema edits with chanting.
+No donor health data, credentials, external package or public Canopy inventory
+change is involved. Same-repo extraction preserves the app's license/runtime.
+Receiving-app tests: h:mm conversion, wake-date uniqueness, energy range,
+optional quality validation, timer lifecycle, session/schema/JSON recovery,
+and desktop/mobile sleep + energy + short clock-driven breathing smoke.

@@ -1,5 +1,6 @@
+import { initHeartBreathwork } from './heartBreathwork.js';
 import { METRIC_REGISTRY, getMetric, metricFields, getDisplayUnit, convertMetricValue,
-  validateMetricLog, normalizeMetricLogs, getUnitSystem, UNIT_SYSTEM_KEY, metricSeries, metricPoints, fromCanonical, toCanonical } from './metrics.js';
+  validateMetricLog, normalizeMetricLogs, getUnitSystem, UNIT_SYSTEM_KEY, metricSeries, metricPoints, fromCanonical, toCanonical, parseSleepDuration, formatSleepDuration } from './metrics.js';
 
 function outsideReference(value, field) {
   return field.referenceRange && (value < field.referenceRange[0] - 1e-9 || value > field.referenceRange[1] + 1e-9);
@@ -22,6 +23,7 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
   sourceLabel.append(source);
   fields.after(sourceLabel);
   const range = modal.querySelector('#metric-trend-range');
+  const breathwork = initHeartBreathwork({ modal, load, save });
   let chart;
   let opener;
 
@@ -45,12 +47,35 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
       input.step = field.input.step ?? 'any';
       input.min = Number(((field.range[0] - unit.offset) / unit.scale).toFixed(10));
       input.max = Number(((field.range[1] - unit.offset) / unit.scale).toFixed(10));
+      if (field.input.format === 'duration') {
+        input.placeholder = '7:30';
+        input.pattern = '[0-9]{1,2}:[0-5][0-9]';
+        label.textContent = `${field.label} (h:mm)`;
+      }
       input.required = true;
       label.append(input);
       fields.append(label);
     }
+    if (metric.optionalTime) {
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      label.textContent = metric.optionalTime.label;
+      input.id = 'metric-optional-time'; input.type = 'time'; input.step = 60;
+      label.append(input); fields.append(label);
+    }
     source.replaceChildren(...(metric.entrySources || ['self-reported']).map(value => new Option(value, value)));
     sourceLabel.hidden = !metric.entrySources;
+    if (metric.optionalRating) {
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      label.textContent = metric.optionalRating.label;
+      input.id = 'metric-optional-rating'; input.type = 'number'; input.step = 1;
+      [input.min, input.max] = metric.optionalRating.range;
+      label.append(input); fields.append(label);
+    }
+    modal.querySelector('label[for="metric-datetime"]').textContent = metric.id === 'sleep' ? 'Wake date and time (night ends on this date)' : 'Reading date and time';
+    modal.querySelector('label[for="metric-note"]').textContent = metric.id === 'sleep' ? 'Sleep notes (optional): dreams, caffeine, stress, interruptions' : 'Note (optional)';
+    note.placeholder = metric.id === 'sleep' ? 'How did you sleep? What affected your night?' : '';
     modal.querySelector('#metric-safety').textContent = metric.safetyNotice;
     status.textContent = '';
     render();
@@ -71,11 +96,12 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
       const converted = convertMetricValue(log.value, metric, getUnitSystem(), 'fromCanonical');
       const reading = metricFields(metric).map(field => {
         const value = field.key ? converted[field.key] : converted;
+        if (field.input.format === 'duration') return `${formatSleepDuration(log.value)} h:mm`;
         const canonical = field.key ? log.value[field.key] : log.value;
         return `${field.key ? `${field.label}: ` : ''}${Number(value.toFixed(2))} ${getDisplayUnit(field, getUnitSystem()).unit}${outsideReference(canonical, field) ? ' [outside adult resting reference]' : ''}`;
       }).join(' / ');
       const text = document.createElement('span');
-      text.textContent = `${log.date} ${log.time} — ${reading}${log.note ? ` — ${log.note}` : ''} (${log.source})`;
+      text.textContent = `${log.date} ${log.time} — ${reading}${log.bedtime ? ` — bedtime ${log.bedtime} local` : ''}${log.sleepQuality !== undefined ? ` — quality ${log.sleepQuality}/10` : ''}${log.note ? ` — ${log.note}` : ''} (${log.source})`;
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.textContent = 'Delete';
@@ -97,26 +123,33 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
     const cutoff = new Date(now); cutoff.setDate(now.getDate() - (Number(range.value) - 1)); cutoff.setHours(0, 0, 0, 0);
     const series = metricSeries(metric);
     const summaries = [];
+    const duration = metric.input?.format === 'duration';
+    const format = value => duration ? formatSleepDuration(value * 3600) : Number(value.toFixed(2));
     const datasets = series.map((entry, index) => {
       const points = metricPoints(logs, entry, getUnitSystem());
       const weekly = points.filter(point => point.x >= weekStart && point.x <= now).map(point => point.y);
       const unit = getDisplayUnit(entry.field, getUnitSystem()).unit;
       const available = points.filter(point => point.x <= now);
       const monthly = available.filter(point => point.x >= monthStart).map(point => point.y);
-      const average = values => (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1);
-      if (available.length) summaries.push(`${entry.label}: current ${Number(available.at(-1).y.toFixed(2))} ${unit}; all-reading average ${average(available.map(point => point.y))} ${unit}.`);
-      summaries.push(monthly.length ? `${entry.label}: 30-day reading average ${average(monthly)} ${unit}.` : `${entry.label}: no readings in the last 30 days.`);
+      const average = values => { const mean = values.reduce((sum, value) => sum + value, 0) / values.length; return duration ? format(mean) : mean.toFixed(1); };
+      const summaryUnit = duration ? 'h:mm' : unit;
+      if (available.length) summaries.push(`${entry.label}: current ${format(available.at(-1).y)} ${summaryUnit}; all-reading average ${average(available.map(point => point.y))} ${summaryUnit}.`);
+      summaries.push(monthly.length ? `${entry.label}: 30-day reading average ${average(monthly)} ${summaryUnit}.` : `${entry.label}: no readings in the last 30 days.`);
       if (entry.field.referenceRange) {
         const limits = entry.field.referenceRange.map(value => Number(fromCanonical(value, entry.field, getUnitSystem()).toFixed(2)));
         summaries.push(`${entry.label}: adult resting reference ${limits.join('–')} ${unit} (shaded); orange points and history labels mark readings outside this reference, not a diagnosis. Extrema are not best/worst health rankings.`);
       }
       summaries.push(weekly.length
-        ? `${entry.label}: 7-day reading average ${(weekly.reduce((sum, value) => sum + value, 0) / weekly.length).toFixed(1)} ${unit}; lowest ${Number(Math.min(...weekly).toFixed(2))} / highest ${Number(Math.max(...weekly).toFixed(2))} ${unit}.`
+        ? `${entry.label}: 7-day reading average ${duration ? format(weekly.reduce((sum, value) => sum + value, 0) / weekly.length) : (weekly.reduce((sum, value) => sum + value, 0) / weekly.length).toFixed(1)} ${duration ? 'h:mm' : unit}; lowest ${format(Math.min(...weekly))} / highest ${format(Math.max(...weekly))} ${duration ? 'h:mm' : unit}.`
         : `${entry.label}: no readings in the last 7 days.`);
       const shown = points.filter(point => point.x >= cutoff && point.x <= now);
       const outside = shown.map(point => outsideReference(toCanonical(point.y, entry.field, getUnitSystem()), entry.field));
       return { label: `${entry.label} (${unit})`, data: shown, borderColor: index ? '#66bbff' : '#42d68b', backgroundColor: '#42d68b55', pointBackgroundColor: outside.map(flag => flag ? '#ffae42' : (index ? '#66bbff' : '#42d68b')), pointRadius: outside.map(flag => flag ? 5 : 3), tension: 0.2 };
     });
+    if (duration) {
+      const rated = logs.filter(log => log.sleepQuality !== undefined && new Date(`${log.date}T${log.time}`) <= now && new Date(`${log.date}T${log.time}`) >= monthStart);
+      if (rated.length) { const best = rated.reduce((a, b) => a.sleepQuality >= b.sleepQuality ? a : b); summaries.push(`Highest reported quality in 30 days: ${best.sleepQuality}/10 (${best.date}).`); }
+    }
     modal.querySelector('#metric-summary').textContent = summaries.join(' ');
     chart?.destroy();
     const bands = series.filter(entry => entry.field.referenceRange).map((entry, index) => ({
@@ -138,13 +171,14 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
         }
         ctx.restore();
       } }],
-      options: { responsive: true, maintainAspectRatio: false, scales: {
+      options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: item => duration ? `${item.dataset.label}: ${format(item.parsed.y)} h:mm` : `${item.dataset.label}: ${item.parsed.y}` } } }, scales: {
         x: { type: 'time', time: { unit: range.value === '1' ? 'hour' : 'day' } },
-        y: bands.length ? { suggestedMin: Math.min(...bands.flatMap(band => band.limits)), suggestedMax: Math.max(...bands.flatMap(band => band.limits)) } : {},
+        y: duration ? { ticks: { callback: value => format(value) } } : bands.length ? { suggestedMin: Math.min(...bands.flatMap(band => band.limits)), suggestedMax: Math.max(...bands.flatMap(band => band.limits)) } : {},
       } },
     });
   }
   function close() {
+    breathwork.cancel();
     hideModal('heart-modal');
     chart?.destroy(); chart = null;
     opener?.focus();
@@ -183,7 +217,7 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
       button.tabIndex = active ? 0 : -1;
       document.getElementById(button.getAttribute('aria-controls')).hidden = !active;
     });
-    if (tab.id === 'heart-vitals-tab') render();
+    if (tab.id === 'heart-vitals-tab') { breathwork.cancel(); render(); }
   }
   tabs.forEach((tab, index) => {
     tab.addEventListener('click', () => activateTab(tab));
@@ -201,11 +235,13 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
     event.preventDefault();
     try {
       const metric = getMetric(picker.value);
-      const values = Object.fromEntries([...fields.querySelectorAll('input')].map(input => [input.name, input.valueAsNumber]));
+      const values = Object.fromEntries([...fields.querySelectorAll('input[name]')].map(input => [input.name, input.type === 'text' ? parseSleepDuration(input.value) : input.valueAsNumber]));
       const [date, time] = datetime.value.split('T');
       const log = validateMetricLog({
         id: crypto.randomUUID(), metric: metric.id,
-        value: convertMetricValue(metric.fields ? values : values.value, metric, getUnitSystem()),
+        value: metric.input?.format === 'duration' ? values.value : convertMetricValue(metric.fields ? values : values.value, metric, getUnitSystem()),
+        ...(metric.optionalTime && fields.querySelector('#metric-optional-time').value !== '' ? { [metric.optionalTime.key]: fields.querySelector('#metric-optional-time').value } : {}),
+        ...(metric.optionalRating && fields.querySelector('#metric-optional-rating').value !== '' ? { [metric.optionalRating.key]: fields.querySelector('#metric-optional-rating').valueAsNumber } : {}),
         unit: metric.canonicalUnit, date, time, note: note.value.trim(), source: metric.entrySources ? source.value : 'self-reported',
       });
       const data = load();

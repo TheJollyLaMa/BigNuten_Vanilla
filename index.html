@@ -1677,7 +1677,31 @@
         <ul id="metric-history"></ul>
       </section>
       <section id="heart-breathwork" role="tabpanel" aria-labelledby="heart-breathwork-tab" hidden>
-        <p>Breathwork practice is coming in #289. Vitals &amp; Body is ready to use.</p>
+        <h3>Guided breathwork</h3>
+        <p>Wellness practice, not medical advice. Breathe gently while seated. Never practise in water, while driving or standing. Stop and breathe normally if dizzy or uncomfortable. Skip holds if uncomfortable; ask a clinician about pregnancy or heart/lung conditions.</p>
+        <p>The Yoga Flow preset reuses our existing Yoga breathing cues.</p>
+        <button id="breath-show-advanced" type="button" aria-expanded="false" aria-controls="breath-advanced">Show optional Wim Hof-style practice</button>
+        <div id="breath-advanced" hidden>
+          <p id="breath-advanced-safety">Caution — Wim Hof-style paced practice: 30 paced breaths followed by a fixed 10-second recovery of normal breathing, with no breath retention. Sit or lie down; never in or near water, while driving, or standing. Stop if dizzy, tingling or unwell. Avoid if pregnant or with heart, epilepsy or blood pressure conditions. Not medical advice. This is an adapted paced practice, not a full Wim Hof protocol.</p>
+          <label><input id="breath-ack" type="checkbox" aria-describedby="breath-advanced-safety" /> I acknowledge these cautions and choose this optional practice.</label>
+          <button id="breath-reset-advanced" type="button">Reset acknowledgement / hide advanced practice</button>
+        </div>
+        <label for="breath-method">Method</label><select id="breath-method"></select>
+        <label for="breath-rounds">Target rounds</label><input id="breath-rounds" type="number" min="1" max="100" step="1" value="8" />
+        <fieldset id="breath-custom" hidden><legend>Custom phase durations (seconds)</legend>
+          <label for="breath-inhale">Inhale</label><input id="breath-inhale" type="number" min="1" max="30" step="1" value="4" />
+          <label for="breath-holdIn">Hold after inhale</label><input id="breath-holdIn" type="number" min="0" max="7" step="1" value="4" />
+          <label for="breath-exhale">Exhale</label><input id="breath-exhale" type="number" min="1" max="30" step="1" value="4" />
+          <label for="breath-holdOut">Hold after exhale</label><input id="breath-holdOut" type="number" min="0" max="4" step="1" value="4" />
+        </fieldset>
+        <div id="breath-guide" class="breath-guide"><span id="breath-phase" aria-live="off">Ready</span></div>
+        <p><span id="breath-round-count"></span> · <span id="breath-elapsed">0:00</span> elapsed</p>
+        <div class="breath-controls"><button id="breath-begin" type="button">Begin</button><button id="breath-pause" type="button" disabled>Pause</button><button id="breath-end" type="button" disabled>End</button><button id="breath-cancel" type="button">Cancel / discard</button></div>
+        <label for="breath-feeling">How do you feel? (optional)</label><select id="breath-feeling"><option value="">Not recorded</option></select>
+        <label for="breath-notes">Session notes (optional)</label><textarea id="breath-notes" rows="2" maxlength="2000"></textarea>
+        <button id="breath-save" type="button" disabled>Save session</button>
+        <p id="breath-status" role="status" aria-live="polite"></p>
+        <h3>Session history</h3><p id="breath-summary"></p><ul id="breath-history"></ul>
       </section>
     </div>
   </div>
