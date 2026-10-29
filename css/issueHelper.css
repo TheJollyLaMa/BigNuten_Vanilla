@@ -1,0 +1,35 @@
+#issue-helper-dialog {
+  width: min(700px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  box-sizing: border-box;
+  overflow: auto;
+  background: #17212b;
+  color: #fff;
+  border: 2px solid #7edbd1;
+  border-radius: 12px;
+  padding: 20px;
+}
+#issue-helper-dialog::backdrop { background: #000a; }
+#issue-helper-dialog label { display: block; margin: 14px 0; }
+#issue-helper-dialog input:not([type="checkbox"]),
+#issue-helper-dialog textarea,
+#issue-helper-dialog select {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 6px 0;
+  padding: 9px;
+  background: #fff;
+  color: #111;
+  font: inherit;
+}
+#issue-helper-dialog textarea { min-height: 80px; resize: vertical; }
+#issue-helper-dialog .issue-helper-check { display: flex; align-items: start; gap: 8px; }
+#issue-helper-dialog [hidden] { display: none !important; }
+#issue-helper-dialog pre { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #7edbd1; padding: 12px; }
+#issue-helper-dialog button, #issue-helper-github-link { display: inline-block; padding: 10px; margin: 5px; background: #c5f5ec; color: #10251f; border-radius: 5px; }
+#issue-helper-dialog :focus-visible { outline: 3px solid #ffc45b; outline-offset: 3px; }
+#issue-helper-status { color: #ffd58a; }
+.genie-issue-helper-open { font-size: 12px; cursor: pointer; }
+.genie-chat-header:has(.genie-issue-helper-open),
+.yoga-genie-chat-header:has(.genie-issue-helper-open) { flex-wrap: wrap; gap: 6px; }

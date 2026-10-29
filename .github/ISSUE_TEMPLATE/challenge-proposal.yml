@@ -1,0 +1,34 @@
+name: Challenge proposal
+description: Propose a challenge for discussion, not automatic creation or funding
+title: "Challenge proposal: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Public discussion only: filing does not create, fund, or join a challenge. No health records, keys, credentials, wallet details, or private participant information. Keep participation optional and safe.
+  - type: input
+    id: surface
+    attributes:
+      label: Which surface or challenge type?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What is the proposal and purpose?
+    validations:
+      required: true
+  - type: textarea
+    id: rules
+    attributes:
+      label: Proposed rules and expected outcome
+      description: Include duration, optional participation, and a nonfinancial success check.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to try it and safety considerations
+      description: Use synthetic examples, not participant health information.
+    validations:
+      required: true
