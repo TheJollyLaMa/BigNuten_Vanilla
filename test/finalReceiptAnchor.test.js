@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 async function fixture() {
   const api = await import('../js/streakResults.mjs');
+  const { ethers } = require('ethers');
   const hash = char => `0x${char.repeat(64)}`;
   const owner = `0x${'1'.repeat(40)}`;
   const escrow = `0x${'2'.repeat(40)}`;
@@ -40,7 +41,7 @@ async function fixture() {
     finalReceiptAnchors: async () => anchor,
     owner: async () => owner,
     filters: { FinalReceiptAnchored: () => ({}) },
-    queryFilter: async () => [{ args: { ...anchor, manifestCID: 'manifestCID' }, blockHash: hash('d'), transactionHash: hash('e'), index: 3 }],
+    queryFilter: async () => [{ args: { ...anchor, manifestCIDHash: ethers.keccak256(ethers.toUtf8Bytes('manifestCID')) }, blockHash: hash('d'), transactionHash: hash('e'), index: 3 }],
     connect() { return this; },
     anchorFinalReceipt: async (_id, newCID, receiptHash, manifestHash) => {
       sends++;
@@ -56,7 +57,7 @@ async function fixture() {
     },
   };
   const args = {
-    ethers: {}, provider, contract, signer: { getAddress: async () => owner }, compId: 0,
+    ethers, provider, contract, signer: { getAddress: async () => owner }, compId: 0,
     receipt, manifest, chainResult, storage, consentConfirmed: true,
     uploader: async () => { uploads++; return { cid }; },
     readDocument: async () => {

@@ -39,7 +39,7 @@ export const RECEIPT_ANCHOR_ABI = [
   'function finalReceiptAnchors(uint256) view returns (string cid,bytes32 receiptHash,bytes32 manifestHash)',
   'function anchorFinalReceipt(uint256,string,bytes32,bytes32)',
   'function owner() view returns (address)',
-  'event FinalReceiptAnchored(uint256 indexed compId,string cid,bytes32 receiptHash,string manifestCID,bytes32 manifestHash)',
+  'event FinalReceiptAnchored(uint256 indexed compId,string cid,bytes32 receiptHash,bytes32 manifestCIDHash,bytes32 manifestHash)',
 ];
 
 export async function requireReceiptAnchorCapability(contract) {
@@ -107,7 +107,8 @@ export async function verifyReceiptAnchor({ ethers, provider, contract, compId, 
   if (logs.length !== 1) throw new Error('Anchor event missing or duplicated.');
   const event = logs[0];
   if (event.args.cid !== cid || event.args.receiptHash !== receipt.contentHash ||
-      event.args.manifestHash !== manifest.contentHash || event.args.manifestCID !== receipt.manifest.cid) {
+      event.args.manifestHash !== manifest.contentHash ||
+      event.args.manifestCIDHash !== ethers.keccak256(ethers.toUtf8Bytes(receipt.manifest.cid))) {
     throw new Error('Anchor event/readback mismatch.');
   }
   const tx = await provider.getTransactionReceipt(event.transactionHash);

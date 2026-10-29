@@ -284,8 +284,10 @@ address has #379's latest engine version.
 The existing escrow owner alone may anchor, only after settlement, with no
 replacement or deletion path (including identical duplicate submissions).
 `finalReceiptAnchors(id)` returns `(cid, receiptHash, manifestHash)`;
-`FinalReceiptAnchored(id,cid,receiptHash,manifestCID,manifestHash)` includes
-competition identity and the manifest CID saved during settlement. Transaction
+`FinalReceiptAnchored(id,cid,receiptHash,manifestCIDHash,manifestHash)` includes
+competition identity and `manifestCIDHash`, the **Keccak-256 of UTF-8 manifest
+CID bytes**, saved during settlement and matched against `CompetitionSettled`.
+This compact CID-reference digest is distinct from either content hash. Transaction
 and log identity plus chain ID and escrow identify the exact chain event.
 Hashes are nonzero `bytes32`: `0x` plus 64 lowercase hex characters, SHA-256 of
 canonical recursively key-sorted public JSON **excluding `contentHash`**.
