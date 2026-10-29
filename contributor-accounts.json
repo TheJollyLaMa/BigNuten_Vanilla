@@ -7,7 +7,7 @@
       "role": "owner",
       "walletAddress": "0x807061DF657A7697c04045dA7d16D941861cAABc",
       "bnutEarned": 0,
-      "bnutPending": 181.2,
+      "bnutPending": 182.2,
       "issuesClosed": [
         "TheJollyLaMa/BigNuten_Vanilla#101",
         "TheJollyLaMa/BigNuten_Vanilla#105",
@@ -90,7 +90,8 @@
         "TheJollyLaMa/BigNuten_Vanilla#273",
         "TheJollyLaMa/BigNuten_Vanilla#259",
         "TheJollyLaMa/BigNuten_Vanilla#267",
-        "TheJollyLaMa/BigNuten_Vanilla#270"
+        "TheJollyLaMa/BigNuten_Vanilla#270",
+        "TheJollyLaMa/BigNuten_Vanilla#161"
       ],
       "registeredAt": "2026-03-19T08:55:31.049Z",
       "notes": "Repo owner and maintainer. Update walletAddress to your Optimism Mainnet address to enable payouts.",
@@ -115,7 +116,8 @@
         "TheJollyLaMa/BigNuten_Vanilla#158",
         "TheJollyLaMa/BigNuten_Vanilla#159",
         "TheJollyLaMa/BigNuten_Vanilla#312",
-        "TheJollyLaMa/BigNuten_Vanilla#317"
+        "TheJollyLaMa/BigNuten_Vanilla#317",
+        "TheJollyLaMa/BigNuten_Vanilla#161"
       ]
     },
     {
