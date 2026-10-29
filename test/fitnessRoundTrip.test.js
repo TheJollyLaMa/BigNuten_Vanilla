@@ -31,6 +31,16 @@ test('every defaultData key survives real JSON export → clear → import and s
     const { defaultData, cloneDefaultData, validateFitnessSnapshot } = await import('../js/fitnessSchema.js');
     const { createSnapshotRecovery } = await import('../js/snapshotRecovery.js');
     const { exportDataAsJSON, importDataFromJSONFile } = await import('../js/dataControl.js');
+    const { getMetric, convertMetricValue } = await import('../js/metrics.js');
+    const vitalLogs = [
+      ['temperature', 98.6], ['bp', { systolic: 120, diastolic: 80 }],
+      ['spo2', 98], ['rr', 16], ['hrv', 42.5], ['vo2max', 45.5],
+    ].map(([metric, value]) => ({
+      id: `synthetic-${metric}`, metric,
+      value: convertMetricValue(value, getMetric(metric), 'imperial'), unit: getMetric(metric).canonicalUnit,
+      date: '2026-10-28', time: '10:00', note: 'Synthetic manual/device result',
+      source: metric === 'vo2max' ? 'estimated' : 'self-reported',
+    }));
     const fixture = {
       dataVersion: 1, timeZone: 'Pacific/Honolulu',
       weightLogs: [{ timestamp: '2026-10-28T12:00:00Z', weight: 72 }],
@@ -38,7 +48,7 @@ test('every defaultData key survives real JSON export → clear → import and s
       supplements: [{ id: 'synthetic-supplement', name: 'Vitamin C', dose: 50 }],
       foods: [{ id: 'synthetic-food', name: 'Apple', grams: 120 }],
       measurements: [{ id: 'synthetic-measurement', waist: 80 }],
-      metricLogs: [{ id: 'synthetic-rhr', metric: 'rhr', value: 62, unit: 'bpm', date: '2026-10-28', time: '10:00', note: 'Resting', source: 'self-reported' }],
+      metricLogs: [{ id: 'synthetic-rhr', metric: 'rhr', value: 62, unit: 'bpm', date: '2026-10-28', time: '10:00', note: 'Resting', source: 'self-reported' }, ...vitalLogs],
       exercises: { types: ['Push-ups', 'Synthetic exercise'], entries: [{ id: 'synthetic-exercise', reps: 6, weight: 10 }] },
       sessionLog: [{ id: 'synthetic-session', duration: 60 }],
       painLogs: [{ id: 'synthetic-pain', level: 2 }],
