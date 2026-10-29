@@ -44,12 +44,12 @@ describe('Competition Achievement award issuance', function () {
     return (await escrow.connect(account).joinCompetition(compId)).wait();
   }
 
-  async function selfCheckIn(compId, account, code, progressLabel) {
+  async function selfCheckIn(compId, account, code, progressLabel, activityDays = 1) {
     await escrow.connect(account).selfCheckInMeetup(
       compId,
       0,
       code,
-      1,
+      activityDays,
       1,
       true,
       ethers.id(progressLabel),
@@ -149,7 +149,9 @@ describe('Competition Achievement award issuance', function () {
 
     await time.increaseTo(startTime + DAY + 1);
     const completers = [alice, bob, carol];
-    for (const account of completers) await selfCheckIn(0, account, 'invite-0', `local-fixture-${account.address}-progress`);
+    for (const [index, account] of completers.entries()) {
+      await selfCheckIn(0, account, 'invite-0', `local-fixture-${account.address}-progress`, completers.length - index);
+    }
     for (let index = 0; index < completers.length; index += 1) {
       await review(0, completers[(index + 1) % completers.length], completers[index]);
     }
@@ -212,8 +214,8 @@ describe('Competition Achievement award issuance', function () {
     await join(1, dave);
     await join(1, bob);
     await time.increaseTo(startTime + DAY + 1);
-    await selfCheckIn(1, dave, 'invite-1', 'local-fixture-failure-progress');
-    await selfCheckIn(1, bob, 'invite-1', 'local-fixture-failure-peer-progress');
+    await selfCheckIn(1, dave, 'invite-1', 'local-fixture-failure-progress', 2);
+    await selfCheckIn(1, bob, 'invite-1', 'local-fixture-failure-peer-progress', 1);
     await review(1, bob, dave);
     await review(1, dave, bob);
     expect((await escrow.getStreakEntrant(1, dave.address)).status).to.equal(1n);

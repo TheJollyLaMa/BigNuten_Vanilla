@@ -1,4 +1,5 @@
-import { payoutExampleRows } from './streakPayouts.mjs';
+import { payoutExampleRows, tiedPayoutExampleRows } from './streakPayouts.mjs';
+import { usesRankedTiePayouts } from './streakPayoutPolicy.mjs';
 
 function formatAmount(value, decimals) {
   const raw = BigInt(value);
@@ -21,19 +22,32 @@ export function publicCheckinCommitment({ competitionId, meetupWeek, wallet, qua
   };
 }
 
-export function joinDisclosure(competition, config, asset = { symbol: 'BNUT', decimals: 18 }) {
+export function joinDisclosure(competition, config, asset = { symbol: 'BNUT', decimals: 18 }, payoutPolicyVersion = 1) {
   const native = String(competition.stakeToken || '').toLowerCase() === '0x0000000000000000000000000000000000000000';
   const tokenAddress = native ? 'ETH (native asset)' : `${asset.symbol} (${competition.stakeToken})`;
+  const payoutDisclosure = usesRankedTiePayouts(payoutPolicyVersion)
+    ? 'Ranked-tie policy version 2: equal verified qualifying activity days and submitted-report counts share competition rank and split the occupied-place payout pool equally. Qualification time and join order do not break ties; later ranks skip tied places. This policy applies only when the selected contract reports payout-policy version 2.'
+    : 'Legacy strict-ranking policy: verified activity days rank first, then submitted reports, qualification time and join order break remaining ties. The selected contract does not report ranked-tie payout-policy version 2.';
   return `Stake: ${formatAmount(competition.stakeAmount, asset.decimals)} ${asset.symbol}${native ? '' : ` · ${tokenAddress}`} (plus network gas).
 Rules: ${config.requiredActivityDays} qualifying days, ${config.requiredMeetups} meetups, minimum ${config.minimumWeeklyLogs} qualifying logs per call week; goal: ${config.meetupGoal}.
 Rules reference: ${competition.metadataCID || 'No public rules reference; ask the captain before joining.'}
 Joining commits your stake: no participant refund withdrawal before settlement. Voluntary forfeit loses your stake. Only captain (contract owner) cancellation refunds non-forfeited entrants, limited to the actual held balance under the current contract. Final settlement is a ranked payout, not an early refund or a guaranteed full-principal return.
-Forfeit or failure to complete: no settlement payout. Completion does not guarantee full principal: third place starts with half principal. Remaining pot bonus weights are 3:2:1, plus weight 1 per additional finisher. Integer dust and the entire pot if nobody completes go to treasury.
+Forfeit or failure to complete: no settlement payout. Completion does not guarantee full principal: the occupied third-place slot starts with half principal. Remaining pot bonus weights are 3:2:1, plus weight 1 per additional finisher. ${payoutDisclosure} Integer dust and the entire pot if nobody completes go to treasury.
 Self/peer attestations are not medical proof or cryptographic proof of activity. On-chain counts, hashes, wallets and votes are public. Raw activity records stay local unless you separately opt into a wallet-linked public IPFS upload; public copies may persist indefinitely.
 Examples in the walkthrough are simulation, not live quotes or final future policy. Check the rules source and deployed contract before joining. Joining below is LIVE, not rehearsal.
 Continue to wallet approval and stake?`;
 }
 
 export function renderPayoutExamples() {
-  return `<table><caption>Simulation only · 100 example BNUT per entrant · no yield or gas included</caption><thead><tr><th scope="col">Entrants</th><th scope="col">Completed</th><th scope="col">Forfeits</th><th scope="col">Exact BNUT payouts by rank</th><th scope="col">Treasury BNUT</th></tr></thead><tbody>${payoutExampleRows().map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  const table = (caption, headers, rows) =>
+    `<table><caption>${caption}</caption><thead><tr>${headers.map(header => `<th scope="col">${header}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  return `${table(
+    'Legacy strict-ranking simulation only · 100 example BNUT per entrant · no yield or gas included',
+    ['Entrants', 'Completed', 'Forfeits', 'Exact BNUT payouts by rank', 'Treasury BNUT'],
+    payoutExampleRows(),
+  )}<p>Source-only ranked-tie policy version 2 examples. These do not describe the currently configured legacy contract; tied members share occupied-place payouts equally when the selected contract reports payout-policy version 2.</p>${table(
+    'Source-only ranked-tie simulation · 100 example BNUT per entrant · no yield or gas included',
+    ['Entrants', 'Verified days / reports by entrant', 'Payout by shared place', 'Treasury BNUT'],
+    tiedPayoutExampleRows(),
+  )}`;
 }

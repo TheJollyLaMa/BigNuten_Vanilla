@@ -1094,7 +1094,7 @@ function displayAction(action) {
     meetupReview: `${action.approved ? 'approved' : 'disputed'} meetup ${action.meetupIndex + 1} for ${action.actorWallet}`,
     reviewerInvited: `guest reviewer ${action.reviewerWallet} invited for meetup ${action.meetupIndex + 1}`,
     monthlyCompleted: 'monthly completion event',
-    payout: `payout recorded: place ${action.place}, base ${action.baseRefund}, bonus ${action.bonus}, total ${action.totalPayout} raw token units`,
+    payout: `settlement-recorded competition place ${action.place}, base ${action.baseRefund}, bonus ${action.bonus}, total ${action.totalPayout} raw token units`,
     winningsDistributed: `winnings distributed: ${action.amount} raw token units`,
   };
   const date = new Date(Number(action.timestamp) * 1000);
@@ -1217,7 +1217,7 @@ async function renderCollectedResult(root, result, competition, provider) {
         awardLinks: result.document.awardLinks,
         escrowAddress: result.document.escrow,
       });
-      card.append(node('p', 'ACHIEVEMENT RECEIPTS VERIFIED AGAINST STREAK PAYOUT RECIPIENTS AND THE LOCAL METADATA LINKS; the local metadata record is not proof of the contract snapshot.'));
+      card.append(node('p', 'ACHIEVEMENT RECEIPTS VERIFIED AGAINST EACH SETTLEMENT-RECORDED COMPETITION PLACE AND THE LOCAL METADATA LINKS; multiple tied recipients may share the same place and award role. The local metadata record is not proof of the contract snapshot.'));
     } catch (error) {
       card.append(node('p', `UNVERIFIED — achievement mint and payout crosslink failed: ${error.message}`));
     }

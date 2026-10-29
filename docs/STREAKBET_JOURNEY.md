@@ -10,9 +10,11 @@ wallet approval. Rehearsal does not turn live contracts into a sandbox.
 Use the selected challenge's public rules, on-chain configuration and
 [StreakBetEscrow](../contracts/StreakBetEscrow.sol) as the rules source.
 [Deployment notes](DEPLOYMENTS.md#base-deployment-status) describe the current
-pilot, not a promise of future policy. The examples describe source contract
-math, not a verified live payout quote. Check the deployed contract/version and
-challenge terms before staking; if rules are unavailable or unclear, do not join.
+pilot, not a promise of future deployment. The strict-ranking examples describe
+legacy contract math; the separate tied examples describe source-only payout
+policy version 2. Neither is a verified live payout quote. Check the selected
+contract's read-only payout-policy capability and challenge terms before
+staking; if rules are unavailable or unclear, do not join.
 
 The planned hydration pilot is 28 qualifying days in 30 days, four calls and
 at least five qualifying logs per call week. These are configuration values,
@@ -85,24 +87,43 @@ settlement, including payouts and status changes. See the
   reviewed owner workflow for other cancellations; guest cannot cancel.
 - **Successful finish:** participant reaches the configured totals and approved
   meetups, then receives the settlement payout and configured achievement awards.
-  Captain settles only after end. Ranking is activity days descending, reports
-  descending, qualification time ascending, then join index ascending. Guest
-  attestation is not a guarantee of rank, payout or improved health.
+  Captain settles only after end. With payout-policy version 2, verified
+  qualifying activity days and submitted reports determine rank; equal values
+  in both fields tie, and qualification time/join index do not break ties.
+  Contracts without that read-only capability retain strict legacy ordering.
+  Guest attestation is not a guarantee of rank, payout or improved health.
 
 ## Payout explainer
 
-See the [generated exact examples](STREAKBET_PAYOUT_EXAMPLES.md) for 1, 2, 3 and
-5 entrants, with forfeits and zero-completer cases. Rebuild with
+See the [generated exact examples](STREAKBET_PAYOUT_EXAMPLES.md) for strict
+legacy results and source-only ranked ties across 1, 2, 3 and 5 entrants, with
+forfeits and zero-completer cases. Rebuild with
 `npm run docs:streak-payouts`; `npm test` checks reproducibility and actual local
 contract transfers. The same integer model supplies the in-app examples.
 
-Full principal is the starting refund for finishers except third place, whose
-starting refund is half (rounded down). The remaining pot is shared by weights
-3:2:1 for the top three and 1 for every additional finisher. Thus third place
-can lose principal **even when everyone finishes**; completion is not a
-principal guarantee. Unsuccessful entrants receive zero; if nobody completes,
-the entire pot goes to the configured treasury. Integer dust also goes there.
-This is deterministic ranking, not a lottery or investment return.
+Payout-policy capability version 2 ties completed entrants only when both
+verified qualifying activity days and submitted-report counts are equal.
+Qualification time and join index do not break ties. A tied group ranked *k*
+through *k+n−1* pools the base refunds and bonus shares that those occupied
+slots would receive, then splits that combined pool equally. Shared competition
+ranks skip occupied places: two tied second-place entrants are both rank 2 and
+the next entrant is rank 4. Both tied seconds receive the second-place award,
+not separate second- and third-place awards.
+
+The global bonus pool and occupied-slot weights remain unchanged: 3:2:1 for
+slots one through three and 1 for each later slot. Principal is full except
+the occupied third-place slot, which starts with half stake (rounded down).
+Each occupied-slot bonus is floored with the original global bonus denominator;
+the group pool is then divided by group size with integer floor. Any remainder
+and other dust go to the configured treasury. This makes tied recipients'
+payouts exactly equal without wallet or join-order wei assignment. Completion
+does not guarantee principal; unsuccessful entrants receive zero, and if
+nobody completes the entire pot goes to treasury. This is deterministic
+ranking, not a lottery or investment return.
+
+Legacy contracts without payout-policy version 2 retain strict ranking by
+activity days, then reports, qualification time and join index. This remains
+the deployed behavior; source-only examples and rules do not alter it.
 
 ## Privacy and evidence
 
@@ -140,11 +161,10 @@ For issue #161, these existing-source semantics remain a policy boundary:
   not a guaranteed full-principal return. This clarification changes no
   contract economics and does not close #161: live verification and its other
   acceptance criteria remain open.
-- Third place starts with half principal, not a full principal refund. This
-  conflicts with issue #161's blanket refund wording. The current source math is
-  verified behavior, not an approved replacement policy, so this implementation
-  preserves it and leaves that acceptance criterion unresolved for steward
-  review rather than changing payout economics.
+- The approved ranked-tie policy retains the third occupied slot's half-principal
+  starting refund and 3:2:1, then-weight-1 model. Equal completed scores share
+  occupied-slot payouts; this does not change principal economics. The behavior
+  is source-only until the selected escrow reports payout-policy version 2.
 - The new asset/configuration behavior is source-only. It does not update
   deployed addresses or configure a live treasury; no live BNUT, USDC or ETH
   support is claimed until a separately reviewed deployment/configuration
@@ -156,10 +176,13 @@ For issue #161, these existing-source semantics remain a policy boundary:
 
 ## Source versus deployed contract compatibility
 
-The source in this branch reports `competitionEngineVersion() == 2`. The
+The source in this branch reports `competitionEngineVersion() == 2` and
+`streakPayoutPolicyVersion() == 2`. The latter is a separate read-only capability
+for tied ranked payouts; it does not change the engine version or identify the
+legacy contract's strict ranking as ties. The
 currently configured Base address is **not assumed to implement that getter**;
-an absent/reverting getter means the UI treats version-2-only features as
-unavailable. The UI does not probe by sending a transaction. Flexible
+an absent/reverting payout-policy getter means the UI uses the legacy strict
+ranking disclosure. The UI does not probe by sending a transaction. Flexible
 `setChallengeAsset` configuration, native-ETH streak enrollment, and adding a
 weekly report after an entrant is already `Completed` require verified version
 2. They remain unavailable on the current Base deployment unless a read-only

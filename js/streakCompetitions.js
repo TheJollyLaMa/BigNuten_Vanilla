@@ -9,11 +9,13 @@ import {
   handleWeeklyCheckin,
   legacyCheckinBlockReason,
 } from './streakCheckin.mjs';
+import { streakPayoutPolicyVersion, usesRankedTiePayouts } from './streakPayoutPolicy.mjs';
 
 const ABI = [
   'function nextCompId() view returns (uint256)',
   'function owner() view returns (address)',
   'function competitionEngineVersion() view returns (uint8)',
+  'function streakPayoutPolicyVersion() view returns (uint8)',
   'function challengeStakeToken() view returns (address)',
   'function challengeTreasury() view returns (address)',
   'function streakAwardNFT() view returns (address)',
@@ -246,6 +248,8 @@ async function renderStreakChallenges() {
     }
     const engineVersion = await competitionEngineVersion(contract);
     const hasV2Features = engineVersion >= COMPETITION_ENGINE_VERSION;
+    const payoutPolicyVersion = await streakPayoutPolicyVersion(contract);
+    const hasRankedTiePayouts = usesRankedTiePayouts(payoutPolicyVersion);
     const wallet = await getWallet();
     const captain = await contract.owner();
     const isCaptain = wallet && wallet.toLowerCase() === captain.toLowerCase();
@@ -364,7 +368,7 @@ async function renderStreakChallenges() {
         ? `https://dweb.link/ipfs/${encodeURIComponent(competition.metadataCID.slice(7))}`
         : 'docs/STREAKBET_JOURNEY.md';
       const joinTerms = !entrantIndex && registrationOpen
-        ? `<p>Before joining: ${escapeText(stakeLabel)} stake${asset.native ? '' : ` · token ${escapeText(competition.stakeToken)}`} · minimum ${config.minimumWeeklyLogs} qualifying logs per call week. Joining commits your stake: no participant refund withdrawal before settlement. Voluntary forfeit loses your stake. Only captain (contract owner) cancellation refunds non-forfeited entrants, limited to the actual held balance under the current contract. Final settlement is a ranked payout, not an early refund or a guaranteed full-principal return. <a href="${rulesLink}" target="_blank" rel="noopener noreferrer">Read rules source</a> (${escapeText(competition.metadataCID || 'ask captain for missing rules')}). Forfeit or failure to complete pays zero. Third place starts with half principal; remaining bonus weights are 3:2:1, plus 1 per additional finisher. Self/peer attestations are not medical or cryptographic proof. Raw health records stay local unless you explicitly confirm a public IPFS upload. <a href="docs/STREAKBET_JOURNEY.md" target="_blank" rel="noopener noreferrer">Journey, simulation examples and policy caveats</a>.</p>`
+        ? `<p>Before joining: ${escapeText(stakeLabel)} stake${asset.native ? '' : ` · token ${escapeText(competition.stakeToken)}`} · minimum ${config.minimumWeeklyLogs} qualifying logs per call week. Joining commits your stake: no participant refund withdrawal before settlement. Voluntary forfeit loses your stake. Only captain (contract owner) cancellation refunds non-forfeited entrants, limited to the actual held balance under the current contract. Final settlement is a ranked payout, not an early refund or a guaranteed full-principal return. <a href="${rulesLink}" target="_blank" rel="noopener noreferrer">Read rules source</a> (${escapeText(competition.metadataCID || 'ask captain for missing rules')}). Forfeit or failure to complete pays zero. The occupied third-place slot starts with half principal; remaining bonus weights are 3:2:1, plus 1 per additional finisher. ${hasRankedTiePayouts ? 'Verified qualifying activity days and submitted-report counts jointly determine rank; equal results share place and equally split occupied-slot payouts, and later ranks skip tied places. This contract reports source-only ranked-tie payout-policy version 2.' : 'This contract does not report ranked-tie payout-policy version 2; legacy strict ranking orders verified activity days, reports, qualification time and join order.'} Self/peer attestations are not medical or cryptographic proof. Raw health records stay local unless you explicitly confirm a public IPFS upload. <a href="docs/STREAKBET_JOURNEY.md" target="_blank" rel="noopener noreferrer">Journey, simulation examples and policy caveats</a>.</p>`
         : '';
       const nativeUnavailable = asset.native && !hasV2Features;
       const nativeUnavailableNotice = nativeUnavailable
@@ -544,7 +548,9 @@ function bindStreakActions(root) {
         if (await reader.paused()) throw new Error('Entries are paused by the captain. No stake was sent.');
         const asset = await challengeAsset(competition.stakeToken, reader.runner);
         // Confirm the current on-chain terms before any token approval or stake.
-        if (!confirm(joinDisclosure(competition, config, asset))) return;
+        if (!confirm(joinDisclosure(
+          competition, config, asset, await streakPayoutPolicyVersion(reader),
+        ))) return;
         if (asset.native) {
           const balance = await reader.runner.getBalance(account);
           if (balance < competition.stakeAmount) {

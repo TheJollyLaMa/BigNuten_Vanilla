@@ -20,15 +20,18 @@ const AWARD_ROLES = Object.freeze([
 
 const PAYOUT_POLICY = Object.freeze({
   contract: 'StreakBetEscrow',
+  policyVersion: 2,
   completion: 'Only entrants with Completed status receive the completion token, and only during owner-called settlement.',
-  placements: 'The top three completed entrants also receive their corresponding place token; other completed entrants receive no place token.',
-  principal: 'Completed entrants receive principal except third place, which receives half principal.',
-  bonusWeights: 'The remaining pool is split by weights 3:2:1 for first, second, and third; completed entrants outside the top three have weight 1.',
+  placements: 'The first, second, and third competition places receive their corresponding place token. Tied entrants share the award for their common place; later shared competition ranks skip occupied places. Other completed entrants receive no place token.',
+  ranking: 'Completed entrants tie when verified qualifying activity days and submitted-report counts are both equal. Qualification time and join order do not break ties.',
+  principal: 'Each tied group pools the starting principal refunds for its occupied slots. Occupied third place starts with half principal; that reduction is shared by the tied group.',
+  bonusWeights: 'Each occupied slot contributes its existing bonus share, calculated from the global bonus pool using weights 3:2:1 for places one, two, and three, then 1 for every later slot. The group pools those slot payouts and splits them equally.',
+  rounding: 'Each occupied-slot bonus is floored using the original global denominator; the group payout is floor(group pool / tied entrant count). Remaining integer dust goes to the configured treasury.',
   forfeits: 'Forfeits and entrants still incomplete at settlement do not receive awards; forfeited stakes remain in the pool.',
   cancellation: 'Cancellation refunds non-forfeited entrants and does not mint awards.',
   noCompleters: 'If nobody completes, the pot goes to the configured treasury and no awards are minted.',
   mintFailure: 'Award mint failure reverts the entire settlement transaction; payouts and status changes are rolled back.',
-  policySource: 'The deployed StreakBetEscrow contract is authoritative; this metadata does not select or change economic policy.',
+  policySource: 'This source metadata describes payout-policy capability version 2 only. The deployed StreakBetEscrow contract is authoritative; a missing capability getter is legacy strict ranking, and this metadata does not select or change deployed economic policy.',
 });
 
 function isObject(value) {

@@ -361,3 +361,54 @@ test('achievement mint roles and recipients crosslink to confirmed payouts', asy
     escrowAddress: escrow,
   }), /does not match payout recipient/);
 });
+
+test('shared competition places verify one common award for every tied payout recipient', async () => {
+  const { verifyAwardMintsAgainstPayouts } = await import('../js/streakResults.mjs');
+  const nft = address(401);
+  const links = ['completion', 'first', 'second', 'third'].map((role, index) => ({
+    role,
+    tokenId: String(900 + index),
+    nftAddress: nft,
+    metadataCID: `ipfs://tie-${index}`,
+  }));
+  const wallets = [participant, address(201), address(202), address(203)];
+  const actions = [
+    { type: 'payout', wallet: wallets[0], place: 1 },
+    { type: 'payout', wallet: wallets[1], place: 2 },
+    { type: 'payout', wallet: wallets[2], place: 2 },
+    { type: 'payout', wallet: wallets[3], place: 4 },
+  ];
+  const rolesByPlace = new Map([[1, 'first'], [2, 'second'], [4, null]]);
+  const awards = actions.flatMap(action => {
+    const rolesForWallet = ['completion'];
+    const placeRole = rolesByPlace.get(action.place);
+    if (placeRole) rolesForWallet.push(placeRole);
+    return rolesForWallet.map(role => {
+      const link = links.find(item => item.role === role);
+      return {
+        role,
+        tokenId: link.tokenId,
+        nftAddress: nft,
+        account: action.wallet,
+        minter: escrow,
+        amount: '1',
+      };
+    });
+  });
+  assert.equal(verifyAwardMintsAgainstPayouts({
+    awards, actions, awardLinks: links, escrowAddress: escrow,
+  }), true);
+  assert.throws(() => verifyAwardMintsAgainstPayouts({
+    awards: [...awards, {
+      role: 'third',
+      tokenId: links[3].tokenId,
+      nftAddress: nft,
+      account: wallets[2],
+      minter: escrow,
+      amount: '1',
+    }],
+    actions,
+    awardLinks: links,
+    escrowAddress: escrow,
+  }), /Unexpected or duplicate achievement mint/);
+});

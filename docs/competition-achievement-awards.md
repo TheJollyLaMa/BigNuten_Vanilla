@@ -164,12 +164,23 @@ mint failure reverts the entire settlement transaction, including its payouts
 and status changes, so an administrator can correct the configuration and
 retry.
 
-For completed entrants, the unchanged contract payout is principal back except
-third place receives half principal, plus a share of the remaining pool weighted
-3:2:1 for first, second, and third (completed entrants outside the top three
-have weight 1). Forfeits remain in that pool; treasury receives settlement
-dust. These are contract semantics, not a quote or a newly selected economic
-policy.
+The source-only payout-policy version 2 gives the first, second, and third
+competition-place awards to every completed entrant sharing those places.
+Equal verified activity-day and submitted-report counts tie; qualification time
+and join index never break those ties. Shared competition ranks skip occupied
+places, so two tied seconds both receive the second-place award, not the
+third-place award. Other completed entrants receive no place award, but all
+completed entrants receive the completion award.
+
+Each tied group pools the starting principal refunds and bonus shares of its
+occupied slots, then receives an equal integer split. The existing economic
+model remains: full principal except the occupied third-place slot starts with
+half principal; bonus weights are 3:2:1 for the first three slots and 1 for
+each later slot. Forfeits stay in the global bonus pool; each occupied-slot
+bonus is floored using the original global denominator; split remainder and
+other dust go to treasury. This source behavior applies only where the
+read-only payout-policy capability reports version 2. Deployed contracts
+without that capability preserve strict legacy ranking.
 
 Public metadata still needs to be deliberately published and the IDs registered
 through the existing, separately authorized deployment workflow. This feature

@@ -38,6 +38,13 @@ Engine-owned asset configuration and participant check-in/report actions do
 use that gate. Result history or settlement prerequisites that cannot be read
 are explicitly unavailable and block the app flow.
 
+Ranked payout ties use a separate read-only `streakPayoutPolicyVersion()`
+capability. This source reports policy version 2; an absent or reverting getter
+is treated as legacy strict ranking, including on the currently configured
+Base deployment unless independently verified otherwise. The new source does
+not make the tie policy live, change `competitionEngineVersion()`, or update
+deployment configuration.
+
 Challenge settlement preflight compares the local four-ID award record and
 competition stake asset with the escrow's current public award/asset getters,
 and checks the current treasury code and NFT minter role. The per-competition
@@ -75,21 +82,25 @@ are recorded. Disputes require a strict majority after at least three votes; the
 captain can invite outside, no-stake guests to break ties. Logs remain local and
 peer-reviewed, not cryptographically proven. A majority rejection disqualifies
 that entrant. At owner-called settlement, every completed participant receives
-a completion Achievement DNFT and the top three completed participants also
-receive their place tokens. The mint happens at settlement, not at competition
-start. Forfeited or still-incomplete entrants receive no awards; cancellation
-refunds non-forfeited entrants and mints no awards. If no one completes, the
-configured treasury receives the pot and no awards are minted. A mint failure
-reverts the entire settlement transaction, including payouts and status
-changes.
+a completion Achievement DNFT; completed participants sharing competition
+places one through three receive the award for their common place. The mint
+happens at settlement, not at competition start. Forfeited or still-incomplete
+entrants receive no awards; cancellation refunds non-forfeited entrants and
+mints no awards. If no one completes, the configured treasury receives the pot
+and no awards are minted. A mint failure reverts the entire settlement
+transaction, including payouts and status changes.
 
-Completed participants receive BNUT payouts under the unchanged contract
-policy: principal back except third place starts with half principal; remaining
-pool weight is 3:2:1 for first, second, and third, and completed finishers below
-third place have weight 1. Forfeited stakes stay in that pool and treasury
-receives settlement dust. This is deterministic leaderboard settlement, not a
-random lottery. The stake is an exact BNUT amount because no liquid BNUT/USD
-market exists for an automatic $5 quote.
+Completed participants receive ranked payouts. The source-only version-2
+policy ties equal verified qualifying activity-day and submitted-report counts;
+qualification time and join order do not break ties. Each tie group pools the
+existing base refunds and bonus shares of its occupied slots, then receives an
+equal integer split. It retains half principal at the occupied third slot,
+the original 3:2:1 weights and weight 1 thereafter, forfeit contributions, and
+the treasury dust route. Legacy contracts without the policy capability keep
+strict ordering; the current deployment has not been changed. This is
+deterministic leaderboard settlement, not a random lottery. The stake is an
+exact BNUT amount because no liquid BNUT/USD market exists for an automatic $5
+quote.
 
 Before enrollment, use the [participant/captain/guest journey](STREAKBET_JOURNEY.md)
 and [generated payout simulations](STREAKBET_PAYOUT_EXAMPLES.md). These explain
