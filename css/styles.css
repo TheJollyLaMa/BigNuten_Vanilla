@@ -9634,3 +9634,18 @@ svg text {
     display: none; /* resize not meaningful when stacked vertically */
   }
 }
+
+/* Registry-backed Heart hub; keep shared chakra and modal styles unchanged. */
+#heart-modal .heart-metrics-modal { width: min(94vw, 680px); max-height: 88vh; overflow-y: auto; box-sizing: border-box; }
+#heart-modal [hidden] { display: none !important; }
+#heart-modal [role="tablist"] { display: flex; gap: .5rem; margin-bottom: 1rem; }
+#heart-modal [role="tab"][aria-selected="true"] { border: 2px solid #42d68b; }
+#heart-modal label { display: block; margin-top: .65rem; }
+#heart-modal input, #heart-modal select, #heart-modal textarea { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+#heart-modal button { min-height: 44px; cursor: pointer; }
+#heart-modal #metric-log-form button { margin-top: .75rem; }
+#heart-modal #metric-safety { font-size: .85rem; line-height: 1.45; }
+#heart-modal .heart-metric-chart { position: relative; height: 240px; }
+#heart-modal #metric-history { padding-left: 1rem; overflow-wrap: anywhere; }
+#heart-modal #metric-history li { margin-bottom: .75rem; }
+#heart-modal #metric-history button { margin-left: .5rem; }

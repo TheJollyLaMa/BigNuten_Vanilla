@@ -1,3 +1,5 @@
+import { METRIC_REGISTRY, metricSeries, metricPoints, getUnitSystem, getDisplayUnit } from './metrics.js';
+
 /**
  * correlationGraph.js
  * 🧠 Third Eye — Multi-Series Correlation Graph
@@ -199,6 +201,12 @@ function buildDatasets(activeKeys, data, cutoff, normalize, chartType) {
       const [, exType, field] = parts;
       points = extractExercise(data, exType, field, cutoff);
       label = `💪 ${exType} (${field})`;
+    } else if (key.startsWith('metric:')) {
+      const series = METRIC_REGISTRY.flatMap(metricSeries).find(entry => entry.key === key);
+      if (series) {
+        points = metricPoints(data.metricLogs, series, getUnitSystem()).filter(point => !cutoff || point.x >= cutoff);
+        label = `${series.label} (${getDisplayUnit(series.field, getUnitSystem()).unit})`;
+      }
     } else if (key.startsWith('measure:')) {
       const mType = key.slice('measure:'.length);
       points = extractMeasurement(data, mType, cutoff);
@@ -478,6 +486,10 @@ function buildAvailableSeries(data) {
     series.push({ key: `exercise:${t}:weight`, label: `${t} weight`, group: 'exercise' });
   });
 
+  METRIC_REGISTRY.flatMap(metricSeries).forEach(entry => {
+    series.push({ key: entry.key, label: entry.label, group: 'vitals' });
+  });
+
   // Emotions
   series.push({ key: 'emotions', label: 'Emotions 🌈', group: 'emotions' });
 
@@ -493,6 +505,7 @@ function buildSeriesUI(modal, activeSeries, onToggle) {
   const seriesList = buildAvailableSeries(data);
 
   const groupDefs = {
+    vitals:    { label: '💚 Vitals & Body', color: '#42d68b' },
     body:      { label: '⚖️ Body',      color: '#00e5ff' },
     hydration: { label: '💧 Hydration', color: '#4af' },
     exercise:  { label: '💪 Exercise',  color: '#39ff14' },
@@ -546,6 +559,9 @@ export function initCorrelationGraph() {
     renderChart('correlationChart', [...activeSeries], activeDays, activeType, normalizeData);
   }
 
+  window.addEventListener('metricUnitsChanged', () => {
+    if (!modal.classList.contains('modal-hidden')) refresh();
+  });
   window.addEventListener('bignuten:fitness-data-restored', () => {
     if (modal.classList.contains('modal-hidden')) return;
     buildSeriesUI(modal, activeSeries, onToggleSeries);

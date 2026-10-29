@@ -74,6 +74,7 @@ export function importDataFromJSONFile(file) {
             return {};
           }
         })();
+        // Includes registry metricLogs; keep JSON and IPFS imports on the same deduplication path.
         // Use mergeSnapshotData — the single deduplication function
         const merged = mergeSnapshotData(existing, normalized);
         fitnessRecovery.save(merged);

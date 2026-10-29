@@ -150,7 +150,7 @@ export function mergeSnapshotData(current, imported) {
   const merged = { ...current, dataVersion: 1, timeZone: current.timeZone || imported.timeZone || '' };
 
   // Preserve distinct records even if they share a timestamp.
-  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions', 'genieSessions', 'genieInsights'];
+  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'sessionLog', 'painLogs', 'emotions', 'genieSessions', 'genieInsights'];
   simpleArrayFields.forEach(field => {
     const a = Array.isArray(current[field]) ? current[field] : [];
     const b = Array.isArray(imported[field]) ? imported[field] : [];
@@ -163,9 +163,8 @@ export function mergeSnapshotData(current, imported) {
         combined.push(entry);
       }
     });
-    combined.sort((x, y) =>
-      (x.timestamp || x.date || '').localeCompare(y.timestamp || y.date || '')
-    );
+    const sortTime = entry => field === 'metricLogs' ? `${entry.date}T${entry.time}` : entry.timestamp || entry.date || '';
+    combined.sort((x, y) => sortTime(x).localeCompare(sortTime(y)));
     merged[field] = combined;
   });
 
