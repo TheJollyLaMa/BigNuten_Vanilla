@@ -1280,6 +1280,26 @@
       "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
       "contributorGithub": "TheJollyLaMa",
       "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#264",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:32:38.332Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 374,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#266",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:32:38.608Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 374,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
     }
   ],
   "settled": [
