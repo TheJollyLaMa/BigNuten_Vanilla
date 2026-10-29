@@ -1,4 +1,5 @@
 import { normalizeMetricLogs } from './metrics.js';
+import { normalizeWorkoutSession, normalizeMeasurement, measurementDayNumber } from './workoutBody.js';
 
 const DATA_VERSION = 1;
 const DEFAULT_EXERCISE_TYPES = ['Sit-ups', 'Push-ups', 'Pull-ups'];
@@ -22,6 +23,7 @@ export const defaultData = {
   supplements: [],
   foods: [],
   measurements: [],
+  measurementReminderDismissedOn: '',
   metricLogs: [],
   exercises: {
     types: DEFAULT_EXERCISE_TYPES,
@@ -143,8 +145,10 @@ export function normalizeFitnessData(data) {
   normalized.supplements = coerceArray(source, ['supplements', 'supplementLogs', 'supplementHistory']);
   normalized.foods = normalizeFoodEntries(coerceArray(source, ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods']));
   normalized.metricLogs = normalizeMetricLogs(source.metricLogs);
-  normalized.measurements = coerceArray(source, ['measurements', 'measurementLogs', 'bodyMeasurements']);
-  normalized.sessionLog = coerceArray(source, ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog']);
+  normalized.measurements = coerceArray(source, ['measurements', 'measurementLogs', 'bodyMeasurements']).map(normalizeMeasurement);
+  normalized.measurementReminderDismissedOn = source.measurementReminderDismissedOn ?? '';
+  if (typeof normalized.measurementReminderDismissedOn !== 'string' || (normalized.measurementReminderDismissedOn && !Number.isFinite(measurementDayNumber(normalized.measurementReminderDismissedOn)))) throw new Error('Invalid measurement reminder date.');
+  normalized.sessionLog = coerceArray(source, ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog']).map(normalizeWorkoutSession);
   normalized.painLogs = coerceArray(source, ['painLogs', 'painLog']);
   normalized.chantingSessions = coerceArray(source, ['chantingSessions']);
   normalized.emotions = coerceArray(source, ['emotions', 'emotionLogs', 'feelings']);

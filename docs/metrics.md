@@ -25,6 +25,7 @@ not daily means. No diagnostic alerts or device integrations are provided.
 | `rr` | Resting respiratory rate | breaths/min | breaths/min / breaths/min | 2–80 breaths/min |
 | `hrv` | Heart rate variability, RMSSD | ms | ms / ms | 0–500 ms |
 | `vo2max` | VO2 max | mL/kg/min | mL/kg/min / mL/kg/min | 1–120 mL/kg/min |
+| `bodyFat` | Body fat | % | % / % | 1–75% |
 
 BP uses **mmHg in both unit systems**: the established clinical convention is
 more useful than introducing kPa in the metric display. Each paired reading is
@@ -97,9 +98,10 @@ For example, the existing RHR entry has this shape:
 new quantities (e.g. K for temperature, Pa for pressure, seconds for sleep).
 RHR uses the steward-approved bpm canonical unit. Imperial is the default;
 Settings → Vitals & Body units persists the display preference under
-`metricDisplayUnits`. The preference affects registry metrics in the Heart hub
-and correlation graph, not historical weight/measurement features. Changing
-units never rewrites readings. Genie receives canonical units explicitly.
+`metricDisplayUnits`. The preference affects registry metrics in the Heart hub, correlation graph
+and unit-tagged tape measurements. Historical weight features retain their
+existing units; unitless legacy tape readings remain unchanged (see below).
+Changing units never rewrites readings. Genie receives canonical units explicitly.
 
 ### Compound values (blood pressure)
 
@@ -193,3 +195,66 @@ per-vital Node range/conversion/recovery tests, every new vital through real
 JSON export/import and snapshot restore, plus desktop/mobile logging of BP,
 temperature, SpO2, RR, HRV and estimated VO2, reference highlights and °F/°C
 switching. Nothing in this inventory implies live device synchronization.
+
+## Workout effort, duration and recovery
+
+The existing workout timer writes `sessionLog` (completed and canceled sessions).
+The **Workout Set List → Workout sessions & recovery** editor adds optional session
+`rpe` (integer 1–10), `durationSeconds`, `workoutTypes`, and
+`recovery: { soreness: boolean, tightness: boolean, note: string }`. Review any
+session after a workout, including canceled workouts. Optional RPE can be cleared.
+Trends use the existing Chart.js library, with a workout-type filter and separate
+RPE/minutes axes. Legacy sessions without a known type remain in All workout types.
+
+Duration is elapsed wall-clock time from valid `start`/`end` timestamps (including
+preparation, pauses and rest), not just working-set time. It is computed on
+normalization and displayed consistently in minutes. Sessions without those
+timestamps accept explicit minutes; absent duration displays **duration not
+recorded**. Historical work/rest totals are not treated as elapsed duration.
+New session IDs are stable for backup merge; reviewing a session updates its
+existing row, not another workout store. The shared timer handle remains in
+`js/app.js`; cancellation does not re-log sets already saved by the timer.
+
+## Monthly measurements and photo metadata
+
+The existing **Log Measurements** form now stores new tape measurements in
+canonical **cm** (`unit: 'cm'`). Display and input use `metricDisplayUnits`
+(imperial inches by default, metric cm). Changing units never rewrites readings.
+The original form labelled its input “inches/cm” but stored no unit. Those
+historical values remain untouched and are explicitly labelled **legacy units
+(not specified)** in history and separate chart series. No conversion or guessed
+unit is applied. Explicit imported `unit: 'in'` entries are also supported.
+Historical weight features still use their existing units.
+
+A gentle dashboard reminder appears when no measurement exists or the last local
+measurement date was at least 30 calendar days ago. **Not now** snoozes for 30 days
+using `measurementReminderDismissedOn` inside the existing health snapshot. A new
+measurement restarts the interval. History is timestamped, chart ranges and custom
+types use the existing measurements flow. A form error retains entered data.
+
+Each measurement can carry `progressPhotoTaken` and `progressPhotoNote`. These
+are metadata only: no file picker, image upload, image storage or URL fetching.
+Do not put private links in a note if you do not want them in your own backup.
+
+Optional body fat is manual-only (leave blank if unknown), 1–75%, with
+`self-reported` or `imported` provenance. No formula or calculated estimate is
+implemented. No universal adult reference band is assigned: interpretation varies
+by age, sex and measurement method, so the input limits are not health targets. The value lives once in `metricLogs` as registry metric `bodyFat`,
+canonical unit `%`; the measurement links it via `bodyFatMetricId`. This uses the
+Heart hub, chart, correlation and existing Genie Vitals & Body privacy category.
+Deleting the metric reading in Heart leaves the tape/photo record, but removes
+its linked body-fat display. Historical measurements have no fabricated photo
+or body-fat metadata. All additions normalize additively through fitnessSchema
+and follow JSON/IPFS export, merge, restore and wipe paths.
+
+Reuse decision: need session effort/recovery and longitudinal body logging.
+Adapt this repository's `js/app.js:prepareWorkoutSequence`, `runWorkoutStep`,
+`clearWorkoutTimer`, existing measurements modal/chart, `js/metrics.js`,
+`js/fitnessSchema.js` and `js/fitnessData.js:mergeSnapshotData` at base `5c431eb`.
+The curated Canopy agency map was consulted as a lead; the receiving app already
+has the compatible stores, timer and Chart.js dependency, so no external donor,
+parallel store or shared-package extraction is needed. Compatibility limitation:
+unitless legacy tape readings cannot safely be converted. Validation includes
+field/legacy/timing Node tests, the real defaultData JSON/snapshot round trip and
+desktop/mobile smoke completing a timed workout then logging photo metadata and
+body fat through the existing forms.

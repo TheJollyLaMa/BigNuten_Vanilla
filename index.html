@@ -147,6 +147,28 @@
     </div>
     <div id="estimated-total-time" style="font-size: 0.9rem; margin-bottom: 0.5rem;"></div>
     <ul id="workout-set-items"></ul>
+    <section id="workout-session-review" aria-label="Workout session details">
+      <h4>Workout sessions & recovery</h4>
+      <p>After your workout, optionally record effort and recovery here. Elapsed duration includes preparation, rest and pauses; only sessions without start/end times need manual minutes.</p>
+      <label for="workout-session-picker">Session to review:</label>
+      <select id="workout-session-picker"></select>
+      <form id="workout-session-form" hidden>
+        <label for="workout-rpe">Session RPE (1–10, optional):</label>
+        <input id="workout-rpe" type="number" min="1" max="10" step="1" />
+        <label for="workout-session-duration">Duration (minutes, optional):</label>
+        <input id="workout-session-duration" type="number" min="0" step="any" />
+        <label><input id="workout-soreness" type="checkbox" /> Soreness</label>
+        <label><input id="workout-tightness" type="checkbox" /> Tightness</label>
+        <label for="workout-recovery-note">Recovery notes (optional; e.g. legs sore, back tight):</label>
+        <textarea id="workout-recovery-note" rows="2"></textarea>
+        <button type="submit">Save workout details</button>
+      </form>
+      <p id="workout-session-status" role="status"></p>
+      <label for="workout-trend-type">Trend by workout type:</label>
+      <select id="workout-trend-type"><option value="all">All workout types</option></select>
+      <canvas id="workout-session-chart" height="160"></canvas>
+      <ul id="workout-session-history"></ul>
+    </section>
   </div>
 
   <main>
@@ -412,6 +434,11 @@
       </div>
     </div>
   </div>
+    <section id="measurement-reminder" aria-label="Monthly body measurement reminder" hidden>
+      <p>If you'd like, it's time for a monthly body measurement check-in.</p>
+      <button id="measurement-reminder-log" type="button">Log measurements</button>
+      <button id="measurement-reminder-dismiss" type="button">Not now (remind in 30 days)</button>
+    </section>
   </main>
 
   <footer>
@@ -500,8 +527,8 @@
           <option value="add-new">+ Add New</option>
         </select>
 
-        <label for="measurement">Measurement (inches/cm):</label>
-        <input type="number" id="measurement" name="measurement" step="0.01" required />
+        <label id="measurement-value-label" for="measurement">Measurement (inches):</label>
+        <input type="number" id="measurement" name="measurement" min="0.01" step="any" required />
 
         <label for="measurement-date">Date:</label>
         <input type="date" id="measurement-date" name="measurement-date" required />
@@ -509,8 +536,22 @@
         <label for="measurement-time">Time:</label>
         <input type="time" id="measurement-time" name="measurement-time" required />
 
+        <label for="measurement-body-fat">Body fat % (optional; leave blank if unknown):</label>
+        <input id="measurement-body-fat" type="number" min="1" max="75" step="any" />
+        <label for="measurement-body-fat-source">Body fat source:</label>
+        <select id="measurement-body-fat-source">
+          <option value="self-reported">Manual / self-reported</option>
+          <option value="imported">External device / imported reading</option>
+        </select>
+        <p>No estimate is calculated. Body fat readings also appear in Heart → Vitals & Body.</p>
+        <label><input id="measurement-photo" type="checkbox" /> Progress photo taken</label>
+        <label for="measurement-photo-note">Photo note (optional; no images or uploads):</label>
+        <textarea id="measurement-photo-note" rows="2"></textarea>
         <button type="submit">📏 Log Measurement</button>
       </form>
+      <p id="measurement-status" role="status"></p>
+      <p>New tape readings are stored in cm and displayed in your selected units. Older readings without a unit are shown unchanged as “legacy units (not specified)”, not converted.</p>
+      <ul id="measurement-history"></ul>
       <div id="measurement-chart-toggle">
         <button>Day</button>
         <button>Week</button>

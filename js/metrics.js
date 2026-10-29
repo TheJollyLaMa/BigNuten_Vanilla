@@ -104,6 +104,14 @@ export const METRIC_REGISTRY = [
     safetyNotice: 'Not medical advice. Manually record a lab result as self-reported, or a device/test estimate as estimated; note its source and protocol. Estimates differ by device and test and are not interchangeable with measured oxygen uptake. No automatic estimate is calculated from workout durations or lifting sets. There is no universal target here. Do not attempt a maximal test without appropriate professional guidance. Discuss unexplained declines with a clinician; stop exercise and seek urgent care for chest pain, fainting or severe breathlessness.',
     multiplePerDay: true,
   },
+  {
+    id: 'bodyFat', label: 'Body fat', canonicalUnit: '%',
+    displayUnits: { imperial: displayUnit('%'), metric: displayUnit('%') },
+    range: [1, 75], input: { type: 'number', step: 'any' }, chartType: 'line',
+    entrySources: ['self-reported', 'imported'],
+    safetyNotice: 'Not medical advice. Optional manual reading, not a diagnosis. Methods and devices vary; compare readings from the same method. No calculated estimate is provided. No universal reference band: interpretation varies with age, sex and measurement method.',
+    multiplePerDay: true,
+  },
 ];
 
 export function getMetric(id) {

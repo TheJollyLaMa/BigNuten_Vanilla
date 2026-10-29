@@ -141,13 +141,14 @@ if (typeof localStorage !== 'undefined' && typeof requestIdleCallback === 'funct
  */
 function recordIdentity(entry) {
   if (entry.id !== undefined) return `id:${entry.id}`;
+  if (entry.sessionId !== undefined) return `sessionId:${entry.sessionId}`;
   const canonical = value => Array.isArray(value) ? value.map(canonical) : isPlainObject(value)
     ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
   return JSON.stringify(canonical(entry));
 }
 
 export function mergeSnapshotData(current, imported) {
-  const merged = { ...current, dataVersion: 1, timeZone: current.timeZone || imported.timeZone || '' };
+  const merged = { ...current, dataVersion: 1, timeZone: current.timeZone || imported.timeZone || '', measurementReminderDismissedOn: [current.measurementReminderDismissedOn || '', imported.measurementReminderDismissedOn || ''].sort().at(-1) };
 
   // Preserve distinct records even if they share a timestamp.
   const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights'];

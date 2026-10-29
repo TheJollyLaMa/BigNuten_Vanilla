@@ -9730,3 +9730,13 @@ svg text {
   font-size: 0.78rem;
   text-align: center;
 }
+
+/* Workout review and measurement metadata remain within their existing flows. */
+#workout-session-review { font-size: 0.8rem; margin-top: 1rem; }
+#workout-session-review label, #workout-session-form textarea { display: block; margin-top: 0.5rem; }
+#workout-session-picker, #workout-recovery-note { max-width: 100%; width: 100%; box-sizing: border-box; }
+#workout-session-history, #measurement-history { max-height: 12rem; overflow: auto; overflow-wrap: anywhere; padding-left: 1.2rem; }
+#workout-session-history li, #measurement-history li { margin-bottom: 0.7rem; }
+#measurement-reminder { position: fixed; bottom: 105px; left: 70px; right: 70px; max-width: 600px; max-height: 30vh; overflow: auto; z-index: 100; color: white; background: #19332c; padding: 0.7rem; margin: 0 auto; border-radius: 0.5rem; font-size: 0.8rem; }
+#measurement-reminder[hidden], #workout-session-form[hidden] { display: none; }
+#measurements-modal textarea { max-width: 100%; box-sizing: border-box; }
