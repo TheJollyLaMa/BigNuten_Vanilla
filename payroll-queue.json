@@ -1220,6 +1220,16 @@
       "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
       "contributorGithub": "TheJollyLaMa",
       "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#258",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T00:55:26.387Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 370,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
     }
   ],
   "settled": [
