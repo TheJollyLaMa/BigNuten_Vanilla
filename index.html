@@ -973,6 +973,7 @@
   <script type="module" src="js/app.js"></script>
   <script type="module" src="js/streakCompetitions.js"></script>
   <script type="module" src="js/issueHelperUI.js"></script>
+  <script type="module" src="js/questMode.js"></script>
   <script type="module">
     import { initAdminContributors, initAddContributorModal, initBountyRegister } from './js/admin.js';
     import { initDeFiPanel } from './js/defi.js';
@@ -1716,6 +1717,16 @@
         <span class="settings-gear-icon" aria-hidden="true">⚙️</span>
         <h2 id="settings-modal-title">Settings</h2>
       </div>
+
+      <section class="settings-section">
+        <h3>🗺️ Quest Mode</h3>
+        <label><input id="quest-mode-toggle" type="checkbox" /> Start / resume the local educational tour</label>
+        <p class="settings-desc">Seven reading chapters. No wallet or model needed; no transactions, uploads, token gates, or real rewards. You can also type BNUT then Enter outside text fields and dialogs. Exit turns the tour off; saved chapters remain here.</p>
+        <p id="quest-settings-status" role="status"></p>
+        <p id="quest-local-badge"></p>
+        <button id="quest-settings-reset" type="button">Reset Quest progress and badge</button>
+        <button id="quest-settings-clear" type="button">Clear all local Quest data and turn off</button>
+      </section>
 
       <section class="settings-section">
         <h3>Vitals &amp; Body units</h3>

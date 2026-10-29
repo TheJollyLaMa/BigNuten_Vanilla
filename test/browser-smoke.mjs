@@ -1020,6 +1020,126 @@ try {
       });
       assert.equal(await page.evaluate(() => sessionStorage.getItem('bignuten.pinata.jwt.session')), null, 'Wallet disconnect clears the session JWT');
       assert.equal(await page.evaluate(() => localStorage.getItem('bignuten.pinata.jwt.persisted')), null, 'Wallet disconnect clears explicitly persisted JWTs too');
+      // Real local-only Quest UI on desktop and mobile, never wallet actions.
+      const questHostedBefore = hostedRequests.length;
+      const questWalletBefore = walletCalls.length;
+      await click('#aesculapius-right'); await click('#aes-settings-btn');
+      assert.equal(await page.locator('#quest-mode-toggle').isChecked(), false);
+      await page.locator('#quest-mode-toggle').check();
+      await visible('#quest-card');
+      covered.add('quest-card');
+      assert.match(await page.locator('#quest-chapter-label').innerText(), /Chapter 1 of 7/);
+      assert.match(await page.locator('#quest-card').innerText(), /Token\/role unlock and on-chain rewards are deferred/);
+      await click('#quest-find-ui');
+      assert.equal(await page.locator('#aesculapius-right').evaluate(element => element === document.activeElement), true);
+      // An independently opened dialog takes precedence over Quest, without
+      // losing progress or intercepting its text and Escape handling.
+      await page.evaluate(() => document.dispatchEvent(new CustomEvent('bn:issue-helper')));
+      await visible('#issue-helper-dialog');
+      await hidden('#quest-overlay');
+      await page.locator('#issue-helper-surface').fill('BNUT');
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator('#issue-helper-surface').inputValue(), 'BNUT');
+      await page.locator('#issue-helper-close').focus();
+      await page.keyboard.press('Escape');
+      await hidden('#issue-helper-dialog');
+      await visible('#quest-card');
+      assert.match(await page.locator('#quest-chapter-label').innerText(), /Chapter 1 of 7/);
+      await page.locator('#quest-title').focus();
+      await page.keyboard.press('ArrowRight');
+      assert.match(await page.locator('#quest-chapter-label').innerText(), /Chapter 2 of 7/);
+      await shot('quest-progress');
+      await page.reload({ waitUntil: 'networkidle' });
+      await visible('#quest-card');
+      await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; }' });
+      assert.match(await page.locator('#quest-chapter-label').innerText(), /Chapter 2 of 7/);
+      for (let chapter = 1; chapter < 7; chapter++) await click('#quest-next');
+      assert.match(await page.locator('#quest-badge').innerText(), /local completion badge/);
+      await page.locator('#quest-card input[value="reward"]').check();
+      await click('#quest-check-answer');
+      assert.match(await page.locator('#quest-check-feedback').innerText(), /deferred/);
+      await page.locator('#quest-card input[value="local"]').check();
+      await click('#quest-check-answer');
+      assert.match(await page.locator('#quest-check-feedback').innerText(), /Correct/);
+      assert.equal(await page.locator('#quest-overlay progress').getAttribute('value'), '7');
+      const questBox = await page.locator('#quest-card').boundingBox();
+      assert.ok(questBox.x >= 0 && questBox.x + questBox.width <= viewport.width, 'Quest card fits the viewport');
+      await shot('quest-local-badge');
+      await click('#quest-exit');
+      await hidden('#quest-overlay');
+      assert.equal(await page.locator('body').evaluate(body => body.classList.contains('quest-mode')), false);
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; }' });
+      await hidden('#quest-overlay');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('bignuten:quest:v1')).badge), true);
+      // Easter egg never intercepts typed content or any other open modal.
+      await click('#aesculapius-right'); await click('#aes-settings-btn');
+      assert.match(await page.locator('#quest-local-badge').innerText(), /Nest Explorer/);
+      await page.locator('#settings-metric-units').focus();
+      await page.keyboard.type('BNUT'); await page.keyboard.press('Enter');
+      await hidden('#quest-overlay');
+      await click('#settings-modal-close');
+      await page.evaluate(() => {
+        const editor = document.createElement('div');
+        editor.id = 'quest-smoke-editor';
+        editor.contentEditable = 'true';
+        document.body.append(editor);
+        editor.focus();
+      });
+      await page.keyboard.type('BNUT'); await page.keyboard.press('Enter');
+      await hidden('#quest-overlay');
+      assert.match(await page.locator('#quest-smoke-editor').innerText(), /BNUT/);
+      await page.locator('#quest-smoke-editor').evaluate(element => element.remove());
+      await page.locator('body').click({ position: { x: 2, y: viewport.height / 2 } });
+      await page.keyboard.type('BNUT'); await page.keyboard.press('Enter');
+      await visible('#quest-card');
+      await page.locator('#quest-chapter-select').selectOption('5');
+      await click('#quest-issue-helper');
+      await hidden('#quest-overlay');
+      await visible('#issue-helper-dialog');
+      await page.locator('#issue-helper-surface').focus();
+      await page.keyboard.type('BNUT'); await page.keyboard.press('Enter');
+      await hidden('#quest-overlay');
+      assert.equal(await page.locator('#issue-helper-surface').inputValue(), 'BNUT');
+      await click('#issue-helper-close');
+      // Save and deletion failures are reported; other app keys are untouched.
+      await click('#aesculapius-right'); await click('#aes-settings-btn');
+      await page.evaluate(() => {
+        window.__questSetItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function(key, value) {
+          if (key === 'bignuten:quest:v1') throw new DOMException('Synthetic quota', 'QuotaExceededError');
+          return window.__questSetItem.call(this, key, value);
+        };
+      });
+      await click('#quest-settings-reset');
+      assert.match(await page.locator('#quest-settings-status').innerText(), /session-only/);
+      assert.match(await page.locator('#quest-local-badge').innerText(), /No local completion badge/);
+      await page.evaluate(() => {
+        Storage.prototype.setItem = window.__questSetItem;
+        delete window.__questSetItem;
+        window.__questRemoveItem = Storage.prototype.removeItem;
+        Storage.prototype.removeItem = function(key) {
+          if (key === 'bignuten:quest:v1') throw new DOMException('Synthetic denied', 'SecurityError');
+          return window.__questRemoveItem.call(this, key);
+        };
+      });
+      await click('#quest-settings-clear');
+      assert.match(await page.locator('#quest-settings-status').innerText(), /could not be cleared/);
+      await page.evaluate(() => {
+        Storage.prototype.removeItem = window.__questRemoveItem;
+        delete window.__questRemoveItem;
+      });
+      await click('#quest-settings-clear');
+      assert.equal(await page.evaluate(() => localStorage.getItem('bignuten:quest:v1')), null);
+      await page.locator('#quest-mode-toggle').check();
+      await visible('#quest-card');
+      assert.match(await page.locator('#quest-chapter-label').innerText(), /Chapter 1 of 7/);
+      await page.locator('#quest-title').focus();
+      await page.keyboard.press('Escape');
+      await hidden('#quest-overlay');
+      assert.equal(hostedRequests.length, questHostedBefore, 'Quest never calls a hosted model');
+      assert.deepEqual(walletCalls.slice(questWalletBefore).filter(method => /sign|send|requestAccounts|switchEthereumChain|addEthereumChain/i.test(method)), [], 'Quest never signs, sends, connects or switches a wallet');
+      console.log(`${name}: Quest opt-in, keyboard safety, reload/resume, seven chapters, local badge, issue-helper handoff, exit, reset/clear and storage failures verified without financial actions`);
       const exclusions = new Map([
         ...(name === 'desktop' ? [['mobile-data-sheet', 'Mobile-only IPFS menu by design.']] : [['ipfs-edu-overlay', 'Desktop-only onboarding by design.']]),
       ]);

@@ -9818,3 +9818,64 @@ svg text {
 #heart-breathwork .breath-controls { display: flex; flex-wrap: wrap; gap: 8px; }
 #heart-breathwork #breath-history { max-height: 240px; overflow-y: auto; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) { #heart-breathwork .breath-guide { transform: none !important; transition: none; } }
+/* Nonmodal local Quest tour: app navigation remains available. */
+body.quest-mode > header { top: var(--quest-bar-height, 100px); }
+body.quest-mode.quest-suspended > header { top: 0; }
+body.quest-mode .quest-bar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 100001;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #102b32;
+  color: #fff;
+  border-bottom: 2px solid #91ddd3;
+  box-sizing: border-box;
+}
+body.quest-mode #quest-card {
+  position: fixed;
+  inset: auto 12px 12px auto;
+  margin: 0;
+  width: min(440px, calc(100vw - 24px));
+  max-height: min(65dvh, calc(100dvh - 110px));
+  box-sizing: border-box;
+  overflow: auto;
+  z-index: 100000;
+  padding: 18px;
+  border: 2px solid #91ddd3;
+  border-radius: 16px;
+  background: #10212e;
+  color: #f4f8ff;
+  box-shadow: 0 12px 40px #0008;
+  font: 16px/1.5 system-ui, sans-serif;
+}
+body.quest-mode #quest-card h2,
+body.quest-mode #quest-card h3 { color: #fff; }
+body.quest-mode #quest-card p { overflow-wrap: anywhere; }
+body.quest-mode #quest-card details { margin: 12px 0; }
+body.quest-mode #quest-card summary { cursor: pointer; }
+body.quest-mode #quest-card fieldset label { display: block; padding: 8px 0; }
+body.quest-mode .quest-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+body.quest-mode #quest-overlay button,
+body.quest-mode #quest-overlay select {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 8px;
+  background: #183c47;
+  color: #fff;
+  border: 1px solid #91ddd3;
+  border-radius: 6px;
+  font: inherit;
+}
+body.quest-mode #quest-overlay button:disabled { opacity: .5; }
+body.quest-mode #quest-overlay :focus-visible { outline: 3px solid #ffe08a; outline-offset: 3px; }
+body.quest-mode .quest-highlight { outline: 3px solid #ffe08a !important; outline-offset: 3px; }
+@media (max-width: 600px) {
+  body.quest-mode #quest-card { max-height: 50dvh; }
+  body.quest-mode .quest-bar { font-size: 13px; gap: 4px; }
+  body.quest-mode .quest-bar progress { width: 70px; }
+}
