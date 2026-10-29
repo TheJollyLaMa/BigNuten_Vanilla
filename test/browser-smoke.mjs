@@ -578,6 +578,7 @@ try {
         await shot(`${id}-genie`);
         if (id === panels[0]) {
           const chat = `.genie-chat-window[data-panel="${id}"]`;
+          await page.locator(`${chat} .genie-mode-selector`).selectOption('health');
           async function ask() {
             await page.locator(`${chat} .genie-chat-input`).fill('Review my health today');
             await click(`${chat} .genie-chat-send`);
@@ -614,6 +615,49 @@ try {
           await page.waitForFunction(selector => !document.querySelector(selector).disabled, `${chat} .genie-chat-input`);
           assert.equal(await page.evaluate(() => localStorage.getItem('genieBackend')), 'webllm');
           assert.equal(hostedRequests.length, 2, 'Local alternative sends nothing to either hosted backend');
+
+          await page.locator(`${chat} .genie-mode-selector`).selectOption('community');
+          assert.match(await page.locator(`${chat} .genie-community-note`).innerText(), /no health logs or Genie memory by default/i);
+          await click(`${chat} .genie-guide-tour`);
+          const tourText = await page.locator(`${chat} .genie-chat-messages`).innerText();
+          assert.match(tourText, /Filing a useful issue/);
+          assert.match(tourText, /Community Guide mode includes no health logs or Genie memory/);
+          assert.equal(hostedRequests.length, 2, 'Offline deterministic tour does not call a model');
+          await shot('genie-community-offline-tour');
+
+          await click(`${chat} .genie-coach-today`);
+          const walletAccessBeforeCoach = walletCalls.filter(method => method === 'eth_requestAccounts').length;
+          await click(`${chat} .genie-chat-send`);
+          await page.waitForFunction(selector => !document.querySelector(selector).disabled, `${chat} .genie-chat-input`);
+          assert.match(await page.locator(`${chat} .genie-chat-messages`).innerText(), /No enabled monthly challenge|UNAVAILABLE/);
+          assert.equal(hostedRequests.length, 2, 'Read-only challenge coach does not call hosted AI');
+          assert.equal(walletCalls.filter(method => method === 'eth_requestAccounts').length, walletAccessBeforeCoach, 'Coach never requests wallet access');
+
+          await page.evaluate(async () => { const genie = await import('/js/genieChat.js'); genie.setGenieBackend('github-models'); });
+          const healthSessionBeforeCommunity = await page.evaluate(() => sessionStorage.getItem('genieChatSession_recent-exercises-list'));
+          await page.locator(`${chat} .genie-chat-input`).fill('How do I write a helpful issue?');
+          await click(`${chat} .genie-chat-send`);
+          await visible('#genie-consent-dialog');
+          assert.match(await page.locator('#genie-consent-dialog').innerText(), /Community Guide/);
+          assert.match(await page.locator('#genie-consent-dialog').innerText(), /no health logs or Genie memory by default/i);
+          assert.deepEqual((await page.locator('#genie-consent-dialog ul li').allTextContents()), ['Shared Community Guide text', 'Your message']);
+          assert.equal(hostedRequests.length, 2, 'Community consent is required even after health-mode consent');
+          await click('[data-consent-action="cancel"]');
+          await hidden('#genie-consent-dialog');
+          await page.waitForFunction(selector => !document.querySelector(selector).disabled, `${chat} .genie-chat-input`);
+          assert.equal(hostedRequests.length, 2, 'Cancel sends no Community Guide content');
+          await page.locator(`${chat} .genie-chat-input`).fill('How do I write a helpful issue?');
+          await click(`${chat} .genie-chat-send`);
+          await visible('#genie-consent-dialog');
+          await click('[data-consent-action="allow"]');
+          await page.waitForFunction(selector => !document.querySelector(selector).disabled, `${chat} .genie-chat-input`);
+          assert.equal(hostedRequests.length, 3);
+          const communityBody = JSON.stringify(hostedRequests[2].body);
+          assert.match(communityBody, /Community Guide/);
+          assert.doesNotMatch(communityBody, /Synthetic resting reading|Synthetic restore meal|Synthetic restore supplement|Vitals & Body Metrics|Synthetic health response/);
+          assert.equal(await page.evaluate(() => sessionStorage.getItem('genieChatSession_recent-exercises-list')), healthSessionBeforeCommunity, 'Community messages do not enter Health companion session memory');
+          await page.evaluate(async () => { const genie = await import('/js/genieChat.js'); genie.setGenieBackend('webllm'); });
+          covered.add('genie-community-guide-and-coach');
           covered.add('genie-consent-dialog');
         }
         await click(`.genie-chat-window[data-panel="${id}"] .genie-chat-close`);

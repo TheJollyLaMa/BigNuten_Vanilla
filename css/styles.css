@@ -7099,6 +7099,51 @@ svg text {
   letter-spacing: 0.03em;
 }
 
+.genie-community-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.45rem 0.6rem;
+  background: rgba(0, 0, 15, 0.45);
+  border-bottom: 1px solid rgba(115, 0, 255, 0.16);
+  color: rgba(220, 205, 255, 0.8);
+  font-size: 0.68rem;
+  flex-shrink: 0;
+}
+
+.genie-mode-selector,
+.genie-guide-tour,
+.genie-coach-today {
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(115, 0, 255, 0.32);
+  border-radius: 5px;
+  color: #e8d5ff;
+  font-size: 0.68rem;
+  padding: 0.28rem 0.4rem;
+}
+
+.genie-mode-selector { flex: 1 1 8rem; }
+.genie-guide-tour,
+.genie-coach-today { cursor: pointer; }
+.genie-guide-tour:hover,
+.genie-coach-today:hover { background: rgba(115, 0, 255, 0.24); }
+.genie-community-note {
+  flex-basis: 100%;
+  margin: 0;
+  color: #c9f3dd;
+  line-height: 1.35;
+}
+.genie-community-link {
+  display: inline-block;
+  margin: 0.4rem 0.45rem 0 0;
+  color: #a7e8ff;
+  text-decoration: underline;
+}
+.genie-chat-data-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
+.genie-chat-memory-footer[hidden] { display: none; }
+
 .genie-chat-close {
   background: transparent;
   border: none;

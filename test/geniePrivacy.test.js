@@ -60,6 +60,55 @@ test('default backend stays GitHub Models; no fetch before consent and Cancel se
   assert.equal(privacy.hasGenieHostedConsent('github-models'), false);
 });
 
+test('Community Guide gets separate hosted consent and never reads or sends health data or Genie memory', async () => {
+  const secret = 'Synthetic private health entry';
+  seed({
+    foods: [{ name: secret, date: new Date().toISOString() }],
+    genieSessions: [{ summary: 'Synthetic private Genie memory' }],
+    genieInsights: [{ text: 'Synthetic pinned health memory' }],
+  });
+  let healthReads = 0;
+  const get = localStorage.getItem;
+  localStorage.getItem = key => {
+    if (['fitnessTrackerData', 'genieSessions', 'genieInsights'].includes(key)) healthReads++;
+    return get(key);
+  };
+  try {
+    const pending = genie.chatWithGenie('How do I file a useful bug report?', 'test', null, { mode: 'community' });
+    assert.equal(dialogs.length, 1);
+    assert.match(dialogs.at(-1).children.find(child => child.id === 'genie-consent-title').textContent, /Community Guide/);
+    assert.match(dialogs.at(-1).children.find(child => child.id === 'genie-consent-notice').textContent, /no health logs or Genie memory by default/i);
+    assert.deepEqual(listed(), ['Shared Community Guide text', 'Your message']);
+    assert.equal(requests.length, 0);
+    act('cancel');
+    assert.match(await pending, /cancelled/i);
+    assert.equal(requests.length, 0);
+    assert.equal(healthReads, 0);
+    assert.equal(privacy.hasGenieHostedConsent('github-models', 'community'), false);
+
+    const allowed = genie.chatWithGenie('How do I file a useful bug report?', 'test', null, { mode: 'community' });
+    act('allow');
+    assert.equal(await allowed, 'Synthetic response');
+    assert.equal(requests.length, 1);
+    const body = JSON.stringify(requests[0].body);
+    assert.match(body, /Community Guide/);
+    assert.doesNotMatch(body, /Synthetic private health entry|Synthetic private Genie memory|Synthetic pinned health memory/);
+    assert.equal(healthReads, 0);
+    assert.equal(privacy.hasGenieHostedConsent('github-models', 'community'), true);
+    assert.equal(privacy.hasGenieHostedConsent('github-models', 'health'), false);
+
+    const health = genie.chatWithGenie('Review my health today', 'test');
+    assert.equal(dialogs.length, 1, 'community permission must not authorize Health companion');
+    assert.ok(listed().some(category => category.startsWith('Food / Diet Log')));
+    assert.ok(listed().includes('Your message'));
+    act('cancel');
+    await health;
+    assert.equal(requests.length, 1);
+  } finally {
+    localStorage.getItem = get;
+  }
+});
+
 test('Allow is remembered separately per backend and reset gates again', async () => {
   for (const backend of ['github-models', 'openai']) {
     genie.setGenieBackend(backend);
