@@ -34,7 +34,7 @@ export function initBodyMeasurements({ load, save }) {
       const display = measurementDisplay(entry, system);
       const item = document.createElement('li');
       const fat = data.metricLogs.find(log => log.id === entry.bodyFatMetricId);
-      item.textContent = `${entry.date || 'Date not recorded'} ${entry.time || ''} — ${entry.type || 'Measurement'}: ${Number(display.value.toFixed(2))} ${display.unit}${fat ? ` — Body fat: ${fat.value}% (${fat.source})` : ''} — Photo: ${entry.progressPhotoTaken ? 'taken' : 'not recorded'}${entry.progressPhotoNote ? ` — ${entry.progressPhotoNote}` : ''}`;
+      item.textContent = `${entry.date || 'Date not recorded'} ${entry.time || ''} — ${entry.type || 'Measurement'}: ${Number(display.value.toFixed(2))} ${display.unit}${fat ? ` — Body fat: ${fat.value}% (${fat.source})` : ''} — Photo: ${entry.progressPhotoTaken === true ? 'taken' : entry.progressPhotoTaken === false ? 'not taken' : 'not recorded'}${entry.progressPhotoNote ? ` — ${entry.progressPhotoNote}` : ''}`;
       history.append(item);
       const x = new Date(`${entry.date}T${entry.time || '00:00'}`);
       if (!Number.isFinite(x.getTime()) || !Number.isFinite(display.value) || (Date.now() - x.getTime()) / 86400000 > days || (chartPicker.value !== 'all' && entry.type !== chartPicker.value)) continue;

@@ -59,6 +59,8 @@ test('measurement conversion respects preference and never guesses unspecified l
 test('measurement fields reject invalid units, values, dates and photo metadata', async () => {
   const { normalizeMeasurement } = await domain;
   assert.deepEqual(normalizeMeasurement(measurement), measurement);
+  assert.equal(normalizeMeasurement({ ...measurement, progressPhotoTaken: false }).progressPhotoTaken, false);
+  assert.equal(normalizeMeasurement({ measurement: '12' }).progressPhotoTaken, undefined);
   for (const override of [{ unit: 'kg' }, { measurement: 0 }, { measurement: Infinity }, { measurement: '80' }, { date: '2026-02-30' }, { time: '25:00' }, { progressPhotoTaken: 'yes' }, { progressPhotoNote: {} }, { bodyFatMetricId: '' }]) assert.throws(() => normalizeMeasurement({ ...measurement, ...override }));
 });
 
