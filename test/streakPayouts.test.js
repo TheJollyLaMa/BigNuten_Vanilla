@@ -10,6 +10,9 @@ test('generated payout document stays reproducible and includes every rehearsal 
     assert.ok(PAYOUT_SCENARIOS.some(row => row.entrants === entrants && row.completed === entrants));
     assert.ok(PAYOUT_SCENARIOS.some(row => row.entrants === entrants && row.completed < entrants));
   }
+  const { TIED_PAYOUT_SCENARIOS } = await import('../js/streakPayouts.mjs');
+  assert.ok(TIED_PAYOUT_SCENARIOS.some(row => row.entrants === 5 &&
+    row.scores.some(score => score.verifiedActivityDays === 3)));
 });
 
 test('integer model conserves the pot, handles odd stakes and fourth/fifth finishers', async () => {
@@ -49,9 +52,64 @@ test('join disclosure uses actual terms and warns before live approval', async (
   for (const phrase of ['125 BNUT', '26 qualifying days', '3 meetups', '4 qualifying logs',
     'walk together', 'ipfs://rules', 'half principal', '3:2:1', 'not medical proof',
     'public IPFS', 'simulation', 'LIVE, not rehearsal']) assert.ok(text.includes(phrase), phrase);
-  assert.match(renderPayoutExamples(), /Simulation only/);
-  assert.equal((renderPayoutExamples().match(/<tr>/g) || []).length, 10);
+  assert.match(text, /Legacy strict-ranking policy/);
+  assert.match(joinDisclosure({ stakeAmount: 1n }, {}, { symbol: 'BNUT', decimals: 18 }, 2),
+    /equal verified qualifying activity days and submitted-report counts share competition rank/i);
+  const examples = renderPayoutExamples();
+  assert.match(examples, /Legacy strict-ranking simulation only/);
+  assert.match(examples, /Source-only ranked-tie simulation/);
+  assert.equal((examples.match(/<tr>/g) || []).length, 17);
   assert.match(joinDisclosure({ stakeAmount: 1n }, {}), /No public rules reference/);
+});
+
+test('ranked ties split occupied slot pools equally and route integer remainder to treasury', async () => {
+  const { simulateStreakPayouts } = await import('../js/streakPayouts.mjs');
+  const scores = [
+    { verifiedActivityDays: 5, reportsSubmitted: 3 },
+    { verifiedActivityDays: 4, reportsSubmitted: 2 },
+    { verifiedActivityDays: 4, reportsSubmitted: 2 },
+    { verifiedActivityDays: 3, reportsSubmitted: 1 },
+    { verifiedActivityDays: 2, reportsSubmitted: 1 },
+  ];
+  for (const stake of [1n, 101n, 101_000_001n, 101_000_000_000_000_000_001n]) {
+    const result = simulateStreakPayouts({
+      entrants: 5, completed: 5, stake, scores, policy: 'ranked-ties',
+    });
+    const [first, tiedA, tiedB, fourth, fifth] = result.finishers;
+    assert.deepEqual(result.finishers.map(row => row.rank), [1, 2, 2, 4, 5]);
+    assert.equal(tiedA.payout, tiedB.payout);
+    assert.equal(tiedA.place, 2);
+    assert.equal(tiedB.place, 2);
+    assert.equal(fourth.rank, 4);
+    assert.equal(first.payout + tiedA.payout + tiedB.payout + fourth.payout + fifth.payout + result.treasury, result.pot);
+    assert.ok(result.treasury >= 0n);
+  }
+  const thirdFourthTie = simulateStreakPayouts({
+    entrants: 5,
+    completed: 5,
+    stake: 101n,
+    policy: 'ranked-ties',
+    scores: [
+      { verifiedActivityDays: 5, reportsSubmitted: 2 },
+      { verifiedActivityDays: 4, reportsSubmitted: 1 },
+      { verifiedActivityDays: 3, reportsSubmitted: 1 },
+      { verifiedActivityDays: 3, reportsSubmitted: 1 },
+      { verifiedActivityDays: 2, reportsSubmitted: 1 },
+    ],
+  });
+  assert.deepEqual(thirdFourthTie.finishers.map(row => row.rank), [1, 2, 3, 3, 5]);
+  assert.equal(thirdFourthTie.finishers[2].payout, thirdFourthTie.finishers[3].payout);
+});
+
+test('payout-policy capability defaults old contracts to legacy and exposes ties only at version 2', async () => {
+  const { streakPayoutPolicyVersion, usesRankedTiePayouts } = await import('../js/streakPayoutPolicy.mjs');
+  assert.equal(await streakPayoutPolicyVersion({}), 1);
+  assert.equal(await streakPayoutPolicyVersion({
+    streakPayoutPolicyVersion: async () => { throw { code: 'CALL_EXCEPTION' }; },
+  }), 1);
+  assert.equal(await streakPayoutPolicyVersion({ streakPayoutPolicyVersion: async () => 2n }), 2);
+  assert.equal(usesRankedTiePayouts(1), false);
+  assert.equal(usesRankedTiePayouts(2), true);
 });
 
 test('join disclosure formats native ETH and ERC-20 amounts with their own decimals', async () => {

@@ -19,7 +19,11 @@ describe('StreakBet NO REAL FUNDS rehearsal', function () {
     expect(resultPreview.participants).to.have.length(2);
     expect(resultPreview.participants.some(person => person.actions.some(action => action.type === 'payout'))).to.equal(true);
     expect(resultPreview.awards).to.have.length(4);
-    expect(new Set(resultPreview.awards.map(award => award.role))).to.deep.equal(new Set(['completion', 'first', 'second']));
+    expect(new Set(resultPreview.awards.map(award => award.role))).to.deep.equal(new Set(['completion', 'first']));
+    const payoutActions = resultPreview.participants.flatMap(person => person.actions)
+      .filter(action => action.type === 'payout');
+    expect(payoutActions).to.have.length(2);
+    expect(payoutActions.every(action => action.place === 1)).to.equal(true);
     expect(resultPreview.awardLinks.every(link => !Object.hasOwn(link, 'metadataCID'))).to.equal(true);
     expect(resultPreview.manifest).to.equal(undefined);
     expect(JSON.stringify(resultPreview)).not.to.match(/activityDays|progressHash|proofCID|notes|healthData/i);

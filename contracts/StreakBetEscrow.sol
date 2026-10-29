@@ -120,6 +120,7 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     uint8 public constant COMPETITION_ENGINE_VERSION = 2;
+    uint8 public constant STREAK_PAYOUT_POLICY_VERSION = 2;
 
     error InvalidChallengeConfiguration(uint8 reason);
     error InvalidMeetupAction(uint8 reason);
@@ -300,6 +301,10 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
 
     function competitionEngineVersion() external pure returns (uint8) {
         return COMPETITION_ENGINE_VERSION;
+    }
+
+    function streakPayoutPolicyVersion() external pure returns (uint8) {
+        return STREAK_PAYOUT_POLICY_VERSION;
     }
 
     // ── Admin: Create Competition ─────────────────────────────────────────────
@@ -832,24 +837,6 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
         StreakChallengeConfig storage config = streakChallenges[compId];
         competition.status = CompStatus.Settled;
         uint256 totalPot = competition.potBalance;
-        uint256 first;
-        uint256 second;
-        uint256 third;
-
-        for (uint256 i = 1; i <= competition.entrantCount; i++) {
-            if (entrants[compId][i].status != EntrantStatus.Completed) continue;
-            if (_streakRankBefore(compId, i, first)) {
-                third = second;
-                second = first;
-                first = i;
-            } else if (_streakRankBefore(compId, i, second)) {
-                third = second;
-                second = i;
-            } else if (_streakRankBefore(compId, i, third)) {
-                third = i;
-            }
-        }
-
         if (competition.winnerCount == 0) {
             if (totalPot > 0) _transferOut(competition.stakeToken, config.treasury, totalPot);
             competition.potBalance = 0;
@@ -857,56 +844,145 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
             return;
         }
 
-        (uint256 baseRefundTotal, uint256 totalWeight) = _assignStreakPlaces(compId, first, second, third);
+        (uint256[] memory rankedEntrants, uint256 baseRefundTotal, uint256 totalWeight) = _assignStreakPlaces(compId);
         uint256 bonusPool = totalPot - baseRefundTotal;
-        uint256 distributed = _distributeStreakPayouts(compId, config, bonusPool, totalWeight);
+        uint256 distributed = _distributeStreakPayouts(compId, config, rankedEntrants, bonusPool, totalWeight);
         uint256 dust = totalPot - distributed;
         if (dust > 0) _transferOut(competition.stakeToken, config.treasury, dust);
         competition.potBalance = 0;
         emit CompetitionSettled(compId, competition.winnerCount, totalPot, leaderboardCID);
     }
 
-    function _assignStreakPlaces(uint256 compId, uint256 first, uint256 second, uint256 third) private returns (uint256 baseRefundTotal, uint256 totalWeight) {
+    function _assignStreakPlaces(uint256 compId) private returns (
+        uint256[] memory rankedEntrants,
+        uint256 baseRefundTotal,
+        uint256 totalWeight
+    ) {
         Competition storage competition = competitions[compId];
+        uint256 completed = competition.winnerCount;
+        rankedEntrants = new uint256[](completed);
+        uint256 rankedIndex;
         for (uint256 i = 1; i <= competition.entrantCount; i++) {
-            Entrant storage entrant = entrants[compId][i];
-            if (entrant.status != EntrantStatus.Completed) continue;
-            entrant.place = i == first ? 1 : i == second ? 2 : i == third ? 3 : 0;
-            baseRefundTotal += entrant.place == 3 ? competition.stakeAmount / 2 : competition.stakeAmount;
-            totalWeight += entrant.place == 1 ? 3 : entrant.place == 2 ? 2 : 1;
+            if (entrants[compId][i].status == EntrantStatus.Completed) {
+                rankedEntrants[rankedIndex++] = i;
+            }
+        }
+        _sortStreakEntrants(compId, rankedEntrants);
+
+        baseRefundTotal = completed * competition.stakeAmount;
+        if (completed >= 3) baseRefundTotal -= competition.stakeAmount - competition.stakeAmount / 2;
+        totalWeight = completed == 1 ? 3 : completed == 2 ? 5 : completed + 3;
+
+        for (uint256 groupStart = 0; groupStart < completed;) {
+            uint256 groupEnd = groupStart + 1;
+            while (
+                groupEnd < completed &&
+                _streakSameScore(compId, rankedEntrants[groupStart], rankedEntrants[groupEnd])
+            ) groupEnd++;
+            uint256 rank = groupStart + 1;
+            uint8 storedPlace = rank <= type(uint8).max ? uint8(rank) : 0;
+            for (uint256 i = groupStart; i < groupEnd; i++) {
+                entrants[compId][rankedEntrants[i]].place = storedPlace;
+            }
+            groupStart = groupEnd;
         }
     }
 
-    function _distributeStreakPayouts(uint256 compId, StreakChallengeConfig storage config, uint256 bonusPool, uint256 totalWeight) private returns (uint256 distributed) {
+    function _distributeStreakPayouts(
+        uint256 compId,
+        StreakChallengeConfig storage config,
+        uint256[] memory rankedEntrants,
+        uint256 bonusPool,
+        uint256 totalWeight
+    ) private returns (uint256 distributed) {
         Competition storage competition = competitions[compId];
-        for (uint256 i = 1; i <= competition.entrantCount; i++) {
-            Entrant storage entrant = entrants[compId][i];
-            if (entrant.status == EntrantStatus.Completed) {
-                distributed += _payStreakEntrant(compId, entrant, config, bonusPool, totalWeight);
+        uint256 completed = rankedEntrants.length;
+        for (uint256 groupStart = 0; groupStart < completed;) {
+            uint256 groupEnd = groupStart + 1;
+            while (
+                groupEnd < completed &&
+                _streakSameScore(compId, rankedEntrants[groupStart], rankedEntrants[groupEnd])
+            ) groupEnd++;
+            uint256 rank = groupStart + 1;
+            uint256 groupCount = groupEnd - groupStart;
+            uint256 groupBaseRefund;
+            uint256 groupPayoutPool;
+            for (uint256 offset = 0; offset < groupCount; offset++) {
+                uint256 slot = rank + offset;
+                uint256 baseRefund = slot == 3 ? competition.stakeAmount / 2 : competition.stakeAmount;
+                uint256 weight = slot == 1 ? 3 : slot == 2 ? 2 : 1;
+                groupBaseRefund += baseRefund;
+                groupPayoutPool += baseRefund + bonusPool * weight / totalWeight;
             }
+            uint256 baseRefundPerEntrant = groupBaseRefund / groupCount;
+            uint256 payoutPerEntrant = groupPayoutPool / groupCount;
+            uint256 bonusPerEntrant = payoutPerEntrant - baseRefundPerEntrant;
+            for (uint256 i = groupStart; i < groupEnd; i++) {
+                Entrant storage entrant = entrants[compId][rankedEntrants[i]];
+                distributed += _payStreakEntrant(
+                    compId, entrant, config, baseRefundPerEntrant, bonusPerEntrant
+                );
+            }
+            groupStart = groupEnd;
         }
     }
 
     function _streakRankBefore(uint256 compId, uint256 candidateIndex, uint256 currentIndex) private view returns (bool) {
-        if (currentIndex == 0) return true;
         Entrant storage candidate = entrants[compId][candidateIndex];
         Entrant storage current = entrants[compId][currentIndex];
         if (candidate.verifiedActivityDays != current.verifiedActivityDays) return candidate.verifiedActivityDays > current.verifiedActivityDays;
-        if (candidate.reportsSubmitted != current.reportsSubmitted) return candidate.reportsSubmitted > current.reportsSubmitted;
-        if (candidate.qualifiedAt != current.qualifiedAt) return candidate.qualifiedAt < current.qualifiedAt;
-        return candidateIndex < currentIndex;
+        return candidate.reportsSubmitted > current.reportsSubmitted;
+    }
+
+    function _streakSameScore(uint256 compId, uint256 leftIndex, uint256 rightIndex) private view returns (bool) {
+        Entrant storage left = entrants[compId][leftIndex];
+        Entrant storage right = entrants[compId][rightIndex];
+        return left.verifiedActivityDays == right.verifiedActivityDays &&
+            left.reportsSubmitted == right.reportsSubmitted;
+    }
+
+    function _sortStreakEntrants(uint256 compId, uint256[] memory rankedEntrants) private view {
+        uint256 length = rankedEntrants.length;
+        for (uint256 start = length / 2; start > 0; start--) {
+            _siftStreakEntrants(compId, rankedEntrants, start - 1, length);
+        }
+        for (uint256 end = length; end > 1; end--) {
+            (rankedEntrants[0], rankedEntrants[end - 1]) = (rankedEntrants[end - 1], rankedEntrants[0]);
+            _siftStreakEntrants(compId, rankedEntrants, 0, end - 1);
+        }
+        for (uint256 left = 0; left < length / 2; left++) {
+            uint256 right = length - left - 1;
+            (rankedEntrants[left], rankedEntrants[right]) = (rankedEntrants[right], rankedEntrants[left]);
+        }
+    }
+
+    function _siftStreakEntrants(
+        uint256 compId,
+        uint256[] memory rankedEntrants,
+        uint256 root,
+        uint256 length
+    ) private view {
+        while (root * 2 + 1 < length) {
+            uint256 child = root * 2 + 1;
+            uint256 best = root;
+            if (_streakRankBefore(compId, rankedEntrants[child], rankedEntrants[best])) best = child;
+            if (
+                child + 1 < length &&
+                _streakRankBefore(compId, rankedEntrants[child + 1], rankedEntrants[best])
+            ) best = child + 1;
+            if (best == root) return;
+            (rankedEntrants[root], rankedEntrants[best]) = (rankedEntrants[best], rankedEntrants[root]);
+            root = best;
+        }
     }
 
     function _payStreakEntrant(
         uint256 compId,
         Entrant storage entrant,
         StreakChallengeConfig storage config,
-        uint256 bonusPool,
-        uint256 totalWeight
+        uint256 baseRefund,
+        uint256 bonus
     ) private returns (uint256 payout) {
-        uint256 baseRefund = entrant.place == 3 ? competitions[compId].stakeAmount / 2 : competitions[compId].stakeAmount;
-        uint256 weight = entrant.place == 1 ? 3 : entrant.place == 2 ? 2 : 1;
-        uint256 bonus = bonusPool * weight / totalWeight;
         payout = baseRefund + bonus;
         ICompetitionAchievementNFT nft = ICompetitionAchievementNFT(config.awardNFT);
         nft.mintAchievement(entrant.addr, config.completionAwardId, 1);

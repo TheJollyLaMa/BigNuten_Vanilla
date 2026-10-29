@@ -170,12 +170,26 @@ export async function createRehearsalSteps(ethers, provider, fixture, onTransact
   step('Captain console', 'Settle and verify achievement mint', async () => {
     await advance(end + 1);
     const before = await token.balanceOf(alice);
+    const bobBefore = await token.balanceOf(bob);
     await send(escrow, 0, 'settleCompetition', [0, 'rehearsal:synthetic-leaderboard']);
     verify((await escrow.getCompetition(0)).status === 1n && (await escrow.getCompetition(0)).potBalance === 0n,
       'Settlement must empty the pot');
     verify(await token.balanceOf(alice) === before + stake, 'Winner fake-token refund missing');
+    verify(await token.balanceOf(bob) === bobBefore + stake, 'Tied winner fake-token refund missing');
     for (const account of [alice, bob]) verify(await nft.balanceOf(account, 10) === 1n, 'Completion achievement missing');
-    verify(await nft.balanceOf(bob, 11) === 1n && await nft.balanceOf(alice, 12) === 1n, 'Placement achievements missing');
+    const [aliceResult, bobResult] = await Promise.all([
+      escrow.getStreakEntrant(0, alice),
+      escrow.getStreakEntrant(0, bob),
+    ]);
+    verify(
+      aliceResult.place === 1n &&
+      bobResult.place === 1n &&
+      await nft.balanceOf(alice, 11) === 1n &&
+      await nft.balanceOf(bob, 11) === 1n &&
+      await nft.balanceOf(alice, 12) === 0n &&
+      await nft.balanceOf(bob, 12) === 0n,
+      'Tied first-place participants must share the first-place rank award',
+    );
   });
   step('Captain console', 'Cancel and verify fake-token refund', async () => {
     const before = await token.balanceOf(alice);

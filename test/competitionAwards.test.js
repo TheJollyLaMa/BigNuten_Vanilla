@@ -63,7 +63,10 @@ test('builds unique, public-safe metadata for all configured completion and plac
   assert.equal(files[0].metadata.properties.links.achievementContractAddress, NFT);
   assert.equal(files[0].metadata.properties.links.rulesURI, 'ipfs://bafyexample');
   assert.equal(files[0].metadata.properties.award.amountPerAwardee, 1);
-  assert.match(files[0].metadata.properties.payoutPolicy.principal, /third place, which receives half principal/);
+  assert.equal(files[0].metadata.properties.payoutPolicy.policyVersion, 2);
+  assert.match(files[0].metadata.properties.payoutPolicy.ranking, /activity days and submitted-report counts are both equal/);
+  assert.match(files[0].metadata.properties.payoutPolicy.principal, /half principal/);
+  assert.match(files[0].metadata.properties.payoutPolicy.rounding, /floor\(group pool \/ tied entrant count\)/);
   assert.match(files[0].metadata.properties.payoutPolicy.mintFailure, /entire settlement transaction/);
   assert.match(files[0].metadata.description, /not a health record/);
   assert.doesNotMatch(JSON.stringify(files), /privateNotes|participantProgress|dailyRows|rawHealthData/);
