@@ -129,6 +129,7 @@ test('collecting a snapshot without older local snapshot files preserves every s
     exercises: { types: ['Sit-ups', 'Push-ups', 'Pull-ups', 'Synthetic exercise'], entries: [{ timestamp: '2026-10-20T10:04:00Z', reps: 1 }] },
     sessionLog: [{ timestamp: '2026-10-20T10:05:00Z', name: 'synthetic workout' }],
     painLogs: [{ timestamp: '2026-10-20T10:06:00Z', value: 0 }],
+    chantingSessions: [{ id: 'synthetic-chant', mantra: 'So Hum', durationSeconds: 30, timestamp: '2026-10-20T10:06:30Z' }],
     emotions: [{ timestamp: '2026-10-20T10:07:00Z', name: 'synthetic emotion' }],
     genieSessions: [{ timestamp: '2026-10-20T10:08:00Z', text: 'synthetic session' }],
     genieInsights: [{ timestamp: '2026-10-20T10:09:00Z', text: 'synthetic insight' }],

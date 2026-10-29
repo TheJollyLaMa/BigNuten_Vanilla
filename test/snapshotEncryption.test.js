@@ -149,3 +149,48 @@ test('JWT storage is session-scoped by default and localStorage persistence requ
   assert.equal(sessionValues.has('bignuten.pinata.jwt.session'), false);
   assert.equal(localValues.has('bignuten.pinata.jwt.persisted'), false);
 });
+
+test('composed local delete removes health recovery, both JWT stores and the cached encryption key', async () => {
+  const { clearAllLocalData } = await import('../js/clearAllLocalData.js');
+  const { createSnapshotRecovery } = await import('../js/snapshotRecovery.js');
+  const memory = () => {
+    const values = new Map();
+    return { keys: () => [...values.keys()], getItem: key => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, String(value)), removeItem: key => values.delete(key) };
+  };
+  global.sessionStorage = memory(); global.localStorage = memory();
+  const recovery = createSnapshotRecovery(localStorage);
+  recovery.save(sample);
+  localStorage.setItem('fitnessTrackerSnapshot-synthetic', JSON.stringify(sample));
+  localStorage.setItem('unrelated-setting', 'retained');
+  transport.setManualPinataToken('synthetic-delete-jwt', { persist: true });
+  let calls = 0;
+  const signer = { getAddress: signerFor(walletA).getAddress, signMessage: message => { calls++; return walletA.signMessage(message); } };
+  const envelope = await encryption.encryptFitnessSnapshot(sample, signer);
+  await encryption.decryptFitnessSnapshot(envelope, signer);
+  assert.equal(calls, 2, 'the key is cached before deletion');
+  clearAllLocalData();
+  assert.equal(sessionStorage.getItem('bignuten.pinata.jwt.session'), null);
+  assert.equal(localStorage.getItem('bignuten.pinata.jwt.persisted'), null);
+  assert.equal(transport.getManualPinataToken(), '', 'in-memory JWT is cleared too');
+  assert.equal(localStorage.getItem('fitnessTrackerData'), null);
+  assert.equal(localStorage.getItem('fitnessTrackerSnapshot-synthetic'), null);
+  assert.equal(recovery.recover(), null, 'deleted data cannot resurrect from recovery');
+  assert.equal(localStorage.getItem('unrelated-setting'), 'retained');
+  await encryption.decryptFitnessSnapshot(envelope, signer);
+  assert.equal(calls, 3, 'decryption must request a fresh signature after deleting the cached key');
+});
+
+test('composed delete clears JWTs and keys even when health storage deletion fails', async () => {
+  const { clearAllLocalData } = await import('../js/clearAllLocalData.js');
+  transport.setManualPinataToken('synthetic-failure-jwt', { persist: true });
+  let calls = 0;
+  const signer = { getAddress: signerFor(walletA).getAddress, signMessage: message => { calls++; return walletA.signMessage(message); } };
+  const envelope = await encryption.encryptFitnessSnapshot(sample, signer);
+  assert.throws(() => clearAllLocalData({ keys: () => [], removeItem() { throw new Error('storage blocked'); } }), /storage blocked/);
+  assert.equal(transport.getManualPinataToken(), '');
+  assert.equal(sessionStorage.getItem('bignuten.pinata.jwt.session'), null);
+  assert.equal(localStorage.getItem('bignuten.pinata.jwt.persisted'), null);
+  await encryption.decryptFitnessSnapshot(envelope, signer);
+  assert.equal(calls, 3);
+});

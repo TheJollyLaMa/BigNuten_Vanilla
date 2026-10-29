@@ -279,6 +279,43 @@
   </div>
 
   <!-- Pain Log Modal (Sacral Chakra) -->
+  <div id="chanting-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="chanting-title">
+    <div class="modal chanting-card">
+      <button type="button" class="modal-close" id="chanting-close" aria-label="Close chanting session">×</button>
+      <h2 id="chanting-title">🔵 Throat — Chanting &amp; Mantra</h2>
+      <label for="chanting-mantra">Mantra</label>
+      <select id="chanting-mantra"></select>
+      <div id="chanting-custom-wrap" hidden>
+        <label for="chanting-custom">Custom mantra</label>
+        <input id="chanting-custom" maxlength="120" autocomplete="off">
+        <button type="button" id="chanting-custom-add">Add custom mantra</button>
+      </div>
+      <label for="chanting-target">Target minutes (optional; blank for no target)</label>
+      <input id="chanting-target" type="number" min="0" max="1440" step="any" value="15">
+      <div class="chanting-timer-wrap">
+        <svg id="chanting-ring" viewBox="0 0 120 120" role="progressbar" aria-label="Target duration progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <circle class="chanting-track" cx="60" cy="60" r="54" />
+          <circle id="chanting-progress" cx="60" cy="60" r="54" pathLength="100" />
+        </svg>
+        <div class="chanting-time"><span aria-hidden="true">◉</span> <output id="chanting-timer" aria-label="Elapsed time">00:00:00</output> <span aria-hidden="true">◉</span></div>
+      </div>
+      <div class="chanting-controls">
+        <button type="button" id="chanting-start">Start</button>
+        <button type="button" id="chanting-pause" disabled>Pause</button>
+        <button type="button" id="chanting-complete" disabled>Complete session</button>
+      </div>
+      <p id="chanting-status" role="status" aria-live="polite"></p>
+      <label for="chanting-notes">Notes (optional; editable after completion)</label>
+      <textarea id="chanting-notes" rows="3" maxlength="2000" placeholder="How did it feel? Body sensations?"></textarea>
+      <fieldset><legend>Sensations (optional; tap before or after completion)</legend><div id="chanting-sensations"></div></fieldset>
+      <h3>Session log</h3>
+      <p id="chanting-summary"></p>
+      <ul id="chanting-log"></ul>
+      <button type="button" id="chanting-cancel">Cancel / close</button>
+      <p class="chanting-help">Complete saves your session. Closing discards unfinished time. Custom mantras stay on this device. Practice comfortably; stop if you feel unwell.</p>
+    </div>
+  </div>
+
   <div id="pain-log-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="pain-log-modal-title">
     <div class="modal pain-log-modal">
       <button class="modal-close" id="pain-log-modal-close">×</button>

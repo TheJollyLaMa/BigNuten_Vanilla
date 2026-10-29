@@ -40,7 +40,7 @@ there are no forced clicks or replaced app functions.
   Hosted responses use synthetic local fixtures; Settings reset is asserted.
   Yoga Genie separately exercises consent before its prompt, Cancel and the local
   switch, with no hosted request from either declined action.
-- Open/close moon/sun, water, emotion wheel, pain/body, weight (real Chart.js),
+- Open/close moon/sun, water, emotion wheel, pain/body, Throat chanting, Heart vitals, weight (real Chart.js),
   measurements, supplements, diet, trends/correlation, exercise, About, Yoga Flow,
   Yoga Genie, workout timer (cancel), achievements, settings, Genie memory,
   BNUT admin, treasury, DeFi, subscription-plan admin, contributors, add contributor,
@@ -50,7 +50,7 @@ there are no forced clicks or replaced app functions.
   prepared local storage-mode preference, **not** a connected provider or upload.
   Test first-visit education on desktop and the mobile data bottom sheet on mobile.
 - Require every discovered dialog to be covered or explicitly explained. There
-  are 37 covered dialogs/storage surfaces per viewport (38 across both), plus
+  are 39 covered dialogs/storage surfaces per viewport (40 across both), plus
   four panel Genie chats. Raw-food quick log is opened from the real Diet modal;
   the dynamically created hosted-consent dialog is also exercised. Desktop
   education and the mobile sheet are intentionally viewport-specific.
@@ -150,3 +150,22 @@ The Heart hub smoke flow runs at both viewport sizes: opens `#chakra-heart`,
 logs an RHR reading, checks canonical persistence, history and trend windows,
 reopens with the keyboard, checks the Breathwork placeholder and unit setting,
 and confirms the automatic correlation series and hosted Genie consent/context.
+
+
+## Throat chanting timer regression (#289)
+
+Both viewport runs save a device-local custom mantra, set a six-second target,
+check the progress ring halfway, pause for five seconds, resume and complete.
+The saved duration excludes paused time; the target flag, notes, post-session
+sensation update, session history, weekly total and throat score are asserted.
+A second session verifies the target can be omitted. Close, Cancel, Escape and
+backdrop dismissal each discard unfinished time, then advance twelve seconds
+without a session write or timer callback. Interval instrumentation asserts
+exactly one live chanting callback while running and zero after pause,
+completion or dismissal.
+
+The fixture switches from `page.clock.setFixedTime()` to `setSystemTime()` after
+`pauseAt()`: elapsed `Date.now()` must advance with each `fastForward()`, not
+stay frozen like the earlier date-only fixtures. Yoga's two-click confirmation
+uses a browser double-click to stay inside its 3.5-second window on busy hosts.
+Only synthetic sessions are used; no chanting data is sent to Genie or IPFS.
