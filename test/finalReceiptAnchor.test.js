@@ -32,7 +32,7 @@ async function fixture() {
   let uploads = 0, sends = 0, readFailures = 0, sendFailures = 0, pending = false;
   const states = [];
   const provider = {
-    send: async method => method === 'eth_chainId' ? '0x7a69' : [owner],
+    send: async method => method === 'eth_chainId' ? '0x7a69' : method === 'eth_blockNumber' ? '0xc' : [owner],
     getBlock: async number => number === 10 ? { hash: hash('a'), timestamp: 100 } : { hash: hash('b'), timestamp: 101 },
     getTransactionReceipt: async () => pending ? null : { status: 1, blockHash: hash('d') },
   };
@@ -41,7 +41,7 @@ async function fixture() {
     finalReceiptAnchors: async () => anchor,
     owner: async () => owner,
     filters: { FinalReceiptAnchored: () => ({}) },
-    queryFilter: async () => [{ args: { ...anchor, manifestCIDHash: ethers.keccak256(ethers.toUtf8Bytes('manifestCID')) }, blockHash: hash('d'), transactionHash: hash('e'), index: 3 }],
+    queryFilter: async () => [{ args: { ...anchor, manifestCIDHash: ethers.keccak256(ethers.toUtf8Bytes('manifestCID')) }, blockNumber: 12, blockHash: hash('d'), transactionHash: hash('e'), index: 3 }],
     connect() { return this; },
     anchorFinalReceipt: async (_id, newCID, receiptHash, manifestHash) => {
       sends++;
@@ -108,6 +108,20 @@ test('publication/readback failure and signature failure retain one upload for r
   assert.ok(f.states.includes('anchor-verified'));
   await f.api.publishAndAnchorReceipt(f.args);
   assert.deepEqual(f.counts(), { uploads: 1, sends: 2 });
+  f.values.clear();
+  f.args.uploader = async () => { throw new Error('Already anchored receipts must never upload again'); };
+  assert.equal((await f.api.publishAndAnchorReceipt(f.args)).state, 'anchor-verified');
+});
+
+test('publication failure never pretends that an anchor was submitted', async () => {
+  const f = await fixture();
+  const upload = f.args.uploader;
+  f.args.uploader = async () => { throw new Error('Storage authorization denied'); };
+  await assert.rejects(f.api.publishAndAnchorReceipt(f.args), /Storage authorization/);
+  assert.equal(f.values.size, 0);
+  assert.deepEqual(f.counts(), { uploads: 0, sends: 0 });
+  f.args.uploader = upload;
+  assert.equal((await f.api.publishAndAnchorReceipt(f.args)).state, 'anchor-verified');
 });
 
 test('pending broadcast never requests duplicate anchor or upload', async () => {

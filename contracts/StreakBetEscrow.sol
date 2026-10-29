@@ -225,7 +225,7 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
     function finalReceiptAnchorVersion() external pure returns (uint8) { return 1; }
 
     /// @notice Immutable owner attestation, not a proof of receipt truth.
-    /// Hashes are SHA-256 of canonical public JSON excluding its contentHash field.
+    /// receiptHash/manifestHash are SHA-256 of canonical public JSON excluding contentHash.
     function anchorFinalReceipt(uint256 compId, string calldata cid, bytes32 receiptHash, bytes32 manifestHash) external onlyOwner {
         if (compId >= nextCompId || competitions[compId].status != CompStatus.Settled ||
             bytes(finalReceiptAnchors[compId].cid).length != 0 ||

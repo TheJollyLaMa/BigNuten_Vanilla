@@ -35,6 +35,10 @@ describe('Final receipt immutable owner anchoring', function () {
     await expect(escrow.anchorFinalReceipt(0, cid, digest, ethers.ZeroHash)).to.be.revertedWithCustomError(escrow, 'InvalidReceiptAnchor');
     expect((await escrow.finalReceiptAnchors(0)).cid).to.equal('');
   });
+  it('refuses to anchor a legacy settlement with no manifest CID', async function () {
+    await escrow.settleCompetition(1, '');
+    await expect(escrow.anchorFinalReceipt(1, cid, digest, digest)).to.be.revertedWithCustomError(escrow, 'InvalidReceiptAnchor');
+  });
   it('emits competition and manifest linkage, persists exact bytes32 hashes and rejects every replacement', async function () {
     await expect(escrow.anchorFinalReceipt(0, cid, digest, digest)).to.emit(escrow, 'FinalReceiptAnchored')
       .withArgs(0, cid, digest, ethers.keccak256(ethers.toUtf8Bytes('manifestCID')), digest);
@@ -42,5 +46,17 @@ describe('Final receipt immutable owner anchoring', function () {
     expect([...anchor]).to.deep.equal([cid, digest, digest]);
     await expect(escrow.anchorFinalReceipt(0, cid, digest, digest)).to.be.revertedWithCustomError(escrow, 'InvalidReceiptAnchor');
     await expect(escrow.anchorFinalReceipt(0, `bafybei${'a'.repeat(52)}`, digest, digest)).to.be.revertedWithCustomError(escrow, 'InvalidReceiptAnchor');
+  });
+  it('matches the client CID parser at prefix, multihash, alphabet and padding boundaries', async function () {
+    const { validAnchorCID } = await import('../../js/streakResults.mjs');
+    for (const index of [0, 6, 7, 8, 30, 58]) {
+      for (let char = 0; char < 128; char++) {
+        const candidate = cid.slice(0, index) + String.fromCharCode(char) + cid.slice(index + 1);
+        let accepted = true;
+        try { await escrow.anchorFinalReceipt.staticCall(0, candidate, digest, digest); }
+        catch { accepted = false; }
+        expect(accepted, `CID byte ${index}: ${char}`).to.equal(validAnchorCID(candidate));
+      }
+    }
   });
 });

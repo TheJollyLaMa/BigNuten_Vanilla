@@ -103,7 +103,25 @@ export async function verifyReceiptAnchor({ ethers, provider, contract, compId, 
     throw new Error('Immutable anchor CID/hash mismatch; replacement is not permitted.');
   }
   await verifyFinalReceiptAgainstChain({ ethers, provider, receipt, manifest, chainResult, manifestCID: receipt.manifest.cid });
-  const logs = await contract.queryFilter(contract.filters.FinalReceiptAnchored(compId), 0);
+  const history = createChainHistory(historyStorage());
+  const scan = await history.scan({
+    scope: `${receipt.chainId}:${receipt.escrow}:competition:${compId}:FinalReceiptAnchored`,
+    latestBlock: Number(await provider.send('eth_blockNumber', [])),
+    startBlock: receipt.settlement.blockNumber,
+    chunkSize: 5000,
+    maxChunks: 100,
+    query: (from, to) => contract.queryFilter(contract.filters.FinalReceiptAnchored(compId), from, to),
+    project: log => ({
+      transactionHash: log.transactionHash, blockHash: log.blockHash,
+      blockNumber: Number(log.blockNumber), logIndex: Number(log.index ?? log.logIndex),
+      args: {
+        cid: log.args.cid, receiptHash: log.args.receiptHash,
+        manifestHash: log.args.manifestHash, manifestCIDHash: log.args.manifestCIDHash,
+      },
+    }),
+  });
+  if (scan.state !== 'success') throw new Error('Anchor event history is still indexing; refresh to verify, do not resubmit.');
+  const logs = scan.events;
   if (logs.length !== 1) throw new Error('Anchor event missing or duplicated.');
   const event = logs[0];
   if (event.args.cid !== cid || event.args.receiptHash !== receipt.contentHash ||
