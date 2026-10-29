@@ -2,6 +2,7 @@ import { chainHistory } from './chainHistory.js';
 import { getDateInUserTz, getTodayInUserTz, formatInUserTz } from './timezone.js';
 import { uploadViaStorageRelay, uploadIpfsDesktopSnapshot } from './pinataStorage.js';
 import { evaluateStreakRules, validateStreakRules } from './streakRules.mjs';
+import { joinDisclosure, renderPayoutExamples } from './streakJourney.mjs';
 
 const ABI = [
   'function nextCompId() view returns (uint256)',
@@ -310,11 +311,17 @@ async function renderStreakChallenges() {
       const registrationText = !active ? '' : paused ? 'Entries are paused by the captain.'
         : registrationOpen ? `Registration closes ${formatInUserTz(Number(competition.joinDeadline) * 1000)}.`
           : 'Registration has closed. Ask the captain to start a new challenge.';
-      const joinButton = !entrantIndex && registrationOpen
+      const rulesLink = /^ipfs:\/\/[a-z0-9]+$/i.test(competition.metadataCID)
+        ? `https://dweb.link/ipfs/${encodeURIComponent(competition.metadataCID.slice(7))}`
+        : 'docs/STREAKBET_JOURNEY.md';
+      const joinTerms = !entrantIndex && registrationOpen
+        ? `<p>Before joining: ${escapeText(ethers.formatUnits(competition.stakeAmount, 18))} BNUT stake · minimum ${config.minimumWeeklyLogs} qualifying logs per call week. <a href="${rulesLink}" target="_blank" rel="noopener noreferrer">Read rules source</a> (${escapeText(competition.metadataCID || 'ask captain for missing rules')}). Forfeit or failure to complete pays zero. Third place starts with half principal; remaining bonus weights are 3:2:1, plus 1 per additional finisher. Self/peer attestations are not medical or cryptographic proof. Detailed public IPFS publication is optional and may persist. <a href="docs/STREAKBET_JOURNEY.md" target="_blank" rel="noopener noreferrer">Journey, simulation examples and policy caveats</a>.</p>`
+        : '';
+      const joinButton = joinTerms + (!entrantIndex && registrationOpen
         ? wallet
           ? `<button class="comp-user-btn comp-join" data-streak-action="join" data-comp="${compId}">Join · ${ethers.formatUnits(competition.stakeAmount, 18)} BNUT</button>`
           : `<button class="comp-user-btn comp-join" data-streak-action="connect" data-comp="${compId}">Connect wallet to join · ${ethers.formatUnits(competition.stakeAmount, 18)} BNUT</button>`
-        : '';
+        : '');
       const cancelButton = isCaptain && active && !registrationOpen && !paused && Number(competition.entrantCount) === 0
         ? `<button data-streak-action="cancel" data-comp="${compId}">Cancel expired empty challenge</button>` : '';
       const entrantStatus = entrant
@@ -377,6 +384,8 @@ function bindStreakActions(root) {
         if (competition.stakeToken.toLowerCase() !== window.CONTRACTS?.bnut?.toLowerCase()) {
           throw new Error('This challenge does not use the configured Base BNUT token. No BNUT was staked.');
         }
+        // Confirm the current on-chain terms before any token approval or stake.
+        if (!confirm(joinDisclosure(competition, config))) return;
         const token = new ethers.Contract(competition.stakeToken, ERC20_ABI, signer);
         const readToken = new ethers.Contract(competition.stakeToken, ERC20_ABI, reader.runner);
         const balance = await readToken.balanceOf(account);
@@ -571,6 +580,8 @@ function bindMonthlyInvite() {
 
 function initStreakCompetitions() {
   if (!node('streak-challenge-list')) return;
+  const examples = node('streak-payout-examples');
+  if (examples) examples.innerHTML = renderPayoutExamples();
   setDefaultChallengeStart();
   bindStreakAdmin();
   bindMonthlyInvite();

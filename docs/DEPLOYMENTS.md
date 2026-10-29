@@ -64,6 +64,11 @@ This is deterministic leaderboard settlement, not a random lottery. The stake
 is an exact BNUT amount because no liquid BNUT/USD market exists for an
 automatic $5 quote.
 
+Before enrollment, use the [participant/captain/guest journey](STREAKBET_JOURNEY.md)
+and [generated payout simulations](STREAKBET_PAYOUT_EXAMPLES.md). These explain
+source contract behavior (including third-place principal risk and treasury
+rounding dust), not a live quote or a newly selected stake.
+
 Hydration award metadata is published to Pinata and local IPFS. DecentNFT IDs
 `0–3` are registered with unlimited supply and assigned to the current
 StreakBet. They are reserved for the first hydration challenge; use a fresh

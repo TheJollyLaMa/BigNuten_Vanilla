@@ -1,0 +1,95 @@
+# StreakBet journey: rehearse before committing
+
+The Monthly Streak Challenge dialog contains the wallet-free walkthrough and
+simulation. Opening it or expanding examples does not approve tokens, sign,
+publish health data, or join. **The separate Join button is live**, subject to
+wallet approval. Rehearsal does not turn live contracts into a sandbox.
+
+## Rules and policy boundary
+
+Use the selected challenge's public rules, on-chain configuration and
+[StreakBetEscrow](../contracts/StreakBetEscrow.sol) as the rules source.
+[Deployment notes](DEPLOYMENTS.md#base-deployment-status) describe the current
+pilot, not a promise of future policy. The examples describe source contract
+math, not a verified live payout quote. Check the deployed contract/version and
+challenge terms before staking; if rules are unavailable or unclear, do not join.
+
+The planned hydration pilot is 28 qualifying days in 30 days, four calls and
+at least five qualifying logs per call week. These are configuration values,
+not universal health targets. Follow your own care guidance; never force an
+activity or fluid intake to protect a stake.
+
+## The loop
+
+| Step | Participant | Captain (contract owner) | Guest reviewer |
+| --- | --- | --- | --- |
+| Commit | Read the listed BNUT stake, rules, deadlines, forfeit consequences and payout explainer before approving/joining. Keep Base ETH for gas. | Choose and publish stake, metrics, dates, meetup goals and award IDs; create/configure before entries. | No stake or enrollment is required; wait for an invitation. |
+| Practice | Log an ordinary day's actual activity locally. The app evaluates the selected metrics; it does not prove they occurred. | Make the rules and support route understandable; do not collect raw health records by default. | No access to private logs is implied by the role. |
+| Gather | During the scheduled call, review the roster, share only necessary progress, enter the captain's code and truthfully attest to the meetup goal. | Schedule each call, confirm roster and reveal the committed code during the call. | Attend if invited and review only the claim/evidence voluntarily shared. |
+| Review | A solo entrant is self-trusted. Otherwise a checked-in peer may confirm or dispute. Self-vote plus peer agreement verifies; disputes need a strict majority after at least three votes. | For tied claims invite a non-entrant guest before the review window ends (call close + 24 hours). The captain does not unilaterally declare attendance true. | Use the invited wallet to confirm/dispute once during the review window. No purchase, stake or medical judgment. |
+| Settle | After required activity days and approved meetups, completion becomes eligible for ranking. Wait until challenge end and owner settlement. | After end, settle with the leaderboard CID; verify awards/treasury configuration first. | No settlement authority. |
+
+## Branches to rehearse
+
+- **Ordinary day:** participant records actual activity and checks local progress.
+  Captain keeps scheduled calls visible; guest has nothing to do until invited.
+- **Missed day:** record reality, do not backfill fabricated evidence. A missed day
+  is not an immediate contract forfeit: compare remaining possible days with the
+  challenge thresholds and weekly minimum. Captain clarifies the published rules;
+  guest must not attest to an activity they did not observe. The contract does not
+  offer a make-up, grace period or appeal extension through this walkthrough.
+- **Disputed meetup:** participant's self-claim and one rejection produce a tie,
+  not completion. Captain invites an outside non-entrant; guest votes within the
+  review window. Strict rejection majority disqualifies; strict approval majority
+  credits attendance. An unresolved tie does not count as an approved meetup;
+  there is no automatic deadline extension.
+- **Forfeit:** a joined, not-yet-completed participant can call the contract's
+  `forfeit(compId)` while active; this walkthrough does not send that transaction.
+  It is irreversible in the current contract and returns no stake at settlement.
+  Missing completion also yields no settlement payout. Captain cannot promise a
+  private refund from the winners' pot. Guest has no refund authority.
+- **Cancellation:** only the contract owner can cancel an active challenge.
+  Contract cancellation refunds each entrant's stake (subject to held balance if
+  Aave withdrawal rounding occurs); no rank bonus or completion award is issued.
+  The current app only exposes cancellation for expired empty challenges, not a
+  participant withdrawal/cancellation button. Captain must use an appropriate
+  reviewed owner workflow for other cancellations; guest cannot cancel.
+- **Successful finish:** participant reaches the configured totals and approved
+  meetups, then receives the settlement payout and configured achievement awards.
+  Captain settles only after end. Ranking is activity days descending, reports
+  descending, qualification time ascending, then join index ascending. Guest
+  attestation is not a guarantee of rank, payout or improved health.
+
+## Payout explainer
+
+See the [generated exact examples](STREAKBET_PAYOUT_EXAMPLES.md) for 1, 2, 3 and
+5 entrants, with forfeits and zero-completer cases. Rebuild with
+`npm run docs:streak-payouts`; `npm test` checks reproducibility and actual local
+contract transfers. The same integer model supplies the in-app examples.
+
+Full principal is the starting refund for finishers except third place, whose
+starting refund is half (rounded down). The remaining pot is shared by weights
+3:2:1 for the top three and 1 for every additional finisher. Thus third place
+can lose principal **even when everyone finishes**; completion is not a
+principal guarantee. Unsuccessful entrants receive zero; if nobody completes,
+the entire pot goes to the configured treasury. Integer dust also goes there.
+This is deterministic ranking, not a lottery or investment return.
+
+## Privacy and evidence
+
+**Self/peer attestations and hashes are not medical proof or cryptographic proof
+that an activity occurred.** On-chain records include wallets, activity counts,
+hashes, votes, invitations, stakes and payouts. Raw health details stay local
+unless explicitly shared/published, but screen-sharing also discloses them.
+Public IPFS publication is optional, wallet-linked and may persist indefinitely;
+do not upload diagnoses, identifying records or third-party health data merely
+to resolve a dispute. A guest invitation grants no right to those records.
+
+## Unresolved product decisions (not defaults)
+
+The captain still chooses the live entry stake and schedule; examples do not set
+them. USD conversion, swaps, yield/borrowing and any future grace/appeal or payout
+policy changes require separate review. The current BNUT pilot has no Aave
+yield or automatic USD quote. A future policy must be published and reconciled
+with deployed contract behavior before enrollment, not inferred from rehearsal
+values. No deployment, token transfer or new economic policy is introduced here.
