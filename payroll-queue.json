@@ -1230,6 +1230,56 @@
       "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
       "contributorGithub": "TheJollyLaMa",
       "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#260",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:22:58.664Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 375,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#261",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:22:59.076Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 375,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#262",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:22:59.343Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 375,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#263",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:22:59.670Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 375,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#279",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:22:59.987Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 375,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
     }
   ],
   "settled": [
