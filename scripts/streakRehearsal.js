@@ -57,7 +57,7 @@ async function main() {
       token: new Set(['approve']),
       escrow: new Set(['createCompetition', 'configureStreakChallenge', 'joinCompetition', 'submitReport',
         'scheduleMeetup', 'selfCheckInMeetup', 'reviewMeetupAttendance', 'inviteMeetupReviewer',
-        'settleCompetition', 'cancelCompetition', 'forfeit']),
+        'settleCompetition', 'anchorFinalReceipt', 'cancelCompetition', 'forfeit']),
     };
     async function rpc(request) {
       const { method, params = [], id } = request;
@@ -179,6 +179,11 @@ async function main() {
         assert.match(await page.locator('#result-preview').innerText(), /contentHash/);
         assert.match(await page.locator('#result-preview').innerText(), /leaderboardCID/);
         assert.doesNotMatch(await page.locator('#result-preview').innerText(), /activityDays|progressHash|proofCID|notes|healthData/i);
+        for (const role of ['participant', 'archive', 'admin']) {
+          assert.equal(await page.locator(`[data-anchor-view="${role}"] [data-state="anchor-verified"]`).count(), 1);
+          assert.equal(await page.locator(`[data-anchor-view="${role}"] a`).count(), 1);
+          assert.match(await page.locator(`[data-anchor-view="${role}"]`).innerText(), /Anchor tx 0x[a-f0-9]{64}.*log.*chain 31337/);
+        }
       }
     }
     assert.match(await page.locator('#status').innerText(), /^PASS/);
@@ -199,7 +204,7 @@ async function main() {
     await rejected('eth_sendRawTransaction', ['0x00']);
     await rejected('hardhat_reset', []);
     assert.equal((await fetch(url, { headers: { Origin: 'https://example.invalid' } })).status, 403);
-    assert.equal(transactions.length, 40);
+    assert.equal(transactions.length, 41);
     assert.ok(transactions.every(tx => BigInt(tx.value) === 0n && !fixture.forbidden.includes(tx.to.toLowerCase())));
     assert.ok(!transactions.some(tx => /Aave|transfer|mint/i.test(tx.method)));
     await mkdir('test-results/rehearsal', { recursive: true });

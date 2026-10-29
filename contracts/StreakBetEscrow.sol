@@ -211,6 +211,44 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
 
     uint256 public nextCompId;
 
+    struct FinalReceiptAnchor {
+        string cid;
+        bytes32 receiptHash;
+        bytes32 manifestHash;
+    }
+    mapping(uint256 => FinalReceiptAnchor) public finalReceiptAnchors;
+    mapping(uint256 => string) public settlementManifestCID;
+    error InvalidReceiptAnchor();
+    event FinalReceiptAnchored(uint256 indexed compId, string cid, bytes32 receiptHash, string manifestCID, bytes32 manifestHash);
+
+    /// @notice Independent capability; does not change payout or engine versions.
+    function finalReceiptAnchorVersion() external pure returns (uint8) { return 1; }
+
+    /// @notice Immutable owner attestation, not a proof of receipt truth.
+    /// Hashes are SHA-256 of canonical public JSON excluding its contentHash field.
+    function anchorFinalReceipt(uint256 compId, string calldata cid, bytes32 receiptHash, bytes32 manifestHash) external onlyOwner {
+        if (compId >= nextCompId || competitions[compId].status != CompStatus.Settled ||
+            bytes(finalReceiptAnchors[compId].cid).length != 0 ||
+            bytes(settlementManifestCID[compId]).length == 0 ||
+            receiptHash == bytes32(0) || manifestHash == bytes32(0)) revert InvalidReceiptAnchor();
+        bytes calldata value = bytes(cid);
+        // CIDv1 base32 dag-pb/raw with sha2-256 (no gateway URL, path or private URI).
+        bytes7 prefix = bytes7(value);
+        if (value.length != 59 || (prefix != bytes7("bafybei") && prefix != bytes7("bafkrei"))) revert InvalidReceiptAnchor();
+        if (value[7] < 0x61 || value[7] > 0x68) revert InvalidReceiptAnchor();
+        uint8 digit;
+        for (uint256 i = 8; i < value.length; i++) {
+            uint8 char = uint8(value[i]);
+            if (char >= 97 && char <= 122) digit = char - 97;
+            else if (char >= 50 && char <= 55) digit = char - 24;
+            else revert InvalidReceiptAnchor();
+        }
+        // Canonical base32 requires zero padding bits in the last digit.
+        if ((digit & 3) != 0) revert InvalidReceiptAnchor();
+        finalReceiptAnchors[compId] = FinalReceiptAnchor(cid, receiptHash, manifestHash);
+        emit FinalReceiptAnchored(compId, cid, receiptHash, settlementManifestCID[compId], manifestHash);
+    }
+
     /// @notice Competition ID → Competition data.
     mapping(uint256 => Competition) internal competitions;
 
@@ -667,6 +705,7 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
         string calldata leaderboardCID
     ) external onlyOwner nonReentrant whenNotPaused {
         Competition storage c = competitions[compId];
+        settlementManifestCID[compId] = leaderboardCID;
         require(c.status == CompStatus.Active, "Escrow: comp not active");
         require(block.timestamp >= c.endTime, "Escrow: comp has not ended yet");
         require(!c.potDeployed, "Escrow: withdraw pot from Aave first");

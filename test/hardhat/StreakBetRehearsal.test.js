@@ -25,9 +25,10 @@ describe('StreakBet NO REAL FUNDS rehearsal', function () {
     expect(payoutActions).to.have.length(2);
     expect(payoutActions.every(action => action.place === 1)).to.equal(true);
     expect(resultPreview.awardLinks.every(link => !Object.hasOwn(link, 'metadataCID'))).to.equal(true);
-    expect(resultPreview.manifest).to.equal(undefined);
+    expect(resultPreview.manifest.cid).to.match(/^bafkrei/);
+    expect((await new hre.ethers.Contract(fixture.contracts.escrow.address, fixture.contracts.escrow.abi, hre.ethers.provider).finalReceiptAnchors(0)).receiptHash).to.equal(resultPreview.contentHash);
     expect(JSON.stringify(resultPreview)).not.to.match(/activityDays|progressHash|proofCID|notes|healthData/i);
-    expect(states.filter(item => item.state === 'confirmed')).to.have.length(40);
+    expect(states.filter(item => item.state === 'confirmed')).to.have.length(41);
     expect(states.some(item => /Aave/.test(item.method))).to.equal(false);
     expect(await hre.ethers.provider.getBalance(fixture.contracts.escrow.address)).to.equal(0n);
     expect(await hre.ethers.provider.getCode(fixture.forbidden[0])).to.equal('0x');

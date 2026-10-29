@@ -2,6 +2,9 @@ import {
   collectCompetitionResult,
   verifyAwardMintsAgainstPayouts,
   verifyPublicResultDocument,
+  createPublicResultDocument,
+  canonicalResultJson,
+  publishAndAnchorReceipt,
 } from './streakResults.mjs';
 
 const DAY = 86400;
@@ -74,6 +77,44 @@ export async function createRehearsalSteps(ethers, provider, fixture, onTransact
   const stake = ethers.parseEther('10');
   const start = fixture.startTime;
   const end = start + 30 * DAY;
+  let finalManifest;
+  let manifestCID;
+  const localDocuments = new Map();
+  const localStorage = new Map();
+  const storage = {
+    getItem: key => localStorage.get(key) || null,
+    setItem: (key, value) => localStorage.set(key, value),
+  };
+  const localPublish = async document => {
+    const bytes = ethers.getBytes(ethers.concat(['0x01551220', ethers.sha256(ethers.toUtf8Bytes(canonicalResultJson(document)))]));
+    let bits = 0, buffer = 0, cid = 'b';
+    for (const byte of bytes) {
+      buffer = (buffer << 8) | byte;
+      bits += 8;
+      while (bits >= 5) { bits -= 5; cid += 'abcdefghijklmnopqrstuvwxyz234567'[(buffer >>> bits) & 31]; }
+    }
+    if (bits) cid += 'abcdefghijklmnopqrstuvwxyz234567'[(buffer << (5 - bits)) & 31];
+    localDocuments.set(cid, document);
+    return { cid };
+  };
+  const awardMetadata = ['completion', 'first', 'second', 'third'].map((role, index) => ({
+    role, tokenId: String(10 + index), metadataCID: '',
+  }));
+  const awardLinks = awardMetadata.map(({ role, tokenId }) => ({
+    role, tokenId, nftAddress: fixture.contracts.nft.address,
+  }));
+  const collect = async status => {
+    const stored = await escrow.getCompetition(0);
+    return collectCompetitionResult({
+      ethers, provider, escrowAddress: escrow.target, compId: 0,
+      competition: {
+        id: 0, name: stored.name, stakeToken: stored.stakeToken, stakeAmount: String(stored.stakeAmount),
+        totalWeeks: Number(stored.totalWeeks), startTime: Number(stored.startTime), endTime: Number(stored.endTime),
+        metadataCID: stored.metadataCID, status,
+      },
+      awardAddress: nft.target, awardMetadata, awardLinks,
+    });
+  };
   const verify = (condition, message) => { if (!condition) throw new Error(message); };
   const send = async (contract, signer, method, args) => {
     await assertRehearsalContext(provider, fixture);
@@ -169,9 +210,11 @@ export async function createRehearsalSteps(ethers, provider, fixture, onTransact
   });
   step('Captain console', 'Settle and verify achievement mint', async () => {
     await advance(end + 1);
+    finalManifest = (await collect('active')).document;
+    manifestCID = (await localPublish(finalManifest)).cid;
     const before = await token.balanceOf(alice);
     const bobBefore = await token.balanceOf(bob);
-    await send(escrow, 0, 'settleCompetition', [0, 'rehearsal:synthetic-leaderboard']);
+    await send(escrow, 0, 'settleCompetition', [0, manifestCID]);
     verify((await escrow.getCompetition(0)).status === 1n && (await escrow.getCompetition(0)).potBalance === 0n,
       'Settlement must empty the pot');
     verify(await token.balanceOf(alice) === before + stake, 'Winner fake-token refund missing');
@@ -256,11 +299,32 @@ export async function createRehearsalSteps(ethers, provider, fixture, onTransact
       awardLinks: result.document.awardLinks,
       escrowAddress: fixture.contracts.escrow.address,
     });
-    verify(result.document.settlement?.leaderboardCID === 'rehearsal:synthetic-leaderboard',
+    verify(result.document.settlement?.leaderboardCID === manifestCID,
       'Public result must link the actual local settlement event');
     verify(!JSON.stringify(result.document).match(/activityDays|progressHash|proofCID|notes|healthData/i),
       'Public result must omit health values, progress hashes, proof CIDs and notes');
-    return { resultDocument: result.document, localOnly: true };
+    const receipt = await createPublicResultDocument({
+      chainId: 31337, contractAddress: escrow.target, competition: result.document.competition,
+      observedBlock: {
+        number: result.document.observedAt.blockNumber, hash: result.document.observedAt.blockHash,
+        timestamp: result.document.observedAt.timestamp,
+      },
+      actions: result.document.participants.flatMap(person => person.actions.map(action => ({ ...action, wallet: person.wallet }))),
+      settlement: result.settlementEvent, awards: result.awardMints, awardLinks: result.document.awardLinks,
+      manifest: { cid: manifestCID, contentHash: finalManifest.contentHash },
+    });
+    const anchor = await publishAndAnchorReceipt({
+      ethers, provider, contract: escrow, signer: signers[0], compId: 0,
+      receipt, manifest: finalManifest, chainResult: result, storage,
+      uploader: localPublish, readDocument: async cid => localDocuments.get(cid),
+      consentConfirmed: true,
+    });
+    verify(anchor.state === 'anchor-verified', 'Final receipt must have a verified immutable local anchor');
+    onTransaction('confirmed', 'anchorFinalReceipt');
+    return {
+      resultDocument: receipt, receiptAnchor: anchor, chainResult: result,
+      readLocalDocument: async cid => localDocuments.get(cid), localOnly: true,
+    };
   });
   return steps;
 }
