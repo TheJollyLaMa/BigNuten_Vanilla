@@ -790,6 +790,7 @@ const defaultData = {
   foods: [],
   measurements: [],
   metricLogs: [],
+  breathworkSessions: [],
   exercises: {
     types: ['Sit-ups', 'Push-ups', 'Pull-ups'],
     entries: []
