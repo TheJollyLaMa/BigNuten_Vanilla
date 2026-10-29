@@ -1,3 +1,4 @@
+import { initHeartMetrics } from './heartMetrics.js';
 import { persistDietIntake } from './dietIntake.js';
 import { geniePrivacyNotice, revokeGenieHostedConsent } from './geniePrivacy.js';
 import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
@@ -764,6 +765,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // --- Pain Log Modal (Sacral Chakra) ---
   initPainLogModal();
+  initHeartMetrics({ load: getFitnessData, save: saveFitnessData, showModal, hideModal });
   // --- Feelings Wheel (3-ring interactive, one-click logging + analytics) ---
   initFeelingsWheel();
 });
@@ -782,6 +784,7 @@ const defaultData = {
   supplements: [],
   foods: [],
   measurements: [],
+  metricLogs: [],
   exercises: {
     types: ['Sit-ups', 'Push-ups', 'Pull-ups'],
     entries: []

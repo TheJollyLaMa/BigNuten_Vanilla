@@ -1,3 +1,4 @@
+import { METRIC_REGISTRY } from './metrics.js';
 /**
  * genieChat.js — AI Chat assistant for BigNuten side panels.
  *
@@ -1227,6 +1228,16 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
     if (sec) sections.push(sec);
   }
 
+  if (prefs.metricLogs) {
+    const registered = new Map(METRIC_REGISTRY.map(metric => [metric.id, metric]));
+    const entries = _filterByTimeframe((data.metricLogs || []).map(log => ({
+      ...log, label: registered.get(log.metric)?.label || log.metric,
+      timestamp: `${log.date}T${log.time}`,
+    })), days, targetDate);
+    const sec = fitArray(entries, perCatBudget, `## Vitals & Body Metrics (${windowLabel}; canonical units; self-reported unless marked otherwise)`);
+    if (sec) sections.push(sec);
+  }
+
   if (prefs.painLogs) {
     const entries = _filterByTimeframe(data.painLogs || [], days, targetDate);
     const sec = fitArray(entries, perCatBudget, `## Pain Log (${windowLabel})`);
@@ -1545,6 +1556,7 @@ const GENIE_CATEGORIES = [
   { key: 'foods',        label: '🥗 Nutrition',          dataPath: d => d.foods || [] },
   { key: 'supplements',  label: '💊 Supplements',        dataPath: d => d.supplements || [] },
   { key: 'emotions',     label: '😊 Emotions',           dataPath: d => d.emotions || [] },
+  { key: 'metricLogs',   label: '💚 Vitals & Body',      dataPath: d => d.metricLogs || [] },
   { key: 'painLogs',     label: '🩹 Pain',               dataPath: d => d.painLogs || [] },
   { key: 'weightLogs',   label: '⚖️ Weight',             dataPath: d => d.weightLogs || [] },
   { key: 'measurements', label: '📏 Measurements',       dataPath: d => d.measurements || [] },
@@ -1560,6 +1572,7 @@ function _defaultCategoryPrefs() {
     supplements:  true,
     emotions:     true,
     painLogs:     true,
+    metricLogs:   true,
     weightLogs:   true,
     measurements: true,
   };
@@ -1567,7 +1580,7 @@ function _defaultCategoryPrefs() {
 
 function _loadCategoryPrefs() {
   try {
-    return JSON.parse(localStorage.getItem(LS_GENIE_CATS) || 'null') || _defaultCategoryPrefs();
+    return { ..._defaultCategoryPrefs(), ...JSON.parse(localStorage.getItem(LS_GENIE_CATS) || 'null') };
   } catch { return _defaultCategoryPrefs(); }
 }
 

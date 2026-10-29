@@ -1,3 +1,5 @@
+import { normalizeMetricLogs } from './metrics.js';
+
 const DATA_VERSION = 1;
 const DEFAULT_EXERCISE_TYPES = ['Sit-ups', 'Push-ups', 'Pull-ups'];
 
@@ -20,6 +22,7 @@ export const defaultData = {
   supplements: [],
   foods: [],
   measurements: [],
+  metricLogs: [],
   exercises: {
     types: DEFAULT_EXERCISE_TYPES,
     entries: []
@@ -128,6 +131,7 @@ export function normalizeFitnessData(data) {
   normalized.waterDailyHistory = coerceObject(source, ['waterDailyHistory', 'waterHistory']);
   normalized.supplements = coerceArray(source, ['supplements', 'supplementLogs', 'supplementHistory']);
   normalized.foods = coerceArray(source, ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods']);
+  normalized.metricLogs = normalizeMetricLogs(source.metricLogs);
   normalized.measurements = coerceArray(source, ['measurements', 'measurementLogs', 'bodyMeasurements']);
   normalized.sessionLog = coerceArray(source, ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog']);
   normalized.painLogs = coerceArray(source, ['painLogs', 'painLog']);
@@ -158,7 +162,7 @@ export function validateFitnessSnapshot(raw) {
     ['weightLogs', 'weightHistory', 'weights'], ['supplements', 'supplementLogs', 'supplementHistory'],
     ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods'], ['measurements', 'measurementLogs', 'bodyMeasurements'],
     ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog'], ['painLogs', 'painLog'],
-    ['emotions', 'emotionLogs', 'feelings'], ['genieSessions'], ['genieInsights'],
+    ['emotions', 'emotionLogs', 'feelings'], ['metricLogs'], ['genieSessions'], ['genieInsights'],
   ];
   const known = arrays.flat().concat(['waterDailyHistory', 'waterHistory', 'exercises', 'exerciseLogs', 'workoutExercises']);
   if (!known.some(key => Object.hasOwn(source, key))) throw new Error('Invalid snapshot: missing supported records.');

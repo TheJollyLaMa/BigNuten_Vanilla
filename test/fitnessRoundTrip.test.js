@@ -38,6 +38,7 @@ test('every defaultData key survives real JSON export → clear → import and s
       supplements: [{ id: 'synthetic-supplement', name: 'Vitamin C', dose: 50 }],
       foods: [{ id: 'synthetic-food', name: 'Apple', grams: 120 }],
       measurements: [{ id: 'synthetic-measurement', waist: 80 }],
+      metricLogs: [{ id: 'synthetic-rhr', metric: 'rhr', value: 62, unit: 'bpm', date: '2026-10-28', time: '10:00', note: 'Resting', source: 'self-reported' }],
       exercises: { types: ['Push-ups', 'Synthetic exercise'], entries: [{ id: 'synthetic-exercise', reps: 6, weight: 10 }] },
       sessionLog: [{ id: 'synthetic-session', duration: 60 }],
       painLogs: [{ id: 'synthetic-pain', level: 2 }],

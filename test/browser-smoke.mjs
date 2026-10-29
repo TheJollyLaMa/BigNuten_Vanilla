@@ -319,10 +319,47 @@ try {
       await click('[data-panel="recent-foods-list"].panel-toggle-btn');
       assert.match(await page.locator('#recent-foods-list').innerText(), /Smoke carrot/);
       await click('[data-panel="recent-foods-list"].panel-toggle-btn');
+      await click('#chakra-heart');
+      await visible('#heart-modal');
+      await page.locator('#metric-value').fill('62');
+      await page.locator('#metric-note').fill('Synthetic resting reading');
+      await click('#metric-log-form button[type="submit"]');
+      assert.match(await page.locator('#metric-status').innerText(), /Reading saved/);
+      assert.match(await page.locator('#metric-history').innerText(), /62 bpm.*Synthetic resting reading/);
+      assert.match(await page.locator('#metric-summary').innerText(), /7-day reading average 62.0 bpm; lowest 62 \/ highest 62/);
+      const metricLogs = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).metricLogs);
+      assert.equal(metricLogs.length, 1);
+      assert.equal(metricLogs[0].metric, 'rhr');
+      assert.equal(metricLogs[0].unit, 'bpm');
+      assert.equal(metricLogs[0].source, 'self-reported');
+      assert.equal(metricLogs[0].value, 62);
+      for (const days of ['1', '30', '7']) await page.locator('#metric-trend-range').selectOption(days);
+      assert.equal(await page.locator('#metric-trend-chart').evaluate(canvas => Chart.getChart(canvas).data.datasets[0].data.length), 1);
+      await click('#heart-breathwork-tab');
+      await visible('#heart-breathwork');
+      assert.match(await page.locator('#heart-breathwork').innerText(), /coming in #289/);
+      await click('#heart-vitals-tab');
+      await visible('#metric-history');
+      await shot('heart-rhr-history');
+      await click('#heart-modal-close');
+      await hidden('#heart-modal');
+      // Persistence and accessible keyboard entry use the same chakra handler.
+      await page.locator('#chakra-heart').focus();
+      await page.keyboard.press('Enter');
+      await visible('#heart-modal');
+      assert.match(await page.locator('#metric-history').innerText(), /Synthetic resting reading/);
+      await page.keyboard.press('Escape');
+      await hidden('#heart-modal');
+      assert.equal(await page.locator('#chakra-heart').evaluate(el => el === document.activeElement), true);
+      console.log(`${name}: Heart hub logged canonical RHR, rendered trend/history, and retained reading after reopen`);
       const panels = await page.locator('.dashboard-panel').evaluateAll(els => els.map(el => el.id));
       assert.equal(panels.length, 4, 'Update coverage when dashboard panels change');
       // Enable the assistant UI; hosted responses below are local synthetic fixtures.
       await click('#aesculapius-right'); await click('#aes-settings-btn');
+      assert.equal(await page.locator('#settings-metric-units').inputValue(), 'imperial');
+      await page.locator('#settings-metric-units').selectOption('metric');
+      assert.equal(await page.evaluate(() => localStorage.getItem('metricDisplayUnits')), 'metric');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).metricLogs[0].unit), 'bpm');
       assert.equal(await page.locator('#pinata-key-persist').isChecked(), false, 'Pinata JWT persistence is opt-in');
       assert.match(await page.locator('#settings-modal').innerText(), /pin-only permissions/i);
       assert.match(await page.locator('#pinata-key-section').innerText(), /sessionStorage/i);
@@ -356,6 +393,7 @@ try {
           await visible('#genie-consent-dialog');
           assert.match(await page.locator('#genie-consent-dialog').innerText(), /GitHub Models/);
           assert.match(await page.locator('#genie-consent-dialog ul').innerText(), /Food \/ Diet Log/);
+          assert.match(await page.locator('#genie-consent-dialog ul').innerText(), /Vitals & Body Metrics/);
           assert.equal(hostedRequests.length, 0, 'No hosted request before permission');
           await shot('genie-consent');
           await click('[data-consent-action="cancel"]');
@@ -368,6 +406,8 @@ try {
           await click('[data-consent-action="allow"]');
           await page.waitForFunction(selector => !document.querySelector(selector).disabled, `${chat} .genie-chat-input`);
           assert.equal(hostedRequests.length, 1);
+          assert.match(JSON.stringify(hostedRequests[0].body), /Vitals & Body Metrics/);
+          assert.match(JSON.stringify(hostedRequests[0].body), /Synthetic resting reading/);
           assert.match(await page.locator(`${chat} .genie-chat-messages`).innerText(), /Synthetic health response/);
           await ask();
           await page.waitForFunction(selector => !document.querySelector(selector).disabled, `${chat} .genie-chat-input`);
@@ -391,11 +431,16 @@ try {
       for (const [id, trigger, close] of [
         ['moon-modal', '#moon-icon'], ['water-modal', '#water-drop-empty'],
         ['emotion-modal', '#emotion-icon'], ['pain-log-modal', '#chakra-sacral'],
+        ['heart-modal', '#chakra-heart'],
         ['weight-modal', '#log-weight'], ['measurements-modal', '#log-measurements'],
         ['supplements-modal', '#log-supplements'], ['dietModal', '#dietBtn', '#closeDietModal'],
         ['correlation-graph-modal', '#graph-icon'], ['exercise-modal', '#log-exercise'],
         ['about-modal', '#app-title-name'],
       ]) await modal(id, trigger, close);
+      await click('#graph-icon');
+      await click('[data-series="metric:rhr"]');
+      assert.equal(await page.locator('#correlationChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.some(series => /Resting heart rate/.test(series.label) && series.data.some(point => point.y === 62))), true);
+      await click('#correlation-graph-modal .modal-close');
       for (const [id, trigger] of [
         ['bnut-admin-modal', '#admin-bnut-btn'], ['treasury-admin-modal', '#admin-treasury-btn'],
         ['defi-admin-modal', '#admin-defi-btn'], ['escrow-admin-modal', '#admin-escrow-btn'],
