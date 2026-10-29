@@ -236,7 +236,9 @@ try {
           await visible('#yoga-breath-aura');
           assert.match(await page.locator('#yoga-breath-label').innerText(), /Inhale|Exhale|Hold/);
           assert.match(await page.locator('#yoga-timer-display').innerText(), /\d+:\d{2}/);
-          await click('#yoga-end-btn'); await click('#yoga-end-btn');
+          // Keep the two confirmations within Yoga's 3.5-second window even
+          // when concurrent browser runs make separate actions slow.
+          await page.locator('#yoga-end-btn').dblclick();
           await visible('#yoga-complete-screen');
         }
         await shot(id);
@@ -391,6 +393,7 @@ try {
       for (const [id, trigger, close] of [
         ['moon-modal', '#moon-icon'], ['water-modal', '#water-drop-empty'],
         ['emotion-modal', '#emotion-icon'], ['pain-log-modal', '#chakra-sacral'],
+        ['chanting-modal', '#chakra-throat'],
         ['weight-modal', '#log-weight'], ['measurements-modal', '#log-measurements'],
         ['supplements-modal', '#log-supplements'], ['dietModal', '#dietBtn', '#closeDietModal'],
         ['correlation-graph-modal', '#graph-icon'], ['exercise-modal', '#log-exercise'],
@@ -452,6 +455,90 @@ try {
       await click('#yoga-close-btn');
       if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
       await page.clock.pauseAt(new Date('2026-10-28T12:00:00Z'));
+      // Track the chanting callback itself: elapsed-time assertions alone cannot
+      // detect an interval that keeps rendering a reset timer after close.
+      await page.evaluate(() => {
+        const set = window.setInterval, clear = window.clearInterval;
+        window.__chantingTimers = { active: new Set(), calls: 0 };
+        window.setInterval = (callback, delay, ...args) => {
+          if (callback.name !== 'renderTimer') return set(callback, delay, ...args);
+          const id = set(() => { window.__chantingTimers.calls++; callback(); }, delay, ...args);
+          window.__chantingTimers.active.add(id); return id;
+        };
+        window.clearInterval = id => { window.__chantingTimers.active.delete(id); clear(id); };
+      });
+      const chantSessions = () => page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).chantingSessions || []);
+      const timerCount = () => page.evaluate(() => window.__chantingTimers.active.size);
+      const callbackCount = () => page.evaluate(() => window.__chantingTimers.calls);
+      const beforeChanting = (await chantSessions()).length;
+      await click('#chakra-throat');
+      await page.locator('#chanting-mantra').selectOption('__custom__');
+      await page.locator('#chanting-custom').fill('Synthetic calm mantra');
+      await click('#chanting-custom-add');
+      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('bignuten.chanting.customMantras.v1'))), ['Synthetic calm mantra']);
+      await page.locator('#chanting-target').fill('0.1');
+      await click('#chanting-start');
+      assert.equal(await timerCount(), 1);
+      await page.clock.fastForward(3_000);
+      assert.equal(await page.locator('#chanting-timer').innerText(), '00:00:03');
+      assert.equal(await page.locator('#chanting-ring').getAttribute('aria-valuenow'), '50');
+      await click('#chanting-pause');
+      assert.equal(await timerCount(), 0);
+      await page.clock.fastForward(5_000);
+      assert.equal(await page.locator('#chanting-timer').innerText(), '00:00:03');
+      assert.equal(await page.locator('#chanting-pause').innerText(), 'Resume');
+      await click('#chanting-pause');
+      assert.equal(await timerCount(), 1);
+      await page.clock.fastForward(3_000);
+      await page.locator('#chanting-notes').fill('Synthetic resonance');
+      await click('#chanting-complete');
+      assert.equal(await timerCount(), 0);
+      assert.equal(await page.locator('#chanting-ring').getAttribute('aria-valuenow'), '100');
+      await click('#chanting-sensations [data-sensation="calm"]');
+      let completedChants = await chantSessions();
+      assert.equal(completedChants.length, beforeChanting + 1);
+      assert.equal(completedChants.at(-1).mantra, 'Synthetic calm mantra');
+      assert.equal(completedChants.at(-1).durationSeconds, 6, 'paused time is excluded');
+      assert.equal(completedChants.at(-1).targetSeconds, 6);
+      assert.equal(completedChants.at(-1).completedGoal, true);
+      assert.equal(completedChants.at(-1).notes, 'Synthetic resonance');
+      assert.deepEqual(completedChants.at(-1).sensations, ['calm'], 'post-session tags update the saved record');
+      assert.match(await page.locator('#chanting-log').innerText(), /Synthetic resonance/);
+      assert.match(await page.locator('#chanting-summary').innerText(), /00:00:06.*1 day streak/);
+      const { 'chakra-throat': throatScore } = await page.evaluate(async () => (await import('/js/chakra.js')).computeChakraScores());
+      assert.equal(throatScore, 1);
+      let calls = await callbackCount();
+      await page.clock.fastForward(12_000);
+      assert.equal(await callbackCount(), calls, 'complete clears all chanting callbacks');
+      assert.deepEqual(await chantSessions(), completedChants, 'completion cannot save twice');
+      await click('#chanting-close');
+      // All dismissal paths discard unfinished sessions and stop callbacks.
+      for (const dismissal of ['close', 'cancel', 'escape', 'backdrop']) {
+        await click('#chakra-throat');
+        assert.equal(await page.locator('#chanting-mantra').inputValue(), 'Synthetic calm mantra');
+        await click('#chanting-start');
+        await page.clock.fastForward(2_000);
+        if (dismissal === 'escape') await page.keyboard.press('Escape');
+        else if (dismissal === 'backdrop') await page.locator('#chanting-modal').click({ position: { x: 2, y: 2 } });
+        else await click(`#chanting-${dismissal}`);
+        await hidden('#chanting-modal');
+        assert.equal(await timerCount(), 0);
+        calls = await callbackCount();
+        await page.clock.fastForward(12_000);
+        assert.equal(await callbackCount(), calls, `${dismissal} clears every pending callback`);
+        assert.deepEqual(await chantSessions(), completedChants, `${dismissal} does not log an unfinished session`);
+      }
+      await click('#chakra-throat');
+      await page.locator('#chanting-target').fill('');
+      await click('#chanting-start');
+      await page.clock.fastForward(2_000);
+      await click('#chanting-complete');
+      completedChants = await chantSessions();
+      assert.equal(completedChants.at(-1).targetSeconds, 0, 'target duration is optional');
+      assert.equal(completedChants.at(-1).completedGoal, false);
+      assert.equal(await timerCount(), 0);
+      await click('#chanting-close');
+      console.log(`${name}: chanting custom mantra, ring, pause/resume, completion, post-session tags and all dismissal timers verified`);
       if (!(await page.locator('#workout-set-list').isVisible())) await click('[data-panel="workout-set-list"].panel-toggle-btn');
       await page.locator('#work-duration').fill('1');
       await page.locator('#rest-duration').fill('1');

@@ -41,6 +41,7 @@ test('every defaultData key survives real JSON export → clear → import and s
       exercises: { types: ['Push-ups', 'Synthetic exercise'], entries: [{ id: 'synthetic-exercise', reps: 6, weight: 10 }] },
       sessionLog: [{ id: 'synthetic-session', duration: 60 }],
       painLogs: [{ id: 'synthetic-pain', level: 2 }],
+      chantingSessions: [{ id: 'synthetic-chant', mantra: 'Aum', durationSeconds: 12, targetSeconds: 900, completedGoal: false, notes: 'Synthetic only', sensations: ['calm'], timestamp: '2026-10-28T12:00:00Z' }],
       emotions: [{ id: 'synthetic-emotion', emotion: 'Calm' }],
       genieSessions: [{ id: 'synthetic-chat', messages: [{ role: 'user', content: 'Synthetic only' }] }],
       genieInsights: [{ id: 'synthetic-insight', text: 'Synthetic only' }],

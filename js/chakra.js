@@ -1,3 +1,4 @@
+import { chantingScore } from './chantingStats.js';
 /**
  * js/chakra.js
  * Data-Driven Chakra Glow & Aura Animations
@@ -232,13 +233,12 @@ export function computeChakraScores() {
     return 0.0;
   })();
 
-  // ── Throat: hydration today ──────────────────────────────────────────────
+  // ── Throat: hydration or chanting ──────────────────────────────────────────────
   const throatScore = (() => {
     const wd = safeParseJSON(WATER_KEY, { date: '', count: 0 });
     const count = (wd.date === today) ? (wd.count || 0) : 0;
-    if (count >= WATER_MAX) return 1.0;
-    if (count > 0) return Math.max(0.15, count / WATER_MAX);
-    return 0.0;
+    const hydrationScore = count >= WATER_MAX ? 1 : count > 0 ? Math.max(0.15, count / WATER_MAX) : 0;
+    return Math.max(hydrationScore, chantingScore(data.chantingSessions, today, now));
   })();
 
   // ── Heart: emotion logged today ──────────────────────────────────────────
@@ -336,6 +336,16 @@ function spawnSparks(el, color) {
     spark.style.top = `${40 + Math.random() * 20}%`;
     el.appendChild(spark);
     spark.addEventListener('animationend', () => spark.remove(), { once: true });
+  }
+}
+
+export function celebrateChantingCompletion() {
+  const el = document.getElementById('chakra-throat');
+  if (!el) return;
+  spawnSparks(el, '#00bfff');
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    el.animate([{ filter: 'drop-shadow(0 0 0 #68caff)' }, { filter: 'drop-shadow(0 0 16px #68caff)' },
+      { filter: 'drop-shadow(0 0 0 #68caff)' }], { duration: 700 });
   }
 }
 

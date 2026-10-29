@@ -14,6 +14,7 @@ import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 import { initCompetitions, loadCompetitionsList } from './competitions.js';
 import { initYogaFlow } from './yoga.js';
+import { initChantingModal } from './breathPractice.js';
 import { getManualPinataToken, setManualPinataToken, clearManualPinataToken, clearSnapshotEncryptionKeyCache, isManualPinataTokenPersistent, ipfsGatewayUrl } from './ipfsStorage.js';
 import { loadSnapshotManifest } from './snapshotLifecycle.js';
 
@@ -764,6 +765,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // --- Pain Log Modal (Sacral Chakra) ---
   initPainLogModal();
+  initChantingModal({ getFitnessData, saveFitnessData, showModal, hideModal });
   // --- Feelings Wheel (3-ring interactive, one-click logging + analytics) ---
   initFeelingsWheel();
 });
@@ -788,6 +790,7 @@ const defaultData = {
   },
   sessionLog: [],
   painLogs: [],
+  chantingSessions: [],
   emotions: []
 };
 

@@ -13,7 +13,7 @@ function storageKeys(storage) {
     ? Array.from({ length: storage.length }, (_, index) => storage.key(index)) : Object.keys(storage);
 }
 
-// Future delete/reset flows must use this instead of removing only the primary.
+// Low-level health/recovery cleanup. User-facing deletion must use clearAllLocalData().
 export function clearLocalHealthData(storage = globalThis.localStorage) {
   const keys = [...DATA_KEYS, POINTS_KEY, UNDO_KEY, DISMISSED_KEY, UNDONE_KEY,
     ...storageKeys(storage).filter(key => key.startsWith('fitnessTrackerSnapshot-'))];

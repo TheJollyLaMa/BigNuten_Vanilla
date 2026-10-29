@@ -150,7 +150,7 @@ export function mergeSnapshotData(current, imported) {
   const merged = { ...current, dataVersion: 1, timeZone: current.timeZone || imported.timeZone || '' };
 
   // Preserve distinct records even if they share a timestamp.
-  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'emotions', 'genieSessions', 'genieInsights'];
+  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights'];
   simpleArrayFields.forEach(field => {
     const a = Array.isArray(current[field]) ? current[field] : [];
     const b = Array.isArray(imported[field]) ? imported[field] : [];

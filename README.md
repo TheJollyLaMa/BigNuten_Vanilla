@@ -121,7 +121,7 @@ Everything accessible to every user in the browser — no wallet required to sta
 | 🏋️ **Workouts** | Exercise sessions, sets/reps/weights, activity types |
 | ⚖️ **Weight** | Time-series weight chart with trend lines (Chart.js) |
 | 😊 **Emotions / Mood** | Feelings wheel with granular emotion selection |
-| 🌀 **Chakra** | Chakra energy tracker with visualization |
+| 🌀 **Chakra** | Chakra energy tracker with visualization; Throat opens a chanting timer, mantra selector and session log |
 | 🤕 **Pain** | Body pain location and intensity logging |
 | 🌬️ **Breathwork** | Guided breathing exercises and session logging |
 | 🧘 **Yoga Flow** | 12 pose library with custom sequences, SVG animations, session log |
@@ -832,6 +832,13 @@ npx hardhat run scripts/deploy.js --network optimism
 ### Snapshot schema and privacy
 
 New fitness snapshots use the versioned `bignuten-encrypted-snapshot` envelope (AES-GCM-256; HKDF-SHA256 key derived from a wallet signature) and are encrypted in the browser before remote upload. IPFS is public by CID: anyone with the CID can fetch ciphertext, and a CID is not access control. The original wallet is required to decrypt; losing wallet access means losing the remote backup, so retain a local JSON export. Local JSON exports remain plaintext and user-held. Legacy plaintext IPFS snapshots remain restorable. Use a dedicated Pinata key scoped to pin-only permissions; its JWT is session-scoped by default, with plain localStorage persistence available only by explicit opt-in and cleared on wallet disconnect.
+
+### Throat chanting and local deletion
+
+Click the Throat chakra to start a chanting session. Choose a preset or save a custom mantra on this device, optionally set a target (15 minutes by default), then Start, Pause/Resume and Complete. Complete saves immediately to `fitnessTrackerData.chantingSessions`; notes and sensation tags can still be edited until starting another session or closing. Closing, Cancel or Escape discards unfinished time and stops the timer. Targets do not auto-end sessions. History shows a rolling seven-day total and consecutive UTC-day streak, matching chakra scoring: today's chanting = 1, practice within seven days = 0.5. Throat intensity is the maximum of chanting and existing hydration scores, so hydration never loses credit. Sessions survive JSON/IPFS export and restore; old snapshots load with an empty list. Chanting is not added to Genie context in this change.
+
+User-facing local delete/reset flows must import `clearAllLocalData()` from `js/clearAllLocalData.js`, rather than calling the low-level health-only `clearLocalHealthData()` helper. It removes health/recovery sources, clears persisted/session Pinata JWTs and the in-memory token reference, and clears cached snapshot encryption keys even if health deletion fails. It does not delete remote IPFS snapshots or unrelated preferences.
+
 
 ### JS Module Map
 
