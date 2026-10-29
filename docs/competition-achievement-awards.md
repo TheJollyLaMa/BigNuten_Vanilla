@@ -138,28 +138,31 @@ DecentNFT URI.
 
 ## Registration and actual award behavior
 
-The administrator registers the four Achievement token IDs and their metadata
-URIs in the existing DecentNFT, ensures the StreakBet escrow has
-`MINTER_ROLE`, then calls `setStreakAwards` with that unique range before
-`configureStreakChallenge` for the competition. `StreakBetEscrow` copies the
-configured NFT address and IDs into that challenge's private configuration;
-changing the global selection later does not replace the earlier challenge's
-award set. The current contract exposes no public getter for that private
-snapshot.
+Before creating a competition (which opens its enrollment window), prepare,
+review, publish, and register all four public Achievement metadata definitions
+and IDs in the existing DecentNFT. Grant the StreakBet escrow `MINTER_ROLE` and
+call `setStreakAwards` with that unique registered range before creating the
+competition; then configure the challenge before entrants join. The contract
+does not issue an enrollment token. `StreakBetEscrow` copies the configured NFT
+address and IDs into that challenge's private configuration; changing the
+global selection later does not replace the earlier challenge's award set. The
+current contract exposes no public getter for that private snapshot.
 
 The DecentNFT collection URI is global to the existing collection. Keep its
 current shared `collection.json`; put competition-specific content in the four
 numbered token metadata files, not a per-competition collection document.
 
-Registration makes the token IDs available; it does **not** mint an award to
-any entrant at competition start. During owner-called settlement, every
-completed entrant receives one completion token. The top three completed
-entrants also receive their place token. Voluntary forfeits and entrants still
-incomplete at settlement receive no awards; cancellation refunds non-forfeited
-entrants and mints no awards. If no one completes, the pot goes to the
-configured treasury and no awards are minted. A mint failure reverts the entire
-settlement transaction, including its payouts and status changes, so an
-administrator can correct the configuration and retry.
+Registration makes the definitions and token IDs available; it does **not**
+mint an award to an entrant. Creation and joining issue no awards, and neither
+does a voluntary forfeit or cancellation. Only successful owner-called
+settlement mints awards: every completed entrant receives one completion token,
+and eligible completed entrants receive the place award associated with their
+settlement rank. Entrants still incomplete at settlement receive no awards;
+cancellation refunds non-forfeited entrants and mints no awards. If no one
+completes, the pot goes to the configured treasury and no awards are minted. A
+mint failure reverts the entire settlement transaction, including its payouts
+and status changes, so an administrator can correct the configuration and
+retry.
 
 For completed entrants, the unchanged contract payout is principal back except
 third place receives half principal, plus a share of the remaining pool weighted
