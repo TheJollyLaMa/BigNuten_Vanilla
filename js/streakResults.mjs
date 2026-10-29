@@ -130,7 +130,21 @@ export async function verifyReceiptAnchor({ ethers, provider, contract, compId, 
     throw new Error('Anchor event/readback mismatch.');
   }
   const tx = await provider.getTransactionReceipt(event.transactionHash);
-  if (Number(tx?.status) !== 1 || tx.blockHash !== event.blockHash) throw new Error('Anchor transaction is not confirmed on this chain.');
+  if (Number(tx?.status) !== 1 || tx.blockHash !== event.blockHash ||
+      String(tx.hash || tx.transactionHash).toLowerCase() !== event.transactionHash.toLowerCase()) {
+    throw new Error('Anchor transaction is not confirmed on this chain.');
+  }
+  const iface = new ethers.Interface(RECEIPT_ANCHOR_ABI);
+  const receiptLogs = (tx.logs || []).filter(log =>
+    String(log.address).toLowerCase() === receipt.escrow &&
+    Number(log.index ?? log.logIndex) === Number(event.logIndex));
+  const confirmedEvent = receiptLogs.length === 1 ? iface.parseLog(receiptLogs[0]) : null;
+  if (confirmedEvent?.name !== 'FinalReceiptAnchored' || Number(confirmedEvent.args.compId) !== Number(compId) ||
+      confirmedEvent.args.cid !== cid || confirmedEvent.args.receiptHash !== receipt.contentHash ||
+      confirmedEvent.args.manifestHash !== manifest.contentHash ||
+      confirmedEvent.args.manifestCIDHash !== event.args.manifestCIDHash) {
+    throw new Error('Anchor event is not present at the exact emitter/log index in its confirmed transaction receipt.');
+  }
   return { state: 'anchor-verified', transactionHash: event.transactionHash, logIndex: event.index ?? event.logIndex };
 }
 

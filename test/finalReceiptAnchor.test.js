@@ -34,7 +34,16 @@ async function fixture() {
   const provider = {
     send: async method => method === 'eth_chainId' ? '0x7a69' : method === 'eth_blockNumber' ? '0xc' : [owner],
     getBlock: async number => number === 10 ? { hash: hash('a'), timestamp: 100 } : { hash: hash('b'), timestamp: 101 },
-    getTransactionReceipt: async () => pending ? null : { status: 1, blockHash: hash('d') },
+    getTransactionReceipt: async () => {
+      if (pending) return null;
+      const event = anchor.cid ? new ethers.Interface(api.RECEIPT_ANCHOR_ABI).encodeEventLog('FinalReceiptAnchored', [
+        0, anchor.cid, anchor.receiptHash, ethers.keccak256(ethers.toUtf8Bytes('manifestCID')), anchor.manifestHash,
+      ]) : null;
+      return {
+        status: 1, blockHash: hash('d'), hash: hash('e'),
+        logs: event ? [{ ...event, address: escrow, index: 3 }] : [],
+      };
+    },
   };
   const contract = {
     finalReceiptAnchorVersion: async () => 1,
@@ -181,6 +190,15 @@ test('a valid canonical hash does not make a forged settlement true', async () =
   await assert.rejects(f.api.verifyFinalReceiptAgainstChain({
     ...f.args, receipt: forged, manifestCID: receipt.manifest.cid,
   }), /settlement mismatch/);
+});
+
+test('cached anchor identity must match the exact confirmed receipt emitter/log', async () => {
+  const f = await fixture();
+  await f.api.publishAndAnchorReceipt(f.args);
+  const readReceipt = f.args.provider.getTransactionReceipt;
+  f.args.provider.getTransactionReceipt = async hash => ({ ...await readReceipt(hash), logs: [] });
+  await assert.rejects(f.api.publishAndAnchorReceipt(f.args), /exact emitter\/log index/);
+  assert.deepEqual(f.counts(), { uploads: 1, sends: 1 });
 });
 
 test('wallet/network and content/manifest/event mismatch fail closed', async () => {
