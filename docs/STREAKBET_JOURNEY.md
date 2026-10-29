@@ -319,10 +319,11 @@ Reuse decision for final anchoring: adapted receiver `canonicalResultJson`,
 `verifyManifestAgainstChain`, `collectCompetitionResult`, `chainHistory.js`
 and the local rehearsal at base `0a6a2a4`. Canopy's map led to
 DecentBusking's `js/radio-payroll.mjs::validateRadioReceipt` at
-`ab7c1dd4a25479d0b8351e42b17b8fac6c7c0221`: useful receipt identity/totals and
+public `origin/main` commit `d50c0cf8aad7db3ff8fb30c808401e7772cb1bba`:
+useful receipt identity/totals and
 recoverable transaction-state precedent, not a compatible escrow anchor.
 Scoped donor inspection found no directly reusable Solidity anchor there.
-No donor code was copied (no root licence established in that inspected donor);
+No donor code was copied (the public donor is Apache-2.0 licensed);
 receiver MIT/Web Crypto/ethers runtime stays unchanged. Base payroll assets,
 fund authorization and public contributor data are incompatible with this
 health-minimized competition receipt. No new package, shared extraction,
