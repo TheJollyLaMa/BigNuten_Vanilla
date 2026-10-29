@@ -19,6 +19,23 @@ at least five qualifying logs per call week. These are configuration values,
 not universal health targets. Follow your own care guidance; never force an
 activity or fluid intake to protect a stake.
 
+## Stake commitment and refunds
+
+Joining commits your stake: **no participant refund withdrawal before
+settlement**, even if you remain eligible to finish. Voluntary `forfeit(compId)`
+loses the stake; it is not an exit with a refund. No withdrawal, grace period or
+appeal feature is added by this policy clarification.
+
+Only captain (contract owner) cancellation refunds **non-forfeited** entrants,
+limited to the actual held balance under the current contract. This is a
+separate owner action, not an entrant right to cancel or withdraw.
+
+Final settlement happens after challenge end and owner settlement. It is a
+ranked payout, not an early refund or a guaranteed full-principal return;
+ranked policy can return less than the full stake. Read the payout explainer
+and authoritative deployed rules before joining. The live Join confirmation
+discloses these consequences before token approval or ETH/token stake transfer.
+
 ## The loop
 
 | Step | Participant | Captain (contract owner) | Guest reviewer |
@@ -49,8 +66,9 @@ activity or fluid intake to protect a stake.
   Missing completion also yields no settlement payout. Captain cannot promise a
   private refund from the winners' pot. Guest has no refund authority.
 - **Cancellation:** only the contract owner can cancel an active challenge.
-  Contract cancellation refunds each entrant's stake (subject to held balance if
-  Aave withdrawal rounding occurs); no rank bonus or completion award is issued.
+  Contract cancellation refunds non-forfeited entrants, limited to the actual
+  held balance (including any Aave withdrawal rounding); no rank bonus or
+  completion award is issued.
   The current app only exposes cancellation for expired empty challenges, not a
   participant withdrawal/cancellation button. Captain must use an appropriate
   reviewed owner workflow for other cancellations; guest cannot cancel.
@@ -103,9 +121,14 @@ USD conversion. Current local tests rehearse ETH, 18-decimal ERC-20 and
 
 For issue #161, these existing-source semantics remain a policy boundary:
 
-- Finisher payouts are made only when the owner settles after the competition
-  ends; there is no participant withdrawal before settlement. Cancellation is
-  owner-only and refunds entrants.
+- The steward-approved interpretation of the withdrawal wording is stake
+  commitment, not an early-refund feature: no participant refund withdrawal
+  before settlement, voluntary forfeit loses the stake, and owner-only
+  cancellation refunds non-forfeited entrants subject to actual held balance.
+  Finisher payouts occur only after challenge end and owner settlement and are
+  not a guaranteed full-principal return. This clarification changes no
+  contract economics and does not close #161: live verification and its other
+  acceptance criteria remain open.
 - Third place starts with half principal, not a full principal refund. This
   conflicts with issue #161's blanket refund wording. The current source math is
   verified behavior, not an approved replacement policy, so this implementation
