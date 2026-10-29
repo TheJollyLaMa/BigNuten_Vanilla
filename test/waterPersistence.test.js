@@ -1,7 +1,6 @@
 'use strict';
 const { test, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { Wallet } = require('ethers');
 const day = '2026-10-28';
 const keys = ['window', 'localStorage', 'document', 'requestIdleCallback', 'FileReader', 'fetch'];
 const original = Object.fromEntries(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
@@ -11,8 +10,7 @@ function memory() {
   return { values, getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), removeItem: key => values.delete(key) };
 }
 let createWater, createRecovery, control, fitness, transport, storage, recovery, water, events;
-const signerWallet = new Wallet('0x' + '44'.repeat(32));
-const signer = { getAddress: () => signerWallet.getAddress(), signMessage: message => signerWallet.signMessage(message) };
+const signer = { getAddress: async () => '0x4444444444444444444444444444444444444444', signMessage: async () => '0x' + '44'.repeat(65) };
 before(async () => {
   global.localStorage = memory();
   global.window = { BIGNUTEN_STORAGE_RELAY_URL: '', ethereum: {}, ethers: { BrowserProvider: class { async getSigner() { return signer; } } }, dispatchEvent: event => events.push(event.type) };

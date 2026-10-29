@@ -2,15 +2,14 @@
 
 const { test, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { Wallet } = require('ethers');
 const { validateFitnessSnapshot } = require('../js/fitnessSchema.js');
 
 const values = new Map();
 const original = Object.fromEntries(['window', 'localStorage', 'fetch', 'requestIdleCallback'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
 
 let transport, lifecycle, PinataProvider, clearEncryptionKeyCache;
-const testWallet = new Wallet('0x' + '33'.repeat(32));
-const testSigner = { getAddress: () => testWallet.getAddress(), signMessage: message => testWallet.signMessage(message) };
+const testWallet = { address: '0x3333333333333333333333333333333333333333', getAddress: async () => '0x3333333333333333333333333333333333333333' };
+const testSigner = { getAddress: testWallet.getAddress, signMessage: async () => '0x' + '33'.repeat(65) };
 const sample = { dataVersion: 1, weightLogs: [], exercises: { entries: [] }, waterDailyHistory: { '2026-10-20': 3 } };
 const reply = (data, status = 200) => ({
   ok: status >= 200 && status < 300, status,
@@ -236,7 +235,7 @@ test('hosted relay authorizes synthetic bytes, then uploads directly without for
   };
   const result = await transport.uploadViaStorageRelay(sample, {
     relayUrl: 'https://relay.example', wallet: '0x1111111111111111111111111111111111111111',
-    signer: { getAddress: () => testWallet.getAddress(), signMessage: async value => { message = value; return value.includes('Nonce:') ? 'synthetic-signature' : testWallet.signMessage(value); } },
+    signer: { getAddress: testWallet.getAddress, signMessage: async value => { message = value; return value.includes('Nonce:') ? 'synthetic-signature' : '0x' + '33'.repeat(65); } },
   });
   assert.equal(result.cid, 'bafyhosted');
   assert.match(message, /Nonce: synthetic-nonce/);
