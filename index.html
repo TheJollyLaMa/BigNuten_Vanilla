@@ -2512,7 +2512,8 @@
               <h3>Challenge escrow asset</h3>
               <label class="gov-label">Stake token address<input id="streak-asset-token" class="gov-input" type="text" placeholder="0x0000000000000000000000000000000000000000 for native ETH" /></label>
               <label class="gov-label">Forfeit/dust treasury address<input id="streak-asset-treasury" class="gov-input" type="text" placeholder="Payable receiver for ETH; matching-token treasury for ERC-20" /></label>
-              <button id="streak-asset-configure-button" class="gov-admin-action-btn" type="button">Configure challenge asset and treasury</button>
+              <p id="streak-asset-capability" role="status" class="gov-admin-hint">Flexible asset settings require verified competition engine version 2.</p>
+              <button id="streak-asset-configure-button" class="gov-admin-action-btn" type="button" disabled>Configure challenge asset and treasury</button>
               <p id="streak-asset-config-status" class="gov-form-status" aria-live="polite"></p>
               <p class="gov-admin-hint">Use the zero address only for native ETH. ERC-20 amounts use that token's on-chain decimals. ERC-20 treasury must report the same token; ETH needs a payable treasury contract. Configuration applies to future challenges only and does not change deployed addresses or existing competitions.</p>
               <label class="gov-label">DecentNFT address

@@ -3,10 +3,17 @@ import { getDateInUserTz, getTodayInUserTz, formatInUserTz } from './timezone.js
 import { uploadViaStorageRelay, uploadIpfsDesktopSnapshot } from './pinataStorage.js';
 import { evaluateStreakRules, validateStreakRules } from './streakRules.mjs';
 import { joinDisclosure, publicCheckinCommitment, renderPayoutExamples } from './streakJourney.mjs';
+import {
+  COMPETITION_ENGINE_VERSION,
+  competitionEngineVersion,
+  handleWeeklyCheckin,
+  legacyCheckinBlockReason,
+} from './streakCheckin.mjs';
 
 const ABI = [
   'function nextCompId() view returns (uint256)',
   'function owner() view returns (address)',
+  'function competitionEngineVersion() view returns (uint8)',
   'function challengeStakeToken() view returns (address)',
   'function challengeTreasury() view returns (address)',
   'function streakAwardNFT() view returns (address)',
@@ -237,6 +244,8 @@ async function renderStreakChallenges() {
       renderAll('<p>The current StreakBet deployment uses legacy peer review. Monthly challenge actions will be enabled after the adaptive-review replacement is deployed.</p>');
       return;
     }
+    const engineVersion = await competitionEngineVersion(contract);
+    const hasV2Features = engineVersion >= COMPETITION_ENGINE_VERSION;
     const wallet = await getWallet();
     const captain = await contract.owner();
     const isCaptain = wallet && wallet.toLowerCase() === captain.toLowerCase();
@@ -322,9 +331,22 @@ async function renderStreakChallenges() {
           return `<li><code>${escapeText(peer.slice(0, 6))}…${escapeText(peer.slice(-4))}</code> · ${attendance.weeklyActivityDays}/${7} qualifying days · ${reviewStatus}${canReview ? `<button data-streak-action="approve" data-comp="${compId}" data-week="${index}" data-peer="${peer}">Confirm</button><button data-streak-action="reject" data-comp="${compId}" data-week="${index}" data-peer="${peer}">Dispute</button>` : ''}${inviteButton}</li>`;
         }));
         const weekly = readActivityProgress(competition, rules, index);
-        const joinCall = entrantIndex && inCall && !ownAttendance?.checkedIn && weekly.weeklyDays >= Number(config.minimumWeeklyLogs) && weekly.weeklyRequirementsMet
-          ? `<label class="streak-public-consent"><input type="checkbox" data-public-stats="${compId}:${index}" /> Publish wallet-linked progress details to public IPFS <small>Includes selected weight/exercise/food details; anyone can read them and pins may persist. If configured, request community-node replication too.</small></label><button data-streak-action="checkin" data-comp="${compId}" data-week="${index}">Check in · confirm ${escapeText(config.meetupGoal)}</button>`
+        const checkinBlock = entrant && !hasV2Features
+          ? legacyCheckinBlockReason({ entrant, attendance: ownAttendance || { checkedIn: false }, competition, config, week: index, progress: weekly })
           : '';
+        const canCheckIn = entrantIndex && inCall && !ownAttendance?.checkedIn &&
+          weekly.weeklyDays >= Number(config.minimumWeeklyLogs) && weekly.weeklyRequirementsMet;
+        const canRecoverReport = entrantIndex && ownAttendance?.checkedIn &&
+          Number(entrant.reportsSubmitted) === index;
+        const checkinAction = canCheckIn && !checkinBlock
+          ? `<label class="streak-public-consent"><input type="checkbox" data-public-stats="${compId}:${index}" /> Publish wallet-linked progress details to public IPFS <small>Includes selected weight/exercise/food details; anyone can read them and pins may persist. If configured, request community-node replication too.</small></label><button data-streak-action="checkin" data-comp="${compId}" data-week="${index}">Check in · confirm ${escapeText(config.meetupGoal)}</button>`
+          : canRecoverReport && !checkinBlock
+            ? `<button data-streak-action="checkin" data-comp="${compId}" data-week="${index}">Recover weekly report ${index + 1}</button>`
+            : '';
+        const checkinNotice = checkinBlock && (canCheckIn || canRecoverReport)
+          ? `<p role="status">${escapeText(checkinBlock)}</p>`
+          : '';
+        const joinCall = `${checkinAction}${checkinNotice}`;
         const meetupLink = meetup.meetingUrl ? `<a href="${escapeText(meetup.meetingUrl)}" target="_blank" rel="noopener noreferrer">Open call</a>` : '';
         const revealCode = isCaptain && !rosterUnavailable && inCall && participantWallets.length
           ? `<button data-streak-action="reveal" data-comp="${compId}" data-week="${index}" data-attendees="${addresses.length}">Confirm call roster and reveal code</button>` : '';
@@ -344,8 +366,12 @@ async function renderStreakChallenges() {
       const joinTerms = !entrantIndex && registrationOpen
         ? `<p>Before joining: ${escapeText(stakeLabel)} stake${asset.native ? '' : ` · token ${escapeText(competition.stakeToken)}`} · minimum ${config.minimumWeeklyLogs} qualifying logs per call week. <a href="${rulesLink}" target="_blank" rel="noopener noreferrer">Read rules source</a> (${escapeText(competition.metadataCID || 'ask captain for missing rules')}). Forfeit or failure to complete pays zero. Third place starts with half principal; remaining bonus weights are 3:2:1, plus 1 per additional finisher. Self/peer attestations are not medical or cryptographic proof. Raw health records stay local unless you explicitly confirm a public IPFS upload. <a href="docs/STREAKBET_JOURNEY.md" target="_blank" rel="noopener noreferrer">Journey, simulation examples and policy caveats</a>.</p>`
         : '';
+      const nativeUnavailable = asset.native && !hasV2Features;
+      const nativeUnavailableNotice = nativeUnavailable
+        ? '<p role="status">Native-ETH streak escrow requires verified engine version 2. This deployed contract does not report that capability; no join transaction is available.</p>'
+        : '';
       const joinButton = joinTerms + (!entrantIndex && registrationOpen
-        ? wallet
+        ? nativeUnavailable ? nativeUnavailableNotice : wallet
           ? `<button class="comp-user-btn comp-join" data-streak-action="join" data-comp="${compId}">Join · ${escapeText(stakeLabel)}</button>`
           : `<button class="comp-user-btn comp-join" data-streak-action="connect" data-comp="${compId}">Connect wallet to join · ${escapeText(stakeLabel)}</button>`
         : '');
@@ -354,20 +380,25 @@ async function renderStreakChallenges() {
       const entrantStatus = entrant
         ? `${entrant.reportsSubmitted}/${competition.totalWeeks} weekly reports · ${entrant.verifiedActivityDays}/${config.requiredActivityDays} tracked days · ${entrant.verifiedMeetups}/${config.requiredMeetups} peer-approved meetups · ${entrant.disqualified ? 'Disqualified' : entrant.status === 1n ? 'Monthly challenge complete' : 'In progress'}`
         : registrationOpen ? wallet ? 'Not enrolled.' : 'Connect your wallet to join.' : 'Not enrolled.';
+      const incompleteLegacyReports = entrant && !hasV2Features && Number(entrant.status) === 1 &&
+        Number(entrant.reportsSubmitted) < Number(competition.totalWeeks);
+      const legacyReportNotice = incompleteLegacyReports
+        ? '<p role="status">This deployed escrow cannot add weekly reports after completion. Existing completion and report counts are shown as confirmed; no further report transaction is offered.</p>'
+        : '';
       const settleButton = isCaptain && Number(competition.status) === 0 && Date.now() / 1000 >= Number(competition.endTime)
         ? `<button data-streak-action="settle" data-comp="${compId}">Settle challenge</button>` : '';
       const participantList = participantWallets.map(account => `<li>${escapeText(account.slice(0, 6))}…${escapeText(account.slice(-4))}</li>`).join('');
-      cards.push(`<article class="comp-card"><header class="comp-card-header"><img class="streak-challenge-art" src="${escapeText(imageUrl)}" alt="" onerror="this.onerror=null;this.src='img/BigNuten.png'" /><h4>${escapeText(competition.name)}</h4><span>${active ? paused ? 'Paused' : registrationOpen ? 'Registration open' : 'Registration closed' : Number(competition.status) === 1 ? 'Settled' : 'Cancelled'}</span></header><div class="comp-card-body"><p>Metrics: ${escapeText(ruleLabel)}</p><p>Challenge: ${config.requiredActivityDays} qualifying days · ${config.requiredMeetups} weekly calls · meetup goal: ${escapeText(config.meetupGoal)}</p><p>Your app progress: ${progress.totalDays} / ${config.requiredActivityDays} days · ${entrantStatus}</p><p>${escapeText(registrationText)}</p><p role="status" data-history-state="${historyState}">History scan: ${historyState}${rosterUnavailable ? ' · cached records may be incomplete; reopen to retry.' : ''}</p><p class="streak-peer-note">Logs stay in your browser unless you explicitly opt to publish a wallet-linked progress report to public IPFS. During the call, share the app progress screen with a peer.</p><details><summary>Joined wallets (${rosterUnavailable ? 'unavailable' : participantWallets.length})</summary><ul>${rosterUnavailable ? '<li>Roster temporarily unavailable.</li>' : participantList || '<li>No entrants yet.</li>'}</ul></details><ol>${cardsForMeetups.join('')}</ol>${joinButton}${cancelButton}${settleButton}</div></article>`);
+      cards.push(`<article class="comp-card"><header class="comp-card-header"><img class="streak-challenge-art" src="${escapeText(imageUrl)}" alt="" onerror="this.onerror=null;this.src='img/BigNuten.png'" /><h4>${escapeText(competition.name)}</h4><span>${active ? paused ? 'Paused' : registrationOpen ? 'Registration open' : 'Registration closed' : Number(competition.status) === 1 ? 'Settled' : 'Cancelled'}</span></header><div class="comp-card-body"><p>Metrics: ${escapeText(ruleLabel)}</p><p>Challenge: ${config.requiredActivityDays} qualifying days · ${config.requiredMeetups} weekly calls · meetup goal: ${escapeText(config.meetupGoal)}</p><p>Your app progress: ${progress.totalDays} / ${config.requiredActivityDays} days · ${entrantStatus}</p>${legacyReportNotice}<p>${escapeText(registrationText)}</p><p role="status" data-history-state="${historyState}">History scan: ${historyState}${rosterUnavailable ? ' · cached records may be incomplete; reopen to retry.' : ''}</p><p class="streak-peer-note">Logs stay in your browser unless you explicitly opt to publish a wallet-linked progress report to public IPFS. During the call, share the app progress screen with a peer.</p><details><summary>Joined wallets (${rosterUnavailable ? 'unavailable' : participantWallets.length})</summary><ul>${rosterUnavailable ? '<li>Roster temporarily unavailable.</li>' : participantList || '<li>No entrants yet.</li>'}</ul></details><ol>${cardsForMeetups.join('')}</ol>${joinButton}${cancelButton}${settleButton}</div></article>`);
     }
     renderAll(cards.length ? cards.join('') : '<p>No monthly challenges are active.</p>');
     targets.forEach(bindStreakActions);
-    if (isCaptain) renderCaptainSetup(contract, isCaptain);
+    if (isCaptain) renderCaptainSetup(contract, isCaptain, hasV2Features);
   } catch (error) {
     renderAll(`<p>${escapeText(error.shortMessage || error.message)}</p>`);
   }
 }
 
-async function renderCaptainSetup(contract, isCaptain) {
+async function renderCaptainSetup(contract, isCaptain, hasV2Features) {
   const panel = node('streak-captain-panel');
   if (!panel || !isCaptain) return;
   panel.hidden = false;
@@ -378,6 +409,14 @@ async function renderCaptainSetup(contract, isCaptain) {
   const status = panel.querySelector('[data-streak-setup-status]');
   const asset = await challengeAsset(token, contract.runner);
   if (status) status.textContent = `Stake asset ${asset.native ? 'ETH (native)' : `${asset.symbol} ${token.slice(0, 6)}…${token.slice(-4)}`} · Treasury ${treasury.slice(0, 6)}…${treasury.slice(-4)} · awards ${nft === ethers.ZeroAddress ? 'not configured' : `${nft.slice(0, 6)}…${nft.slice(-4)}`}`;
+  const assetButton = node('streak-asset-configure-button');
+  if (assetButton) assetButton.disabled = !hasV2Features;
+  const assetCapability = node('streak-asset-capability');
+  if (assetCapability) {
+    assetCapability.textContent = hasV2Features
+      ? 'Verified engine version 2: flexible asset configuration is available for future challenges.'
+      : 'This deployed contract does not report engine version 2. Flexible asset configuration is unavailable here; existing BNUT setup and challenges remain supported.';
+  }
   const assetInput = node('streak-asset-token');
   if (assetInput && !assetInput.value) assetInput.value = token;
   const treasuryInput = node('streak-asset-treasury');
@@ -406,8 +445,96 @@ function bindStreakActions(root) {
         await renderStreakChallenges();
         return;
       }
-      const { account, signer, contract } = await signerContract();
       const reader = await readContract();
+      if (button.dataset.streakAction === 'checkin') {
+        const result = await handleWeeklyCheckin({
+          reader,
+          compId,
+          week,
+          account: await getWallet(),
+          connectSigner: signerContract,
+          onReportConfirmed: async ({ reportCid, account, signer, progressHash }) => {
+            const registryAddress = window.BIGNUTEN_NETWORK_REGISTRY_ADDRESS || window.CONTRACTS?.networkRegistry || '';
+            if (!registryAddress || !ethers.isAddress(registryAddress)) return;
+            try {
+              const registry = new ethers.Contract(registryAddress, NETWORK_REGISTRY_ABI, signer);
+              await (await registry.publishCommunityData(`ipfs://${reportCid}`, progressHash)).wait();
+            } catch (error) {
+              window.alert(`Check-in and weekly report are confirmed, but community-node publication failed: ${error.shortMessage || error.message}`);
+            }
+          },
+          prepareSubmission: async ({ account, competition, config }) => {
+            const code = prompt('Enter the invite code shared during the call:');
+            if (!code) return { cancelled: true };
+            const rules = await loadActivityRules(competition, config);
+            const progress = readActivityProgress(competition, rules, week);
+            if (progress.weeklyDays < Number(config.minimumWeeklyLogs)) throw new Error(`Track ${config.minimumWeeklyLogs} qualifying activity days this week first.`);
+            if (!progress.weeklyRequirementsMet) throw new Error('Complete each configured weekly metric before checking in.');
+            const goalMet = confirm(`Confirm: ${config.meetupGoal}`);
+            if (!goalMet) throw new Error('Confirm the meetup goal before checking in. No transaction was sent.');
+            const meetup = await reader.meetups(compId, week);
+            if (ethers.keccak256(ethers.toUtf8Bytes(code.trim())) !== meetup.codeHash) {
+              throw new Error('The meetup code is incorrect. No transaction was sent.');
+            }
+            const publicCommitment = publicCheckinCommitment({
+              competitionId: compId,
+              meetupWeek: week + 1,
+              wallet: account,
+              qualifyingDays: progress.totalDays,
+              weeklyMetricTotals: progress.weeklyCounts,
+            });
+            const commitmentSalt = ethers.hexlify(crypto.getRandomValues(new Uint8Array(32)));
+            const progressHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify({ ...publicCommitment, commitmentSalt })));
+            const progressReport = {
+              ...publicCommitment,
+              schema: 'bignuten-streak-progress/v1',
+              commitmentSalt,
+              progressHash,
+              publishedAt: new Date().toISOString(),
+              rules: rules.metrics,
+              activityRecords: progress.records,
+            };
+            const shareStats = root.querySelector(`[data-public-stats="${compId}:${week}"]`)?.checked || false;
+            return {
+              inviteCode: code.trim(),
+              progress,
+              goalMet,
+              progressHash,
+              publish: async ({ signer }) => {
+                if (!shareStats) return '';
+                if (!confirm('Public IPFS upload is wallet-linked, may persist indefinitely, and can expose raw health activity records and rules. Continue only if you explicitly consent to publish this data.')) return null;
+                const fileName = `streak-${compId}-week-${week + 1}-${account.slice(2, 10).toLowerCase()}.json`;
+                const uploaded = await uploadViaStorageRelay(progressReport, {
+                  fileName, wallet: account, signer, relayUrl: window.BIGNUTEN_STORAGE_RELAY_URL,
+                });
+                try {
+                  await uploadIpfsDesktopSnapshot(progressReport, { fileName });
+                } catch (error) {
+                  console.warn('[Streak] Local IPFS pin unavailable; Pinata copy is pinned.', error);
+                }
+                return uploaded.cid;
+              },
+            };
+          },
+        });
+        if (!result.cancelled) {
+          window.alert(result.alreadyCheckedIn
+            ? result.alreadyReported
+              ? `Check-in and weekly report ${week + 1} were already confirmed on-chain. No duplicate transactions were sent.`
+              : `Weekly report ${week + 1} was recovered and confirmed on-chain. The existing check-in was not repeated.`
+            : `Check-in and weekly report ${week + 1} are confirmed on-chain.`);
+        }
+        await renderStreakChallenges();
+        return;
+      }
+      if (button.dataset.streakAction === 'join') {
+        const competition = await reader.getCompetition(compId);
+        const asset = await challengeAsset(competition.stakeToken, reader.runner);
+        if (asset.native && (await competitionEngineVersion(reader)) < COMPETITION_ENGINE_VERSION) {
+          throw new Error('This deployed contract does not verify native-ETH streak support. No wallet signature or join transaction was requested.');
+        }
+      }
+      const { account, signer, contract } = await signerContract();
       const competition = await reader.getCompetition(compId);
       const config = await reader.getStreakChallenge(compId);
       if (button.dataset.streakAction === 'join') {
@@ -447,60 +574,6 @@ function bindStreakActions(root) {
         node('streak-meetup-start').focus();
         node('streak-schedule-button').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
-      } else if (button.dataset.streakAction === 'checkin') {
-        const code = prompt('Enter the invite code shared during the call:');
-        if (!code) return;
-        const rules = await loadActivityRules(competition, config);
-        const progress = readActivityProgress(competition, rules, week);
-        if (progress.weeklyDays < Number(config.minimumWeeklyLogs)) throw new Error(`Track ${config.minimumWeeklyLogs} qualifying activity days this week first.`);
-        if (!progress.weeklyRequirementsMet) throw new Error('Complete each configured weekly metric before checking in.');
-        const goalMet = confirm(`Confirm: ${config.meetupGoal}`);
-        const publicCommitment = publicCheckinCommitment({
-          competitionId: compId,
-          meetupWeek: week + 1,
-          wallet: account,
-          qualifyingDays: progress.totalDays,
-          weeklyMetricTotals: progress.weeklyCounts,
-        });
-        const commitmentSalt = ethers.hexlify(crypto.getRandomValues(new Uint8Array(32)));
-        const progressHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify({ ...publicCommitment, commitmentSalt })));
-        const progressReport = {
-          ...publicCommitment,
-          schema: 'bignuten-streak-progress/v1',
-          commitmentSalt,
-          progressHash,
-          publishedAt: new Date().toISOString(),
-          rules: rules.metrics,
-          activityRecords: progress.records,
-        };
-        const shareStats = root.querySelector(`[data-public-stats="${compId}:${week}"]`)?.checked || false;
-        let reportCid = '';
-        if (shareStats) {
-          if (!confirm('Public IPFS upload is wallet-linked, may persist indefinitely, and can expose raw health activity records and rules. Continue only if you explicitly consent to publish this data.')) return;
-          const meetup = await contract.meetups(compId, week);
-          if (ethers.keccak256(ethers.toUtf8Bytes(code.trim())) !== meetup.codeHash) throw new Error('The meetup code is incorrect.');
-          const fileName = `streak-${compId}-week-${week + 1}-${account.slice(2, 10).toLowerCase()}.json`;
-          const uploaded = await uploadViaStorageRelay(progressReport, {
-            fileName, wallet: account, signer, relayUrl: window.BIGNUTEN_STORAGE_RELAY_URL,
-          });
-          reportCid = uploaded.cid;
-          try {
-            await uploadIpfsDesktopSnapshot(progressReport, { fileName });
-          } catch (error) {
-            console.warn('[Streak] Local IPFS pin unavailable; Pinata copy is pinned.', error);
-          }
-        }
-        await (await contract.selfCheckInMeetup(compId, week, code.trim(), progress.totalDays, progress.weeklyDays, goalMet, progressHash)).wait();
-        await (await contract.submitReport(compId, reportCid)).wait();
-        const registryAddress = window.BIGNUTEN_NETWORK_REGISTRY_ADDRESS || window.CONTRACTS?.networkRegistry || '';
-        if (reportCid && registryAddress && ethers.isAddress(registryAddress)) {
-          try {
-            const registry = new ethers.Contract(registryAddress, NETWORK_REGISTRY_ABI, signer);
-            await (await registry.publishCommunityData(`ipfs://${reportCid}`, progressHash)).wait();
-          } catch (error) {
-            window.alert(`Check-in and Pinata report were saved, but community-node publication failed: ${error.shortMessage || error.message}`);
-          }
-        }
       } else if (button.dataset.streakAction === 'invite-reviewer') {
         const reviewer = prompt('Enter the guest reviewer wallet address. They do not need to stake or join the challenge.');
         if (!reviewer) return;
@@ -533,6 +606,10 @@ function inviteCode() {
 function bindStreakAdmin() {
   node('streak-asset-configure-button')?.addEventListener('click', async () => {
     try {
+      const reader = await readContract();
+      if ((await competitionEngineVersion(reader)) < COMPETITION_ENGINE_VERSION) {
+        throw new Error('Flexible asset configuration requires a verified engine version 2. This deployed contract is unchanged; no wallet signature or transaction was requested.');
+      }
       const { contract } = await signerContract();
       const token = node('streak-asset-token').value.trim();
       const treasury = node('streak-asset-treasury').value.trim();

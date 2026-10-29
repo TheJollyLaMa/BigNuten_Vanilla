@@ -72,6 +72,7 @@ describe('StreakBetEscrow competition assets', function () {
   it('settles an ETH streak pot with exact native value, a forfeit, and the existing ranked payout math', async function () {
     const stake = ethers.parseEther('0.01');
     await deployFixture(ethers.ZeroAddress, await nativeTreasury.getAddress());
+    expect(await escrow.competitionEngineVersion()).to.equal(2n);
     const startTime = await createChallenge(ethers.ZeroAddress, stake);
     await time.increaseTo(startTime + 1);
 

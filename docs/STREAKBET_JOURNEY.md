@@ -120,6 +120,43 @@ For issue #161, these existing-source semantics remain a policy boundary:
   result presentation are separate coordinated work and are not claimed by
   this engine change.
 
+## Source versus deployed contract compatibility
+
+The source in this branch reports `competitionEngineVersion() == 2`. The
+currently configured Base address is **not assumed to implement that getter**;
+an absent/reverting getter means the UI treats version-2-only features as
+unavailable. The UI does not probe by sending a transaction. Flexible
+`setChallengeAsset` configuration, native-ETH streak enrollment, and adding a
+weekly report after an entrant is already `Completed` require verified version
+2. They remain unavailable on the current Base deployment unless a read-only
+capability query proves otherwise. This PR does not deploy, change a production
+address, or enable them through client configuration.
+
+The current BNUT path remains usable against the existing Base interface:
+existing challenge token/treasury configuration, BNUT challenge creation and
+join, and weekly reports while the entrant is still `Joined` use the existing
+methods. Version-2 asset controls are visibly disabled when unsupported and
+the handler checks again before requesting a signer. A native-ETH join on a
+legacy deployment is stopped before wallet signing.
+
+Check-in and report are separate transactions, not atomic. After every
+transaction the participant handler rereads `meetupAttendance` and
+`getStreakEntrant`; it reports success only after both check-in and the
+week-ordered `reportsSubmitted` count are confirmed. If check-in mined but
+report failed, retry sees the confirmed check-in, skips it, and submits only the
+missing report with an empty optional proof CID; it does not re-upload or
+re-associate any optional public snapshot from the failed attempt. If the report
+count already covers that week, retry sends neither transaction. A gap in
+earlier report numbers is surfaced rather than
+filled with invented reports. On legacy deployments, an already-completed
+entrant with a missing report, or a solo check-in that would complete before
+its final report, is blocked before signer access with an explicit compatibility
+message; a previously mined check-in is never presented as a complete
+check-in-and-report success.
+
+The disposable local Hardhat fixture exercises version 2 and its post-completion
+report path. This proves source behavior only, not current Base compatibility.
+
 ## Unresolved product decisions (not defaults)
 
 The captain still chooses the live entry stake and schedule; examples do not set

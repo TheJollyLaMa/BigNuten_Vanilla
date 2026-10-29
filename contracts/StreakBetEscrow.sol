@@ -117,8 +117,9 @@ contract MeetupReviewArbiter is IMeetupReviewArbiter {
 // ─── Contract ─────────────────────────────────────────────────────────────────
 
 contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
-
     using SafeERC20 for IERC20;
+
+    uint8 public constant COMPETITION_ENGINE_VERSION = 2;
 
     error InvalidChallengeConfiguration(uint8 reason);
     error InvalidMeetupAction(uint8 reason);
@@ -295,6 +296,10 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
         require(_aavePool == address(0) || _aavePool.code.length > 0, "Escrow: Aave pool has no code");
         aavePool = _aavePool;
         reviewArbiter = IMeetupReviewArbiter(address(new MeetupReviewArbiter(address(this))));
+    }
+
+    function competitionEngineVersion() external pure returns (uint8) {
+        return COMPETITION_ENGINE_VERSION;
     }
 
     // ── Admin: Create Competition ─────────────────────────────────────────────
