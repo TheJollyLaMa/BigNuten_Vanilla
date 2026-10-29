@@ -49,7 +49,8 @@ test('every defaultData key survives real JSON export → clear → import and s
       foods: [{ id: 'synthetic-food', name: 'Apple', grams: 120, time: '08:15', nutr: { calories: 95 } }],
       measurements: [{ id: 'synthetic-measurement', type: 'Waist', measurement: 80, unit: 'cm', date: '2026-10-28', time: '10:00', progressPhotoTaken: true, progressPhotoNote: 'Private photo elsewhere', bodyFatMetricId: 'synthetic-fat' }],
       measurementReminderDismissedOn: '2026-10-27',
-      metricLogs: [{ id: 'synthetic-rhr', metric: 'rhr', value: 62, unit: 'bpm', date: '2026-10-28', time: '10:00', note: 'Resting', source: 'self-reported' }, { id: 'synthetic-fat', metric: 'bodyFat', value: 22.5, unit: '%', date: '2026-10-28', time: '10:00', note: '', source: 'imported' }, ...vitalLogs],
+      metricLogs: [{ id: 'synthetic-rhr', metric: 'rhr', value: 62, unit: 'bpm', date: '2026-10-28', time: '10:00', note: 'Resting', source: 'self-reported' }, { id: 'synthetic-sleep', metric: 'sleep', value: 27000, unit: 's', date: '2026-10-28', time: '07:30', sleepQuality: 8, note: 'Synthetic dream', source: 'self-reported' }, { id: 'synthetic-energy', metric: 'energy', value: 7, unit: 'rating', date: '2026-10-28', time: '10:00', note: '', source: 'self-reported' }, { id: 'synthetic-fat', metric: 'bodyFat', value: 22.5, unit: '%', date: '2026-10-28', time: '10:00', note: '', source: 'imported' }, ...vitalLogs],
+      breathworkSessions: [{ id: 'synthetic-breath', method: 'Box Breathing', pattern: { inhale: 4, holdIn: 4, exhale: 4, holdOut: 4 }, rounds: 2, durationSeconds: 32, notes: 'Synthetic practice', feeling: 'calm', timestamp: '2026-10-28T10:00:00Z' }, { id: 'synthetic-paced-recovery', method: 'Wim Hof-style (paced, no retention) — caution', pattern: { inhale: 2, holdIn: 0, exhale: 2, holdOut: 0 }, protocol: 'paced-recovery', rounds: 1, durationSeconds: 130, notes: 'Synthetic optional practice', feeling: '', timestamp: '2026-10-28T11:00:00Z' }],
       exercises: { types: ['Push-ups', 'Synthetic exercise'], entries: [{ id: 'synthetic-exercise', reps: 6, weight: 10 }] },
       sessionLog: [{ id: 'synthetic-session', start: '2026-10-28T10:00:00Z', end: '2026-10-28T10:01:00Z', durationSeconds: 60, rpe: 7, workoutTypes: ['Push-ups'], recovery: { soreness: true, tightness: false, note: 'Legs sore' } }],
       painLogs: [{ id: 'synthetic-pain', level: 2 }],
@@ -58,6 +59,7 @@ test('every defaultData key survives real JSON export → clear → import and s
       genieSessions: [{ id: 'synthetic-chat', messages: [{ role: 'user', content: 'Synthetic only' }] }],
       genieInsights: [{ id: 'synthetic-insight', text: 'Synthetic only' }],
     };
+    fixture.metricLogs.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
     const keys = Object.keys(defaultData).sort();
     assert.deepEqual(Object.keys(fixture).sort(), keys, 'New schema keys require a populated fixture');
     assert.deepEqual(validateFitnessSnapshot(fixture), fixture);

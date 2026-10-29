@@ -108,7 +108,8 @@ try {
     const page = await context.newPage();
     // Software-rendered canvas plus screenshot capture is slower on CI CPUs.
     page.setDefaultTimeout(30_000);
-    await page.clock.setFixedTime(new Date('2026-10-28T12:00:00Z'));
+    await page.clock.install({ time: new Date('2026-10-28T12:00:00Z') });
+    await page.clock.setSystemTime(new Date('2026-10-28T12:00:00Z'));
     const errors = [], failed = [], unexpected = [], external = new Set();
     page.on('pageerror', error => errors.push(`pageerror: ${error.stack || error.message}`));
     page.on('console', message => { if (message.type() === 'error') errors.push(`console: ${message.text()} ${JSON.stringify(message.location())}`); });
@@ -400,10 +401,67 @@ try {
       assert.deepEqual(vitalLogs.find(log => log.metric === 'bp').value, { systolic: 15998.64, diastolic: 10665.76 });
       assert.equal(vitalLogs.find(log => log.metric === 'bp').unit, 'Pa');
       assert.equal(vitalLogs.find(log => log.metric === 'vo2max').source, 'estimated');
+
+      await page.locator('#metric-picker').selectOption('sleep');
+      await page.locator('#metric-value').fill('7:30');
+      await page.locator('#metric-optional-rating').fill('8');
+      await page.locator('#metric-datetime').fill('2026-10-28T07:30');
+      await page.locator('#metric-note').fill('Synthetic sleep: caffeine and dreams');
+      await click('#metric-log-form button[type="submit"]');
+      assert.match(await page.locator('#metric-status').innerText(), /Reading saved/);
+      assert.match(await page.locator('#metric-history').innerText(), /7:30 h:mm.*quality 8\/10.*caffeine/);
+      assert.match(await page.locator('#metric-summary').innerText(), /7-day reading average 7:30 h:mm/);
+      await page.locator('#metric-picker').selectOption('energy');
+      await page.locator('#metric-value').fill('7');
+      await click('#metric-log-form button[type="submit"]');
+      assert.match(await page.locator('#metric-status').innerText(), /Reading saved/);
+      const sleepEnergy = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).metricLogs);
+      assert.equal(sleepEnergy.find(log => log.metric === 'sleep').value, 27000);
+      assert.equal(sleepEnergy.find(log => log.metric === 'sleep').date, '2026-10-28');
+      assert.equal(sleepEnergy.find(log => log.metric === 'energy').value, 7);
       await page.locator('#metric-picker').selectOption('rhr');
       await click('#heart-breathwork-tab');
       await visible('#heart-breathwork');
-      assert.match(await page.locator('#heart-breathwork').innerText(), /coming in #289/);
+      await page.locator('#breath-rounds').fill('1');
+      await click('#breath-begin');
+      assert.match(await page.locator('#breath-phase').innerText(), /Inhale/);
+      await page.clock.fastForward(4000);
+      await click('#breath-pause');
+      const pausedBreath = await page.locator('#breath-elapsed').innerText();
+      await page.clock.fastForward(3000);
+      assert.equal(await page.locator('#breath-elapsed').innerText(), pausedBreath);
+      await click('#breath-pause');
+      await page.clock.fastForward(12000);
+      assert.equal(await page.locator('#breath-pause').isDisabled(), true);
+      await page.locator('#breath-feeling').selectOption('calm');
+      await page.locator('#breath-notes').fill('Synthetic paced breathing');
+      await click('#breath-save');
+      assert.match(await page.locator('#breath-history').innerText(), /Box Breathing.*1 rounds.*0:16.*calm/);
+      await shot('heart-breathwork-saved');
+      const breaths = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).breathworkSessions);
+      assert.equal(breaths.length, 1); assert.equal(breaths[0].durationSeconds, 16);
+      await click('#breath-begin'); await page.clock.fastForward(2000); await click('#breath-cancel');
+      await page.clock.fastForward(17000);
+      assert.equal(await page.locator('#breath-elapsed').innerText(), '0:00');
+      assert.equal(await page.locator('#breath-save').isDisabled(), true);
+      await click('#breath-begin'); await page.clock.fastForward(2000);
+      await click('#heart-modal-close'); await page.clock.fastForward(17000);
+      await click('#chakra-heart');
+      assert.equal(await page.locator('#breath-elapsed').innerText(), '0:00');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).breathworkSessions.length), 1);
+      assert.equal(await page.locator('#breath-method option[value="wim"]').count(), 0);
+      await click('#breath-show-advanced');
+      await page.locator('#breath-method').selectOption('wim');
+      assert.equal(await page.locator('#breath-ack').isChecked(), false);
+      assert.equal(await page.locator('#breath-begin').isDisabled(), true, 'Advanced practice cannot start without acknowledgement');
+      await page.locator('#breath-begin').dispatchEvent('click');
+      assert.match(await page.locator('#breath-status').innerText(), /Acknowledge/);
+      await page.locator('#breath-ack').check();
+      await click('#breath-begin'); await page.clock.fastForward(2000);
+      await click('#breath-cancel');
+      assert.equal(await page.locator('#breath-ack').isChecked(), false);
+      assert.equal(await page.locator('#breath-method option[value="wim"]').count(), 0);
+      console.log(`${name}: sleep/energy canonical logs and guided breathwork pause/complete/cancel/close persisted correctly`);
       await click('#heart-vitals-tab');
       await visible('#metric-history');
       await shot('heart-rhr-history');
@@ -519,6 +577,12 @@ try {
       await click('#graph-icon');
       await click('[data-series="metric:rhr"]');
       assert.equal(await page.locator('#correlationChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.some(series => /Resting heart rate/.test(series.label) && series.data.some(point => point.y === 62))), true);
+      await click('[data-series="metric:sleep"]');
+      await click('[data-series="metric:energy"]');
+      assert.equal(await page.locator('#correlationChart').evaluate(canvas => {
+        const datasets = Chart.getChart(canvas).data.datasets;
+        return datasets.some(series => /Sleep duration/.test(series.label) && series.data.some(point => point.y === 7.5)) && datasets.some(series => /Daily energy/.test(series.label) && series.data.some(point => point.y === 7));
+      }), true);
       await click('#correlation-graph-modal .modal-close');
       for (const [id, trigger] of [
         ['bnut-admin-modal', '#admin-bnut-btn'], ['treasury-admin-modal', '#admin-treasury-btn'],
@@ -575,6 +639,7 @@ try {
       await click('#yoga-genie-chat-close');
       await click('#yoga-close-btn');
       if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
+      await page.clock.setSystemTime(new Date('2026-10-28T12:00:00Z'));
       await page.clock.pauseAt(new Date('2026-10-28T12:00:00Z'));
       // Earlier fixtures freeze Date with setFixedTime; elapsed timers need
       // Date to advance alongside the paused, manually stepped clock.

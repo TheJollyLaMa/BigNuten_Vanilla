@@ -9749,3 +9749,12 @@ svg text {
 #workout-session-review input:disabled { color: #b6c8cf; opacity: 1; }
 #workout-session-review button { color: #001a20; background: #00e5ff; border: 0; border-radius: 0.3rem; padding: 0.5rem; margin-top: 0.5rem; }
 #workout-session-review input[type="checkbox"] { accent-color: #00e5ff; }
+
+/* Heart breathwork panel: phase scale is driven by the single practice timer. */
+#heart-breathwork .breath-guide { width: 150px; height: 150px; margin: 32px auto; border: 2px solid #42d68b; border-radius: 50%; display: grid; place-items: center; background: #12392d; box-shadow: 0 0 22px #42d68b66; transition: transform 200ms linear, background-color 200ms; }
+#heart-breathwork .breath-guide.hold { background: #e8fff1; color: #10251c; }
+#heart-breathwork .breath-guide.exhale { background: #164b70; border-color: #66bbff; }
+#heart-breathwork .breath-guide.hold-out { background: #16211e; }
+#heart-breathwork .breath-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+#heart-breathwork #breath-history { max-height: 240px; overflow-y: auto; overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) { #heart-breathwork .breath-guide { transform: none !important; transition: none; } }

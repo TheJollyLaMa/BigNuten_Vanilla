@@ -2,6 +2,7 @@
 // Provides a mindful yoga session with pose visuals, Sanskrit/Devanagari names,
 // breathing animations, and automatic session logging.
 
+import { BREATH_PHASES, YOGA_BREATH_PATTERN } from './breathwork.js';
 import { ensureGenieHostedConsent, hasGenieHostedConsent } from './geniePrivacy.js';
 import { getFitnessData, saveFitnessData } from './fitnessData.js';
 import {
@@ -500,12 +501,7 @@ function startBreathAnimation(color = '#ffd700') {
   aura.style.setProperty('--aura-color', color);
   stopBreathAnimation();
 
-  const phases = [
-    { text: 'Inhale…', class: 'inhale', duration: 4000 },
-    { text: 'Hold…',   class: 'hold',   duration: 2000 },
-    { text: 'Exhale…', class: 'exhale', duration: 6000 },
-    { text: 'Hold…',   class: 'hold',   duration: 2000 }
-  ];
+  const phases = BREATH_PHASES.map(phase => ({ text: `${phase.label}…`, class: phase.class === 'hold-out' ? 'hold' : phase.class, duration: YOGA_BREATH_PATTERN[phase.key] * 1000 }));
   let phaseIndex = 0;
   function runPhase() {
     const phase = phases[phaseIndex % phases.length];

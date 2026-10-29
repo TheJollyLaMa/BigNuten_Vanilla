@@ -12,6 +12,8 @@ import { chantingScore } from './chantingStats.js';
  *   refreshChakraAura() — call after any data save to detect activations
  */
 
+import { localPracticeDay } from './breathwork.js';
+
 // ── Chakra configuration ──────────────────────────────────────────────────
 const CHAKRA_CONFIG = [
   {
@@ -50,9 +52,9 @@ const CHAKRA_CONFIG = [
     emoji: '💚',
     color: '#00ff88',
     topPct: 30,
-    activeDesc: 'Emotion — logged today ✅',
-    partialDesc: 'Emotion — logged recently 🌀',
-    dormantDesc: 'Emotion — not logged today',
+    activeDesc: 'Emotion or breathwork — logged today ✅',
+    partialDesc: 'Emotion or breathwork — logged recently 🌀',
+    dormantDesc: 'Emotion or breathwork — not logged today',
   },
   {
     id: 'emotion-icon',
@@ -243,7 +245,13 @@ export function computeChakraScores() {
 
   // ── Heart: emotion logged today ──────────────────────────────────────────
   const heartScore = (() => {
+    const sessions = data.breathworkSessions || [];
+    const validSessions = sessions.filter(s => Number.isFinite(Date.parse(s.timestamp)) && Date.parse(s.timestamp) <= now);
+    if (validSessions.some(s => localPracticeDay(s.timestamp) === localPracticeDay(now))) return 1.0;
+    const cutoff7d = now - 7 * 86400000;
+    const practicedRecently = validSessions.some(s => Date.parse(s.timestamp) >= cutoff7d);
     const emotions = data.emotions || [];
+    if (practicedRecently) return Math.max(0.5, emotions.some(e => (e.timestamp || '').startsWith(today)) ? 1 : 0);
     if (emotions.some(e => (e.timestamp || '').startsWith(today))) return 1.0;
     const cutoff3d = new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString();
     if (emotions.some(e => (e.timestamp || '') >= cutoff3d)) return 0.5;
@@ -347,6 +355,12 @@ export function celebrateChantingCompletion() {
     el.animate([{ filter: 'drop-shadow(0 0 0 #68caff)' }, { filter: 'drop-shadow(0 0 16px #68caff)' },
       { filter: 'drop-shadow(0 0 0 #68caff)' }], { duration: 700 });
   }
+}
+
+export function celebrateBreathworkCompletion() {
+  if (!isChakraAuraEnabled()) return;
+  const heart = document.getElementById('chakra-heart');
+  if (heart) spawnSparks(heart, '#00ff88');
 }
 
 // ── State application ─────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 // fitnessData.js
 
+import { getMetric } from './metrics.js';
 import { fetchSnapshotData } from './ipfsStorage.js';
 import { getTodayInUserTz } from './timezone.js';
 import { syncWaterCaches } from './waterIntake.js';
@@ -151,7 +152,7 @@ export function mergeSnapshotData(current, imported) {
   const merged = { ...current, dataVersion: 1, timeZone: current.timeZone || imported.timeZone || '', measurementReminderDismissedOn: [current.measurementReminderDismissedOn || '', imported.measurementReminderDismissedOn || ''].sort().at(-1) };
 
   // Preserve distinct records even if they share a timestamp.
-  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights'];
+  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'breathworkSessions', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights'];
   simpleArrayFields.forEach(field => {
     const a = Array.isArray(current[field]) ? current[field] : [];
     const b = Array.isArray(imported[field]) ? imported[field] : [];
@@ -166,7 +167,16 @@ export function mergeSnapshotData(current, imported) {
     });
     const sortTime = entry => field === 'metricLogs' ? `${entry.date}T${entry.time}` : entry.timestamp || entry.date || '';
     combined.sort((x, y) => sortTime(x).localeCompare(sortTime(y)));
-    merged[field] = combined;
+    if (field === 'metricLogs') {
+      const days = new Set();
+      const currentIds = new Set(a.map(entry => entry.id));
+      merged[field] = [...combined].sort((x, y) => Number(currentIds.has(y.id)) - Number(currentIds.has(x.id))).filter(entry => {
+        if (getMetric(entry.metric).multiplePerDay) return true;
+        const key = `${entry.metric}:${entry.date}`;
+        if (days.has(key)) return false;
+        days.add(key); return true;
+      }).sort((x, y) => sortTime(x).localeCompare(sortTime(y)));
+    } else merged[field] = combined;
   });
 
   merged.waterDailyHistory = {

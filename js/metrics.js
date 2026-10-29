@@ -112,6 +112,21 @@ export const METRIC_REGISTRY = [
     safetyNotice: 'Not medical advice. Optional manual reading, not a diagnosis. Methods and devices vary; compare readings from the same method. No calculated estimate is provided. No universal reference band: interpretation varies with age, sex and measurement method.',
     multiplePerDay: true,
   },
+  {
+    id: 'sleep', label: 'Sleep duration', canonicalUnit: 's',
+    displayUnits: { imperial: displayUnit('h', 3600), metric: displayUnit('h', 3600) },
+    range: [0, 86400], input: { type: 'text', format: 'duration' }, chartType: 'bar',
+    safetyNotice: 'Not medical advice. Attribute each night to its local wake date and time, not bedtime. Duration alone does not measure recovery; longer is not always better. Discuss persistent sleep problems with a clinician.',
+    multiplePerDay: false,
+    optionalRating: { key: 'sleepQuality', label: 'Sleep quality (optional, 1–10)', range: [1, 10] },
+  },
+  {
+    id: 'energy', label: 'Daily energy', canonicalUnit: 'rating',
+    displayUnits: { imperial: displayUnit('1–10'), metric: displayUnit('1–10') },
+    range: [1, 10], input: { type: 'number', step: 1 }, integer: true, chartType: 'line',
+    safetyNotice: 'Not medical advice. Subjective daily energy: 1 = very low, 10 = very high. Missing days are not zero. Discuss persistent fatigue with a clinician.',
+    multiplePerDay: false,
+  },
 ];
 
 export function getMetric(id) {
@@ -127,6 +142,19 @@ export function metricFields(metric) {
 
 export function getDisplayUnit(metric, system = 'imperial') {
   return metric.displayUnits[system] || metric.displayUnits.imperial;
+}
+
+export function parseSleepDuration(text) {
+  if (typeof text !== 'string' || !/^\d{1,2}:[0-5]\d$/.test(text)) throw new Error('Enter sleep duration as h:mm.');
+  const [hours, minutes] = text.split(':').map(Number);
+  const seconds = hours * 3600 + minutes * 60;
+  if (seconds > 86400) throw new Error('Sleep duration must be at most 24:00.');
+  return seconds;
+}
+
+export function formatSleepDuration(seconds) {
+  const minutes = Math.round(seconds / 60);
+  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
 export function toCanonical(value, definition, system = 'imperial') {
@@ -152,7 +180,7 @@ export function validateMetricValue(metric, value) {
       Object.keys(value).length !== fields.length)) throw new Error('Invalid compound reading.');
   for (const field of fields) {
     const number = field.key === null ? value : value[field.key];
-    if (typeof number !== 'number' || !Number.isFinite(number) || number < field.range[0] || number > field.range[1]) {
+    if (typeof number !== 'number' || !Number.isFinite(number) || number < field.range[0] || number > field.range[1] || (field.integer && !Number.isInteger(number))) {
       throw new Error(`${field.label}: enter ${field.range[0]}–${field.range[1]} ${metric.canonicalUnit}.`);
     }
   }
@@ -168,6 +196,10 @@ export function validateMetricLog(entry) {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error('Invalid metric log.');
   const metric = getMetric(entry.metric);
   validateMetricValue(metric, entry.value);
+  if (metric.optionalRating && entry[metric.optionalRating.key] !== undefined) {
+    const rating = entry[metric.optionalRating.key];
+    if (!Number.isInteger(rating) || rating < metric.optionalRating.range[0] || rating > metric.optionalRating.range[1]) throw new Error('Invalid optional quality rating.');
+  }
   if (entry.unit !== metric.canonicalUnit) throw new Error('Metric logs must use canonical units.');
   const date = typeof entry.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.date)
     ? new Date(`${entry.date}T12:00:00Z`) : new Date(NaN);

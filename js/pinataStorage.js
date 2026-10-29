@@ -169,7 +169,7 @@ const FITNESS_SNAPSHOT_KEYS = new Set([
   'supplements', 'supplementLogs', 'supplementHistory', 'foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods',
   'measurements', 'measurementLogs', 'bodyMeasurements', 'exercises', 'exerciseLogs', 'workoutExercises',
   'sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog', 'painLogs', 'painLog', 'chantingSessions', 'emotions',
-  'emotionLogs', 'feelings', 'genieSessions', 'genieInsights', '__bignutenSnapshot',
+  'emotionLogs', 'feelings', 'metricLogs', 'breathworkSessions', 'genieSessions', 'genieInsights', '__bignutenSnapshot',
   'data', 'fitnessData', 'fitnessTrackerData', 'bignutenData', 'BigNutenData', 'payload', 'backup', 'snapshot',
 ]);
 

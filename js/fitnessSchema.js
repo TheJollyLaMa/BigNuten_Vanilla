@@ -1,3 +1,4 @@
+import { normalizeBreathSessions } from './breathwork.js';
 import { normalizeMetricLogs } from './metrics.js';
 import { normalizeWorkoutSession, normalizeMeasurement, measurementDayNumber } from './workoutBody.js';
 
@@ -25,6 +26,7 @@ export const defaultData = {
   measurements: [],
   measurementReminderDismissedOn: '',
   metricLogs: [],
+  breathworkSessions: [],
   exercises: {
     types: DEFAULT_EXERCISE_TYPES,
     entries: []
@@ -144,6 +146,8 @@ export function normalizeFitnessData(data) {
   normalized.waterDailyHistory = coerceObject(source, ['waterDailyHistory', 'waterHistory']);
   normalized.supplements = coerceArray(source, ['supplements', 'supplementLogs', 'supplementHistory']);
   normalized.foods = normalizeFoodEntries(coerceArray(source, ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods']));
+
+  normalized.breathworkSessions = normalizeBreathSessions(source.breathworkSessions);
   normalized.metricLogs = normalizeMetricLogs(source.metricLogs);
   normalized.measurements = coerceArray(source, ['measurements', 'measurementLogs', 'bodyMeasurements']).map(normalizeMeasurement);
   normalized.measurementReminderDismissedOn = source.measurementReminderDismissedOn ?? '';
@@ -178,7 +182,7 @@ export function validateFitnessSnapshot(raw) {
     ['weightLogs', 'weightHistory', 'weights'], ['supplements', 'supplementLogs', 'supplementHistory'],
     ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods'], ['measurements', 'measurementLogs', 'bodyMeasurements'],
     ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog'], ['painLogs', 'painLog'],
-    ['emotions', 'emotionLogs', 'feelings'], ['metricLogs'], ['genieSessions'], ['genieInsights'], ['chantingSessions'],
+    ['emotions', 'emotionLogs', 'feelings'], ['metricLogs'], ['breathworkSessions'], ['genieSessions'], ['genieInsights'], ['chantingSessions'],
   ];
   const known = arrays.flat().concat(['waterDailyHistory', 'waterHistory', 'exercises', 'exerciseLogs', 'workoutExercises']);
   if (!known.some(key => Object.hasOwn(source, key))) throw new Error('Invalid snapshot: missing supported records.');
