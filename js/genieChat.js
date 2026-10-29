@@ -29,6 +29,12 @@ import { METRIC_REGISTRY } from './metrics.js';
  */
 
 import { geniePrivacyNotice, hasGenieHostedConsent, ensureGenieHostedConsent } from './geniePrivacy.js';
+import {
+  buildCommunityGuidePrompt,
+  buildCommunityTourText,
+  buildChallengeCoachAnswer,
+  isCommunityCoachQuestion,
+} from './communityGuide.mjs';
 
 import {
   saveSessionMessages, loadSessionMessages, clearSessionMessages,
@@ -199,7 +205,10 @@ export function getGenieBackend() {
 export function setGenieBackend(backend) {
   localStorage.setItem(LS_BACKEND, backend);
   document.dispatchEvent(new CustomEvent('genie-backend-changed', { detail: backend }));
-  document.querySelectorAll('.genie-chat-hint').forEach(hint => { hint.innerHTML = _buildGenieHint(); });
+  document.querySelectorAll('.genie-chat-hint').forEach(hint => {
+    const mode = hint.closest('.genie-chat-window')?.querySelector('.genie-mode-selector')?.value || 'health';
+    hint.innerHTML = _buildGenieHint(mode);
+  });
   // Force WebLLM engine reset if switching away from it and back
   if (backend !== 'webllm') {
     _engine        = null;
@@ -533,8 +542,12 @@ function _makeResizable(win, panel) {
   }, { passive: false });
 }
 
-function _buildGenieHint() {
+function _buildGenieHint(mode = 'health') {
   const backend = getGenieBackend();
+  if (mode === 'community') {
+    const provider = backend === 'webllm' ? '🔒 Local WebLLM' : '☁️ Hosted AI';
+    return `${provider} — community text only; no health logs or Genie memory`;
+  }
   const hints = {
     'webllm':        '🔒 Local &amp; private — powered by WebLLM',
     'github-models': '⭐ GitHub Models — health context sent only with permission',
@@ -573,6 +586,16 @@ function _buildChatWindow(panel) {
         <button class="genie-chat-close" aria-label="Close genie chat">✕</button>
       </div>
     </div>
+    <div class="genie-community-controls">
+      <label for="genie-mode-${panel.id}">Mode</label>
+      <select id="genie-mode-${panel.id}" class="genie-mode-selector" aria-label="Genie mode">
+        <option value="health">Health companion</option>
+        <option value="community">Community guide</option>
+      </select>
+      <button type="button" class="genie-guide-tour">Offline guide tour</button>
+      <button type="button" class="genie-coach-today">Ask challenge coach</button>
+      <p class="genie-community-note" role="status" hidden></p>
+    </div>
     <div class="genie-category-panel" id="genie-cats-panel-${panel.id}" hidden>
       <div class="genie-cat-header">
         <span>📂 Context Data</span>
@@ -606,32 +629,89 @@ function _buildChatWindow(panel) {
     _closeChatWindow(panel.id);
   });
 
+  const modeSelect = win.querySelector('.genie-mode-selector');
+  const modeNote = win.querySelector('.genie-community-note');
+  const categoryPanel = win.querySelector('.genie-category-panel');
+  const dataToggle = win.querySelector('.genie-chat-data-toggle');
+  const memoryFooter = win.querySelector('.genie-chat-memory-footer');
+  const chatInput = win.querySelector('.genie-chat-input');
+  const messages = win.querySelector('.genie-chat-messages');
+  const setMode = mode => {
+    const community = mode === 'community';
+    dataToggle.disabled = community;
+    categoryPanel.hidden = true;
+    modeNote.hidden = !community;
+    modeNote.textContent = community
+      ? 'Community Guide sends no health logs or Genie memory by default. The offline tour works without a model.'
+      : '';
+    memoryFooter.hidden = community;
+    chatInput.placeholder = community
+      ? 'Ask about challenges, reviews, issues, privacy…'
+      : 'Ask your Genie…';
+    const hint = win.querySelector('.genie-chat-hint');
+    hint.innerHTML = _buildGenieHint(mode);
+    messages.replaceChildren();
+    if (community) {
+      _appendMessage(messages, 'genie', 'Community Guide is ready. Ask a read-only challenge question or open the offline tour; no wallet action will be taken.', panel.id, false, 'community');
+    } else {
+      const savedMessages = _panelMessages.get(panel.id) || loadSessionMessages(panel.id);
+      if (savedMessages.length) {
+        _panelMessages.set(panel.id, [...savedMessages]);
+        savedMessages.forEach(message => _appendMessage(messages, message.role, message.text, panel.id, true, 'health'));
+      } else {
+        _appendMessage(messages, 'genie', _getWelcomeMessage(panel.id), panel.id, false, 'health');
+      }
+    }
+  };
+  modeSelect.addEventListener('change', () => setMode(modeSelect.value));
+
+  win.querySelector('.genie-guide-tour').addEventListener('click', () => {
+    modeSelect.value = 'community';
+    setMode('community');
+    _appendMessage(messages, 'genie', buildCommunityTourText(), panel.id, false, 'community');
+  });
+
+  win.querySelector('.genie-coach-today').addEventListener('click', () => {
+    modeSelect.value = 'community';
+    setMode('community');
+    chatInput.value = 'What do I need to do today?';
+    chatInput.focus();
+  });
+
   // Clear chat — wipes sessionStorage for this panel only
   win.querySelector('.genie-chat-clear').addEventListener('click', (e) => {
     e.stopPropagation();
+    if (modeSelect.value === 'community') {
+      messages.replaceChildren();
+      _appendMessage(messages, 'genie', 'Community conversation cleared. The offline guide tour remains available.', panel.id, false, 'community');
+      return;
+    }
     _panelMessages.delete(panel.id);
     clearSessionMessages(panel.id);
-    const messagesEl = win.querySelector('.genie-chat-messages');
-    messagesEl.innerHTML = '';
-    _appendMessage(messagesEl, 'genie', _getWelcomeMessage(panel.id));
+    messages.replaceChildren();
+    _appendMessage(messages, 'genie', _getWelcomeMessage(panel.id), panel.id, false, 'health');
     _updateMemoryFooter(win);
   });
 
   // New conversation — triggers summary generation then clears
   win.querySelector('.genie-chat-new').addEventListener('click', async (e) => {
     e.stopPropagation();
+    if (modeSelect.value === 'community') {
+      messages.replaceChildren();
+      _appendMessage(messages, 'genie', 'Community conversation cleared. No Genie memory was created.', panel.id, false, 'community');
+      return;
+    }
     await _generateSessionSummary(panel.id);
     _panelMessages.delete(panel.id);
     clearSessionMessages(panel.id);
-    const messagesEl = win.querySelector('.genie-chat-messages');
-    messagesEl.innerHTML = '';
-    _appendMessage(messagesEl, 'genie', _getWelcomeMessage(panel.id));
+    messages.replaceChildren();
+    _appendMessage(messages, 'genie', _getWelcomeMessage(panel.id), panel.id, false, 'health');
     _updateMemoryFooter(win);
   });
 
   // ── Category panel toggle + events ──────────────────────────────────────
-  const catPanel = win.querySelector('.genie-category-panel');
-  win.querySelector('.genie-chat-data-toggle').addEventListener('click', (e) => {
+  const catPanel = categoryPanel;
+  dataToggle.addEventListener('click', (e) => {
     e.stopPropagation();
     const isHidden = catPanel.hidden;
     catPanel.hidden = !isHidden;
@@ -668,7 +748,7 @@ function _buildChatWindow(panel) {
   });
 
   const sendBtn    = win.querySelector('.genie-chat-send');
-  const inputEl    = win.querySelector('.genie-chat-input');
+  const inputEl    = chatInput;
   const messagesEl = win.querySelector('.genie-chat-messages');
   const statusEl   = win.querySelector('.genie-chat-status');
 
@@ -686,7 +766,7 @@ function _buildChatWindow(panel) {
     _panelMessages.set(panel.id, [...saved]);
     saved.forEach(msg => _appendMessage(messagesEl, msg.role, msg.text, panel.id, true));
   } else {
-    _appendMessage(messagesEl, 'genie', _getWelcomeMessage(panel.id));
+    _appendMessage(messagesEl, 'genie', _getWelcomeMessage(panel.id), panel.id, false, 'health');
   }
 
   return win;
@@ -706,20 +786,21 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
   const text = inputEl.value.trim();
   if (!text) return;
 
+  const win = document.querySelector(`.genie-chat-window[data-panel="${panelId}"]`);
+  const mode = win?.querySelector('.genie-mode-selector')?.value || 'health';
   inputEl.value    = '';
   inputEl.disabled = true;
 
-  const win     = document.querySelector(`.genie-chat-window[data-panel="${panelId}"]`);
   const sendBtn = win ? win.querySelector('.genie-chat-send') : null;
   if (sendBtn) sendBtn.disabled = true;
 
-  _appendMessage(messagesEl, 'user', text, panelId);
+  _appendMessage(messagesEl, 'user', text, panelId, false, mode);
 
   try {
     const backend = getGenieBackend();
 
     // Only load WebLLM engine if using local backend
-    if (backend === 'webllm') {
+    if (backend === 'webllm' && !(mode === 'community' && isCommunityCoachQuestion(text))) {
       const modelId   = getGenieModelId();
       const modelMeta = GENIE_MODELS[modelId] || GENIE_MODELS[DEFAULT_MODEL_ID];
       const sizeDesc  = modelMeta.sizeDesc;
@@ -731,8 +812,12 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
     }
 
     statusEl.textContent = '🧞 Thinking…';
-    const reply = await chatWithGenie(text, panelId, statusEl);
-    _appendMessage(messagesEl, 'genie', reply, panelId);
+    const reply = await chatWithGenie(text, panelId, statusEl, { mode });
+    if (mode === 'community' && reply && typeof reply === 'object') {
+      _appendCommunityMessage(messagesEl, reply);
+    } else {
+      _appendMessage(messagesEl, 'genie', reply, panelId, false, mode);
+    }
     statusEl.textContent = '';
   } catch (err) {
     console.error('[GenieChat]', err);
@@ -753,13 +838,13 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
  * @param {string} [panelId] - Panel ID for persistence tracking.
  * @param {boolean} [isRestore=false] - True when restoring from sessionStorage (skip re-saving).
  */
-function _appendMessage(messagesEl, role, text, panelId, isRestore = false) {
+function _appendMessage(messagesEl, role, text, panelId, isRestore = false, mode = 'health') {
   const div = document.createElement('div');
   div.className = `genie-msg genie-msg-${role}`;
   div.textContent = text;
 
   // Add 📌 pin button for genie messages (Tier 3)
-  if (role === 'genie') {
+  if (role === 'genie' && mode === 'health') {
     const pinBtn = document.createElement('button');
     pinBtn.className = 'genie-pin-btn';
     pinBtn.setAttribute('aria-label', 'Pin this insight');
@@ -776,11 +861,33 @@ function _appendMessage(messagesEl, role, text, panelId, isRestore = false) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
   // Track messages for Tier 1 persistence (skip errors and restores)
-  if (panelId && role !== 'error' && !isRestore) {
+  if (panelId && role !== 'error' && !isRestore && mode === 'health') {
     if (!_panelMessages.has(panelId)) _panelMessages.set(panelId, []);
     _panelMessages.get(panelId).push({ role, text });
     saveSessionMessages(panelId, _panelMessages.get(panelId));
   }
+}
+
+function _appendCommunityMessage(messagesEl, answer) {
+  const div = document.createElement('div');
+  div.className = 'genie-msg genie-msg-genie';
+  const text = document.createElement('p');
+  text.textContent = answer.text;
+  div.appendChild(text);
+  for (const link of answer.links || []) {
+    if (!/^#[-\w]+$/.test(link.href) && !/^https:\/\//i.test(link.href)) continue;
+    const anchor = document.createElement('a');
+    anchor.href = link.href;
+    anchor.textContent = link.label;
+    if (link.external) {
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+    }
+    anchor.className = 'genie-community-link';
+    div.appendChild(anchor);
+  }
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1270,7 +1377,22 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
 // Chat logic (with BigNuten context injection)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function chatWithGenie(userMessage, panelId, statusEl) {
+export async function chatWithGenie(userMessage, panelId, statusEl, options = {}) {
+  if (options.mode === 'community') {
+    if (isCommunityCoachQuestion(userMessage)) {
+      if (statusEl) statusEl.textContent = 'Reading public challenge state only…';
+      let state;
+      try {
+        const { getCommunityCoachState } = await import('./streakCompetitions.js');
+        state = await getCommunityCoachState();
+      } catch {
+        state = { available: false };
+      }
+      return buildChallengeCoachAnswer(userMessage, state);
+    }
+    return _chatWithCommunityGuide(userMessage, statusEl);
+  }
+
   // Short-circuit meta-questions about the assistant's data source — these need
   // no data block and would otherwise hit the same token budget as any other query.
   if (META_QUESTION_RE.test(userMessage)) {
@@ -1313,7 +1435,7 @@ export async function chatWithGenie(userMessage, panelId, statusEl) {
     : '(no data logged yet)';
 
   const memory = _buildMemoryContext();
-  const systemPrompt = _buildSystemPromptText(contextBlock, trimmed, targetDate, memory);
+  const systemPrompt = buildHealthCompanionPrompt(contextBlock, trimmed, targetDate, memory);
   const fullTokenEst = _estimateTokens(systemPrompt) + _estimateTokens(userMessage);
 
   if (fullTokenEst > contextTokens - TOKEN_RESERVE_REPLY - 300) {
@@ -1347,13 +1469,42 @@ export async function chatWithGenie(userMessage, panelId, statusEl) {
   return _chatViaWebLLM(messages, statusEl);
 }
 
+async function _chatWithCommunityGuide(userMessage, statusEl) {
+  const backend = getGenieBackend();
+  const modelMeta = ALL_HOSTED_MODELS.find(model => model.value === getGenieHostedModelName());
+  const contextTokens = backend === 'webllm'
+    ? (GENIE_MODELS[getGenieModelId()]?.contextTokens ?? 4_096)
+    : (modelMeta?.contextTokens || HOSTED_CONTEXT_TOKENS);
+  const systemPrompt = buildCommunityGuidePrompt(userMessage);
+  const fullTokenEst = _estimateTokens(systemPrompt) + _estimateTokens(userMessage);
+  if (fullTokenEst > contextTokens - TOKEN_RESERVE_REPLY - 300) {
+    return '⚠️ This question is too long for the selected model context. The offline guide tour remains available without a model.';
+  }
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userMessage },
+  ];
+  const categories = ['Shared Community Guide text', 'Your message'];
+  const action = await ensureGenieHostedConsent(backend, categories, undefined, 'community');
+  if (action === 'local') {
+    setGenieBackend('webllm');
+    return '🔒 Switched to local WebLLM. Nothing was sent. Send your question again to use the local model, or open the offline guide tour.';
+  }
+  if (action !== 'allow' || getGenieBackend() !== backend) return 'Request cancelled. Nothing was sent.';
+
+  if (backend === 'github-models') return _chatViaGitHubModels(messages, statusEl, 'community');
+  if (backend === 'openai') return _chatViaOpenAI(messages, statusEl, 'community');
+  return _chatViaWebLLM(messages, statusEl);
+}
+
 /**
  * Send messages to GitHub Models (OpenAI-compatible endpoint).
  * Uses the user's GitHub PAT (Personal Access Token) with models:read scope.
  * Key is read from localStorage — never hardcoded.
  */
-async function _chatViaGitHubModels(messages, statusEl) {
-  if (!hasGenieHostedConsent('github-models')) throw new Error('Hosted health-context permission required.');
+async function _chatViaGitHubModels(messages, statusEl, scope = 'health') {
+  if (!hasGenieHostedConsent('github-models', scope)) throw new Error(`Hosted ${scope}-context permission required.`);
   const key = getGenieApiKey();
   if (!key) {
     throw new Error(
@@ -1411,8 +1562,8 @@ async function _chatViaGitHubModels(messages, statusEl) {
  * Send messages to OpenAI API directly.
  * Key is read from localStorage — never hardcoded.
  */
-async function _chatViaOpenAI(messages, statusEl) {
-  if (!hasGenieHostedConsent('openai')) throw new Error('Hosted health-context permission required.');
+async function _chatViaOpenAI(messages, statusEl, scope = 'health') {
+  if (!hasGenieHostedConsent('openai', scope)) throw new Error(`Hosted ${scope}-context permission required.`);
   const key = getGenieApiKey();
   if (!key) {
     throw new Error(
@@ -1489,8 +1640,14 @@ function _buildMemoryContext() {
   return { text: blocks.map(([, text]) => text).join('\n\n'), categories: blocks.map(([category]) => category) };
 }
 
-function _buildSystemPromptText(contextBlock, trimmed, targetDate = null, memory = _buildMemoryContext()) {
-  const now = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+export function buildHealthCompanionPrompt(
+  contextBlock,
+  trimmed,
+  targetDate = null,
+  memory = { text: '' },
+  nowDate = new Date(),
+) {
+  const now = nowDate.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
   const trimNote = trimmed
     ? '\nNote: Some older log entries were omitted to fit the context window.'
     : '';
@@ -1651,5 +1808,3 @@ export { getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory,
 
 // These are not imported at the top, so re-export directly from the module
 export { rateGenieSession, deleteGenieSession } from './genieMemory.js';
-
-
