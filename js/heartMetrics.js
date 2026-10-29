@@ -1,5 +1,9 @@
 import { METRIC_REGISTRY, getMetric, metricFields, getDisplayUnit, convertMetricValue,
-  validateMetricLog, normalizeMetricLogs, getUnitSystem, UNIT_SYSTEM_KEY, metricSeries, metricPoints } from './metrics.js';
+  validateMetricLog, normalizeMetricLogs, getUnitSystem, UNIT_SYSTEM_KEY, metricSeries, metricPoints, fromCanonical, toCanonical } from './metrics.js';
+
+function outsideReference(value, field) {
+  return field.referenceRange && (value < field.referenceRange[0] - 1e-9 || value > field.referenceRange[1] + 1e-9);
+}
 
 /** Heart hub follows the shared chakra modal lifecycle; storage stays in fitnessTrackerData. */
 export function initHeartMetrics({ load, save, showModal, hideModal }) {
@@ -11,6 +15,12 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
   const datetime = modal.querySelector('#metric-datetime');
   const note = modal.querySelector('#metric-note');
   const status = modal.querySelector('#metric-status');
+  const sourceLabel = document.createElement('label');
+  sourceLabel.textContent = 'Reading source';
+  const source = document.createElement('select');
+  source.id = 'metric-source';
+  sourceLabel.append(source);
+  fields.after(sourceLabel);
   const range = modal.querySelector('#metric-trend-range');
   let chart;
   let opener;
@@ -33,12 +43,14 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
       input.name = field.key || 'value';
       input.type = field.input.type;
       input.step = field.input.step ?? 'any';
-      input.min = (field.range[0] - unit.offset) / unit.scale;
-      input.max = (field.range[1] - unit.offset) / unit.scale;
+      input.min = Number(((field.range[0] - unit.offset) / unit.scale).toFixed(10));
+      input.max = Number(((field.range[1] - unit.offset) / unit.scale).toFixed(10));
       input.required = true;
       label.append(input);
       fields.append(label);
     }
+    source.replaceChildren(...(metric.entrySources || ['self-reported']).map(value => new Option(value, value)));
+    sourceLabel.hidden = !metric.entrySources;
     modal.querySelector('#metric-safety').textContent = metric.safetyNotice;
     status.textContent = '';
     render();
@@ -59,7 +71,8 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
       const converted = convertMetricValue(log.value, metric, getUnitSystem(), 'fromCanonical');
       const reading = metricFields(metric).map(field => {
         const value = field.key ? converted[field.key] : converted;
-        return `${field.key ? `${field.label}: ` : ''}${Number(value.toFixed(2))} ${getDisplayUnit(field, getUnitSystem()).unit}`;
+        const canonical = field.key ? log.value[field.key] : log.value;
+        return `${field.key ? `${field.label}: ` : ''}${Number(value.toFixed(2))} ${getDisplayUnit(field, getUnitSystem()).unit}${outsideReference(canonical, field) ? ' [outside adult resting reference]' : ''}`;
       }).join(' / ');
       const text = document.createElement('span');
       text.textContent = `${log.date} ${log.time} — ${reading}${log.note ? ` — ${log.note}` : ''} (${log.source})`;
@@ -80,6 +93,7 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
     }
     const now = new Date();
     const weekStart = new Date(now); weekStart.setDate(now.getDate() - 6); weekStart.setHours(0, 0, 0, 0);
+    const monthStart = new Date(now); monthStart.setDate(now.getDate() - 29); monthStart.setHours(0, 0, 0, 0);
     const cutoff = new Date(now); cutoff.setDate(now.getDate() - (Number(range.value) - 1)); cutoff.setHours(0, 0, 0, 0);
     const series = metricSeries(metric);
     const summaries = [];
@@ -87,17 +101,47 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
       const points = metricPoints(logs, entry, getUnitSystem());
       const weekly = points.filter(point => point.x >= weekStart && point.x <= now).map(point => point.y);
       const unit = getDisplayUnit(entry.field, getUnitSystem()).unit;
+      const available = points.filter(point => point.x <= now);
+      const monthly = available.filter(point => point.x >= monthStart).map(point => point.y);
+      const average = values => (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1);
+      if (available.length) summaries.push(`${entry.label}: current ${Number(available.at(-1).y.toFixed(2))} ${unit}; all-reading average ${average(available.map(point => point.y))} ${unit}.`);
+      summaries.push(monthly.length ? `${entry.label}: 30-day reading average ${average(monthly)} ${unit}.` : `${entry.label}: no readings in the last 30 days.`);
+      if (entry.field.referenceRange) {
+        const limits = entry.field.referenceRange.map(value => Number(fromCanonical(value, entry.field, getUnitSystem()).toFixed(2)));
+        summaries.push(`${entry.label}: adult resting reference ${limits.join('–')} ${unit} (shaded); orange points and history labels mark readings outside this reference, not a diagnosis. Extrema are not best/worst health rankings.`);
+      }
       summaries.push(weekly.length
-        ? `${entry.label}: 7-day reading average ${(weekly.reduce((sum, value) => sum + value, 0) / weekly.length).toFixed(1)} ${unit}; lowest ${Math.min(...weekly)} / highest ${Math.max(...weekly)} ${unit}.`
+        ? `${entry.label}: 7-day reading average ${(weekly.reduce((sum, value) => sum + value, 0) / weekly.length).toFixed(1)} ${unit}; lowest ${Number(Math.min(...weekly).toFixed(2))} / highest ${Number(Math.max(...weekly).toFixed(2))} ${unit}.`
         : `${entry.label}: no readings in the last 7 days.`);
-      return { label: `${entry.label} (${unit})`, data: points.filter(point => point.x >= cutoff && point.x <= now), borderColor: index ? '#66bbff' : '#42d68b', backgroundColor: '#42d68b55', tension: 0.2 };
+      const shown = points.filter(point => point.x >= cutoff && point.x <= now);
+      const outside = shown.map(point => outsideReference(toCanonical(point.y, entry.field, getUnitSystem()), entry.field));
+      return { label: `${entry.label} (${unit})`, data: shown, borderColor: index ? '#66bbff' : '#42d68b', backgroundColor: '#42d68b55', pointBackgroundColor: outside.map(flag => flag ? '#ffae42' : (index ? '#66bbff' : '#42d68b')), pointRadius: outside.map(flag => flag ? 5 : 3), tension: 0.2 };
     });
     modal.querySelector('#metric-summary').textContent = summaries.join(' ');
     chart?.destroy();
+    const bands = series.filter(entry => entry.field.referenceRange).map((entry, index) => ({
+      limits: entry.field.referenceRange.map(value => fromCanonical(value, entry.field, getUnitSystem())),
+      color: index ? '#66bbff18' : '#42d68b18',
+    }));
     if (typeof Chart !== 'undefined') chart = new Chart(modal.querySelector('#metric-trend-chart'), {
       type: metric.chartType,
       data: { datasets },
-      options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: range.value === '1' ? 'hour' : 'day' } } } },
+      plugins: [{ id: 'adultRestingReference', beforeDatasetsDraw(instance) {
+        const { ctx, chartArea, scales } = instance;
+        ctx.save();
+        ctx.beginPath(); ctx.rect(chartArea.left, chartArea.top, chartArea.width, chartArea.height); ctx.clip();
+        for (const band of bands) {
+          const top = scales.y.getPixelForValue(band.limits[1]);
+          const bottom = scales.y.getPixelForValue(band.limits[0]);
+          ctx.fillStyle = band.color;
+          ctx.fillRect(chartArea.left, top, chartArea.width, bottom - top);
+        }
+        ctx.restore();
+      } }],
+      options: { responsive: true, maintainAspectRatio: false, scales: {
+        x: { type: 'time', time: { unit: range.value === '1' ? 'hour' : 'day' } },
+        y: bands.length ? { suggestedMin: Math.min(...bands.flatMap(band => band.limits)), suggestedMax: Math.max(...bands.flatMap(band => band.limits)) } : {},
+      } },
     });
   }
   function close() {
@@ -162,7 +206,7 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
       const log = validateMetricLog({
         id: crypto.randomUUID(), metric: metric.id,
         value: convertMetricValue(metric.fields ? values : values.value, metric, getUnitSystem()),
-        unit: metric.canonicalUnit, date, time, note: note.value.trim(), source: 'self-reported',
+        unit: metric.canonicalUnit, date, time, note: note.value.trim(), source: metric.entrySources ? source.value : 'self-reported',
       });
       const data = load();
       data.metricLogs = normalizeMetricLogs([...(data.metricLogs || []), log]);

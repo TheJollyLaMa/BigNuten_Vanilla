@@ -337,6 +337,47 @@ try {
       assert.equal(metricLogs[0].value, 62);
       for (const days of ['1', '30', '7']) await page.locator('#metric-trend-range').selectOption(days);
       assert.equal(await page.locator('#metric-trend-chart').evaluate(canvas => Chart.getChart(canvas).data.datasets[0].data.length), 1);
+      await page.locator('#metric-picker').selectOption('temperature');
+      await page.locator('#metric-value').fill('98.6');
+      await page.locator('#metric-note').fill('Synthetic oral thermometer');
+      await click('#metric-log-form button[type="submit"]');
+      assert.match(await page.locator('#metric-status').innerText(), /Reading saved/);
+      assert.match(await page.locator('#metric-history').innerText(), /98.6 °F/);
+      assert.match(await page.locator('#metric-summary').innerText(), /adult resting reference 97.7–99.14 °F/);
+      await page.locator('#metric-value').fill('103.1');
+      await click('#metric-log-form button[type="submit"]');
+      assert.match(await page.locator('#metric-history').innerText(), /outside adult resting reference/);
+      assert.equal(await page.locator('#metric-trend-chart').evaluate(canvas => Chart.getChart(canvas).data.datasets[0].pointBackgroundColor.includes('#ffae42')), true);
+      await shot('heart-temperature-history');
+      await page.locator('#metric-picker').selectOption('bp');
+      await page.locator('#metric-value-systolic').fill('80');
+      await page.locator('#metric-value-diastolic').fill('80');
+      await click('#metric-log-form button[type="submit"]');
+      assert.match(await page.locator('#metric-status').innerText(), /Systolic must be greater than diastolic/);
+      await page.locator('#metric-value-systolic').fill('120');
+      await page.locator('#metric-note').fill('Synthetic cuff reading');
+      await click('#metric-log-form button[type="submit"]');
+      assert.match(await page.locator('#metric-status').innerText(), /Reading saved/);
+      assert.match(await page.locator('#metric-history').innerText(), /Systolic: 120 mmHg \/ Diastolic: 80 mmHg/);
+      assert.match(await page.locator('#metric-summary').innerText(), /30-day reading average 120.0 mmHg/);
+      assert.equal(await page.locator('#metric-trend-chart').evaluate(canvas => Chart.getChart(canvas).data.datasets.length), 2);
+      await shot('heart-bp-history');
+      for (const [id, value] of [['spo2', '92'], ['rr', '22'], ['hrv', '42.5'], ['vo2max', '45.5']]) {
+        await page.locator('#metric-picker').selectOption(id);
+        await page.locator('#metric-value').fill(value);
+        if (id === 'vo2max') await page.locator('#metric-source').selectOption('estimated');
+        await click('#metric-log-form button[type="submit"]');
+        assert.match(await page.locator('#metric-status').innerText(), /Reading saved/);
+        if (id === 'spo2' || id === 'rr') assert.match(await page.locator('#metric-history').innerText(), /outside adult resting reference/);
+      }
+      const vitalLogs = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).metricLogs);
+      assert.equal(vitalLogs.length, 8);
+      assert.ok(Math.abs(vitalLogs.find(log => log.metric === 'temperature').value - 310.15) < 1e-8);
+      assert.equal(vitalLogs.find(log => log.metric === 'temperature').unit, 'K');
+      assert.deepEqual(vitalLogs.find(log => log.metric === 'bp').value, { systolic: 15998.64, diastolic: 10665.76 });
+      assert.equal(vitalLogs.find(log => log.metric === 'bp').unit, 'Pa');
+      assert.equal(vitalLogs.find(log => log.metric === 'vo2max').source, 'estimated');
+      await page.locator('#metric-picker').selectOption('rhr');
       await click('#heart-breathwork-tab');
       await visible('#heart-breathwork');
       assert.match(await page.locator('#heart-breathwork').innerText(), /coming in #289/);
@@ -353,7 +394,7 @@ try {
       await page.keyboard.press('Escape');
       await hidden('#heart-modal');
       assert.equal(await page.locator('#chakra-heart').evaluate(el => el === document.activeElement), true);
-      console.log(`${name}: Heart hub logged canonical RHR, rendered trend/history, and retained reading after reopen`);
+      console.log(`${name}: Heart hub logged seven canonical vitals, BP ordering, reference highlights and estimated VO2 provenance; retained readings after reopen`);
       const panels = await page.locator('.dashboard-panel').evaluateAll(els => els.map(el => el.id));
       assert.equal(panels.length, 4, 'Update coverage when dashboard panels change');
       // Enable the assistant UI; hosted responses below are local synthetic fixtures.
@@ -368,6 +409,18 @@ try {
       await click('label:has(#genie-enabled-toggle)');
       assert.equal(await page.locator('#genie-enabled-toggle').isChecked(), true);
       await click('#settings-modal-close');
+      await click('#chakra-heart');
+      await page.locator('#metric-picker').selectOption('temperature');
+      assert.match(await page.locator('#metric-history').innerText(), /37 °C/);
+      await page.locator('#metric-value').fill('37');
+      await click('#metric-log-form button[type="submit"]');
+      assert.match(await page.locator('#metric-status').innerText(), /Reading saved/);
+      await page.locator('#metric-picker').selectOption('bp');
+      assert.match(await page.locator('#metric-value-fields').innerText(), /Systolic \(mmHg\)/i);
+      assert.match(await page.locator('#metric-history').innerText(), /120 mmHg/);
+      await page.locator('#metric-picker').selectOption('rhr');
+      await click('#heart-modal-close');
+
       await page.evaluate(() => localStorage.setItem('genieApiKey', 'synthetic-smoke-key'));
       for (const id of panels) {
         await click(`[data-panel="${id}"].panel-toggle-btn`);

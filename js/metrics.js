@@ -13,6 +13,97 @@ export const METRIC_REGISTRY = [
     safetyNotice: 'Not medical advice. Measure after resting quietly. Seek urgent care for chest pain, fainting or severe shortness of breath; discuss persistent unusual readings with a clinician. Lowest is not necessarily healthiest.',
     multiplePerDay: true,
   },
+  {
+    id: 'temperature',
+    label: 'Body temperature',
+    canonicalUnit: 'K',
+    displayUnits: { imperial: displayUnit('°F', 5 / 9, 273.15 - 32 * 5 / 9), metric: displayUnit('°C', 1, 273.15) },
+    range: [298.15, 318.15], // 25–45 °C: input guardrails, not a healthy range.
+    // Adult resting reference: https://medlineplus.gov/ency/article/002341.htm
+    referenceRange: [309.65, 310.45],
+    input: { type: 'number', step: 'any' },
+    chartType: 'line',
+    // Care guidance: https://medlineplus.gov/ency/article/003090.htm and /000038.htm
+    safetyNotice: 'Not medical advice. Adult resting reference only; temperature varies with measurement site, time and activity. Note the thermometer/site used. Seek urgent help for a temperature below 35°C (95°F), confusion or difficulty breathing. Contact a clinician for a persistent or rising fever, especially above 39.4°C (103°F). Children, pregnancy and immune suppression need individual advice; do not rely on this chart for triage.',
+    multiplePerDay: true,
+  },
+  {
+    id: 'bp',
+    label: 'Blood pressure',
+    canonicalUnit: 'Pa',
+    fields: {
+      systolic: {
+        label: 'Systolic', range: [40 * 133.322, 300 * 133.322],
+        // Adult resting reference: https://medlineplus.gov/ency/article/002341.htm
+        referenceRange: [90 * 133.322, 120 * 133.322],
+        input: { type: 'number', step: 'any' },
+        displayUnits: { imperial: displayUnit('mmHg', 133.322), metric: displayUnit('mmHg', 133.322) },
+      },
+      diastolic: {
+        label: 'Diastolic', range: [20 * 133.322, 200 * 133.322],
+        referenceRange: [60 * 133.322, 80 * 133.322],
+        input: { type: 'number', step: 'any' },
+        displayUnits: { imperial: displayUnit('mmHg', 133.322), metric: displayUnit('mmHg', 133.322) },
+      },
+    },
+    greaterThan: { systolic: 'diastolic' },
+    chartType: 'line',
+    // AHA crisis guidance (either pressure): https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings/hypertensive-crisis-when-you-should-call-911-for-high-blood-pressure
+    safetyNotice: 'Not medical advice. Use a correctly sized cuff after resting; record both numbers from the same reading. Adult reference bands are not diagnostic cutoffs or treatment targets. If systolic is above 180 OR diastolic above 120 mmHg, repeat after at least one minute: if still high, contact a clinician immediately; with chest pain, breathlessness, weakness or vision changes, call emergency services without waiting. Seek urgent help for fainting or other severe symptoms even with lower readings. Discuss persistent unusual readings with your clinician.',
+    multiplePerDay: true,
+  },
+  {
+    id: 'spo2',
+    label: 'Blood oxygen (SpO2)',
+    canonicalUnit: '%',
+    displayUnits: { imperial: displayUnit('%'), metric: displayUnit('%') },
+    range: [50, 100],
+    // Reference and care thresholds: https://medlineplus.gov/lab-tests/pulse-oximetry/
+    referenceRange: [95, 100],
+    input: { type: 'number', step: 'any' },
+    chartType: 'line',
+    safetyNotice: 'Not medical advice. Oximeters can be inaccurate: skin pigmentation, poor circulation, cold fingers and nail polish can affect readings. Altitude and lung conditions may change your personal target; follow your care plan. Contact a clinician for readings of 92% or lower; seek immediate medical attention at 88% or lower, or for severe breathlessness, blue lips or chest pain regardless of the number. Do not delay care to recheck a device.',
+    multiplePerDay: true,
+  },
+  {
+    id: 'rr',
+    label: 'Resting respiratory rate',
+    canonicalUnit: 'breaths/min',
+    displayUnits: { imperial: displayUnit('breaths/min'), metric: displayUnit('breaths/min') },
+    range: [2, 80],
+    // Adult resting reference: https://medlineplus.gov/ency/article/002341.htm
+    referenceRange: [12, 18],
+    input: { type: 'number', step: 'any' },
+    chartType: 'line',
+    safetyNotice: 'Not medical advice. Count breaths for a full minute while quietly resting, not immediately after exercise. The shaded reference is for adults at rest, not children. Discuss persistent changes with a clinician. Seek emergency help for severe difficulty breathing, blue lips, confusion or fainting regardless of the rate.',
+    multiplePerDay: true,
+  },
+  {
+    id: 'hrv',
+    label: 'Heart rate variability (RMSSD)',
+    canonicalUnit: 'ms',
+    displayUnits: { imperial: displayUnit('ms'), metric: displayUnit('ms') },
+    range: [0, 500],
+    input: { type: 'number', step: 'any' },
+    chartType: 'line',
+    // Method definition and comparability: https://pmc.ncbi.nlm.nih.gov/articles/PMC5624990/
+    safetyNotice: 'Not medical advice. Enter RMSSD in milliseconds (root mean square of successive normal beat-interval differences), not SDNN or a device readiness score. Values vary by device, recording length, posture and artifacts; note the device and method and compare like-for-like measurements. There is no universal healthy HRV cutoff here, and higher is not always better. Discuss sustained unexplained changes with a clinician; seek urgent care for chest pain, fainting or severe breathlessness regardless of HRV.',
+    multiplePerDay: true,
+  },
+  {
+    id: 'vo2max',
+    label: 'VO2 max',
+    canonicalUnit: 'mL/kg/min',
+    displayUnits: { imperial: displayUnit('mL/kg/min'), metric: displayUnit('mL/kg/min') },
+    range: [1, 120],
+    input: { type: 'number', step: 'any' },
+    entrySources: ['self-reported', 'estimated'],
+    chartType: 'line',
+    // No automatic estimate: existing sessionLog/exercise sets lack measured cycling
+    // power, protocol stages, or timed distance/heart-rate data for a validated test.
+    safetyNotice: 'Not medical advice. Manually record a lab result as self-reported, or a device/test estimate as estimated; note its source and protocol. Estimates differ by device and test and are not interchangeable with measured oxygen uptake. No automatic estimate is calculated from workout durations or lifting sets. There is no universal target here. Do not attempt a maximal test without appropriate professional guidance. Discuss unexplained declines with a clinician; stop exercise and seek urgent care for chest pain, fainting or severe breathlessness.',
+    multiplePerDay: true,
+  },
 ];
 
 export function getMetric(id) {
@@ -55,6 +146,11 @@ export function validateMetricValue(metric, value) {
     const number = field.key === null ? value : value[field.key];
     if (typeof number !== 'number' || !Number.isFinite(number) || number < field.range[0] || number > field.range[1]) {
       throw new Error(`${field.label}: enter ${field.range[0]}–${field.range[1]} ${metric.canonicalUnit}.`);
+    }
+  }
+  for (const [higher, lower] of Object.entries(metric.greaterThan || {})) {
+    if (value[higher] <= value[lower]) {
+      throw new Error(`${metric.fields[higher].label} must be greater than ${metric.fields[lower].label.toLowerCase()}.`);
     }
   }
   return value;
