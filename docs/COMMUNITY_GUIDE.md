@@ -10,6 +10,11 @@ The **Offline guide tour** uses the same shared content as the Community Guide
 prompt and works without loading a model. It does not connect a wallet, read
 health logs, or perform actions.
 
+The opt-in [local Quest Mode](QUEST_MODE.md) adds seven nonmodal reading
+chapters over the actual app using these same shared sections. It does not
+invoke the public challenge reader or any model. Its completion badge is local
+only; token/role unlock and on-chain rewards from #209 remain deferred.
+
 The read-only challenge coach answers status and meetup questions from public
 challenge, entrant, and meetup contract reads. It only uses an already
 available `eth_accounts` account; it never requests wallet access. Unavailable

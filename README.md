@@ -136,6 +136,7 @@ Everything accessible to every user in the browser — no wallet required to sta
 ### Intelligence & Insights
 
 - 🧞 **Genie AI** — Health companion and Community guide modes. Health companion uses 3-tier memory (session → summaries → pinned insights) across enabled health categories; Community guide has a deterministic offline tour, read-only challenge coach, and separate hosted consent with no health logs or Genie memory by default. See [Community Guide](docs/COMMUNITY_GUIDE.md).
+- 🗺️ **Local Quest Mode** — Opt in through Settings or type BNUT then Enter outside typing/dialogs. Seven accessible reading chapters reuse the shared guide, with local progress and a local-only badge. No wallet/model/health reads, token gates, financial actions, uploads, or real rewards. [Scope and controls](docs/QUEST_MODE.md); #209 remains partial.
 - 📊 **Correlation Graph** — visualize relationships between any two data streams (e.g. sleep vs. mood, water vs. energy)
 - 🌐 **Community Dashboard** — opt-in aggregated wellness data, leaderboards, community trends
 
