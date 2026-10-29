@@ -88,7 +88,7 @@
 
 BigNuten exists because tracking your health shouldn't require surrendering your data to a corporation, and building open-source software shouldn't be unpaid labour. We are building a platform that:
 
-- **Gives you ownership** of your wellness data — stored locally, backed up to IPFS, never sold
+- **Gives you ownership** of your wellness data — stored locally, encrypted before IPFS backup, never sold
 - **Rewards builders** who improve it — every merged PR earns on-chain $BNUT tokens automatically
 - **Lets the community govern** its direction — DAO voting, on-chain proposals, transparent treasury
 - **Puts real stakes on your habits** — join reusable StreakBet challenges with peer-verified meetups; Aave yield is a separate optional strategy, not active in the first Base cycle
@@ -291,7 +291,7 @@ open index.html   # macOS
 
 - Start logging weight, supplements, food, and exercise — no wallet needed
 - Connect **MetaMask** on Base to unlock Base-deployed on-chain features
-- Use the left-header IPFS control to choose hosted IPFS backup, a personal pinning account, or local IPFS Desktop
+- Use the left-header IPFS control to choose hosted IPFS backup, a personal pinning account, or local IPFS Desktop. New fitness snapshots are encrypted before upload; keep a local JSON backup because losing wallet access means losing access to encrypted remote backups.
 - Join a StreakBet competition and put real money on your health goals 💪
 
 ### 🛠️ I'm a Builder
@@ -829,9 +829,9 @@ npx hardhat run scripts/deploy.js --network optimism
 | **Fonts** | Bungee (Google Fonts) |
 | **Payments** | Stripe, PayPal (fiat on-ramp for DNFTs) |
 
-### Snapshot schema
+### Snapshot schema and privacy
 
-Snapshots now use the current `fitnessTrackerData` shape plus a lightweight wrapper for metadata. The inner payload remains the normalized data object from `fitnessData.js`, and wrapped snapshots can include `__bignutenSnapshot`, `version`, `createdAt`, `sessionAddress`, `sourceHash`, `previousSnapshot`, and `lineage` fields for recovery and history tracking.
+New fitness snapshots use the versioned `bignuten-encrypted-snapshot` envelope (AES-GCM-256; HKDF-SHA256 key derived from a wallet signature) and are encrypted in the browser before remote upload. IPFS is public by CID: anyone with the CID can fetch ciphertext, and a CID is not access control. The original wallet is required to decrypt; losing wallet access means losing the remote backup, so retain a local JSON export. Local JSON exports remain plaintext and user-held. Legacy plaintext IPFS snapshots remain restorable. Use a dedicated Pinata key scoped to pin-only permissions; its JWT is session-scoped by default, with plain localStorage persistence available only by explicit opt-in and cleared on wallet disconnect.
 
 ### JS Module Map
 

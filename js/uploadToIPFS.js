@@ -1,14 +1,12 @@
 // uploadToIPFS.js — compatibility wrapper for IPFS uploads.
-// Prefer js/ipfsStorage.js from new code.
-
+// Fitness snapshots are encrypted by the transport before any remote request.
 import { uploadIpfsSnapshot } from './ipfsStorage.js';
 
 export async function uploadDataToIPFS(data, client) {
   try {
-    const { cid } = await uploadIpfsSnapshot(data);
+    const { cid } = await uploadIpfsSnapshot(data, { signer: client?.signer || null });
     return cid;
-  } catch (err) {
-    console.error('IPFS upload error:', err);
+  } catch {
     return null;
   }
 }

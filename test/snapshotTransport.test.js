@@ -2,11 +2,15 @@
 
 const { test, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { Wallet } = require('ethers');
+const { validateFitnessSnapshot } = require('../js/fitnessSchema.js');
 
 const values = new Map();
 const original = Object.fromEntries(['window', 'localStorage', 'fetch', 'requestIdleCallback'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
 
-let transport, lifecycle, PinataProvider;
+let transport, lifecycle, PinataProvider, clearEncryptionKeyCache;
+const testWallet = new Wallet('0x' + '33'.repeat(32));
+const testSigner = { getAddress: () => testWallet.getAddress(), signMessage: message => testWallet.signMessage(message) };
 const sample = { dataVersion: 1, weightLogs: [], exercises: { entries: [] }, waterDailyHistory: { '2026-10-20': 3 } };
 const reply = (data, status = 200) => ({
   ok: status >= 200 && status < 300, status,
@@ -22,12 +26,16 @@ global.localStorage = {
   removeItem: key => values.delete(key),
 };
   transport = await import('../js/pinataStorage.js');
+  ({ clearSnapshotEncryptionKeyCache: clearEncryptionKeyCache } = await import('../js/snapshotEncryption.js'));
   lifecycle = await import('../js/snapshotLifecycle.js');
   ({ PinataProvider } = await import('../js/providers/pinataProvider.js'));
 });
 beforeEach(() => {
   values.clear();
   window._ipfsSessionRef = null;
+  window.ethereum = {};
+  window.ethers = { BrowserProvider: class { async getSigner() { return testSigner; } } };
+  clearEncryptionKeyCache();
   transport.clearManualPinataToken();
   window.prompt = () => { throw new Error('Unexpected personal JWT prompt'); };
   global.fetch = async () => { throw new Error('Unexpected network request'); };
@@ -43,11 +51,13 @@ test('hosted mode never falls back to requesting a personal credential; invalid 
 
 test('configured hosted mode without a wallet fails explicitly rather than requesting a personal JWT', async () => {
   window.BIGNUTEN_STORAGE_RELAY_URL = 'https://relay.example';
+  window.ethereum = null;
   try {
     const configured = await import('../js/pinataStorage.js?configured-relay');
     await assert.rejects(() => configured.connectPinataSession(), /Connect a wallet/);
   } finally {
     window.BIGNUTEN_STORAGE_RELAY_URL = '';
+    window.ethereum = {};
   }
 });
 
@@ -105,7 +115,7 @@ test('Desktop upload, verification and restore survive a new provider instance w
   assert.equal(pointer.fileName, 'bignuten-snapshot.json');
   const restarted = new PinataProvider();
   assert.equal((await restarted.restore()).connected, true);
-  assert.deepEqual(await restarted.get(pointer.cid), sample);
+  assert.deepEqual(await restarted.get(pointer.cid), validateFitnessSnapshot(sample));
 });
 
 test('collecting a snapshot without older local snapshot files preserves every supported current record', async () => {
@@ -204,6 +214,8 @@ test('timeouts and unsupported snapshot wrappers are explicit failures', async (
 test('hosted relay authorizes synthetic bytes, then uploads directly without forwarding content to the relay', async () => {
   const calls = [];
   let message;
+  let uploadedEnvelope;
+  let authorizedSize;
   global.fetch = async (url, options) => {
     calls.push(url);
     if (url.endsWith('/nonce')) return reply({ nonce: 'synthetic-nonce', expiresAt: 1792530000000 });
@@ -212,21 +224,24 @@ test('hosted relay authorizes synthetic bytes, then uploads directly without for
       assert.equal(authorization.signature, 'synthetic-signature');
       assert.equal(authorization.type, 'application/json');
       assert.equal(authorization.name, 'bignuten-snapshot.json');
-      assert.equal(authorization.size, new TextEncoder().encode(JSON.stringify(sample)).length);
+      authorizedSize = authorization.size;
+      assert.ok(authorization.size > 0);
       assert.ok(!options.body.includes('waterDailyHistory'));
       return reply({ url: 'https://uploads.example/signed' });
     }
     assert.equal(url, 'https://uploads.example/signed');
-    assert.deepEqual(JSON.parse(await options.body.get('file').text()), sample);
+    uploadedEnvelope = JSON.parse(await options.body.get('file').text());
+    assert.equal(uploadedEnvelope.format, 'bignuten-encrypted-snapshot');
     return reply({ data: { cid: 'bafyhosted' } });
   };
   const result = await transport.uploadViaStorageRelay(sample, {
     relayUrl: 'https://relay.example', wallet: '0x1111111111111111111111111111111111111111',
-    signer: { signMessage: async value => { message = value; return 'synthetic-signature'; } },
+    signer: { getAddress: () => testWallet.getAddress(), signMessage: async value => { message = value; return value.includes('Nonce:') ? 'synthetic-signature' : testWallet.signMessage(value); } },
   });
   assert.equal(result.cid, 'bafyhosted');
   assert.match(message, /Nonce: synthetic-nonce/);
   assert.equal(calls.length, 3);
+  assert.equal(authorizedSize, new TextEncoder().encode(JSON.stringify(uploadedEnvelope)).length);
 });
 
 test('false verification flags survive manifest normalization without becoming verified', () => {
