@@ -211,6 +211,47 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
 
     uint256 public nextCompId;
 
+    struct FinalReceiptAnchor {
+        string cid;
+        bytes32 receiptHash;
+        bytes32 manifestHash;
+    }
+    mapping(uint256 => FinalReceiptAnchor) public finalReceiptAnchors;
+    mapping(uint256 => bytes32) private settlementManifestCIDHash;
+    error InvalidReceiptAnchor();
+    event FinalReceiptAnchored(uint256 indexed compId, string cid, bytes32 receiptHash, bytes32 manifestCIDHash, bytes32 manifestHash);
+
+    /// @notice Independent capability; does not change payout or engine versions.
+    function finalReceiptAnchorVersion() external pure returns (uint8) { return 1; }
+
+    /// @notice Immutable owner attestation, not a proof of receipt truth.
+    /// receiptHash/manifestHash are SHA-256 of canonical public JSON excluding contentHash.
+    function anchorFinalReceipt(uint256 compId, string calldata cid, bytes32 receiptHash, bytes32 manifestHash) external onlyOwner {
+        if (compId >= nextCompId || competitions[compId].status != CompStatus.Settled ||
+            bytes(finalReceiptAnchors[compId].cid).length != 0 ||
+            settlementManifestCIDHash[compId] == bytes32(0) ||
+            receiptHash == bytes32(0) || manifestHash == bytes32(0)) revert InvalidReceiptAnchor();
+        bool valid;
+        // Fixed-length CIDv1 base32 dag-pb/raw sha2-256. Avoid dynamic-byte bounds
+        // machinery here to keep the combined payout/receipt escrow below EIP-170.
+        assembly ("memory-safe") {
+            let prefix := shr(200, calldataload(cid.offset))
+            let first := byte(7, calldataload(cid.offset))
+            valid := and(eq(cid.length, 59), or(eq(prefix, 0x62616679626569), eq(prefix, 0x6261666b726569)))
+            valid := and(valid, and(gt(first, 96), lt(first, 105)))
+            for { let i := 8 } lt(i, 59) { i := add(i, 1) } {
+                let char := byte(0, calldataload(add(cid.offset, i)))
+                valid := and(valid, or(and(gt(char, 96), lt(char, 123)), and(gt(char, 49), lt(char, 56))))
+            }
+            let last := byte(0, calldataload(add(cid.offset, 58)))
+            // Two unused base32 padding bits must be zero.
+            valid := and(valid, or(eq(last, 52), and(gt(last, 96), iszero(and(sub(last, 97), 3)))))
+        }
+        if (!valid) revert InvalidReceiptAnchor();
+        finalReceiptAnchors[compId] = FinalReceiptAnchor(cid, receiptHash, manifestHash);
+        emit FinalReceiptAnchored(compId, cid, receiptHash, settlementManifestCIDHash[compId], manifestHash);
+    }
+
     /// @notice Competition ID → Competition data.
     mapping(uint256 => Competition) internal competitions;
 
@@ -667,6 +708,7 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
         string calldata leaderboardCID
     ) external onlyOwner nonReentrant whenNotPaused {
         Competition storage c = competitions[compId];
+        settlementManifestCIDHash[compId] = bytes(leaderboardCID).length == 0 ? bytes32(0) : keccak256(bytes(leaderboardCID));
         require(c.status == CompStatus.Active, "Escrow: comp not active");
         require(block.timestamp >= c.endTime, "Escrow: comp has not ended yet");
         require(!c.potDeployed, "Escrow: withdraw pot from Aave first");

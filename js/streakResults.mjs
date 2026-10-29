@@ -34,6 +34,184 @@ const SETTLEMENT_CONTROL_ABI = [
 
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const HASH = /^0x[0-9a-f]{64}$/i;
+export const RECEIPT_ANCHOR_ABI = [
+  'function finalReceiptAnchorVersion() view returns (uint8)',
+  'function finalReceiptAnchors(uint256) view returns (string cid,bytes32 receiptHash,bytes32 manifestHash)',
+  'function anchorFinalReceipt(uint256,string,bytes32,bytes32)',
+  'function owner() view returns (address)',
+  'event FinalReceiptAnchored(uint256 indexed compId,string cid,bytes32 receiptHash,bytes32 manifestCIDHash,bytes32 manifestHash)',
+];
+
+export async function requireReceiptAnchorCapability(contract) {
+  let version;
+  try { version = Number(await contract.finalReceiptAnchorVersion()); } catch { /* Legacy deployment. */ }
+  if (version !== 1) throw new Error('RELEASE BLOCKER — final receipt anchoring is unavailable on this deployment (including existing Base); source capability v1 requires an approved new deployment.');
+}
+
+export function validAnchorCID(cid) {
+  return /^baf(?:ybei|krei)[a-h][a-z2-7]{50}[aeimquy4]$/.test(String(cid));
+}
+
+export function normalizeAnchorCID(cid) {
+  if (validAnchorCID(cid)) return cid;
+  if (!/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/.test(String(cid))) throw new Error('Unsupported receipt CID; expected CIDv0 sha2-256 or CIDv1 base32 dag-pb/raw sha2-256.');
+  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  let value = 0n;
+  for (const char of cid) value = value * 58n + BigInt(alphabet.indexOf(char));
+  const bytes = [];
+  while (value > 0n) { bytes.unshift(Number(value & 255n)); value >>= 8n; }
+  if (bytes.length !== 34 || bytes[0] !== 0x12 || bytes[1] !== 0x20) throw new Error('Invalid CIDv0 multihash.');
+  let bits = 0;
+  let buffer = 0;
+  let encoded = 'b';
+  for (const byte of [1, 0x70, ...bytes]) {
+    buffer = (buffer << 8) | byte;
+    bits += 8;
+    while (bits >= 5) { bits -= 5; encoded += 'abcdefghijklmnopqrstuvwxyz234567'[(buffer >>> bits) & 31]; }
+  }
+  if (bits) encoded += 'abcdefghijklmnopqrstuvwxyz234567'[(buffer << (5 - bits)) & 31];
+  if (!validAnchorCID(encoded)) throw new Error('Invalid normalized CID.');
+  return encoded;
+}
+
+export async function verifyFinalReceiptAgainstChain({ ethers, provider, receipt, manifest, chainResult, manifestCID }) {
+  await verifyPublicResultDocument(receipt, {
+    chainId: chainResult.chainId, contractAddress: chainResult.document.escrow,
+    competitionId: chainResult.document.competition.id, manifestCID,
+  });
+  if (!receipt.settlement || receipt.competition.status !== 'settled') throw new Error('A confirmed post-settlement receipt is required.');
+  if (receipt.manifest?.contentHash !== manifest.contentHash) throw new Error('Receipt manifest hash mismatch.');
+  await verifyManifestAgainstChain({ ethers, provider, manifest, chainResult, manifestCID });
+  for (const field of ['competition', 'participants', 'settlement', 'awards', 'awardLinks']) {
+    if (canonicalResultJson(receipt[field]) !== canonicalResultJson(chainResult.document[field])) {
+      throw new Error(`Receipt ${field} mismatch against confirmed chain events.`);
+    }
+  }
+  await verifyEventTimestamp(provider, {
+    blockNumber: receipt.observedAt.blockNumber, blockHash: receipt.observedAt.blockHash,
+    timestamp: receipt.observedAt.timestamp,
+  });
+  if (receipt.observedAt.blockNumber < receipt.settlement.blockNumber) throw new Error('Receipt predates settlement.');
+  return true;
+}
+
+export async function verifyReceiptAnchor({ ethers, provider, contract, compId, receipt, manifest, chainResult, cid }) {
+  await requireReceiptAnchorCapability(contract);
+  const anchor = await contract.finalReceiptAnchors(compId);
+  if (!anchor.cid) return { state: 'published-unanchored' };
+  if (anchor.cid !== cid || anchor.receiptHash !== receipt.contentHash || anchor.manifestHash !== manifest.contentHash) {
+    throw new Error('Immutable anchor CID/hash mismatch; replacement is not permitted.');
+  }
+  await verifyFinalReceiptAgainstChain({ ethers, provider, receipt, manifest, chainResult, manifestCID: receipt.manifest.cid });
+  const history = createChainHistory(historyStorage());
+  const scan = await history.scan({
+    scope: `${receipt.chainId}:${receipt.escrow}:competition:${compId}:FinalReceiptAnchored`,
+    latestBlock: Number(await provider.send('eth_blockNumber', [])),
+    startBlock: receipt.settlement.blockNumber,
+    chunkSize: 5000,
+    maxChunks: 100,
+    query: (from, to) => contract.queryFilter(contract.filters.FinalReceiptAnchored(compId), from, to),
+    project: log => ({
+      transactionHash: log.transactionHash, blockHash: log.blockHash,
+      blockNumber: Number(log.blockNumber), logIndex: Number(log.index ?? log.logIndex),
+      args: {
+        cid: log.args.cid, receiptHash: log.args.receiptHash,
+        manifestHash: log.args.manifestHash, manifestCIDHash: log.args.manifestCIDHash,
+      },
+    }),
+  });
+  if (scan.state !== 'success') throw new Error('Anchor event history is still indexing; refresh to verify, do not resubmit.');
+  const logs = scan.events;
+  if (logs.length !== 1) throw new Error('Anchor event missing or duplicated.');
+  const event = logs[0];
+  if (event.args.cid !== cid || event.args.receiptHash !== receipt.contentHash ||
+      event.args.manifestHash !== manifest.contentHash ||
+      event.args.manifestCIDHash !== ethers.keccak256(ethers.toUtf8Bytes(receipt.manifest.cid))) {
+    throw new Error('Anchor event/readback mismatch.');
+  }
+  const tx = await provider.getTransactionReceipt(event.transactionHash);
+  if (Number(tx?.status) !== 1 || tx.blockHash !== event.blockHash ||
+      String(tx.hash || tx.transactionHash).toLowerCase() !== event.transactionHash.toLowerCase()) {
+    throw new Error('Anchor transaction is not confirmed on this chain.');
+  }
+  const iface = new ethers.Interface(RECEIPT_ANCHOR_ABI);
+  const receiptLogs = (tx.logs || []).filter(log =>
+    String(log.address).toLowerCase() === receipt.escrow &&
+    Number(log.index ?? log.logIndex) === Number(event.logIndex));
+  const confirmedEvent = receiptLogs.length === 1 ? iface.parseLog(receiptLogs[0]) : null;
+  if (confirmedEvent?.name !== 'FinalReceiptAnchored' || Number(confirmedEvent.args.compId) !== Number(compId) ||
+      confirmedEvent.args.cid !== cid || confirmedEvent.args.receiptHash !== receipt.contentHash ||
+      confirmedEvent.args.manifestHash !== manifest.contentHash ||
+      confirmedEvent.args.manifestCIDHash !== event.args.manifestCIDHash) {
+    throw new Error('Anchor event is not present at the exact emitter/log index in its confirmed transaction receipt.');
+  }
+  return { state: 'anchor-verified', transactionHash: event.transactionHash, logIndex: event.index ?? event.logIndex };
+}
+
+export async function publishAndAnchorReceipt({
+  ethers, provider, contract, signer, compId, receipt, manifest, chainResult,
+  uploader, readDocument, storage, consentConfirmed, onState = () => {},
+}) {
+  await requireReceiptAnchorCapability(contract);
+  const key = `bignuten-final-receipt:${receipt.chainId}:${receipt.escrow}:${compId}`;
+  let saved = JSON.parse(storage.getItem(key) || 'null');
+  if (saved && saved.contentHash !== receipt.contentHash) throw new Error('A different receipt publication is already saved; recover it before creating another.');
+  const save = () => storage.setItem(key, JSON.stringify(saved));
+  const identity = async () => {
+    const chain = Number(await provider.send('eth_chainId', []));
+    const accounts = await provider.send('eth_accounts', []);
+    const account = String(await signer.getAddress()).toLowerCase();
+    if (chain !== receipt.chainId || String(accounts[0]).toLowerCase() !== account ||
+        account !== String(await contract.owner()).toLowerCase()) {
+      throw new Error('Wallet/network changed or current wallet is not the on-chain owner.');
+    }
+  };
+  await identity();
+  await verifyFinalReceiptAgainstChain({ ethers, provider, receipt, manifest, chainResult, manifestCID: receipt.manifest.cid });
+  if (!saved) {
+    const existing = await contract.finalReceiptAnchors(compId);
+    if (existing.cid) {
+      if (existing.receiptHash !== receipt.contentHash || existing.manifestHash !== manifest.contentHash) {
+        throw new Error('Immutable anchor CID/hash mismatch; recover the existing receipt rather than uploading.');
+      }
+      saved = { cid: existing.cid, contentHash: receipt.contentHash, transactionHash: null };
+      save();
+    }
+  }
+  if (!saved) {
+    const published = await requirePublicationConsent(receipt, consentConfirmed, uploader);
+    saved = { cid: published.cid, contentHash: receipt.contentHash, transactionHash: null };
+    save(); // Persist upload success before readback or any signature.
+  }
+  saved.cid = normalizeAnchorCID(saved.cid);
+  save();
+  onState('published-unanchored', saved);
+  if (!validAnchorCID(saved.cid)) throw new Error('Anchor requires CIDv1 base32 dag-pb/raw sha2-256; do not re-upload automatically.');
+  const publishedReceipt = await readDocument(saved.cid, { contentHash: receipt.contentHash });
+  await verifyFinalReceiptAgainstChain({ ethers, provider, receipt: publishedReceipt, manifest, chainResult, manifestCID: receipt.manifest.cid });
+  const check = () => verifyReceiptAnchor({ ethers, provider, contract, compId, receipt, manifest, chainResult, cid: saved.cid });
+  const existing = await check();
+  if (existing.state === 'anchor-verified') { onState(existing.state, existing); return existing; }
+  if (saved.transactionHash) {
+    const pending = await provider.getTransactionReceipt(saved.transactionHash);
+    if (!pending) { onState('anchoring-pending', saved); return { state: 'anchoring-pending', ...saved }; }
+    if (Number(pending.status) === 1) throw new Error('Confirmed transaction has no matching anchor; mismatch requires investigation.');
+    saved.transactionHash = null;
+    save();
+    onState('anchor-reverted', saved);
+  }
+  await identity();
+  const tx = await contract.connect(signer).anchorFinalReceipt(compId, saved.cid, receipt.contentHash, manifest.contentHash);
+  saved.transactionHash = tx.hash;
+  save();
+  onState('anchoring-pending', saved);
+  const confirmed = await tx.wait();
+  if (Number(confirmed?.status) !== 1) throw new Error('Anchor transaction reverted; publication retained for retry.');
+  const verified = await check();
+  if (verified.state !== 'anchor-verified') throw new Error('Anchor readback is missing.');
+  onState(verified.state, verified);
+  return verified;
+}
 const SENSITIVE_KEYS = new Set([
   'activitydays', 'weeklyactivitydays', 'weeklymetricstotals', 'activityrecords',
   'progresshash', 'proofcid', 'note', 'notes', 'health', 'healthdata', 'weight',
@@ -1120,6 +1298,127 @@ function ipfsGatewayUrl(cid) {
   return `https://gateway.pinata.cloud/ipfs/${encodeURIComponent(String(cid || '').trim())}`;
 }
 
+export async function renderFinalReceiptAnchor(card, result, competition, provider, readDocument = readPublishedDocument) {
+  const status = node('p', 'FINAL RECEIPT — checking immutable anchor capability.');
+  card.append(status);
+  try {
+    const ethers = globalThis.ethers || globalThis.window?.ethers;
+    const contract = new ethers.Contract(result.document.escrow, RECEIPT_ANCHOR_ABI, provider);
+    await requireReceiptAnchorCapability(contract);
+    const anchor = await contract.finalReceiptAnchors(competition.id);
+    const key = `bignuten-final-receipt:${result.chainId}:${result.document.escrow}:${competition.id}`;
+    const saved = JSON.parse(globalThis.localStorage?.getItem(key) || 'null');
+    const cid = anchor.cid || saved?.cid;
+    if (!cid) {
+      status.textContent = 'RELEASE BLOCKER — final receipt is not anchored. No saved publication exists in this browser. If published elsewhere, recover that CID instead of uploading again.';
+      status.dataset.state = 'unanchored';
+      const manifest = await readDocument(result.settlementCID, {});
+      const receipt = await createPublicResultDocument({
+        chainId: result.chainId, contractAddress: result.document.escrow,
+        competition: result.document.competition,
+        observedBlock: {
+          number: result.document.observedAt.blockNumber, hash: result.document.observedAt.blockHash,
+          timestamp: result.document.observedAt.timestamp,
+        },
+        actions: result.document.participants.flatMap(person => person.actions.map(action => ({ ...action, wallet: person.wallet }))),
+        settlement: result.settlementEvent, awards: result.awardMints, awardLinks: result.document.awardLinks,
+        manifest: { cid: result.settlementCID, contentHash: manifest.contentHash },
+      });
+      await verifyFinalReceiptAgainstChain({ ethers, provider, receipt, manifest, chainResult: result, manifestCID: result.settlementCID });
+      const preview = node('pre', canonicalResultJson(receipt));
+      preview.tabIndex = 0;
+      const details = node('details');
+      details.append(node('summary', 'Review final receipt before first publication'), preview);
+      card.append(details);
+      const recoverCID = node('input');
+      recoverCID.placeholder = 'Already published receipt CID (optional recovery)';
+      recoverCID.setAttribute('aria-label', 'Published final receipt CID to recover');
+      card.append(recoverCID);
+      const publish = node('button', 'Review / publish or recover final receipt and anchor as owner');
+      publish.type = 'button';
+      card.append(publish);
+      publish.addEventListener('click', async () => {
+        publish.disabled = true;
+        try {
+          const walletProvider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await walletProvider.getSigner();
+          let selectedReceipt = receipt;
+          if (recoverCID.value.trim()) {
+            const recoveredCID = normalizeAnchorCID(recoverCID.value.trim());
+            selectedReceipt = await readDocument(recoveredCID, {});
+            await verifyFinalReceiptAgainstChain({ ethers, provider: walletProvider, receipt: selectedReceipt, manifest, chainResult: result, manifestCID: result.settlementCID });
+            globalThis.localStorage.setItem(key, JSON.stringify({
+              cid: recoveredCID, contentHash: selectedReceipt.contentHash, transactionHash: null,
+            }));
+          }
+          if (!window.confirm(fieldConfirmationText(selectedReceipt))) throw new Error('Explicit publication/anchor consent was not given.');
+          await publishAndAnchorReceipt({
+            ethers, provider: walletProvider,
+            contract: new ethers.Contract(result.document.escrow, RECEIPT_ANCHOR_ABI, walletProvider),
+            signer, compId: competition.id, receipt: selectedReceipt, manifest, chainResult: result,
+            storage: globalThis.localStorage, consentConfirmed: true,
+            uploader: getUploader(await signer.getAddress(), signer), readDocument,
+            onState(state) { status.dataset.state = state; status.textContent = `${state.toUpperCase()} — final receipt`; },
+          });
+          window.dispatchEvent(new CustomEvent('bignuten:competition-settled'));
+        } catch (error) {
+          status.dataset.state = 'anchor-failed-or-mismatch';
+          status.textContent = `REVERT / MISMATCH / UNAVAILABLE — ${error.message}; saved publication retained.`;
+        } finally { publish.disabled = false; }
+      });
+      return;
+    }
+    const receipt = await readDocument(cid, {
+      chainId: result.chainId, contractAddress: result.document.escrow, competitionId: competition.id,
+    });
+    const manifest = await readDocument(receipt.manifest?.cid, {});
+    const verified = await verifyReceiptAnchor({
+      ethers, provider, contract, compId: competition.id, receipt, manifest, chainResult: result, cid,
+    });
+    status.dataset.state = verified.state;
+    status.textContent = `${verified.state.toUpperCase()} — CID ${cid}; receipt SHA-256 ${receipt.contentHash}; manifest SHA-256 ${manifest.contentHash}. Hashes are attestations, not proof of truth.`;
+    const link = node('a', 'Read final receipt');
+    link.href = ipfsGatewayUrl(cid);
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    card.append(link);
+    if (verified.transactionHash) {
+      const txLink = explorerTxAnchor(verified.transactionHash);
+      if (txLink) {
+        txLink.textContent = `Anchor transaction · event log ${verified.logIndex}`;
+        txLink.href += `#eventlog#${verified.logIndex}`;
+        card.append(txLink);
+      }
+      card.append(node('p', `Anchor tx ${verified.transactionHash} · log ${verified.logIndex} · chain ${result.chainId} · escrow ${result.document.escrow}`));
+    } else {
+      const retry = node('button', 'Recover published receipt / retry owner anchor (no upload)');
+      retry.type = 'button';
+      card.append(retry);
+      retry.addEventListener('click', async () => {
+        retry.disabled = true;
+        try {
+          const walletProvider = new ethers.BrowserProvider(window.ethereum);
+          const outcome = await publishAndAnchorReceipt({
+            ethers, provider: walletProvider,
+            contract: new ethers.Contract(result.document.escrow, RECEIPT_ANCHOR_ABI, walletProvider),
+            signer: await walletProvider.getSigner(), compId: competition.id,
+            receipt, manifest, chainResult: result, storage: globalThis.localStorage,
+            readDocument: readPublishedDocument, consentConfirmed: true,
+            onState(state) { status.dataset.state = state; status.textContent = `${state.toUpperCase()} — ${cid}`; },
+          });
+          if (outcome.state === 'anchor-verified') window.dispatchEvent(new CustomEvent('bignuten:competition-settled'));
+        } catch (error) {
+          status.dataset.state = 'anchor-failed-or-mismatch';
+          status.textContent = `REVERT / MISMATCH / UNAVAILABLE — ${error.message}; saved publication retained.`;
+        } finally { retry.disabled = false; }
+      });
+    }
+  } catch (error) {
+    status.dataset.state = 'anchor-unavailable-or-mismatch';
+    status.textContent = `FINAL RECEIPT RELEASE BLOCKER / UNVERIFIED — ${error.message}`;
+  }
+}
+
 async function renderCollectedResult(root, result, competition, provider) {
   const card = node('article');
   const final = competition.status === 'settled' || competition.status === 1;
@@ -1167,6 +1466,7 @@ async function renderCollectedResult(root, result, competition, provider) {
     card.append(links);
   }
   if (result.settlementEvent) {
+    await renderFinalReceiptAnchor(card, result, competition, provider);
     const event = result.settlementEvent;
     const settlementDate = new Date(Number(event.timestamp) * 1000);
     const settlementTime = Number.isFinite(settlementDate.getTime()) ? settlementDate.toISOString() : 'timestamp unavailable';
@@ -1476,6 +1776,7 @@ export async function beginCompetitionSettlement({
       throw new Error('Selected wallet network does not match the configured competition chain.');
     }
     const escrowAddress = contract.target || contract.address;
+    await requireReceiptAnchorCapability(new ethers.Contract(escrowAddress, RECEIPT_ANCHOR_ABI, provider));
     const [owner, competition, paused, escrowCode, latestBlock] = await Promise.all([
       contract.owner(),
       contract.getCompetition(compId),
@@ -1760,9 +2061,9 @@ export async function beginCompetitionSettlement({
         const receiptConsent = node('input');
         receiptConsent.type = 'checkbox';
         const receiptLabel = node('label');
-        receiptLabel.append(receiptConsent, document.createTextNode(' I reviewed this separate receipt and consent to publishing it. Its CID will not be stored on the escrow contract; the receipt references the manifest and confirmed chain event.'));
+        receiptLabel.append(receiptConsent, document.createTextNode(' I reviewed this public receipt and consent to publication and a separate immutable owner-authorized on-chain anchor. The anchor attests to hashes, not truth; confirmed chain events and manifest must match.'));
         panel.append(receiptLabel);
-        const publishReceipt = node('button', 'Publish separate settlement receipt');
+        const publishReceipt = node('button', 'Publish and anchor final receipt (or recover saved publication)');
         publishReceipt.type = 'button';
         publishReceipt.disabled = true;
         receiptConsent.addEventListener('change', () => { publishReceipt.disabled = !receiptConsent.checked || !awardReceiptVerified; });
@@ -1781,19 +2082,24 @@ export async function beginCompetitionSettlement({
               publishReceipt.disabled = !receiptConsent.checked;
               return;
             }
-            const published = await requirePublicationConsent(finalDocument, true, getUploader(account, signer));
-            await readPublishedDocument(published.cid, {
-              chainId: finalResult.chainId,
-              contractAddress: escrowAddress,
-              competitionId: Number(compId),
-              manifestCID: uploadedCID,
-              contentHash: finalDocument.contentHash,
+            const anchorContract = new ethers.Contract(escrowAddress, RECEIPT_ANCHOR_ABI, provider);
+            const anchored = await publishAndAnchorReceipt({
+              ethers, provider, contract: anchorContract, signer, compId,
+              receipt: finalDocument, manifest: result.document, chainResult: finalResult,
+              uploader: getUploader(account, signer), readDocument: readPublishedDocument,
+              storage: globalThis.localStorage, consentConfirmed: true,
+              onState(state, details) {
+                receiptStatus.dataset.state = state;
+                receiptStatus.textContent = `${state.toUpperCase()} — CID ${details.cid || ''}; transaction ${details.transactionHash || 'not submitted'}. Release requires verified immutable anchor.`;
+              },
             });
-            receiptStatus.textContent =
-              `PUBLISHED — ${published.cid}. Its content hash is valid and it references the confirmed settlement; ` +
-              `this second CID is not recorded on-chain.`;
+            if (anchored.state === 'anchor-verified') {
+              receiptStatus.append(explorerTxAnchor(anchored.transactionHash) || node('span', anchored.transactionHash));
+              window.dispatchEvent(new CustomEvent('bignuten:competition-settled'));
+            } else publishReceipt.disabled = false;
           } catch (error) {
-            receiptStatus.textContent = `FAILED / UNAVAILABLE — ${error.message}. The local verified receipt remains available for export.`;
+            receiptStatus.dataset.state = 'anchor-failed-or-mismatch';
+            receiptStatus.textContent = `REVERT / MISMATCH / UNAVAILABLE — ${error.message}. Any saved published CID and pending transaction are retained; retry checks chain state without duplicate upload.`;
             publishReceipt.disabled = !receiptConsent.checked;
           }
         });

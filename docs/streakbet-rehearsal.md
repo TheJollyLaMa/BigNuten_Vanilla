@@ -32,7 +32,17 @@ forfeit/no extra achievement. The final action runs the production result
 collector against disposable escrow logs and renders a deterministic,
 health-minimized local draft with wallet/action events, raw-token payout splits,
 chain block timestamps and a content hash. It never uploads or publishes the
-draft; the rehearsal server permits event reads only from fixture contracts.
+draft. It now also creates the pre-settlement manifest in memory, builds the
+confirmed final receipt and runs the real `anchorFinalReceipt` transaction,
+getter/event/receipt verification using disposable owner authority. Its CIDv1
+raw identifiers hash the in-memory canonical document bytes; no storage upload
+or public publication occurs. The rehearsal server permits event reads and the
+anchor write only on fixture contracts (41 local transactions total).
+The shared contract rehearsal verifies tied first-place payouts/mints in the
+final receipt, both independent capabilities (payout policy v2, receipt anchor
+v1), and rejection of an attempted second anchor. `StreakBetCodeSize.test.js`
+reads the existing Hardhat artifact and enforces the EIP-170 deployed-runtime
+limit of 24,576 bytes on every `npm test`; the combined source is 24,399 bytes.
 
 ## Hard guardrails
 
@@ -49,8 +59,8 @@ draft; the rehearsal server permits event reads only from fixture contracts.
 - No Aave pool is configured, yield is disabled, Aave calls are not allowlisted,
   and there are no external scripts, storage uploads or health records.
 - Result preview excludes health counts, progress hashes, report CIDs, notes,
-  meetup codes and meeting URLs. Its `rehearsal:` CID is synthetic, not an IPFS
-  publication.
+  meetup codes and meeting URLs. Its in-memory final receipt CID is not an IPFS
+  publication; a separate forfeit scenario retains a synthetic `rehearsal:` CID.
 - Never fund these accounts or import their publicly known keys into a wallet.
   This is a developer rehearsal harness, not a production wallet sandbox.
 

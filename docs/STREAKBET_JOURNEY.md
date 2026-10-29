@@ -252,9 +252,15 @@ included in the existing `CompetitionSettled` event. Therefore it cannot
 contain that transaction's own hash, final `StreakPayout` amounts or subsequent
 `EditionMinted` logs. After confirmation the app derives a separate local
 settlement receipt from chain payout/mint logs, cross-links it to the manifest,
-and offers local export plus a separate explicit upload. That second receipt
-CID is **not recorded on-chain**; readers verify its hash and each event
-reference against the settlement transaction and chain. Missing NFT logs or
+and offers local export plus a separate explicit upload and owner-authorized
+`anchorFinalReceipt` transaction. Source now supports **one immutable final
+receipt CID per settled competition**, independently gated by
+`finalReceiptAnchorVersion() == 1`. Existing Base is not upgraded: a missing
+capability is a release blocker before any settlement/anchor signature.
+Readers verify the receipt against the manifest and real settlement/payout/mint
+events, then verify the anchor getter, event and confirmed transaction. A hash
+attests to document integrity, not the truth of attendance or health claims.
+Missing NFT logs or
 metadata are reported unavailable; local award templates are aids, not proof
 of the private per-competition contract snapshot. The local rehearsal exercises
 the real event collector with disposable contracts, but never uploads or
@@ -263,14 +269,67 @@ publishes either document.
 ### Engine/deployment compatibility and settlement routes
 
 The results readers use the existing competition getters and result events; they
-do not require `competitionEngineVersion()` to display or settle an existing
-competition. The #379 version gate belongs to engine-owned actions such as
+do not require `competitionEngineVersion()` to display an existing
+competition. The settlement UI additionally requires final receipt anchoring
+capability v1 so a release cannot silently use an unanchored receipt. The #379 version gate belongs to engine-owned actions such as
 flexible asset setup and the safe check-in/report retry flow. If a selected
 deployment lacks a required getter, event, complete history, or matching
 contract code, results are shown as unavailable and settlement is blocked. The
 Base deployment record identifies the current escrow address and its recorded
 configuration, but source/deployment notes are not a live check that the
 address has #379's latest engine version.
+
+### Final receipt anchor format and recovery
+
+The existing escrow owner alone may anchor, only after settlement, with no
+replacement or deletion path (including identical duplicate submissions).
+`finalReceiptAnchors(id)` returns `(cid, receiptHash, manifestHash)`;
+`FinalReceiptAnchored(id,cid,receiptHash,manifestCIDHash,manifestHash)` includes
+competition identity and `manifestCIDHash`, the **Keccak-256 of UTF-8 manifest
+CID bytes**, saved during settlement and matched against `CompetitionSettled`.
+This compact CID-reference digest is distinct from either content hash. Transaction
+and log identity plus chain ID and escrow identify the exact chain event.
+Hashes are nonzero `bytes32`: `0x` plus 64 lowercase hex characters, SHA-256 of
+canonical recursively key-sorted public JSON **excluding `contentHash`**.
+The receipt references the manifest's CID and content hash and includes actual
+confirmed settlement transaction, payouts and NFT mints. It never includes
+its own later anchor transaction, avoiding circular hashes.
+
+Anchors accept CIDv1 lowercase base32 dag-pb/raw sha2-256 identifiers only
+(59 characters; no URL/path). The client losslessly converts valid CIDv0
+dag-pb sha2-256 identifiers without uploading again. The CID identifies stored
+bytes; `contentHash` hashes the canonical public body, not the CID or whole file.
+No health records, report/proof CIDs or private notes enter either document.
+
+Upload success is persisted by chain/escrow/competition before readback or
+signature. States distinguish published/unanchored, anchoring pending,
+anchor verified, and revert/mismatch/unavailable. Retries reuse the saved CID;
+an unknown pending transaction blocks resubmission until its receipt is known.
+The participant/archive/admin results panels show the receipt link, both
+hashes and the exact anchor transaction/log, and offer owner recovery of saved
+publications after reload. Clearing browser storage loses local unanchored
+publication recovery; do not re-upload or replace an existing anchor.
+An immutable wrong anchor requires product/governance intervention, not an
+overwrite. Historical private award snapshots remain a verification limitation;
+unavailable evidence is never treated as success. #163 remains open until an
+explicitly approved deployment and verified acceptance, not merely source work.
+
+Reuse decision for final anchoring: adapted receiver `canonicalResultJson`,
+`createPublicResultDocument`, `verifyPublicResultDocument`,
+`verifyManifestAgainstChain`, `collectCompetitionResult`, `chainHistory.js`
+and the local rehearsal at base `0a6a2a4`. Canopy's map led to
+DecentBusking's `js/radio-payroll.mjs::validateRadioReceipt` at
+public `origin/main` commit `d50c0cf8aad7db3ff8fb30c808401e7772cb1bba`:
+useful receipt identity/totals and
+recoverable transaction-state precedent, not a compatible escrow anchor.
+Scoped donor inspection found no directly reusable Solidity anchor there.
+No donor code was copied (the public donor is Apache-2.0 licensed);
+receiver MIT/Web Crypto/ethers runtime stays unchanged. Base payroll assets,
+fund authorization and public contributor data are incompatible with this
+health-minimized competition receipt. No new package, shared extraction,
+private-data publication or production deployment is needed. Receiving tests
+cover immutable authority/CIDs/hashes, failure recovery and real local
+fake-token receipt/anchor readback in participant/archive/admin views.
 
 The mounted monthly-challenge settle button is intercepted in document capture
 and routed through the consent, owner, network, history, and prerequisite

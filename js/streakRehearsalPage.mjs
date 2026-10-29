@@ -1,4 +1,5 @@
 import { assertLocalRehearsalUrl, createRehearsalSteps, readRehearsalReviewQueue } from './streakRehearsal.mjs';
+import { renderFinalReceiptAnchor } from './streakResults.mjs';
 
 const button = document.getElementById('next');
 const status = document.getElementById('status');
@@ -39,7 +40,15 @@ try {
       if (outcome?.resultDocument) {
         document.getElementById('result-preview').textContent = JSON.stringify(outcome.resultDocument, null, 2);
         document.getElementById('result-state').textContent =
-          `LOCAL DRAFT — ${outcome.resultDocument.participants.length} wallets, SHA-256 ${outcome.resultDocument.contentHash}. Not uploaded or published.`;
+          `LOCAL DRAFT — ${outcome.resultDocument.participants.length} wallets, SHA-256 ${outcome.resultDocument.contentHash}. Not uploaded or published. Local-only immutable receipt anchor ${outcome.receiptAnchor?.state || 'unavailable'}; no public chain or storage.`;
+        for (const role of ['participant', 'archive', 'admin']) {
+          const card = document.createElement('article');
+          card.dataset.anchorView = role;
+          card.textContent = `Local ${role} final receipt readback`;
+          await renderFinalReceiptAnchor(card, outcome.chainResult, outcome.resultDocument.competition, provider, outcome.readLocalDocument);
+          document.getElementById('result-state').after(card);
+          if (!card.querySelector('[data-state="anchor-verified"]')) throw new Error(`${role} anchor view is not verified`);
+        }
       }
       const queue = await readRehearsalReviewQueue(window.ethers, provider, fixture);
       const queueNode = document.getElementById('reviewer-queue');

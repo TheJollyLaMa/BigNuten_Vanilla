@@ -269,6 +269,11 @@ StreakBet is BigNuten's flagship community feature: put real stakes on your heal
 - `submitReport(id, proofCID)` — link an optional participant report CID
 - `scheduleMeetup()` / `selfCheckInMeetup()` / `reviewMeetupAttendance()` — schedule invite-code sessions and record peer decisions
 - `settleCompetition(id, leaderboardCID)` — apply the configured payout policy
+- `anchorFinalReceipt(id, cid, receiptHash, manifestHash)` — source-supported,
+  owner-only immutable post-settlement public receipt anchor (independent
+  `finalReceiptAnchorVersion() == 1` capability). Existing Base is **not upgraded**;
+  unavailable capability blocks the release/signature UI. Receipt publication
+  alone is not completion. See [receipt verification and recovery](docs/STREAKBET_JOURNEY.md#final-receipt-anchor-format-and-recovery).
 - `forfeit(id)` — early exit (stake goes to pot)
 - Powered by OpenZeppelin v5 `ReentrancyGuard`, `SafeERC20`, `Pausable`
 
