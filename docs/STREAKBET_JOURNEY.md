@@ -40,11 +40,22 @@ discloses these consequences before token approval or ETH/token stake transfer.
 
 | Step | Participant | Captain (contract owner) | Guest reviewer |
 | --- | --- | --- | --- |
-| Commit | Read the listed BNUT stake, rules, deadlines, forfeit consequences and payout explainer before approving/joining. Keep Base ETH for gas. | Choose and publish stake, metrics, dates, meetup goals and award IDs; create/configure before entries. | No stake or enrollment is required; wait for an invitation. |
+| Commit | Read the listed BNUT stake, rules, deadlines, forfeit consequences and payout explainer before approving/joining. Keep Base ETH for gas. | Prepare and register the four public award definitions, grant the escrow minter role, and set the unique award IDs before creating a competition; configure it before entrants join. | No stake or enrollment is required; wait for an invitation. |
 | Practice | Log an ordinary day's actual activity locally. The app evaluates the selected metrics; it does not prove they occurred. | Make the rules and support route understandable; do not collect raw health records by default. | No access to private logs is implied by the role. |
 | Gather | During the scheduled call, review the roster, share only necessary progress, enter the captain's code and truthfully attest to the meetup goal. | Schedule each call, confirm roster and reveal the committed code during the call. | Attend if invited and review only the claim/evidence voluntarily shared. |
 | Review | A solo entrant is self-trusted. Otherwise a checked-in peer may confirm or dispute. Self-vote plus peer agreement verifies; disputes need a strict majority after at least three votes. | For tied claims invite a non-entrant guest before the review window ends (call close + 24 hours). The captain does not unilaterally declare attendance true. | Use the invited wallet to confirm/dispute once during the review window. No purchase, stake or medical judgment. |
 | Settle | After required activity days and approved meetups, completion becomes eligible for ranking. Wait until challenge end and owner settlement. | After end, settle with the leaderboard CID; verify awards/treasury configuration first. | No settlement authority. |
+
+## Earned award lifecycle
+
+Public completion and placement metadata is prepared and registered in the
+existing DecentNFT before competition creation opens enrollment. Creating or
+joining a competition, voluntarily forfeiting, and cancelling do not mint
+awards; there is no separate enrollment token. Only a successful
+owner-called settlement mints the completion award to each completed entrant
+and place awards to eligible finishers. A failed award mint reverts the entire
+settlement, including payouts and status changes. See the
+[award registration and issuance details](competition-achievement-awards.md).
 
 ## Branches to rehearse
 

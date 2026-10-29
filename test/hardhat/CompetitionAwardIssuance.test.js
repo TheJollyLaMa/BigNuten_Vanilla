@@ -15,7 +15,7 @@ describe('Competition Achievement award issuance', function () {
 
   async function configureCompetition(compId, startTime, ids, name = `Challenge ${compId}`) {
     await escrow.setStreakAwards(await nft.getAddress(), ids[0], ids[1], ids[2], ids[3]);
-    await escrow.createCompetition({
+    const createReceipt = await (await escrow.createCompetition({
       name,
       stakeToken: await token.getAddress(),
       stakeAmount: STAKE,
@@ -25,7 +25,7 @@ describe('Competition Achievement award issuance', function () {
       joinDeadline: startTime,
       yieldEnabled: false,
       metadataCID: 'ipfs://bafyrules',
-    });
+    })).wait();
     await escrow.configureStreakChallenge(compId, 'hydration', 'drink water daily', 1, 1, 1, 1);
     await escrow.scheduleMeetup(
       compId,
@@ -35,12 +35,13 @@ describe('Competition Achievement award issuance', function () {
       ethers.keccak256(ethers.toUtf8Bytes(`invite-${compId}`)),
       '',
     );
+    return { createReceipt };
   }
 
   async function join(compId, account) {
     await token.transfer(account.address, STAKE);
     await token.connect(account).approve(await escrow.getAddress(), STAKE);
-    await escrow.connect(account).joinCompetition(compId);
+    return (await escrow.connect(account).joinCompetition(compId)).wait();
   }
 
   async function selfCheckIn(compId, account, code, progressLabel) {
@@ -70,6 +71,10 @@ describe('Competition Achievement award issuance', function () {
         amount: args.amount,
         minter: args.minter.toLowerCase(),
       }));
+  }
+
+  async function expectNoAwardMints(receipt) {
+    expect(await parsedMints(receipt)).to.deep.equal([]);
   }
 
   beforeEach(async function () {
@@ -189,7 +194,7 @@ describe('Competition Achievement award issuance', function () {
     expect(await nft.balanceOf(alice.address, 10)).to.equal(1n);
   });
 
-  it('does not mint on cancellation, auto-forfeit, or failed mint; a failed settlement is retryable', async function () {
+  it('does not mint on cancellation or failed mint; a failed settlement is retryable', async function () {
     const cancelRange = [30, 31, 32, 33];
     const failureRange = [40, 41, 42, 43];
     await registerAwardIds([...cancelRange, ...failureRange]);
@@ -234,6 +239,31 @@ describe('Competition Achievement award issuance', function () {
     expect((await escrow.getCompetition(1)).status).to.equal(1n);
     expect(await token.balanceOf(dave.address)).to.equal(STAKE);
     expect(await token.balanceOf(bob.address)).to.equal(STAKE);
+  });
+
+  it('does not issue enrollment awards on create, join, voluntary forfeit, or cancellation', async function () {
+    const forfeitedRange = [60, 61, 62, 63];
+    const cancelledRange = [70, 71, 72, 73];
+    await registerAwardIds([...forfeitedRange, ...cancelledRange]);
+    await nft.grantMinter(await escrow.getAddress());
+    const startTime = Number(await time.latest()) + 600;
+
+    const { createReceipt: forfeitedCreate } = await configureCompetition(0, startTime, forfeitedRange);
+    await expectNoAwardMints(forfeitedCreate);
+    await expectNoAwardMints(await join(0, alice));
+    await expectNoAwardMints(await (await escrow.connect(alice).forfeit(0)).wait());
+
+    const { createReceipt: cancelledCreate } = await configureCompetition(1, startTime, cancelledRange);
+    await expectNoAwardMints(cancelledCreate);
+    await expectNoAwardMints(await join(1, bob));
+    await expectNoAwardMints(await (await escrow.cancelCompetition(1)).wait());
+
+    for (const tokenId of [...forfeitedRange, ...cancelledRange]) {
+      expect(await nft.balanceOf(alice.address, tokenId)).to.equal(0n);
+      expect(await nft.balanceOf(bob.address, tokenId)).to.equal(0n);
+    }
+    expect((await escrow.getStreakEntrant(0, alice.address)).status).to.equal(2n);
+    expect((await escrow.getCompetition(1)).status).to.equal(2n);
   });
 
   it('enforces owner setup, NFT minter permission, and distinct role IDs', async function () {

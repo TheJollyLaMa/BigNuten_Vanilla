@@ -1628,7 +1628,7 @@
             <li>🌙 30-Day Sleep Tracker</li>
             <li>🏋️ 100 Workouts Completed</li>
           </ul>
-          <p class="aes-stub-coming-soon" style="margin-bottom:0;">🚧 Full achievement DNFT minting coming in a future release.</p>
+          <p class="aes-stub-coming-soon" style="margin-bottom:0;">🚧 Personal milestone DNFT minting is not implemented. Competition completion and placement awards are separate: public definitions are registered before enrollment, and awards are minted only at successful owner settlement.</p>
         </div>
       </details>
 
@@ -2508,7 +2508,7 @@
           <summary>🗓️ Monthly Streak Challenge</summary>
           <div class="gov-admin-section-body">
             <div id="streak-captain-panel" hidden>
-              <p data-streak-setup-status class="gov-admin-hint">Configure unlimited Achievement DNFT IDs and grant MINTER_ROLE to StreakBetEscrow.</p>
+              <p data-streak-setup-status class="gov-admin-hint">Before creating a competition (which opens enrollment), prepare and register its four public Achievement metadata definitions in the existing DecentNFT, grant MINTER_ROLE to StreakBetEscrow, and configure the unique award IDs. No enrollment token is minted; completion and place awards are minted only during successful owner-called settlement.</p>
               <h3>Challenge escrow asset</h3>
               <label class="gov-label">Stake token address<input id="streak-asset-token" class="gov-input" type="text" placeholder="0x0000000000000000000000000000000000000000 for native ETH" /></label>
               <label class="gov-label">Forfeit/dust treasury address<input id="streak-asset-treasury" class="gov-input" type="text" placeholder="Payable receiver for ETH; matching-token treasury for ERC-20" /></label>
@@ -2541,7 +2541,7 @@
               <label class="gov-label">Challenge start<input id="streak-create-start" class="gov-input" type="datetime-local" /></label>
               <label class="gov-label">Monthly window<input class="gov-input" type="text" value="30 days · 28 tracked days · 4 meetups" readonly /></label>
             </div>
-            <p class="gov-admin-hint">Registration stays open through the first 24 hours after the start. The existing expired challenge cannot be reopened; cancel it from the list below and create a new one with a future start.</p>
+            <p class="gov-admin-hint">Participant enrollment stays open through the first 24 hours after the start. The existing expired challenge cannot be reopened; cancel it from the list below and create a new one with a future start.</p>
             <p class="gov-admin-hint">Combined rules use daily gates that must all pass for a qualifying day, plus independent weekly gates. Publish a `streak-rules.json` file first. Four peer-approved calls and 28 qualifying days complete the month. Weekly counts are submitted on-chain; raw logs stay local unless a participant separately confirms a public IPFS upload.</p>
             <button id="streak-create-button" class="gov-admin-action-btn">Create monthly challenge</button>
             <p id="streak-create-status" class="gov-form-status"></p>

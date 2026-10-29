@@ -117,9 +117,10 @@ before configuring that competition. Reuse the current DecentNFT deployment;
 no new ERC-721 is needed. The awards/template helper does not perform those
 privileged operations.
 
-For a future competition, publish its four metadata records with token IDs
-starting at the actual next unused DecentNFT ID, then select that unique range
-before configuring the challenge:
+For a future competition, publish and register its four metadata records with
+token IDs starting at the actual next unused DecentNFT ID before creating the
+competition or opening enrollment. Set the minter role and select that unique
+range before challenge creation:
 
 ```sh
 STREAK_AWARD_FIRST_ID=4 npm run metadata:publish -- metadata/next-competition-awards
