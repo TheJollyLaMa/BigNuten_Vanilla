@@ -2,7 +2,7 @@ import { chainHistory } from './chainHistory.js';
 import { getDateInUserTz, getTodayInUserTz, formatInUserTz } from './timezone.js';
 import { uploadViaStorageRelay, uploadIpfsDesktopSnapshot } from './pinataStorage.js';
 import { evaluateStreakRules, validateStreakRules } from './streakRules.mjs';
-import { joinDisclosure, renderPayoutExamples } from './streakJourney.mjs';
+import { joinDisclosure, publicCheckinCommitment, renderPayoutExamples } from './streakJourney.mjs';
 
 const ABI = [
   'function nextCompId() view returns (uint256)',
@@ -26,6 +26,7 @@ const ABI = [
   'function getMeetupReviewTally(uint256,uint8,address) view returns (uint32 approvals,uint32 rejections)',
   'function createCompetition(tuple(string name,address stakeToken,uint256 stakeAmount,uint256 totalWeeks,uint256 startTime,uint256 endTime,uint256 joinDeadline,bool yieldEnabled,string metadataCID) p)',
   'function configureStreakChallenge(uint256,string,string,uint8,uint8,uint8,uint16)',
+  'function setChallengeAsset(address,address)',
   'function joinCompetition(uint256) payable',
   'function submitReport(uint256,string)',
   'function scheduleMeetup(uint256,uint8,uint64,uint64,bytes32,string)',
@@ -38,7 +39,13 @@ const ABI = [
   'event EntrantJoined(uint256 indexed compId,address indexed entrant,uint256 amount)',
   'event MeetupSelfCheckedIn(uint256 indexed compId,uint8 indexed meetupIndex,address indexed entrant,uint8 totalActivityDays,bytes32 progressHash)',
 ];
-const ERC20_ABI = ['function approve(address,uint256) returns (bool)', 'function allowance(address,address) view returns (uint256)', 'function balanceOf(address) view returns (uint256)'];
+const ERC20_ABI = [
+  'function approve(address,uint256) returns (bool)',
+  'function allowance(address,address) view returns (uint256)',
+  'function balanceOf(address) view returns (uint256)',
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)',
+];
 const NFT_ROLE_ABI = [
   'function MINTER_ROLE() view returns (bytes32)',
   'function hasRole(bytes32,address) view returns (bool)',
@@ -196,6 +203,24 @@ function showStatus(id, text, failed = false) {
   status.textContent = text;
   status.style.color = failed ? '#b42318' : '#16784a';
 }
+async function challengeAsset(tokenAddress, runner) {
+  if (tokenAddress.toLowerCase() === ethers.ZeroAddress.toLowerCase()) {
+    return { symbol: 'ETH', decimals: 18, native: true };
+  }
+  if (await runner.getCode(tokenAddress) === '0x') throw new Error('Configured stake token has no contract code.');
+  const token = new ethers.Contract(tokenAddress, ERC20_ABI, runner);
+  const decimals = Number(await token.decimals());
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) throw new Error('Configured stake token reports unsupported decimals.');
+  let symbol = 'ERC-20';
+  try {
+    const reported = await token.symbol();
+    if (typeof reported === 'string' && reported.trim()) symbol = reported.trim().slice(0, 20);
+  } catch { /* Some valid ERC-20s do not expose a symbol string. */ }
+  return { symbol, decimals, native: false };
+}
+function formatStake(amount, asset) {
+  return `${ethers.formatUnits(amount, asset.decimals)} ${asset.symbol}`;
+}
 async function renderStreakChallenges() {
   const targets = ['streak-challenge-list', 'streak-admin-challenge-list'].map(node).filter(Boolean);
   if (!targets.length) return;
@@ -229,6 +254,8 @@ async function renderStreakChallenges() {
       const ruleLabel = rules.metrics.map(metric => metric.label || metric.id).join(' + ');
       const entrant = wallet ? await contract.getStreakEntrant(compId, wallet) : null;
       const entrantIndex = entrant?.joined ? 1 : 0;
+      const asset = await challengeAsset(competition.stakeToken, contract.runner);
+      const stakeLabel = formatStake(competition.stakeAmount, asset);
       const progress = readActivityProgress(competition, rules, 0);
       const imageUrl = challengeImageUrl(rules.image);
       let participantWallets = [];
@@ -315,17 +342,17 @@ async function renderStreakChallenges() {
         ? `https://dweb.link/ipfs/${encodeURIComponent(competition.metadataCID.slice(7))}`
         : 'docs/STREAKBET_JOURNEY.md';
       const joinTerms = !entrantIndex && registrationOpen
-        ? `<p>Before joining: ${escapeText(ethers.formatUnits(competition.stakeAmount, 18))} BNUT stake · minimum ${config.minimumWeeklyLogs} qualifying logs per call week. <a href="${rulesLink}" target="_blank" rel="noopener noreferrer">Read rules source</a> (${escapeText(competition.metadataCID || 'ask captain for missing rules')}). Forfeit or failure to complete pays zero. Third place starts with half principal; remaining bonus weights are 3:2:1, plus 1 per additional finisher. Self/peer attestations are not medical or cryptographic proof. Detailed public IPFS publication is optional and may persist. <a href="docs/STREAKBET_JOURNEY.md" target="_blank" rel="noopener noreferrer">Journey, simulation examples and policy caveats</a>.</p>`
+        ? `<p>Before joining: ${escapeText(stakeLabel)} stake${asset.native ? '' : ` · token ${escapeText(competition.stakeToken)}`} · minimum ${config.minimumWeeklyLogs} qualifying logs per call week. <a href="${rulesLink}" target="_blank" rel="noopener noreferrer">Read rules source</a> (${escapeText(competition.metadataCID || 'ask captain for missing rules')}). Forfeit or failure to complete pays zero. Third place starts with half principal; remaining bonus weights are 3:2:1, plus 1 per additional finisher. Self/peer attestations are not medical or cryptographic proof. Raw health records stay local unless you explicitly confirm a public IPFS upload. <a href="docs/STREAKBET_JOURNEY.md" target="_blank" rel="noopener noreferrer">Journey, simulation examples and policy caveats</a>.</p>`
         : '';
       const joinButton = joinTerms + (!entrantIndex && registrationOpen
         ? wallet
-          ? `<button class="comp-user-btn comp-join" data-streak-action="join" data-comp="${compId}">Join · ${ethers.formatUnits(competition.stakeAmount, 18)} BNUT</button>`
-          : `<button class="comp-user-btn comp-join" data-streak-action="connect" data-comp="${compId}">Connect wallet to join · ${ethers.formatUnits(competition.stakeAmount, 18)} BNUT</button>`
+          ? `<button class="comp-user-btn comp-join" data-streak-action="join" data-comp="${compId}">Join · ${escapeText(stakeLabel)}</button>`
+          : `<button class="comp-user-btn comp-join" data-streak-action="connect" data-comp="${compId}">Connect wallet to join · ${escapeText(stakeLabel)}</button>`
         : '');
       const cancelButton = isCaptain && active && !registrationOpen && !paused && Number(competition.entrantCount) === 0
         ? `<button data-streak-action="cancel" data-comp="${compId}">Cancel expired empty challenge</button>` : '';
       const entrantStatus = entrant
-        ? `${entrant.verifiedActivityDays}/${config.requiredActivityDays} tracked days · ${entrant.verifiedMeetups}/${config.requiredMeetups} peer-approved meetups · ${entrant.disqualified ? 'Disqualified' : entrant.status === 1n ? 'Monthly challenge complete' : 'In progress'}`
+        ? `${entrant.reportsSubmitted}/${competition.totalWeeks} weekly reports · ${entrant.verifiedActivityDays}/${config.requiredActivityDays} tracked days · ${entrant.verifiedMeetups}/${config.requiredMeetups} peer-approved meetups · ${entrant.disqualified ? 'Disqualified' : entrant.status === 1n ? 'Monthly challenge complete' : 'In progress'}`
         : registrationOpen ? wallet ? 'Not enrolled.' : 'Connect your wallet to join.' : 'Not enrolled.';
       const settleButton = isCaptain && Number(competition.status) === 0 && Date.now() / 1000 >= Number(competition.endTime)
         ? `<button data-streak-action="settle" data-comp="${compId}">Settle challenge</button>` : '';
@@ -349,7 +376,14 @@ async function renderCaptainSetup(contract, isCaptain) {
     contract.completionAwardId(), contract.firstPlaceAwardId(), contract.secondPlaceAwardId(), contract.thirdPlaceAwardId(),
   ]);
   const status = panel.querySelector('[data-streak-setup-status]');
-  if (status) status.textContent = `Stake ${token.slice(0, 6)}…${token.slice(-4)} · Treasury ${treasury.slice(0, 6)}…${treasury.slice(-4)} · awards ${nft === ethers.ZeroAddress ? 'not configured' : `${nft.slice(0, 6)}…${nft.slice(-4)}`}`;
+  const asset = await challengeAsset(token, contract.runner);
+  if (status) status.textContent = `Stake asset ${asset.native ? 'ETH (native)' : `${asset.symbol} ${token.slice(0, 6)}…${token.slice(-4)}`} · Treasury ${treasury.slice(0, 6)}…${treasury.slice(-4)} · awards ${nft === ethers.ZeroAddress ? 'not configured' : `${nft.slice(0, 6)}…${nft.slice(-4)}`}`;
+  const assetInput = node('streak-asset-token');
+  if (assetInput && !assetInput.value) assetInput.value = token;
+  const treasuryInput = node('streak-asset-treasury');
+  if (treasuryInput && !treasuryInput.value) treasuryInput.value = treasury;
+  const stakeUnit = node('streak-create-stake-unit');
+  if (stakeUnit) stakeUnit.textContent = `Entry stake (${asset.symbol})`;
   const nftInput = node('streak-award-nft');
   if (nftInput && !nftInput.value) nftInput.value = nft === ethers.ZeroAddress ? window.CONTRACTS?.dnft || '' : nft;
   if (nft !== ethers.ZeroAddress) {
@@ -378,23 +412,29 @@ function bindStreakActions(root) {
       const config = await reader.getStreakChallenge(compId);
       if (button.dataset.streakAction === 'join') {
         if (Number(competition.status) !== 0 || Date.now() / 1000 > Number(competition.joinDeadline)) {
-          throw new Error('Registration is closed. Ask the captain to create the next challenge. No BNUT was staked.');
+          throw new Error('Registration is closed. Ask the captain to create the next challenge. No stake was sent.');
         }
-        if (await reader.paused()) throw new Error('Entries are paused by the captain. No BNUT was staked.');
-        if (competition.stakeToken.toLowerCase() !== window.CONTRACTS?.bnut?.toLowerCase()) {
-          throw new Error('This challenge does not use the configured Base BNUT token. No BNUT was staked.');
-        }
+        if (await reader.paused()) throw new Error('Entries are paused by the captain. No stake was sent.');
+        const asset = await challengeAsset(competition.stakeToken, reader.runner);
         // Confirm the current on-chain terms before any token approval or stake.
-        if (!confirm(joinDisclosure(competition, config))) return;
-        const token = new ethers.Contract(competition.stakeToken, ERC20_ABI, signer);
-        const readToken = new ethers.Contract(competition.stakeToken, ERC20_ABI, reader.runner);
-        const balance = await readToken.balanceOf(account);
-        if (balance < competition.stakeAmount) {
-          throw new Error(`You need ${ethers.formatUnits(competition.stakeAmount, 18)} BNUT to join; this wallet has ${ethers.formatUnits(balance, 18)} BNUT. Ask the captain about an onboarding allocation. No approval or stake was sent.`);
+        if (!confirm(joinDisclosure(competition, config, asset))) return;
+        if (asset.native) {
+          const balance = await reader.runner.getBalance(account);
+          if (balance < competition.stakeAmount) {
+            throw new Error(`You need ${formatStake(competition.stakeAmount, asset)} plus network gas; this wallet has ${formatStake(balance, asset)}. No stake was sent.`);
+          }
+          await (await contract.joinCompetition(compId, { value: competition.stakeAmount })).wait();
+        } else {
+          const token = new ethers.Contract(competition.stakeToken, ERC20_ABI, signer);
+          const readToken = new ethers.Contract(competition.stakeToken, ERC20_ABI, reader.runner);
+          const balance = await readToken.balanceOf(account);
+          if (balance < competition.stakeAmount) {
+            throw new Error(`You need ${formatStake(competition.stakeAmount, asset)} to join; this wallet has ${formatStake(balance, asset)}. No approval or stake was sent.`);
+          }
+          const allowance = await readToken.allowance(account, streakAddress());
+          if (allowance < competition.stakeAmount) await (await token.approve(streakAddress(), competition.stakeAmount)).wait();
+          await (await contract.joinCompetition(compId)).wait();
         }
-        const allowance = await readToken.allowance(account, streakAddress());
-        if (allowance < competition.stakeAmount) await (await token.approve(streakAddress(), competition.stakeAmount)).wait();
-        await (await contract.joinCompetition(compId)).wait();
       } else if (button.dataset.streakAction === 'cancel') {
         if (Number(competition.entrantCount) !== 0 || Number(competition.status) !== 0) throw new Error('Only an active empty challenge can be cancelled here.');
         if (!confirm(`Cancel expired challenge #${compId}? This cannot be undone. Create a new challenge afterward.`)) return;
@@ -415,21 +455,28 @@ function bindStreakActions(root) {
         if (progress.weeklyDays < Number(config.minimumWeeklyLogs)) throw new Error(`Track ${config.minimumWeeklyLogs} qualifying activity days this week first.`);
         if (!progress.weeklyRequirementsMet) throw new Error('Complete each configured weekly metric before checking in.');
         const goalMet = confirm(`Confirm: ${config.meetupGoal}`);
-        const progressReport = {
-          schema: 'bignuten-streak-progress/v1',
+        const publicCommitment = publicCheckinCommitment({
           competitionId: compId,
           meetupWeek: week + 1,
-          wallet: account.toLowerCase(),
-          publishedAt: new Date().toISOString(),
-          rules: rules.metrics,
+          wallet: account,
           qualifyingDays: progress.totalDays,
           weeklyMetricTotals: progress.weeklyCounts,
+        });
+        const commitmentSalt = ethers.hexlify(crypto.getRandomValues(new Uint8Array(32)));
+        const progressHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify({ ...publicCommitment, commitmentSalt })));
+        const progressReport = {
+          ...publicCommitment,
+          schema: 'bignuten-streak-progress/v1',
+          commitmentSalt,
+          progressHash,
+          publishedAt: new Date().toISOString(),
+          rules: rules.metrics,
           activityRecords: progress.records,
         };
-        const progressHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(progressReport)));
         const shareStats = root.querySelector(`[data-public-stats="${compId}:${week}"]`)?.checked || false;
         let reportCid = '';
         if (shareStats) {
+          if (!confirm('Public IPFS upload is wallet-linked, may persist indefinitely, and can expose raw health activity records and rules. Continue only if you explicitly consent to publish this data.')) return;
           const meetup = await contract.meetups(compId, week);
           if (ethers.keccak256(ethers.toUtf8Bytes(code.trim())) !== meetup.codeHash) throw new Error('The meetup code is incorrect.');
           const fileName = `streak-${compId}-week-${week + 1}-${account.slice(2, 10).toLowerCase()}.json`;
@@ -444,7 +491,7 @@ function bindStreakActions(root) {
           }
         }
         await (await contract.selfCheckInMeetup(compId, week, code.trim(), progress.totalDays, progress.weeklyDays, goalMet, progressHash)).wait();
-        if (reportCid) await (await contract.submitReport(compId, reportCid)).wait();
+        await (await contract.submitReport(compId, reportCid)).wait();
         const registryAddress = window.BIGNUTEN_NETWORK_REGISTRY_ADDRESS || window.CONTRACTS?.networkRegistry || '';
         if (reportCid && registryAddress && ethers.isAddress(registryAddress)) {
           try {
@@ -484,6 +531,18 @@ function inviteCode() {
 }
 
 function bindStreakAdmin() {
+  node('streak-asset-configure-button')?.addEventListener('click', async () => {
+    try {
+      const { contract } = await signerContract();
+      const token = node('streak-asset-token').value.trim();
+      const treasury = node('streak-asset-treasury').value.trim();
+      if (!ethers.isAddress(token) || !ethers.isAddress(treasury)) throw new Error('Enter a valid ERC-20/native asset address and treasury address.');
+      await (await contract.setChallengeAsset(token, treasury)).wait();
+      showStatus('streak-asset-config-status', 'Future challenge asset and treasury configured. Existing competitions keep their captured terms.');
+      await renderStreakChallenges();
+    } catch (error) { showStatus('streak-asset-config-status', error.shortMessage || error.reason || error.message, true); }
+  });
+
   node('streak-authorize-minter-button')?.addEventListener('click', async () => {
     try {
       const { signer } = await signerContract();
@@ -520,7 +579,17 @@ function bindStreakAdmin() {
       const name = node('streak-create-name').value.trim();
       const habitType = node('streak-create-habit').value;
       const rulesCID = node('streak-create-rules-cid').value.trim();
-      const stakeAmount = ethers.parseUnits(node('streak-create-stake').value.trim(), 18);
+      const [assetAddress, treasuryAddress, awardAddress] = await Promise.all([
+        reader.challengeStakeToken(), reader.challengeTreasury(), reader.streakAwardNFT(),
+      ]);
+      if (treasuryAddress === ethers.ZeroAddress || awardAddress === ethers.ZeroAddress) {
+        throw new Error('Configure a matching escrow treasury and achievement awards before creating a challenge.');
+      }
+      const stakeAsset = await challengeAsset(assetAddress, reader.runner);
+      const stakeInput = node('streak-create-stake').value.trim();
+      if (!stakeInput) throw new Error('Enter an entry stake in the configured asset units.');
+      const stakeAmount = ethers.parseUnits(stakeInput, stakeAsset.decimals);
+      if (stakeAmount <= 0n) throw new Error('Entry stake must be greater than zero.');
       const startTime = Math.floor(new Date(node('streak-create-start').value).getTime() / 1000);
       const endTime = startTime + 30 * DAY;
       const meetupGoal = node('streak-create-meetup-goal').value.trim();
@@ -532,7 +601,7 @@ function bindStreakAdmin() {
       if (rulesCID && !/^ipfs:\/\/[a-zA-Z0-9]+$/.test(rulesCID)) throw new Error('Rules CID must use ipfs://<CID>.');
       const metadataCID = rulesCID || `habit:${habitType}`;
       await (await contract.createCompetition({
-        name, stakeToken: await reader.challengeStakeToken(), stakeAmount, totalWeeks: FOUR_WEEKS,
+        name, stakeToken: assetAddress, stakeAmount, totalWeeks: FOUR_WEEKS,
         startTime, endTime, joinDeadline: startTime + DAY, yieldEnabled: false,
         metadataCID,
       })).wait();

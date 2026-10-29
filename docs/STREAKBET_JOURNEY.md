@@ -84,6 +84,41 @@ unless explicitly shared/published, but screen-sharing also discloses them.
 Public IPFS publication is optional, wallet-linked and may persist indefinitely;
 do not upload diagnoses, identifying records or third-party health data merely
 to resolve a dispute. A guest invitation grants no right to those records.
+By default, the check-in submits a summary commitment and a `WeeklyReport` event
+with an empty CID; the commitment excludes raw activity records. Uploading the
+detailed progress JSON requires both the opt-in checkbox and a confirmation
+before the public upload. The on-chain aggregate itself is still public and can
+reveal information about a participant.
+
+## Asset and acceptance boundaries
+
+The source contract represents native ETH with the zero address and ERC-20
+stakes in each token's raw units. Join uses exact `msg.value` for ETH and
+`transferFrom` for ERC-20; token `decimals()` is used only for display and input
+conversion. Each competition records its own asset and pot. Owner configuration
+must pair an ERC-20 with a treasury reporting that same token; native ETH needs
+a payable treasury receiver. The browser does not hardcode a USDC address or
+USD conversion. Current local tests rehearse ETH, 18-decimal ERC-20 and
+6-decimal ERC-20 paths without a live network or real funds.
+
+For issue #161, these existing-source semantics remain a policy boundary:
+
+- Finisher payouts are made only when the owner settles after the competition
+  ends; there is no participant withdrawal before settlement. Cancellation is
+  owner-only and refunds entrants.
+- Third place starts with half principal, not a full principal refund. This
+  conflicts with issue #161's blanket refund wording. The current source math is
+  verified behavior, not an approved replacement policy, so this implementation
+  preserves it and leaves that acceptance criterion unresolved for steward
+  review rather than changing payout economics.
+- The new asset/configuration behavior is source-only. It does not update
+  deployed addresses or configure a live treasury; no live BNUT, USDC or ETH
+  support is claimed until a separately reviewed deployment/configuration
+  exists.
+- Join, report, completion, forfeit and settlement state is tracked by the
+  contract's view functions and events. Full archive/export and administrative
+  result presentation are separate coordinated work and are not claimed by
+  this engine change.
 
 ## Unresolved product decisions (not defaults)
 
