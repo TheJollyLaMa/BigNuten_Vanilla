@@ -491,6 +491,59 @@ try {
       assert.equal(await page.locator('#pinata-key-persist').isChecked(), false, 'Pinata JWT persistence is opt-in');
       assert.match(await page.locator('#settings-modal').innerText(), /pin-only permissions/i);
       assert.match(await page.locator('#pinata-key-section').innerText(), /sessionStorage/i);
+      // Real settings → interview → edit → re-sanitize → review → GitHub link.
+      // Never follow the link or submit an issue in a smoke run.
+      const helperHostedBefore = hostedRequests.length;
+      const helperStorageBefore = await page.evaluate(() => JSON.stringify({ ...localStorage }));
+      await click('#genie-issue-helper-open');
+      await visible('#issue-helper-dialog');
+      assert.match(await page.locator('#issue-helper-dialog').innerText(), /No health logs/);
+      assert.equal(await page.locator('#issue-helper-address-opt-in').isChecked(), false);
+      await page.locator('#issue-helper-surface').fill('Water panel');
+      await page.locator('#issue-helper-happened').fill('Button does not open\napi_key=synthetic-smoke-private\ncontact@example.com');
+      await page.locator('#issue-helper-expected').fill('Dialog opens');
+      await page.locator('#issue-helper-steps').fill('Click water icon');
+      await click('#issue-helper-build');
+      assert.match(await page.locator('#issue-helper-status').innerText(), /removed/);
+      assert.doesNotMatch(await page.locator('#issue-helper-draft-body').inputValue(), /synthetic-smoke-private|contact@example.com|Synthetic resting reading/);
+      await page.locator('#issue-helper-draft-title').fill('Edited issue & idea 🧞');
+      await page.locator('#issue-helper-draft-body').fill('Edited synthetic steps & expected.\npassword=synthetic-edited-private');
+      await click('#issue-helper-review');
+      assert.match(await page.locator('#issue-helper-reviewed').innerText(), /Edited synthetic steps/);
+      assert.doesNotMatch(await page.locator('#issue-helper-reviewed').innerText(), /synthetic-edited-private/);
+      assert.equal(await page.locator('#issue-helper-github-link').getAttribute('href'), null);
+      await page.locator('#issue-helper-confirm').check();
+      const issueUrl = new URL(await page.locator('#issue-helper-github-link').getAttribute('href'));
+      assert.equal(issueUrl.origin + issueUrl.pathname, 'https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/new');
+      assert.equal(issueUrl.searchParams.get('title'), 'Edited issue & idea 🧞');
+      assert.equal(issueUrl.searchParams.get('body'), await page.locator('#issue-helper-draft-body').inputValue());
+      assert.doesNotMatch(issueUrl.href, /synthetic-edited-private|synthetic-smoke-private/);
+      await shot('issue-helper-reviewed');
+      await page.locator('#issue-helper-draft-body').fill('New edit after review');
+      assert.equal(await page.locator('#issue-helper-github-link').getAttribute('href'), null, 'Editing invalidates outgoing link');
+      await click('#issue-helper-review');
+      await page.locator('#issue-helper-confirm').check();
+      assert.match(await page.locator('#issue-helper-github-link').getAttribute('href'), /New\+edit\+after\+review/);
+      await page.locator('#issue-helper-address-opt-in').check();
+      assert.equal(await page.locator('#issue-helper-github-link').getAttribute('href'), null, 'Address setting invalidates review');
+      await page.locator('#issue-helper-addresses').fill('0x' + 'ab'.repeat(32));
+      await click('#issue-helper-review');
+      assert.match(await page.locator('#issue-helper-status').innerText(), /keys can never be kept/);
+      assert.equal(await page.locator('#issue-helper-github-link').getAttribute('href'), null, 'A key cannot be allowlisted');
+      const publicAddress = '0x' + 'a1'.repeat(20);
+      await page.locator('#issue-helper-addresses').fill(publicAddress);
+      await page.locator('#issue-helper-draft-body').fill(`Synthetic public example ${publicAddress}`);
+      await click('#issue-helper-review');
+      await page.locator('#issue-helper-confirm').check();
+      assert.ok(new URL(await page.locator('#issue-helper-github-link').getAttribute('href')).searchParams.get('body').includes(publicAddress));
+      await page.locator('#issue-helper-address-opt-in').uncheck();
+      await click('#issue-helper-review');
+      assert.doesNotMatch(await page.locator('#issue-helper-reviewed').innerText(), new RegExp(publicAddress));
+      assert.equal(hostedRequests.length, helperHostedBefore, 'No helper draft sent to hosted AI');
+      await click('#issue-helper-close');
+      await hidden('#issue-helper-dialog');
+      assert.equal(await page.evaluate(() => JSON.stringify({ ...localStorage })), helperStorageBefore, 'No draft or consent persisted');
+      covered.add('issue-helper-dialog');
       await click('label:has(#genie-enabled-toggle)');
       assert.equal(await page.locator('#genie-enabled-toggle').isChecked(), true);
       await click('#settings-modal-close');
@@ -568,6 +621,15 @@ try {
         await click(`[data-panel="${id}"].panel-toggle-btn`);
         await hidden(`#${id}`);
       }
+      // Separate helper discovery check; do not enter the model/consent path.
+      await click(`[data-panel="${panels[0]}"].panel-toggle-btn`);
+      await click(`.genie-icon-btn[data-panel="${panels[0]}"]`);
+      await click(`.genie-chat-window[data-panel="${panels[0]}"] .genie-issue-helper-open`);
+      await visible('#issue-helper-dialog');
+      assert.equal(await page.locator('#issue-helper-happened').inputValue(), '', 'New helper never imports chat or health context');
+      await click('#issue-helper-close');
+      await click(`.genie-chat-window[data-panel="${panels[0]}"] .genie-chat-close`);
+      await click(`[data-panel="${panels[0]}"].panel-toggle-btn`);
       for (const [id, trigger, close] of [
         ['moon-modal', '#moon-icon'], ['water-modal', '#water-drop-empty'],
         ['emotion-modal', '#emotion-icon'], ['pain-log-modal', '#chakra-sacral'],

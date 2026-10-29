@@ -1,0 +1,33 @@
+name: Metric request
+description: Request a metric definition, not collection of personal readings
+title: "Metric request: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Public feature discussion only. Do not include personal measurements, health histories, screenshots of records, credentials, or addresses. Use hypothetical values. A request is not medical advice or approval to collect data.
+  - type: input
+    id: surface
+    attributes:
+      label: Which surface should support this metric?
+    validations:
+      required: true
+  - type: textarea
+    id: need
+    attributes:
+      label: What metric is missing and why?
+    validations:
+      required: true
+  - type: textarea
+    id: definition
+    attributes:
+      label: Definition, unit, source, and expected behavior
+      description: Describe self-reported versus estimated data and unknown/unavailable states.
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: Synthetic example and acceptance check
+    validations:
+      required: true

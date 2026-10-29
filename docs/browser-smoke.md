@@ -174,3 +174,9 @@ Only synthetic sessions are used; no chanting data is sent to Genie or IPFS.
 `npm run test:smoke` also runs the no-real-funds StreakBet browser rehearsal.
 See [streakbet-rehearsal.md](streakbet-rehearsal.md) for the interactive
 walkthrough, isolated local-fork setup and fail-closed guardrails.
+
+The desktop/mobile route also opens the model-free Genie issue helper from
+Settings and a Genie chat, interviews, edits, sanitizes again, reviews, and
+inspects the prefilled GitHub link without navigating to or publishing on
+GitHub. It asserts no hosted-model request, no draft persistence, and
+invalidation of the reviewed link after editing.

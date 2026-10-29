@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a reproducible problem without private data
+title: "Bug: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are public. Do not include health logs, credentials, personal addresses, or private screenshots. Use synthetic examples. The app's Genie issue helper can prepare a local, reviewed draft; it never submits for you.
+  - type: input
+    id: surface
+    attributes:
+      label: Which surface?
+      description: Panel, page, or control; optionally browser/device type (no identifying details).
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use made-up data, not health records or private account details.
+    validations:
+      required: true

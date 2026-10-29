@@ -1,0 +1,33 @@
+name: Feature idea
+description: Suggest an improvement to BigNuten
+title: "Idea: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is public. Describe app behavior, not personal health details. Never include keys, credentials, or personal addresses. No financial action is authorized by filing an idea.
+  - type: input
+    id: surface
+    attributes:
+      label: Which surface?
+    validations:
+      required: true
+  - type: textarea
+    id: need
+    attributes:
+      label: What problem or idea?
+    validations:
+      required: true
+  - type: textarea
+    id: improvement
+    attributes:
+      label: What would improve?
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example steps and acceptance check
+      description: A small synthetic example; say not applicable if needed.
+    validations:
+      required: true

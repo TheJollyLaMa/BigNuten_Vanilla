@@ -9,6 +9,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/issueHelper.css" />
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
@@ -971,6 +972,7 @@
 
   <script type="module" src="js/app.js"></script>
   <script type="module" src="js/streakCompetitions.js"></script>
+  <script type="module" src="js/issueHelperUI.js"></script>
   <script type="module">
     import { initAdminContributors, initAddContributorModal, initBountyRegister } from './js/admin.js';
     import { initDeFiPanel } from './js/defi.js';
@@ -1810,6 +1812,7 @@
       </section>
 
       <!-- Genie AI Assistant Section -->
+      <button id="genie-issue-helper-open" type="button">🧞 Report an issue / suggest an idea (no AI needed)</button>
       <section class="settings-section">
         <h3>🧞 Genie AI Assistant</h3>
         <p class="settings-desc">

@@ -19,6 +19,11 @@
 
 ## 🗺️ Platform at a Glance
 
+Found a bug or have an idea? Use **Settings → Report an issue / suggest an
+idea** or **Issue / idea** in a Genie header. The [model-free issue helper](docs/issue-helper.md)
+prepares a private, editable draft with no health collection or automatic
+posting; you review and submit on GitHub yourself.
+
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                        ⚕︎  B I G N U T E N  ⚕︎                              ║
