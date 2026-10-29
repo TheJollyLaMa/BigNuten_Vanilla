@@ -484,7 +484,8 @@ The Admin Panel is accessible to the owner wallet (`DEFAULT_ADMIN_ROLE`) via the
 - **Streak Bot** — auto-verifies user data on app load; checks local logs (e.g. water intake) against competition requirements and auto-submits on-chain reports — no double-logging needed
 - **Daily Reports (IPFS Chain)** — admin compiles daily reports listing all entrants, verification status, pot balance, and publishes to IPFS; each report links to the previous day's CID forming an immutable chain of competition records
 - **Settle** — auto-forfeits incomplete entrants, distributes pot + yield to winners, publishes leaderboard CID
-- **Cancel** — refunds all non-forfeited entrants
+- **Stake commitment** — joining commits the stake; no participant refund withdrawal before settlement. Voluntary forfeit loses the stake. Final ranked settlement is not an early refund or a guaranteed full-principal return.
+- **Cancel** — only the captain (contract owner) can cancel; refunds non-forfeited entrants, limited to the actual held balance under the current contract
 - **Aave Deploy** — deploys pot to Aave V3 for yield during the comp period (ERC-20 only)
 
 > 🔐 The Admin Panel is only visible when the connected wallet matches the treasury owner address. No private keys are stored in GitHub — all on-chain actions go through MetaMask.
