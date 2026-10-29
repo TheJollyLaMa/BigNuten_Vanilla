@@ -100,6 +100,7 @@ try {
       foods: [{ name: 'Synthetic restore meal', amount: 1, unit: 'serving', date: '2026-10-28', nutr: { calories: 246, protein: 12 } }],
       supplements: [{ name: 'Synthetic restore supplement', weight: 10, date: '2026-10-28', time: '10:00' }],
       exercises: { types: ['Push-ups'], entries: [{ type: 'Push-ups', timestamp: '2026-10-28T10:00:00Z', sets: [{ reps: 8, weight: 10 }] }] },
+      sessionLog: [{ id: 'synthetic-legacy-workout', date: '2026-10-27' }],
       measurements: [{ type: 'Bicep', measurement: '12', date: '2026-10-28', time: '10:00' }],
       painLogs: [{ bodyArea: 'Synthetic restore area', severity: 2, timestamp: '2026-10-28T10:00:00Z' }],
       emotions: [{ emotion: 'Joy', context: 'manual', timestamp: '2026-10-28T10:00:00Z' }],
@@ -257,6 +258,10 @@ try {
       assert.equal(await page.evaluate(() => window.ethereum.request({ method: 'eth_chainId' })), '0x2105');
       assert.ok(await page.locator('#chakra-aura-canvas').evaluate(canvas => canvas.width > 0 && canvas.height > 0), 'Aura canvas has drawing dimensions');
       await shot('dashboard');
+      await visible('#measurement-reminder');
+      await click('#measurement-reminder-dismiss');
+      await hidden('#measurement-reminder');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).measurementReminderDismissedOn), '2026-10-28');
       await click('#water-drop-empty');
       for (let count = 0; count < 10; count++) await click('#water-log-btn');
       assert.equal(await page.locator('#water-modal-count').innerText(), '10 / 8');
@@ -698,6 +703,86 @@ try {
       await page.waitForFunction(() => document.getElementById('workout-current-title').textContent === 'Rest');
       await advanceWorkoutClock(1);
       await cancelCountdown('Prepare');
+      // Complete a real short workout, then update the same session record.
+      if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
+      await click('[data-panel="recent-exercises-list"].panel-toggle-btn');
+      await click('#exercises-last7days .exercise-add-btn');
+      if (await page.locator('#recent-exercises-list').isVisible()) await click('[data-panel="recent-exercises-list"].panel-toggle-btn');
+      if (!(await page.locator('#workout-set-list').isVisible())) await click('[data-panel="workout-set-list"].panel-toggle-btn');
+      await page.locator('.workout-set-item .workout-sets').fill('1');
+      await page.locator('.workout-set-item .set-reps').fill('6');
+      await page.locator('.workout-set-item .set-weight').fill('10');
+      const beforeComplete = await sessions();
+      await click('#start-workout-button');
+      await advanceWorkoutClock(11);
+      page.once('dialog', dialog => dialog.accept());
+      await advanceWorkoutClock(1);
+      await hidden('#workout-timer-modal');
+      await visible('#emotion-modal');
+      await click('#emotion-modal .modal-close');
+      const completedSessions = await sessions();
+      assert.equal(completedSessions.length, beforeComplete.length + 1);
+      assert.equal(completedSessions.at(-1).completed, true);
+      assert.equal(completedSessions.at(-1).durationSeconds, 12);
+      if (!(await page.locator('#workout-set-list').isVisible())) await click('[data-panel="workout-set-list"].panel-toggle-btn');
+      assert.equal(await page.locator('#workout-session-duration').isDisabled(), true);
+      await page.locator('#workout-rpe').fill('7');
+      await page.locator('#workout-soreness').check();
+      await page.locator('#workout-tightness').check();
+      await page.locator('#workout-recovery-note').fill('Synthetic legs sore, back tight');
+      await click('#workout-session-form button[type="submit"]');
+      const reviewed = (await sessions()).at(-1);
+      assert.equal(reviewed.rpe, 7);
+      assert.equal(reviewed.durationSeconds, 12);
+      assert.deepEqual(reviewed.recovery, { soreness: true, tightness: true, note: 'Synthetic legs sore, back tight' });
+      assert.equal((await sessions()).length, completedSessions.length, 'Review updates, never duplicates sessions');
+      assert.match(await page.locator('#workout-session-history').innerText(), /RPE 7.*legs sore/);
+      await page.locator('#workout-trend-type').selectOption('Push-ups');
+      assert.equal(await page.locator('#workout-session-chart').evaluate(canvas => Chart.getChart(canvas).data.datasets[0].data.at(-1).y), 7);
+      await shot('workout-recovery');
+      await page.locator('#workout-session-picker').selectOption('0');
+      assert.equal(await page.locator('#workout-session-duration').isEnabled(), true);
+      assert.match(await page.locator('#workout-session-history').innerText(), /duration not recorded/);
+      await page.locator('#workout-session-duration').fill('30');
+      await click('#workout-session-form button[type="submit"]');
+      assert.equal((await sessions())[0].durationSeconds, 1800);
+      assert.match(await page.locator('#lifetime-stats-summary').textContent(), /Recorded elapsed duration/);
+      await click('[data-panel="workout-set-list"].panel-toggle-btn');
+      // Settings was switched to metric earlier. Store cm, not the display value in inches.
+      await click('#log-measurements');
+      await page.locator('#measurement-type').selectOption('Waist');
+      await page.locator('#measurement').fill('80');
+      await page.locator('#measurement-date').fill('2026-10-28');
+      await page.locator('#measurement-time').fill('12:00');
+      await page.locator('#measurement-body-fat').fill('22.5');
+      await page.locator('#measurement-body-fat-source').selectOption('imported');
+      await page.locator('#measurement-photo').check();
+      await page.locator('#measurement-photo-note').fill('Synthetic private photo elsewhere');
+      await click('#measurement-form button[type="submit"]');
+      const body = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')));
+      const latestMeasurement = body.measurements.at(-1);
+      assert.equal(latestMeasurement.measurement, 80);
+      assert.equal(latestMeasurement.unit, 'cm');
+      assert.equal(latestMeasurement.progressPhotoTaken, true);
+      assert.equal(latestMeasurement.progressPhotoNote, 'Synthetic private photo elsewhere');
+      const fat = body.metricLogs.find(log => log.id === latestMeasurement.bodyFatMetricId);
+      assert.equal(fat.value, 22.5); assert.equal(fat.source, 'imported'); assert.equal(fat.unit, '%');
+      assert.match(await page.locator('#measurement-history').innerText(), /Waist: 80 cm.*Body fat: 22.5%.*Photo: taken/);
+      assert.match(await page.locator('#measurement-history').innerText(), /legacy units \(not specified\)/);
+      await shot('measurement-photo-metadata');
+      await click('#measurements-modal .modal-close');
+      await click('#chakra-heart');
+      await page.locator('#metric-picker').selectOption('bodyFat');
+      assert.match(await page.locator('#metric-history').innerText(), /22.5 %.*imported/);
+      assert.equal(await page.locator('#metric-trend-chart').evaluate(canvas => Chart.getChart(canvas).data.datasets[0].data.at(-1).y), 22.5);
+      await click('#heart-modal-close');
+      await click('#graph-icon');
+      await click('[data-series="metric:bodyFat"]');
+      assert.equal(await page.locator('#correlationChart').evaluate(canvas => Chart.getChart(canvas).data.datasets.find(dataset => dataset.label.includes('Body fat')).data.at(-1).y), 22.5);
+      await click('#correlation-graph-modal .modal-close');
+      await advanceWorkoutClock(12);
+      assert.equal((await sessions()).length, completedSessions.length, 'Completed timer does not run again');
+      console.log(`${name}: completed workout with elapsed duration, RPE/recovery, canonical measurement/photo metadata and body-fat hub/correlation`);
       if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
       if (name === 'mobile') await modal('mobile-data-sheet', '#ipfsIcon', '#mobile-sheet-close-btn');
       await modal('ipfs-connect-dialog', '#aes-storage-btn', '#ipfs-dialog-close-btn', ['#aesculapius-right']);

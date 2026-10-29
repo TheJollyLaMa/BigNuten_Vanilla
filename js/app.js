@@ -1,3 +1,6 @@
+import { workoutDurationSeconds } from './workoutBody.js';
+import { initBodyMeasurements } from './bodyMeasurements.js';
+import { initWorkoutReview } from './workoutReview.js';
 import { initHeartMetrics } from './heartMetrics.js';
 import { persistDietIntake, summarizeCalories, summarizeCaloriesByDay, buildMealTimingInsights } from './dietIntake.js';
 import { geniePrivacyNotice, revokeGenieHostedConsent } from './geniePrivacy.js';
@@ -2139,17 +2142,12 @@ function displayRecentExercises() {
     const pullups = log.filter(e => normalize(e.type).includes('pullup')).reduce((sum, e) => sum + getEntryTotalReps(e), 0);
     const pushups = log.filter(e => normalize(e.type).includes('pushup')).reduce((sum, e) => sum + getEntryTotalReps(e), 0);
     const situps = log.filter(e => normalize(e.type).includes('situp')).reduce((sum, e) => sum + getEntryTotalReps(e), 0);
-    // For total time, fallback to sessionLog if present, else use fitnessData.totalWorkSeconds/totalRestSeconds
-    let totalTimeSec = 0;
-    if (Array.isArray(fitnessData.sessionLog)) {
-      totalTimeSec = fitnessData.sessionLog.reduce((sum, s) =>
-        sum + (s.totalWorkSeconds || 0) + (s.totalRestSeconds || 0), 0);
-    } else {
-      totalTimeSec = (fitnessData.totalWorkSeconds || 0) + (fitnessData.totalRestSeconds || 0);
-    }
+    const durations = (fitnessData.sessionLog || []).map(workoutDurationSeconds);
+    const totalTimeSec = durations.reduce((sum, duration) => sum + (duration ?? 0), 0);
+    const missingDurations = durations.filter(duration => duration === null).length;
     statsContainer.innerHTML = `
       🏋️‍♂️ Pull-ups: ${pullups} | Push-ups: ${pushups} | Sit-ups: ${situps}<br>
-      ⏱️ Total Time: ${(totalTimeSec / 60).toFixed(1)} min
+      ⏱️ Recorded elapsed duration: ${(totalTimeSec / 60).toFixed(1)} min${missingDurations ? `; ${missingDurations} session(s): duration not recorded` : ''}
     `;
   }
 
@@ -2542,6 +2540,7 @@ function clearWorkoutTimer() {
 
 function prepareWorkoutSequence(sequence) {
   clearWorkoutTimer();
+  paused = false;
   // Remove final rest period if last item is a rest
   if (sequence.length && sequence[sequence.length - 1].type === 'rest') {
     sequence.pop();
@@ -2649,7 +2648,9 @@ function runWorkoutStep() {
   if (currentStepIndex >= workoutSequence.length) {
     const workoutEndTime = new Date().toISOString();
     const sessionLogEntry = {
+      id: sessionId,
       sessionId,
+      workoutTypes: [...new Set(workoutSequence.filter(step => step.type === 'exercise').map(step => step.name))],
       start: sessionStartTime,
       end: workoutEndTime,
       totalWorkSeconds: workoutSequence.filter(s => s.type === 'exercise').length * parseInt(document.getElementById('work-duration')?.value || '60'),
@@ -2661,6 +2662,7 @@ function runWorkoutStep() {
     if (!Array.isArray(data.sessionLog)) data.sessionLog = [];
     data.sessionLog.push(sessionLogEntry);
     saveFitnessData(data);
+    window.dispatchEvent(new Event('bignuten:workout-recorded'));
     workoutModal.classList.add('modal-hidden');
     // Prompt for post-workout feeling
     openFeelingsModal('post-workout');
@@ -2811,20 +2813,12 @@ window.addEventListener('DOMContentLoaded', () => {
         // Save progress up to the currentStepIndex
         const completed = workoutSequence.slice(0, currentStepIndex).filter(s => s.type === 'exercise');
         const data = getFitnessData();
-        completed.forEach(step => {
-          data.exercises.entries.push({
-            type: step.name,
-            reps: parseInt(step.reps),
-            sets: 1,
-            weight: parseFloat(step.weight),
-            timestamp: new Date().toISOString(),
-            description: 'Canceled Workout'
-          });
-        });
         // Session log for canceled workout
         const workoutEndTime = new Date().toISOString();
         const sessionLogEntry = {
+          id: sessionId,
           sessionId,
+          workoutTypes: [...new Set(workoutSequence.filter(step => step.type === 'exercise').map(step => step.name))],
           start: sessionStartTime,
           end: workoutEndTime,
           totalWorkSeconds: completed.length * parseInt(document.getElementById('work-duration')?.value || '60'),
@@ -2835,6 +2829,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!Array.isArray(data.sessionLog)) data.sessionLog = [];
         data.sessionLog.push(sessionLogEntry);
         saveFitnessData(data);
+        window.dispatchEvent(new Event('bignuten:workout-recorded'));
         displayRecentExercises();
 
         // Close the modal and reset state
@@ -3216,236 +3211,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
   }
   // Removed pagination navigation for snapshot popup (all snapshots always shown)
-  // --- Measurement Chart Logic ---
-  const measurementChartCtx = document.getElementById('measurement-chart')?.getContext('2d');
-  let measurementChart = null;
-
-  if (measurementChartCtx) {
-    // eslint-disable-next-line no-undef
-    measurementChart = new Chart(measurementChartCtx, {
-      type: 'line',
-      data: {
-        datasets: []
-      },
-      options: {
-        scales: {
-          x: {
-            type: 'time',
-            time: {
-              unit: 'day',
-              displayFormats: {
-                day: 'MMM d'
-              },
-              tooltipFormat: 'MMM d, h:mm a'
-            },
-            ticks: {
-              source: 'auto',
-              autoSkip: false
-            }
-          },
-          y: {
-            beginAtZero: true
-          }
-        }
-      }
-    });
-  }
-
-  const chartSelect = document.getElementById('measurement-chart-select');
-  if (chartSelect) {
-    chartSelect.addEventListener('change', () => {
-      loadMeasurementChart(chartSelect.value);
-    });
-  }
-
-  function loadMeasurementChart(selectedType = 'all') {
-    const data = getFitnessData();
-    const measurements = data.measurements || [];
-    const grouped = {};
-
-    measurements.forEach(entry => {
-      if (!grouped[entry.type]) grouped[entry.type] = [];
-      grouped[entry.type].push({
-        x: new Date(`${entry.date}T${entry.time || '00:00'}`),
-        y: parseFloat(entry.measurement)
-      });
-    });
-
-    const datasets = [];
-
-    if (selectedType === 'all') {
-      Object.entries(grouped).forEach(([type, entries]) => {
-        datasets.push({
-          label: type,
-          data: entries,
-          borderColor: getColorForType(type),
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          tension: 0.4
-        });
-      });
-    } else if (grouped[selectedType]) {
-      datasets.push({
-        label: selectedType,
-        data: grouped[selectedType],
-        borderColor: getColorForType(selectedType),
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        tension: 0.4
-      });
-    }
-
-    if (measurementChart) {
-      measurementChart.data.datasets = datasets;
-      // Update Chart.js options for x axis to match body weight chart
-      measurementChart.options.scales.x = {
-        type: 'time',
-        time: {
-          unit: 'day',
-          displayFormats: {
-            day: 'MMM d'
-          },
-          tooltipFormat: 'MMM d, h:mm a'
-        },
-        ticks: {
-          source: 'auto',
-          autoSkip: false
-        }
-      };
-      measurementChart.update();
-    }
-
-    // Measurement chart toggle buttons setup
-    const toggle = document.getElementById('measurement-chart-toggle');
-    if (toggle) {
-      const newToggle = toggle.cloneNode(true);
-      toggle.parentNode.replaceChild(newToggle, toggle);
-      newToggle.querySelectorAll('button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const range = btn.textContent.toLowerCase(); // 'day', 'month', etc.
-          const data = getFitnessData();
-          const now = new Date();
-          let cutoff = new Date();
-
-          if (range === 'day') cutoff.setDate(now.getDate() - 1);
-          if (range === 'week') cutoff.setDate(now.getDate() - 7);
-          if (range === '2-wk') cutoff.setDate(now.getDate() - 14);
-          if (range === 'month') cutoff.setDate(now.getDate() - 30);
-          if (range === 'year') cutoff.setDate(now.getDate() - 365);
-          if (range === 'max') cutoff = new Date(0); // all time
-
-          const filteredMeasurements = data.measurements.filter(entry => {
-            const ts = new Date(`${entry.date}T${entry.time || '00:00'}`);
-            return ts >= cutoff;
-          });
-
-          const grouped = {};
-          filteredMeasurements.forEach(entry => {
-            if (!grouped[entry.type]) grouped[entry.type] = [];
-            grouped[entry.type].push({
-              x: new Date(`${entry.date}T${entry.time || '00:00'}`),
-              y: parseFloat(entry.measurement)
-            });
-          });
-
-          const datasets = [];
-          if (chartSelect.value === 'all') {
-            Object.entries(grouped).forEach(([type, entries]) => {
-              datasets.push({
-                label: type,
-                data: entries,
-                borderColor: getColorForType(type),
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                tension: 0.4
-              });
-            });
-          } else if (grouped[chartSelect.value]) {
-            datasets.push({
-              label: chartSelect.value,
-              data: grouped[chartSelect.value],
-              borderColor: getColorForType(chartSelect.value),
-              backgroundColor: 'rgba(255,255,255,0.05)',
-              tension: 0.4
-            });
-          }
-
-          if (measurementChart) {
-            measurementChart.data.datasets = datasets;
-            measurementChart.update();
-          }
-        });
-      });
-    }
-  }
-
-  function getColorForType(type) {
-    const colors = {
-      Bicep: '#00e5ff',
-      Chest: '#ff3d3d',
-      Waist: '#aa00ff',
-      Thigh: '#00ffcc',
-      Calf: '#ffff00'
-    };
-    return colors[type] || '#ffffff';
-  }
-
-  loadMeasurementChart('all');
-  window.addEventListener('bignuten:fitness-data-restored', () => {
-    loadMeasurementChart(document.getElementById('measurement-chart-select')?.value || 'all');
-  });
-// --- Measurements Modal Logic ---
-const measurementForm = document.getElementById('measurement-form');
-const measurementTypeSelect = document.getElementById('measurement-type');
-const measurementDateInput = document.getElementById('measurement-date');
-
-if (measurementDateInput) {
-  const today = new Date().toISOString().split('T')[0];
-  measurementDateInput.value = today;
-}
-
-if (measurementForm) {
-  // Add new type to dropdown if selected
-  measurementTypeSelect?.addEventListener('change', () => {
-    if (measurementTypeSelect.value === 'add-new') {
-      const newType = prompt('Enter a new measurement type:');
-      if (
-        newType &&
-        newType.trim() !== '' &&
-        !Array.from(measurementTypeSelect.options).some(opt => opt.value === newType)
-      ) {
-        // Insert new option before add-new
-        const opt = document.createElement('option');
-        opt.value = newType;
-        opt.textContent = newType;
-        measurementTypeSelect.insertBefore(opt, measurementTypeSelect.querySelector('option[value="add-new"]'));
-        measurementTypeSelect.value = newType;
-      } else {
-        measurementTypeSelect.value = ''; // Reset if invalid or cancelled
-      }
-    }
-  });
-
-  measurementForm.addEventListener('submit', e => {
-    e.preventDefault();
-    const type = measurementTypeSelect.value;
-    const measurement = parseFloat(document.getElementById('measurement').value);
-    const date = document.getElementById('measurement-date').value;
-    const time = document.getElementById('measurement-time').value;
-    // Optionally: description field in the future
-    const data = getFitnessData();
-    if (!Array.isArray(data.measurements)) data.measurements = [];
-    data.measurements.push({ type, measurement, date, time });
-    saveFitnessData(data);
-    measurementForm.reset();
-    if (measurementDateInput) {
-      const today = new Date().toISOString().split('T')[0];
-      measurementDateInput.value = today;
-    }
-    // Update measurement chart
-    if (typeof loadMeasurementChart === 'function') {
-      loadMeasurementChart(document.getElementById('measurement-chart-select')?.value || 'all');
-    }
-    // Optionally close modal or provide feedback
-  });
-}
+  initBodyMeasurements({ load: getFitnessData, save: saveFitnessData });
+  initWorkoutReview({ load: getFitnessData, save: saveFitnessData, onSaved: displayRecentExercises });
   const walletButton = document.getElementById('wallet-connect');
   const footer = document.querySelector('footer');
 

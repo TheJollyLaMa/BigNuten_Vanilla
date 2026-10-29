@@ -25,7 +25,7 @@ function harness() {
     getElementById: id => nodes.find(node => node.id === id) || null,
     createElement: () => element(), querySelector: () => modal, querySelectorAll: () => [],
   };
-  const context = vm.createContext({ document, window: { addEventListener: (_, callback) => ready.push(callback) },
+  const context = vm.createContext({ document, Event, window: { addEventListener: (_, callback) => ready.push(callback), dispatchEvent() {} },
     setInterval(callback) { timers.set(++nextTimer, callback); return nextTimer; },
     clearInterval: id => timers.delete(id), getFitnessData: () => data,
     saveFitnessData() {}, displayRecentExercises() {}, alert() {}, confirm: () => true,
@@ -54,6 +54,7 @@ for (const [phase, seconds] of [['Starting Soon', 0], ['Exercise', 11], ['Rest',
     assert.equal(h.timers.size, 1);
     h.click('cancel-workout-button');
     assert.equal(h.timers.size, 0);
+    assert.equal(h.data.exercises.entries.length, seconds >= 12 ? 1 : 0, 'Cancel must not duplicate sets already logged by the work timer');
     const canceled = JSON.stringify(h.data);
     h.tick(30);
     h.run('runWorkoutStep()');
@@ -89,4 +90,12 @@ test('uncanceled workout still completes through preparation, work, rest and nex
   assert.equal(h.data.sessionLog.length, 1);
   assert.equal(h.data.sessionLog[0].completed, true);
   assert.equal(h.feelings, 1);
+});
+
+test('new workout resets paused state from a prior session', () => {
+  const h = harness();
+  h.run(`paused = true; prepareWorkoutSequence(${sequence})`);
+  h.tick(25);
+  assert.equal(h.data.sessionLog[0].completed, true);
+  assert.equal(h.timers.size, 0);
 });
