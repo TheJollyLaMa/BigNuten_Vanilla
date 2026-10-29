@@ -38,6 +38,11 @@ getter/event/receipt verification using disposable owner authority. Its CIDv1
 raw identifiers hash the in-memory canonical document bytes; no storage upload
 or public publication occurs. The rehearsal server permits event reads and the
 anchor write only on fixture contracts (41 local transactions total).
+The shared contract rehearsal verifies tied first-place payouts/mints in the
+final receipt, both independent capabilities (payout policy v2, receipt anchor
+v1), and rejection of an attempted second anchor. `StreakBetCodeSize.test.js`
+reads the existing Hardhat artifact and enforces the EIP-170 deployed-runtime
+limit of 24,576 bytes on every `npm test`; the combined source is 24,399 bytes.
 
 ## Hard guardrails
 

@@ -7,6 +7,9 @@ describe('StreakBet NO REAL FUNDS rehearsal', function () {
     const { createRehearsalSteps } = await import('../../js/streakRehearsal.mjs');
     const fixture = await deployRehearsal(hre);
     const states = [];
+    const escrow = new hre.ethers.Contract(fixture.contracts.escrow.address, fixture.contracts.escrow.abi, hre.ethers.provider);
+    expect(await escrow.streakPayoutPolicyVersion()).to.equal(2);
+    expect(await escrow.finalReceiptAnchorVersion()).to.equal(1);
     const steps = await createRehearsalSteps(hre.ethers, hre.ethers.provider, fixture,
       (state, method) => states.push({ state, method }));
     expect(steps).to.have.length(14);
@@ -26,7 +29,14 @@ describe('StreakBet NO REAL FUNDS rehearsal', function () {
     expect(payoutActions.every(action => action.place === 1)).to.equal(true);
     expect(resultPreview.awardLinks.every(link => !Object.hasOwn(link, 'metadataCID'))).to.equal(true);
     expect(resultPreview.manifest.cid).to.match(/^bafkrei/);
-    expect((await new hre.ethers.Contract(fixture.contracts.escrow.address, fixture.contracts.escrow.abi, hre.ethers.provider).finalReceiptAnchors(0)).receiptHash).to.equal(resultPreview.contentHash);
+    const anchored = await escrow.finalReceiptAnchors(0);
+    expect(anchored.receiptHash).to.equal(resultPreview.contentHash);
+    expect(anchored.manifestHash).to.equal(resultPreview.manifest.contentHash);
+    expect(anchored.cid).to.match(/^bafkrei/);
+    await expect(escrow.connect(await hre.ethers.provider.getSigner(fixture.accounts[0]))
+      .anchorFinalReceipt(0, anchored.cid, anchored.receiptHash, anchored.manifestHash))
+      .to.be.revertedWithCustomError(escrow, 'InvalidReceiptAnchor');
+    expect((await escrow.finalReceiptAnchors(0)).receiptHash).to.equal(resultPreview.contentHash);
     expect(JSON.stringify(resultPreview)).not.to.match(/activityDays|progressHash|proofCID|notes|healthData/i);
     expect(states.filter(item => item.state === 'confirmed')).to.have.length(41);
     expect(states.some(item => /Aave/.test(item.method))).to.equal(false);
