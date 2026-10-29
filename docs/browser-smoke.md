@@ -145,3 +145,8 @@ recovery point via `addInitScript` (once per browser session). They assert the
 alert contains the recovery timestamp, click its accessible dismiss button,
 verify persisted dismissal, and reload to verify the notice stays absent.
 The fixture does not use real health data or contact a backup provider.
+
+The Heart hub smoke flow runs at both viewport sizes: opens `#chakra-heart`,
+logs an RHR reading, checks canonical persistence, history and trend windows,
+reopens with the keyboard, checks the Breathwork placeholder and unit setting,
+and confirms the automatic correlation series and hosted Genie consent/context.

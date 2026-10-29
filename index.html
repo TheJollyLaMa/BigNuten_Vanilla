@@ -1584,6 +1584,43 @@
   </div>
 
   <!-- ── Settings Modal ────────────────────────────────────────────────────── -->
+  <div id="heart-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="heart-modal-title">
+    <div class="modal heart-metrics-modal">
+      <button class="modal-close" id="heart-modal-close" aria-label="Close Heart hub">×</button>
+      <h2 id="heart-modal-title">💚 Heart — Health foundation</h2>
+      <div role="tablist" aria-label="Heart hub">
+        <button type="button" id="heart-vitals-tab" role="tab" aria-selected="true" aria-controls="heart-vitals">Vitals &amp; Body</button>
+        <button type="button" id="heart-breathwork-tab" role="tab" aria-selected="false" aria-controls="heart-breathwork" tabindex="-1">Breathwork</button>
+      </div>
+      <section id="heart-vitals" role="tabpanel" aria-labelledby="heart-vitals-tab">
+        <label for="metric-picker">Metric</label>
+        <select id="metric-picker"></select>
+        <p id="metric-safety"></p>
+        <form id="metric-log-form">
+          <div id="metric-value-fields"></div>
+          <label for="metric-datetime">Reading date and time</label>
+          <input type="datetime-local" id="metric-datetime" required />
+          <label for="metric-note">Note (optional)</label>
+          <textarea id="metric-note" rows="2" maxlength="2000"></textarea>
+          <button type="submit">Save reading</button>
+        </form>
+        <p id="metric-status" role="status" aria-live="polite"></p>
+        <h3>Trend</h3>
+        <label for="metric-trend-range">View</label>
+        <select id="metric-trend-range">
+          <option value="1">Day</option><option value="7" selected>Week</option><option value="30">Month</option>
+        </select>
+        <p id="metric-summary"></p>
+        <div class="heart-metric-chart"><canvas id="metric-trend-chart" role="img" aria-label="Metric trend; readings available in history"></canvas></div>
+        <h3>History</h3>
+        <ul id="metric-history"></ul>
+      </section>
+      <section id="heart-breathwork" role="tabpanel" aria-labelledby="heart-breathwork-tab" hidden>
+        <p>Breathwork practice is coming in #289. Vitals &amp; Body is ready to use.</p>
+      </section>
+    </div>
+  </div>
+
   <div id="settings-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
     <div class="modal settings-modal">
       <button class="modal-close" id="settings-modal-close" aria-label="Close Settings">×</button>
@@ -1592,6 +1629,13 @@
         <span class="settings-gear-icon" aria-hidden="true">⚙️</span>
         <h2 id="settings-modal-title">Settings</h2>
       </div>
+
+      <section class="settings-section">
+        <h3>Vitals &amp; Body units</h3>
+        <label for="settings-metric-units">Display units</label>
+        <select id="settings-metric-units"><option value="imperial">Imperial (default)</option><option value="metric">Metric</option></select>
+        <p class="settings-desc">Applies to registry metrics in the Heart hub and correlation graph. Readings are always stored in canonical units. Existing weight and measurement logs are unchanged.</p>
+      </section>
 
       <!-- Day Cycle Section -->
       <section class="settings-section">
