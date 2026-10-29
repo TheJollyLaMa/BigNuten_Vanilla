@@ -85,7 +85,12 @@ export function initHeartBreathwork({ modal, load, save }) {
     } catch (error) { status.textContent = error.message; }
   });
   pause.addEventListener('click', () => {
-    if (paused) timer.resume(); else timer.pause();
+    if (paused) timer.resume();
+    else {
+      timer.pause();
+      find('phase').textContent = 'Paused — breathe normally';
+      guide.className = 'breath-guide'; guide.style.transform = '';
+    }
     paused = !paused; pause.textContent = paused ? 'Resume' : 'Pause';
   });
   end.addEventListener('click', () => finish(timer.end()));

@@ -429,6 +429,7 @@ try {
       await page.clock.fastForward(4000);
       await click('#breath-pause');
       const pausedBreath = await page.locator('#breath-elapsed').innerText();
+      assert.match(await page.locator('#breath-phase').innerText(), /Paused — breathe normally/);
       await page.clock.fastForward(3000);
       assert.equal(await page.locator('#breath-elapsed').innerText(), pausedBreath);
       await click('#breath-pause');

@@ -315,7 +315,8 @@ Skip holds by setting zero; never force breathing or practise in water/driving.
 Begin → Pause/Resume → End (or target rounds complete) → optional feeling/note
 → **Save session**. Cancel, closing the hub, switching to Vitals, or page exit
 clears the single owned timer and discards an unsaved practice. Paused time is
-excluded. Partial ended sessions record completed rounds (possibly zero).
+excluded; pausing explicitly cues normal breathing, never an indefinite hold.
+Partial ended sessions record completed rounds (possibly zero).
 Sessions live only in `fitnessTrackerData.breathworkSessions`:
 
 ```js
