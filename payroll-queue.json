@@ -1300,6 +1300,66 @@
       "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
       "contributorGithub": "TheJollyLaMa",
       "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#274",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:40:53.716Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 373,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#275",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:40:53.871Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 373,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#276",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:40:54.077Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 373,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#271",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:40:54.408Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 373,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#272",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:40:54.638Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 373,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
+    },
+    {
+      "issueRef": "TheJollyLaMa/BigNuten_Vanilla#273",
+      "currency": "BNUT",
+      "queuedAt": "2026-10-29T01:40:54.829Z",
+      "queuedBy": "TheJollyLaMa",
+      "prNumber": 373,
+      "contributor": "0x807061DF657A7697c04045dA7d16D941861cAABc",
+      "contributorGithub": "TheJollyLaMa",
+      "amount": "2"
     }
   ],
   "settled": [
