@@ -132,3 +132,24 @@ test('opt-in paced recovery fixes 30 breaths plus 10 seconds normal recovery wit
   assert.throws(() => validateBreathSession({ ...record, pattern: { ...pattern, holdIn: 7 } }));
   assert.throws(() => validateBreathSession({ ...record, protocol: 'extended-retention' }));
 });
+
+test('optional bedtime validates HH:mm and resolves the local night without changing wake attribution', async () => {
+  const { validateMetricLog, sleepBedtimeDate } = await import('../js/metrics.js');
+  for (const bedtime of ['00:00', '23:59', undefined]) validateMetricLog(log({ bedtime }));
+  for (const bedtime of ['24:00', '7:30', '07:30:00', '', null, 2300]) assert.throws(() => validateMetricLog(log({ bedtime })));
+  assert.equal(sleepBedtimeDate(log()), null);
+  assert.equal(sleepBedtimeDate(log({ bedtime: '23:00' })), '2026-10-27');
+  assert.equal(sleepBedtimeDate(log({ bedtime: '01:00' })), '2026-10-28');
+  assert.equal(sleepBedtimeDate(log({ bedtime: '07:30' })), '2026-10-28');
+  assert.equal(sleepBedtimeDate(log({ bedtime: '23:00', date: '2024-03-01' })), '2024-02-29');
+  assert.equal(sleepBedtimeDate(log({ bedtime: '23:00', date: '2026-01-01' })), '2025-12-31');
+});
+
+test('meal-to-bedtime gaps use the bed date, not the next morning wake date', async () => {
+  const { buildMealTimingInsights } = await import('../js/dietIntake.js');
+  const entry = log({ bedtime: '23:00' });
+  const options = { foods: [{ name: 'Dinner', date: '2026-10-27', time: '21:15' }], sleepEntries: [entry], timeZone: 'UTC', dateInUserTz: value => String(value).slice(0, 10) };
+  assert.deepEqual(buildMealTimingInsights({ ...options, day: '2026-10-27' }).sleepGaps, ['1h 45m']);
+  assert.deepEqual(buildMealTimingInsights({ ...options, day: '2026-10-28' }).sleepGaps, []);
+  assert.deepEqual(buildMealTimingInsights({ ...options, day: '2026-10-27', sleepEntries: [log()] }).sleepGaps, []);
+});

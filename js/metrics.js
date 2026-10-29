@@ -116,8 +116,9 @@ export const METRIC_REGISTRY = [
     id: 'sleep', label: 'Sleep duration', canonicalUnit: 's',
     displayUnits: { imperial: displayUnit('h', 3600), metric: displayUnit('h', 3600) },
     range: [0, 86400], input: { type: 'text', format: 'duration' }, chartType: 'bar',
-    safetyNotice: 'Not medical advice. Attribute each night to its local wake date and time, not bedtime. Duration alone does not measure recovery; longer is not always better. Discuss persistent sleep problems with a clinician.',
+    safetyNotice: 'Not medical advice. Attribute each night to its local wake date and time, not bedtime. Optional bedtime is its most recent occurrence at or before wake time, not measured sleep onset. Duration alone does not measure recovery; longer is not always better. Discuss persistent sleep problems with a clinician.',
     multiplePerDay: false,
+    optionalTime: { key: 'bedtime', label: 'Bedtime (optional, local HH:mm)' },
     optionalRating: { key: 'sleepQuality', label: 'Sleep quality (optional, 1–10)', range: [1, 10] },
   },
   {
@@ -142,6 +143,17 @@ export function metricFields(metric) {
 
 export function getDisplayUnit(metric, system = 'imperial') {
   return metric.displayUnits[system] || metric.displayUnits.imperial;
+}
+
+/** Explicit bedtime belongs to its most recent occurrence at/before local wake time. */
+export function sleepBedtimeDate(log) {
+  const clock = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const wakeTime = typeof log?.time === 'string' ? log.time.slice(0, 5) : '';
+  if (log?.metric !== 'sleep' || !clock.test(log.bedtime || '') || !clock.test(wakeTime)) return null;
+  const date = new Date(`${log.date}T12:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== log.date) return null;
+  if (log.bedtime > wakeTime) date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
 }
 
 export function parseSleepDuration(text) {
@@ -196,6 +208,8 @@ export function validateMetricLog(entry) {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error('Invalid metric log.');
   const metric = getMetric(entry.metric);
   validateMetricValue(metric, entry.value);
+  if (metric.optionalTime && entry[metric.optionalTime.key] !== undefined &&
+      (typeof entry[metric.optionalTime.key] !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(entry[metric.optionalTime.key]))) throw new Error('Invalid optional bedtime; use local HH:mm.');
   if (metric.optionalRating && entry[metric.optionalRating.key] !== undefined) {
     const rating = entry[metric.optionalRating.key];
     if (!Number.isInteger(rating) || rating < metric.optionalRating.range[0] || rating > metric.optionalRating.range[1]) throw new Error('Invalid optional quality rating.');

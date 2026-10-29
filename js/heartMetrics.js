@@ -56,6 +56,13 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
       label.append(input);
       fields.append(label);
     }
+    if (metric.optionalTime) {
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      label.textContent = metric.optionalTime.label;
+      input.id = 'metric-optional-time'; input.type = 'time'; input.step = 60;
+      label.append(input); fields.append(label);
+    }
     source.replaceChildren(...(metric.entrySources || ['self-reported']).map(value => new Option(value, value)));
     sourceLabel.hidden = !metric.entrySources;
     if (metric.optionalRating) {
@@ -94,7 +101,7 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
         return `${field.key ? `${field.label}: ` : ''}${Number(value.toFixed(2))} ${getDisplayUnit(field, getUnitSystem()).unit}${outsideReference(canonical, field) ? ' [outside adult resting reference]' : ''}`;
       }).join(' / ');
       const text = document.createElement('span');
-      text.textContent = `${log.date} ${log.time} — ${reading}${log.sleepQuality !== undefined ? ` — quality ${log.sleepQuality}/10` : ''}${log.note ? ` — ${log.note}` : ''} (${log.source})`;
+      text.textContent = `${log.date} ${log.time} — ${reading}${log.bedtime ? ` — bedtime ${log.bedtime} local` : ''}${log.sleepQuality !== undefined ? ` — quality ${log.sleepQuality}/10` : ''}${log.note ? ` — ${log.note}` : ''} (${log.source})`;
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.textContent = 'Delete';
@@ -233,6 +240,7 @@ export function initHeartMetrics({ load, save, showModal, hideModal }) {
       const log = validateMetricLog({
         id: crypto.randomUUID(), metric: metric.id,
         value: metric.input?.format === 'duration' ? values.value : convertMetricValue(metric.fields ? values : values.value, metric, getUnitSystem()),
+        ...(metric.optionalTime && fields.querySelector('#metric-optional-time').value !== '' ? { [metric.optionalTime.key]: fields.querySelector('#metric-optional-time').value } : {}),
         ...(metric.optionalRating && fields.querySelector('#metric-optional-rating').value !== '' ? { [metric.optionalRating.key]: fields.querySelector('#metric-optional-rating').valueAsNumber } : {}),
         unit: metric.canonicalUnit, date, time, note: note.value.trim(), source: metric.entrySources ? source.value : 'self-reported',
       });

@@ -266,7 +266,16 @@ body fat through the existing forms.
   summary and trend tooltip show h:mm; chart/correlation coordinates use hours.
   The explicitly selected **wake date and local wake time** identify the night:
   sleeping Oct 27 → Oct 28 belongs to **Oct 28**. This timestamp is not bedtime;
-  never infer a last-meal-to-bed interval from it. One record per wake date.
+  never infer a last-meal-to-bed interval from duration/wake time alone. One
+  record per wake date. Optional `bedtime` is a validated local **HH:mm** clock
+  time; omitted bedtime remains valid in legacy records. Its date is the most
+  recent occurrence at/before wake time: 23:00 → 07:30 wake belongs to the
+  previous day, while 01:00 → 07:30 belongs to the wake date. The pure
+  `sleepBedtimeDate` helper resolves calendar rollover (including leap days)
+  without guessing sleep onset from duration. Bedtime means recorded time in
+  bed, not a measured sleep-onset timestamp. Diet's existing explicit-time
+  consumer uses that bed date rather than incorrectly using the wake date.
+  No meal-to-sleep interval is shown when bedtime was not supplied.
 - Optional `sleepQuality` metadata is an **integer 1–10**, not seconds and not
   a compound duration field. `optionalRating: { key, label, range }` enables the
   shared optional rating control; the registry validator checks it on every

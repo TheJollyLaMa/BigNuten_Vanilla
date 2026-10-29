@@ -405,6 +405,7 @@ try {
       await page.locator('#metric-picker').selectOption('sleep');
       await page.locator('#metric-value').fill('7:30');
       await page.locator('#metric-optional-rating').fill('8');
+      await page.locator('#metric-optional-time').fill('23:00');
       await page.locator('#metric-datetime').fill('2026-10-28T07:30');
       await page.locator('#metric-note').fill('Synthetic sleep: caffeine and dreams');
       await click('#metric-log-form button[type="submit"]');
@@ -418,6 +419,7 @@ try {
       const sleepEnergy = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).metricLogs);
       assert.equal(sleepEnergy.find(log => log.metric === 'sleep').value, 27000);
       assert.equal(sleepEnergy.find(log => log.metric === 'sleep').date, '2026-10-28');
+      assert.equal(sleepEnergy.find(log => log.metric === 'sleep').bedtime, '23:00');
       assert.equal(sleepEnergy.find(log => log.metric === 'energy').value, 7);
       await page.locator('#metric-picker').selectOption('rhr');
       await click('#heart-breathwork-tab');
