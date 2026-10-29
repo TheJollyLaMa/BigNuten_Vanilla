@@ -640,10 +640,10 @@ try {
       await click('#yoga-genie-chat-close');
       await click('#yoga-close-btn');
       if (await page.locator('#workout-set-list').isVisible()) await click('[data-panel="workout-set-list"].panel-toggle-btn');
-      await page.clock.setSystemTime(new Date('2026-10-28T12:00:00Z'));
+      // Leave headroom: pausing at the exact live time races CI command latency.
+      await page.clock.setSystemTime(new Date('2026-10-28T11:59:00Z'));
       await page.clock.pauseAt(new Date('2026-10-28T12:00:00Z'));
-      // Earlier fixtures freeze Date with setFixedTime; elapsed timers need
-      // Date to advance alongside the paused, manually stepped clock.
+      // Elapsed timers need Date to advance with the manually stepped clock.
       await page.clock.setSystemTime(new Date('2026-10-28T12:00:00Z'));
       // Track the chanting callback itself: elapsed-time assertions alone cannot
       // detect an interval that keeps rendering a reset timer after close.
