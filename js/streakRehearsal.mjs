@@ -1,3 +1,9 @@
+import {
+  collectCompetitionResult,
+  verifyAwardMintsAgainstPayouts,
+  verifyPublicResultDocument,
+} from './streakResults.mjs';
+
 const DAY = 86400;
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
@@ -102,7 +108,7 @@ export async function createRehearsalSteps(ethers, provider, fixture, onTransact
   const steps = [];
   const step = (role, label, run) => steps.push({ role, label, run: async () => {
     await assertRehearsalContext(provider, fixture);
-    await run();
+    return await run();
   } });
   step('Captain console', 'Create test competitions', async () => {
     for (const name of ['monthly challenge', 'cancel refund', 'voluntary forfeit']) {
@@ -186,6 +192,61 @@ export async function createRehearsalSteps(ethers, provider, fixture, onTransact
     verify(await provider.getBalance(escrow.target) === 0n, 'No native funds may enter escrow');
     verify(await token.allowance(alice, escrow.target) === 0n && await token.allowance(bob, escrow.target) === 0n,
       'Rehearsal must leave no token approvals');
+  });
+  step('Results archive', 'Build sanitized local result preview (not published)', async () => {
+    const stored = await escrow.getCompetition(0);
+    const roles = ['completion', 'first', 'second', 'third'];
+    const awardMetadata = roles.map((role, index) => ({
+      role,
+      tokenId: String(10 + index),
+      metadataCID: '',
+    }));
+    const awardLinks = awardMetadata.map(({ role, tokenId }) => ({
+      role,
+      tokenId,
+      nftAddress: fixture.contracts.nft.address,
+    }));
+    const result = await collectCompetitionResult({
+      ethers,
+      provider,
+      escrowAddress: fixture.contracts.escrow.address,
+      compId: 0,
+      competition: {
+        id: 0,
+        name: stored.name,
+        stakeToken: stored.stakeToken,
+        stakeAmount: String(stored.stakeAmount),
+        totalWeeks: Number(stored.totalWeeks),
+        startTime: Number(stored.startTime),
+        endTime: Number(stored.endTime),
+        metadataCID: stored.metadataCID,
+        status: 'settled',
+      },
+      awardAddress: fixture.contracts.nft.address,
+      awardMetadata,
+      awardLinks,
+    });
+    await verifyPublicResultDocument(result.document, {
+      chainId: 31337,
+      contractAddress: fixture.contracts.escrow.address,
+      competitionId: 0,
+    });
+    verify(result.document.participants.length === 2, 'Public result must include both participant wallets');
+    verify(result.document.participants.some(person => person.actions.some(action => action.type === 'payout')),
+      'Public result must include confirmed payout splits');
+    verify(result.document.awards.length === 4, 'Public result must include confirmed completion and placement mint logs');
+    verifyAwardMintsAgainstPayouts({
+      awards: result.awardMints,
+      actions: result.document.participants.flatMap(person =>
+        person.actions.map(action => ({ ...action, wallet: person.wallet }))),
+      awardLinks: result.document.awardLinks,
+      escrowAddress: fixture.contracts.escrow.address,
+    });
+    verify(result.document.settlement?.leaderboardCID === 'rehearsal:synthetic-leaderboard',
+      'Public result must link the actual local settlement event');
+    verify(!JSON.stringify(result.document).match(/activityDays|progressHash|proofCID|notes|healthData/i),
+      'Public result must omit health values, progress hashes, proof CIDs and notes');
+    return { resultDocument: result.document, localOnly: true };
   });
   return steps;
 }

@@ -35,7 +35,12 @@ try {
     button.disabled = true;
     status.textContent = `PENDING — ${steps[index].label}`;
     try {
-      await steps[index].run();
+      const outcome = await steps[index].run();
+      if (outcome?.resultDocument) {
+        document.getElementById('result-preview').textContent = JSON.stringify(outcome.resultDocument, null, 2);
+        document.getElementById('result-state').textContent =
+          `LOCAL DRAFT — ${outcome.resultDocument.participants.length} wallets, SHA-256 ${outcome.resultDocument.contentHash}. Not uploaded or published.`;
+      }
       const queue = await readRehearsalReviewQueue(window.ethers, provider, fixture);
       const queueNode = document.getElementById('reviewer-queue');
       queueNode.replaceChildren(...(queue.length ? queue : ['No pending reviews.']).map(message => {
@@ -47,7 +52,9 @@ try {
       item.textContent = `CONFIRMED — ${steps[index].label}`;
       document.getElementById('completed').append(item);
       index++;
-      status.textContent = index === steps.length ? 'PASS — all 13 actions verified; no real funds used.' : 'CONFIRMED — ready for the next action';
+      status.textContent = index === steps.length
+        ? `PASS — all ${steps.length} actions verified; no real funds or publication used.`
+        : 'CONFIRMED — ready for the next action';
       render();
     } catch (error) {
       status.dataset.state = 'error';

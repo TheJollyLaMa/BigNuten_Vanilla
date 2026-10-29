@@ -17,7 +17,7 @@ const mime = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/jav
 const server = process.env.BASE_URL ? null : createServer(async (req, res) => {
   const path = resolve(root, '.' + decodeURIComponent(new URL(req.url, 'http://localhost').pathname === '/' ? '/index.html' : new URL(req.url, 'http://localhost').pathname));
   if (!path.startsWith(root + sep) || path.includes(`${sep}node_modules${sep}`) || /(?:^|\/)\./.test(path.slice(root.length))) { res.writeHead(403).end(); return; }
-  try { res.writeHead(200, { 'Content-Type': mime[extname(path)] || 'application/octet-stream' }); res.end(await readFile(path)); }
+  try { const content = await readFile(path); res.writeHead(200, { 'Content-Type': mime[extname(path)] || 'application/octet-stream' }); res.end(content); }
   catch { res.writeHead(404).end('Not found'); }
 });
 if (server) await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -594,6 +594,24 @@ try {
         ['contributors-admin-modal', '#admin-contributors-btn'], ['comp-admin-modal', '#admin-comp-btn'],
         ['payroll-modal', '#admin-payroll-btn'],
       ]) await modal(id, trigger, undefined, ['#aesculapius-left']);
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.streakSettlementCapture), 'bound', 'monthly settlement controls are intercepted by the verified results workflow');
+      assert.equal(await page.locator('#competition-results-admin [data-streak-results-refresh]').count(), 1, 'competition admin exposes a local/read-only results refresh');
+      assert.equal(await page.locator('#competition-awards-root').count(), 1, 'competition admin exposes the separate local award metadata/template panel');
+      await page.evaluate(() => {
+        const probe = document.createElement('button');
+        probe.dataset.streakAction = 'settle';
+        probe.dataset.comp = '0';
+        probe.textContent = 'Synthetic settlement interception probe';
+        probe.addEventListener('click', () => { window.__legacySettleProbeReached = true; });
+        document.querySelector('#comp-admin-modal .gov-modal').append(probe);
+        probe.click();
+      });
+      await visible('#streak-settlement-preview');
+      await page.waitForFunction(() =>
+        /BLOCKED \/ UNAVAILABLE/.test(document.querySelector('#streak-settlement-preview')?.innerText || ''),
+      null, { timeout: 5000 });
+      assert.equal(await page.evaluate(() => window.__legacySettleProbeReached === true), false, 'capture-phase guard prevents legacy settle handlers from bypassing the verified workflow');
+      assert.match(await page.locator('#streak-settlement-preview').innerText(), /BLOCKED \/ UNAVAILABLE/);
       for (const [id, trigger] of [
         ['achievements-modal', '#aes-achieve-btn'], ['settings-modal', '#aes-settings-btn'],
         ['governance-modal', '#aes-gov-btn'], ['data-sharing-modal', '#aes-data-btn'],
@@ -603,6 +621,7 @@ try {
       await click('#aesculapius-right');
       await click('#aes-challenge-btn');
       await visible('#challenge-modal');
+      assert.equal(await page.locator('#streak-results-user [data-streak-results-refresh]').count(), 1, 'dashboard challenge view exposes live/archive results');
       const rehearsalWalletCalls = walletCalls.length;
       assert.match(await page.locator('#streak-journey').innerText(), /Commit:[\s\S]*Practice:[\s\S]*Gather:[\s\S]*Review:[\s\S]*Settle:/);
       assert.match(await page.locator('#streak-journey').innerText(), /not medical proof/);

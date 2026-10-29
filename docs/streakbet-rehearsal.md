@@ -23,12 +23,16 @@ real `StreakBetEscrow` implementation. It does **not** fork a public mainnet
 or require RPC credentials, faucet funds, a mnemonic, or an injected wallet.
 Public testnets are also deliberately blocked: this first rehearsal is local only.
 
-The 13 actions cover create → configure → fake-token approvals/join →
+The 14 actions cover create → configure → fake-token approvals/join →
 submitReport → schedule four meetups → selfCheckInMeetup →
 reviewMeetupAttendance (agreement, dispute, captain guest invitation and
 tie-break) → 28 days / four verified meetups → settle → completion and placement
 achievement mint. Separate competitions verify cancellation/refund and voluntary
-forfeit/no extra achievement.
+forfeit/no extra achievement. The final action runs the production result
+collector against disposable escrow logs and renders a deterministic,
+health-minimized local draft with wallet/action events, raw-token payout splits,
+chain block timestamps and a content hash. It never uploads or publishes the
+draft; the rehearsal server permits event reads only from fixture contracts.
 
 ## Hard guardrails
 
@@ -44,6 +48,9 @@ forfeit/no extra achievement.
   escrow. Production targets are blocked server-side as well as client-side.
 - No Aave pool is configured, yield is disabled, Aave calls are not allowlisted,
   and there are no external scripts, storage uploads or health records.
+- Result preview excludes health counts, progress hashes, report CIDs, notes,
+  meetup codes and meeting URLs. Its `rehearsal:` CID is synthetic, not an IPFS
+  publication.
 - Never fund these accounts or import their publicly known keys into a wallet.
   This is a developer rehearsal harness, not a production wallet sandbox.
 
@@ -70,5 +77,5 @@ pattern, rather than adding a second toolchain or shared ecosystem package.
 The live `scripts/streakbot-live.js` and Base-only UI wallet paths are
 intentionally incompatible with a no-real-funds rehearsal and are not called.
 Receiving-app validation: the Hardhat and local-fork browser scenarios assert
-the same 13 lifecycle actions, fake-token accounting, achievement mints, zero
+the same 14 lifecycle/results-preview actions, fake-token accounting, achievement mints, zero
 native escrow balance, and rejected production/native/raw-transaction paths.
