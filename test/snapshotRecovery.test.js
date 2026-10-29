@@ -1,14 +1,14 @@
 'use strict';
 const { test, before } = require('node:test');
 const assert = require('node:assert/strict');
-let createRecovery, validate, normalize;
+let createRecovery, clearLocalHealthData, validate, normalize;
 before(async () => {
-  ({ createSnapshotRecovery: createRecovery } = await import('../js/snapshotRecovery.js'));
+  ({ createSnapshotRecovery: createRecovery, clearLocalHealthData } = await import('../js/snapshotRecovery.js'));
   ({ validateFitnessSnapshot: validate, normalizeFitnessData: normalize } = await import('../js/fitnessSchema.js'));
 });
 function memory() {
   const values = new Map();
-  return { values, getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), removeItem: key => values.delete(key) };
+  return { values, keys: () => [...values.keys()], getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), removeItem: key => values.delete(key) };
 }
 const sample = number => ({ dataVersion: 1, weightLogs: [{ timestamp: `2026-10-${20 + number}T10:00:00Z`, weight: 70 + number }], waterDailyHistory: { '2026-10-28': number } });
 function store(storage) { return createRecovery(storage, () => '2026-10-28T12:00:00Z', () => '2026-10-28'); }
@@ -122,4 +122,94 @@ test('legacy local snapshots recover through the same validated, dated, undoable
   assert.equal(recovery.recover().date, '2026-10-25T10:00:00Z');
   assert.deepEqual(JSON.parse(storage.getItem('fitnessTrackerData')), validate(sample(1)));
   recovery.undo(); assert.equal(storage.getItem('fitnessTrackerData'), null);
+});
+
+
+test('delete then fresh recovery initialization cannot resurrect primary, caches or legacy snapshots', () => {
+  const storage = memory(), recovery = store(storage);
+  recovery.save(sample(1));
+  storage.setItem('fitnessTrackerData', '{broken');
+  const entry = recovery.recover();
+  recovery.dismiss(entry.eventId);
+  recovery.undo();
+  storage.setItem('fitnessTrackerSnapshot-2026-10-25T10:00:00Z', JSON.stringify({ data: sample(2) }));
+  storage.setItem('unrelated-setting', 'retained');
+  clearLocalHealthData(storage);
+  assert.equal(store(storage).recover(), null);
+  assert.equal(store(storage).pending(), null);
+  assert.deepEqual([...storage.values], [['unrelated-setting', 'retained']]);
+});
+
+test('dismissal persists for its recovery event, not a new event', () => {
+  const storage = memory(), recovery = store(storage);
+  recovery.save(sample(1)); storage.setItem('fitnessTrackerData', '{broken');
+  const entry = recovery.recover(); recovery.dismiss(entry.eventId);
+  const reloaded = store(storage);
+  assert.equal(reloaded.recover(), null);
+  assert.equal(reloaded.isDismissed(reloaded.pending().eventId), true);
+  storage.setItem('fitnessTrackerData', '{new corruption');
+  const next = reloaded.recover();
+  assert.notEqual(next.eventId, entry.eventId);
+  assert.equal(reloaded.isDismissed(next.eventId), false);
+});
+
+test('undo sticks across reloads for missing and corrupt states; new corruption can recover', () => {
+  for (const raw of [null, '{broken']) {
+    const storage = memory(), recovery = store(storage);
+    recovery.save(sample(1));
+    if (raw === null) storage.removeItem('fitnessTrackerData'); else storage.setItem('fitnessTrackerData', raw);
+    recovery.recover(); recovery.undo();
+    for (let reload = 0; reload < 2; reload++) {
+      assert.equal(store(storage).recover(), null);
+      assert.equal(storage.getItem('fitnessTrackerData'), raw);
+    }
+    storage.setItem('fitnessTrackerData', '{different corruption');
+    assert.ok(store(storage).recover());
+    recovery.undo();
+    recovery.save(sample(2));
+    storage.setItem('fitnessTrackerData', '{different corruption');
+    assert.ok(store(storage).recover(), 'a successful save starts a new corruption event even with identical corrupt bytes');
+  }
+});
+
+
+test('notice dismiss button persists its event and fresh initialization does not show it again', async () => {
+  const { initializeSnapshotRecovery } = await import('../js/snapshotRecovery.js');
+  const storage = memory(), recovery = store(storage);
+  recovery.save(sample(1)); storage.setItem('fitnessTrackerData', '{broken');
+  const descriptors = Object.fromEntries(['localStorage', 'document'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const elements = [];
+  try {
+    global.localStorage = storage;
+    global.document = {
+      readyState: 'complete', getElementById: () => null,
+      createElement: tag => ({ tag, children: [], style: {}, setAttribute() {}, appendChild(child) { this.children.push(child); }, remove() { this.removed = true; } }),
+      body: { appendChild(element) { elements.push(element); } },
+    };
+    initializeSnapshotRecovery();
+    const notice = elements[0];
+    const dismiss = notice.children.find(child => child.textContent === 'Dismiss recovery notice');
+    assert.equal(dismiss.tag, 'button'); assert.equal(dismiss.type, 'button');
+    dismiss.onclick(); assert.equal(notice.removed, true);
+    initializeSnapshotRecovery();
+    assert.equal(elements.length, 1);
+    storage.setItem('fitnessTrackerData', '{new corruption');
+    initializeSnapshotRecovery();
+    assert.equal(elements.length, 2, 'new recovery gets a new notice');
+  } finally {
+    for (const [key, descriptor] of Object.entries(descriptors)) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; }
+  }
+});
+
+test('failed undo choice persistence keeps recovered bytes and permits retry', () => {
+  const storage = memory(), recovery = store(storage);
+  recovery.save(sample(1)); storage.setItem('fitnessTrackerData', '{broken');
+  recovery.recover();
+  const recovered = storage.getItem('fitnessTrackerData');
+  const set = storage.setItem;
+  storage.setItem = (key, value) => { if (key === 'bignutenRecoveryUndone.v1') throw new Error('quota'); return set(key, value); };
+  assert.throws(() => recovery.undo(), /quota/);
+  assert.equal(storage.getItem('fitnessTrackerData'), recovered);
+  storage.setItem = set;
+  recovery.undo(); assert.equal(store(storage).recover(), null);
 });
