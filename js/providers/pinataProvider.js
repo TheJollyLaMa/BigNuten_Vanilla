@@ -1,6 +1,6 @@
 import { validateFitnessSnapshot } from '../fitnessSchema.js';
 import { StorageProvider, computeSnapshotHash, saveSnapshotMeta, loadSnapshotMeta } from '../storageProvider.js';
-import { connectPinataSession, restorePinataSession, uploadPinnedSnapshot, uploadViaStorageRelay, uploadIpfsDesktopSnapshot, fetchSnapshotData } from '../pinataStorage.js';
+import { connectPinataSession, restorePinataSession, uploadPinnedSnapshot, uploadViaStorageRelay, uploadIpfsDesktopSnapshot, fetchSnapshotData, resolveSnapshotSigner } from '../pinataStorage.js';
 import { loadSnapshotManifest, recordSnapshotUpload, withSnapshotTransaction } from '../snapshotLifecycle.js';
 
 export class PinataProvider extends StorageProvider {
@@ -70,10 +70,12 @@ export class PinataProvider extends StorageProvider {
     this._reportBackupStatus({ state: 'pending' });
     try {
       if (!this._session) throw new Error('IPFS provider not connected. Call connect() first.');
-      validateFitnessSnapshot(data);
+      data = validateFitnessSnapshot(data);
       hash = await computeSnapshotHash(data);
       const manifest = loadSnapshotManifest();
       const previousSnapshot = manifest.current ? { ...manifest.current } : null;
+      const signer = await resolveSnapshotSigner(this._session.signer);
+      this._session.signer = signer;
       const upload = this._session.desktop
         ? uploadIpfsDesktopSnapshot
         : this._session.relay
@@ -81,7 +83,8 @@ export class PinataProvider extends StorageProvider {
           : uploadPinnedSnapshot;
       const { cid } = await upload(data, {
         fileName: 'bignuten-snapshot.json',
-        ...(this._session.relay ? { wallet: this._session.wallet, signer: this._session.signer } : {}),
+        signer,
+        ...(this._session.relay ? { wallet: this._session.wallet } : {}),
         snapshotMeta: {
           createdAt: now,
           sessionAddress: this._session.identity || 'IPFS',
@@ -98,8 +101,8 @@ export class PinataProvider extends StorageProvider {
         },
       });
       uploadedCid = cid;
-      const remoteData = await fetchSnapshotData(cid, { session: this._session });
-      const remoteHash = await computeSnapshotHash(remoteData);
+      const remoteData = await fetchSnapshotData(cid, { session: this._session, signer });
+      const remoteHash = await computeSnapshotHash(validateFitnessSnapshot(remoteData));
       if (remoteHash !== hash) {
         throw new Error('Snapshot verification hash mismatch. Previous recovery pointer was not replaced.');
       }
@@ -141,7 +144,7 @@ export class PinataProvider extends StorageProvider {
   }
 
   async get(ref) {
-    return fetchSnapshotData(ref, { session: this._session });
+    return fetchSnapshotData(ref, { session: this._session, signer: this._session?.signer });
   }
 
   async list() {

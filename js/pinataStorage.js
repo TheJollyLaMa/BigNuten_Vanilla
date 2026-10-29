@@ -1,5 +1,6 @@
 import { computeSnapshotHash } from './snapshotHash.js';
 import { validateFitnessSnapshot } from './fitnessSchema.js';
+import { decryptFitnessSnapshot, encryptFitnessSnapshot, isEncryptedSnapshotEnvelope } from './snapshotEncryption.js';
 function getPinataToken({ strict = true } = {}) {
   const token =
     window.pinataToken ||
@@ -9,8 +10,6 @@ function getPinataToken({ strict = true } = {}) {
     null;
 
   if (!token) {
-    const message = '[Pinata] token not available';
-    console.warn(message);
     if (strict) {
       throw new Error('Pinata token is not available. Use JSON backup or add your Pinata JWT in Settings.');
     }
@@ -23,7 +22,17 @@ function getPinataToken({ strict = true } = {}) {
 const PINATA_API_BASE = 'https://api.pinata.cloud';
 const PINATA_GATEWAY_BASE = 'https://gateway.pinata.cloud/ipfs/';
 const STORAGE_RELAY_URL = window.BIGNUTEN_STORAGE_RELAY_URL || '';
+const MANUAL_TOKEN_SESSION_KEY = 'bignuten.pinata.jwt.session';
+const MANUAL_TOKEN_PERSIST_KEY = 'bignuten.pinata.jwt.persisted';
 let manualPinataTokenRef = '';
+
+function readStoredManualToken(storage, key) {
+  try { return storage?.getItem(key) || ''; } catch { return ''; }
+}
+
+function storageFor(name) {
+  try { return window?.[name] || globalThis[name] || null; } catch { return null; }
+}
 
 async function storageFetch(url, options = {}) {
   try {
@@ -37,17 +46,36 @@ async function storageFetch(url, options = {}) {
 }
 
 export function getManualPinataToken() {
-  return manualPinataTokenRef;
+  return manualPinataTokenRef || readStoredManualToken(storageFor('sessionStorage'), MANUAL_TOKEN_SESSION_KEY) || readStoredManualToken(storageFor('localStorage'), MANUAL_TOKEN_PERSIST_KEY);
 }
 
-export function setManualPinataToken(token) {
+export function isManualPinataTokenPersistent() {
+  return !!readStoredManualToken(storageFor('localStorage'), MANUAL_TOKEN_PERSIST_KEY);
+}
+
+export function setManualPinataToken(token, { persist = false } = {}) {
   const value = String(token || '').trim();
   manualPinataTokenRef = value;
+  try {
+    const session = storageFor('sessionStorage');
+    const persistent = storageFor('localStorage');
+    if (value) {
+      session?.setItem(MANUAL_TOKEN_SESSION_KEY, value);
+      if (persist) persistent?.setItem(MANUAL_TOKEN_PERSIST_KEY, value);
+      else persistent?.removeItem(MANUAL_TOKEN_PERSIST_KEY);
+    } else {
+      session?.removeItem(MANUAL_TOKEN_SESSION_KEY);
+      persistent?.removeItem(MANUAL_TOKEN_PERSIST_KEY);
+    }
+  } catch {}
   return value;
 }
 
 export function clearManualPinataToken() {
   manualPinataTokenRef = '';
+  try { storageFor('sessionStorage')?.removeItem(MANUAL_TOKEN_SESSION_KEY); } catch {}
+  try { storageFor('localStorage')?.removeItem(MANUAL_TOKEN_PERSIST_KEY); } catch {}
+  for (const key of ['pinataToken', 'PinataToken', 'pinataJWT', 'PinataJWT']) { try { if (window[key]) window[key] = null; } catch {} }
   if (window._ipfsSessionRef?.manualToken) clearPinataSession();
 }
 
@@ -74,7 +102,7 @@ function saveSession(session) {
     authToken: token,
     publicKey: session.publicKey || 'ipfs',
     identity: session.identity || 'IPFS',
-    signedMessage: session.signedMessage || token,
+    signedMessage: session.signedMessage || '',
     manualToken: !!session.manualToken,
     createdAt: new Date().toISOString(),
   };
@@ -135,6 +163,35 @@ function wrapSnapshotPayload(data, snapshotMeta = {}) {
   };
 }
 
+
+const FITNESS_SNAPSHOT_KEYS = new Set([
+  'dataVersion', 'weightLogs', 'weightHistory', 'weights', 'waterDailyHistory', 'waterHistory',
+  'supplements', 'supplementLogs', 'supplementHistory', 'foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods',
+  'measurements', 'measurementLogs', 'bodyMeasurements', 'exercises', 'exerciseLogs', 'workoutExercises',
+  'sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog', 'painLogs', 'painLog', 'emotions',
+  'emotionLogs', 'feelings', 'genieSessions', 'genieInsights', '__bignutenSnapshot',
+  'data', 'fitnessData', 'fitnessTrackerData', 'bignutenData', 'BigNutenData', 'payload', 'backup', 'snapshot',
+]);
+
+export async function resolveSnapshotSigner(signer = null) {
+  if (signer) return signer;
+  if (!window.ethereum) throw new Error('Connect a wallet to encrypt or restore an IPFS snapshot. Local JSON backup remains available.');
+  const ethersApi = window.ethers || globalThis.ethers;
+  if (!ethersApi?.BrowserProvider) throw new Error('Wallet signing is unavailable. Reload the app and connect your wallet; local JSON backup remains available.');
+  const provider = new ethersApi.BrowserProvider(window.ethereum);
+  return provider.getSigner();
+}
+
+async function prepareRemotePayload(data, { signer = null, snapshotMeta = null } = {}) {
+  if (isEncryptedSnapshotEnvelope(data)) return data;
+  const snapshotLike = data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).some(key => FITNESS_SNAPSHOT_KEYS.has(key));
+  if (snapshotLike) {
+    const normalized = validateFitnessSnapshot(data);
+    return encryptFitnessSnapshot(normalized, await resolveSnapshotSigner(signer));
+  }
+  return wrapSnapshotPayload(data, snapshotMeta || {});
+}
+
 function unwrapSnapshotPayload(payload) {
   if (!payload || typeof payload !== 'object') return payload;
   if (payload.__bignutenSnapshot) {
@@ -151,10 +208,6 @@ async function requestSession() {
   if (!manualToken) return null;
   setManualPinataToken(manualToken);
   const session = saveSession({ authToken: manualToken, jwt: manualToken, apiKey: manualToken, manualToken: true });
-  console.info('[Pinata] manual token session ready', {
-    hasToken: true,
-    sessionCreatedAt: session.createdAt,
-  });
   return session;
 }
 
@@ -213,11 +266,10 @@ export function ipfsGatewayUrl(cid) {
   return `${PINATA_GATEWAY_BASE}${encodeURIComponent(String(cid || '').trim())}`;
 }
 
-export async function uploadPinnedSnapshot(data, { fileName = 'bignuten-snapshot.json', snapshotMeta = null } = {}) {
+export async function uploadPinnedSnapshot(data, { fileName = 'bignuten-snapshot.json', snapshotMeta = null, signer = null } = {}) {
+  const payload = await prepareRemotePayload(data, { signer, snapshotMeta });
   const session = await requestSession();
   if (!session) throw new Error('Pinata JWT is required to upload snapshots.');
-
-  const payload = wrapSnapshotPayload(data, snapshotMeta || {});
   const response = await storageFetch(`${PINATA_API_BASE}/pinning/pinJSONToIPFS`, {
     method: 'POST',
     headers: createPinataHeaders(session.authToken || session.jwt || session.apiKey),
@@ -251,7 +303,7 @@ export async function uploadViaStorageRelay(data, {
   snapshotMeta = null,
 } = {}) {
   if (!relayUrl || !wallet || !signer) throw new Error('Storage relay, wallet, and signer are required.');
-  const payload = wrapSnapshotPayload(data, snapshotMeta || {});
+  const payload = await prepareRemotePayload(data, { signer, snapshotMeta });
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   const origin = globalThis.location?.origin || 'unknown';
   const nonceResponse = await storageFetch(`${relayUrl.replace(/\/$/, '')}/api/storage/nonce`, {
@@ -292,8 +344,9 @@ export async function uploadIpfsDesktopSnapshot(data, {
   fileName = 'bignuten-snapshot.json',
   snapshotMeta = null,
   apiUrl = 'http://127.0.0.1:5001',
+  signer = null,
 } = {}) {
-  const payload = wrapSnapshotPayload(data, snapshotMeta || {});
+  const payload = await prepareRemotePayload(data, { signer, snapshotMeta });
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   const form = new FormData();
   form.append('file', new Blob([bytes], { type: 'application/json' }), fileName);
@@ -308,7 +361,7 @@ export async function uploadIpfsDesktopSnapshot(data, {
   return { cid: String(cid), session: { desktop: true, identity: 'IPFS Desktop' } };
 }
 
-export async function fetchSnapshotData(cid, { session: providedSession = null } = {}) {
+export async function fetchSnapshotData(cid, { session: providedSession = null, signer = null } = {}) {
   const trimmedCid = normalizeIpfsRef(cid);
   if (!trimmedCid) throw new Error('No CID provided.');
 
@@ -325,8 +378,18 @@ export async function fetchSnapshotData(cid, { session: providedSession = null }
   } catch {
     throw new Error('Snapshot response is not a valid JSON object.');
   }
+  if (isEncryptedSnapshotEnvelope(payload)) {
+    payload = await decryptFitnessSnapshot(payload, await resolveSnapshotSigner(signer || session?.signer));
+    validateFitnessSnapshot(payload);
+    return payload;
+  }
   const sourceHash = payload?.__bignutenSnapshot ? payload.sourceHash : null;
   payload = unwrapSnapshotPayload(payload);
+  if (isEncryptedSnapshotEnvelope(payload)) {
+    payload = await decryptFitnessSnapshot(payload, await resolveSnapshotSigner(signer || session?.signer));
+    validateFitnessSnapshot(payload);
+    return payload;
+  }
   if (sourceHash && await computeSnapshotHash(payload) !== sourceHash) throw new Error('Snapshot content hash mismatch.');
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new Error('Snapshot must contain a JSON object.');

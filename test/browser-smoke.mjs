@@ -126,6 +126,7 @@ try {
         on(event, listener) { if (!listeners.has(event)) listeners.set(event, new Set()); listeners.get(event).add(listener); return this; },
         removeListener(event, listener) { listeners.get(event)?.delete(listener); return this; },
       };
+      window.__smokeEmitWalletEvent = (event, ...args) => { for (const listener of listeners.get(event) || []) listener(...args); };
     });
     await page.addInitScript(() => {
       if (sessionStorage.getItem('smokeRecoverySeeded')) return;
@@ -322,6 +323,9 @@ try {
       assert.equal(panels.length, 4, 'Update coverage when dashboard panels change');
       // Enable the assistant UI; hosted responses below are local synthetic fixtures.
       await click('#aesculapius-right'); await click('#aes-settings-btn');
+      assert.equal(await page.locator('#pinata-key-persist').isChecked(), false, 'Pinata JWT persistence is opt-in');
+      assert.match(await page.locator('#settings-modal').innerText(), /pin-only permissions/i);
+      assert.match(await page.locator('#pinata-key-section').innerText(), /sessionStorage/i);
       await click('label:has(#genie-enabled-toggle)');
       assert.equal(await page.locator('#genie-enabled-toggle').isChecked(), true);
       await click('#settings-modal-close');
@@ -495,7 +499,14 @@ try {
       // provider. Exercise the snapshot viewer without uploading private data.
       await page.evaluate(() => localStorage.setItem('storageMode', 'ipfs'));
       await modal('ipfs-snapshot-panel', '#aes-storage-btn', '#snapshot-panel-close', ['#aesculapius-right']);
-      await page.evaluate(() => localStorage.setItem('storageMode', 'json-only'));
+      await page.evaluate(async () => {
+        localStorage.setItem('storageMode', 'json-only');
+        const { setManualPinataToken } = await import('/js/ipfsStorage.js');
+        setManualPinataToken('synthetic-disconnect-jwt', { persist: true });
+        window.__smokeEmitWalletEvent('accountsChanged', []);
+      });
+      assert.equal(await page.evaluate(() => sessionStorage.getItem('bignuten.pinata.jwt.session')), null, 'Wallet disconnect clears the session JWT');
+      assert.equal(await page.evaluate(() => localStorage.getItem('bignuten.pinata.jwt.persisted')), null, 'Wallet disconnect clears explicitly persisted JWTs too');
       const exclusions = new Map([
         ...(name === 'desktop' ? [['mobile-data-sheet', 'Mobile-only IPFS menu by design.']] : [['ipfs-edu-overlay', 'Desktop-only onboarding by design.']]),
       ]);

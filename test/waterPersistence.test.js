@@ -10,9 +10,10 @@ function memory() {
   return { values, getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), removeItem: key => values.delete(key) };
 }
 let createWater, createRecovery, control, fitness, transport, storage, recovery, water, events;
+const signer = { getAddress: async () => '0x4444444444444444444444444444444444444444', signMessage: async () => '0x' + '44'.repeat(65) };
 before(async () => {
   global.localStorage = memory();
-  global.window = { BIGNUTEN_STORAGE_RELAY_URL: '', dispatchEvent: event => events.push(event.type) };
+  global.window = { BIGNUTEN_STORAGE_RELAY_URL: '', ethereum: {}, ethers: { BrowserProvider: class { async getSigner() { return signer; } } }, dispatchEvent: event => events.push(event.type) };
   global.requestIdleCallback = () => 0;
   ({ createWaterIntakeStore: createWater } = await import('../js/waterIntake.js'));
   ({ createSnapshotRecovery: createRecovery } = await import('../js/snapshotRecovery.js'));
@@ -140,7 +141,9 @@ test('actual IPFS upload and CID import retain water totals and support repeat i
     return new Response(JSON.stringify(uploaded), { status: 200 });
   };
   const { cid } = await transport.uploadIpfsDesktopSnapshot(primary());
-  assert.deepEqual(uploaded.waterDailyHistory, { [day]: 6 });
+  assert.equal(uploaded.format, 'bignuten-encrypted-snapshot');
+  const restoredEnvelope = await transport.fetchSnapshotData(cid, { signer });
+  assert.deepEqual(restoredEnvelope.waterDailyHistory, { [day]: 6 });
   storage.values.clear();
   storage.setItem('userTimezone', 'UTC');
   assert.deepEqual((await fitness.importAndMergeFromCID(cid)).merged.waterDailyHistory, { [day]: 6 });

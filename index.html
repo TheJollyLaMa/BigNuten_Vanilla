@@ -1591,7 +1591,7 @@
       <section class="settings-section">
         <h3>🔐 Personal Pinata account</h3>
         <p class="settings-desc">
-          Optional personal provider. New users can start with BigNuten's hosted IPFS backup and do not need a Pinata account. Use this only when you want your own Pinata workspace.
+          Optional personal provider. New users can use the configured hosted provider or IPFS Desktop. If you create a Pinata key, use a dedicated key scoped to pin-only permissions; never paste an account-wide/admin credential.
         </p>
         <div class="genie-apikey-section" id="pinata-key-section">
           <label class="genie-settings-label" for="pinata-key-input">
@@ -1610,10 +1610,12 @@
             <button id="pinata-key-save" class="genie-key-btn" type="button">Save</button>
             <button id="pinata-key-clear" class="genie-key-btn genie-key-btn--clear" type="button">Clear</button>
           </div>
+          <label class="settings-hint" for="pinata-key-persist">
+            <input id="pinata-key-persist" type="checkbox" /> Remember in this browser (stores the JWT in plain localStorage; use only on a trusted device).
+          </label>
           <p class="settings-hint">
-            🔒 Not synced anywhere; it stays in memory for this tab only.
-            <a href="https://pinata.cloud/" target="_blank" rel="noopener noreferrer">Open Pinata docs</a>
-            to copy your key.
+            By default the JWT is kept in sessionStorage for this tab and cleared when the wallet disconnects. Pinata content is public to anyone with its CID; fitness snapshots are encrypted before upload.
+            <a href="https://docs.pinata.cloud/account-management/api-keys" target="_blank" rel="noopener noreferrer">Pinata API key docs</a>.
           </p>
         </div>
       </section>

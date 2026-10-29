@@ -14,7 +14,7 @@ import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 import { initCompetitions, loadCompetitionsList } from './competitions.js';
 import { initYogaFlow } from './yoga.js';
-import { getManualPinataToken, setManualPinataToken, clearManualPinataToken, ipfsGatewayUrl } from './ipfsStorage.js';
+import { getManualPinataToken, setManualPinataToken, clearManualPinataToken, clearSnapshotEncryptionKeyCache, isManualPinataTokenPersistent, ipfsGatewayUrl } from './ipfsStorage.js';
 import { loadSnapshotManifest } from './snapshotLifecycle.js';
 
 function getActiveExplorerUrl(kind, value) {
@@ -3444,8 +3444,17 @@ if (measurementForm) {
   }
 
   function setWalletConnectionState(connected, account = '') {
-    if (!walletButton) return;
     const normalizedAccount = connected ? String(account || '').trim() : '';
+    const previousAccount = String(window._connectedAccount || '').trim();
+    const disconnected = !!previousAccount && !connected;
+    const switchedAccount = !!previousAccount && !!normalizedAccount && previousAccount.toLowerCase() !== normalizedAccount.toLowerCase();
+    if (disconnected || switchedAccount) {
+      clearManualPinataToken();
+      clearSnapshotEncryptionKeyCache();
+      const pinataKeyInput = document.getElementById('pinata-key-input');
+      if (pinataKeyInput) pinataKeyInput.value = '';
+    }
+    if (!walletButton) return;
     walletButton.classList.toggle('connected', connected);
     walletButton.classList.toggle('disconnected', !connected);
     walletButton.dataset.walletState = connected ? 'connected' : 'disconnected';
@@ -4889,6 +4898,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pinataKeyStatus  = document.getElementById('pinata-key-status');
     const pinataKeySaveBtn = document.getElementById('pinata-key-save');
     const pinataKeyClearBtn = document.getElementById('pinata-key-clear');
+    const pinataKeyPersist = document.getElementById('pinata-key-persist');
 
     if (!settingsModal) return;
 
@@ -4897,6 +4907,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (cycleInput) cycleInput.value = getDayCycleStart();
       if (cycleStatus) cycleStatus.textContent = '';
       if (pinataKeyInput) pinataKeyInput.value = getManualPinataToken();
+      if (pinataKeyPersist) pinataKeyPersist.checked = isManualPinataTokenPersistent();
       if (pinataKeyStatus) {
         pinataKeyStatus.textContent = getManualPinataToken() ? '✅ Key ready' : '';
         pinataKeyStatus.className = getManualPinataToken()
@@ -4939,15 +4950,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pinataKeySaveBtn) {
       pinataKeySaveBtn.addEventListener('click', () => {
         const val = pinataKeyInput?.value?.trim() || '';
-        setManualPinataToken(val);
+        setManualPinataToken(val, { persist: !!pinataKeyPersist?.checked });
         if (window._ipfsSessionRef) {
           window._ipfsSessionRef.authToken = val;
           window._ipfsSessionRef.jwt = val;
           window._ipfsSessionRef.apiKey = val;
           window._ipfsSessionRef.manualToken = true;
-          if (!window._ipfsSessionRef.signedMessage) {
-            window._ipfsSessionRef.signedMessage = val;
-          }
         }
         if (pinataKeyInput) pinataKeyInput.value = val;
         if (pinataKeyStatus) {

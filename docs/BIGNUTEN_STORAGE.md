@@ -5,7 +5,7 @@ BigNuten uses a provider-neutral IPFS data layer:
 - **IPFS Desktop** is the direct local provider for users who run Kubo locally.
 - **Pinata through the Render relay** is the hosted onboarding path for users who do not run IPFS Desktop yet. Availability depends on the deployed service; a free Render instance can sleep.
 - The browser uploads directly to Pinata using a short-lived signed URL. The Render relay never receives file contents and never stores a central database copy.
-- CIDs remain portable `ipfs://` references. Pinata is a pinning provider, not the ownership authority.
+- IPFS is public: **anyone who learns a CID can fetch its bytes**. A CID is not an access-control mechanism. Fitness snapshots are encrypted in the browser before upload; other published IPFS material may remain public.
 
 ## Render relay
 
@@ -40,10 +40,28 @@ A relay restart clears its in-memory nonce store; this only invalidates outstand
 Hosted selection requires a configured relay and an injected wallet. Missing
 configuration or wallet access is an explicit error, not a fallback prompt for
 personal credentials. **Use my Pinata account** is the separate credential path:
-its JWT is kept only in memory for the page session and reused for subsequent
-uploads. Clearing it in Settings clears the cached personal session. A page
-reload does not restore that credential or authorize new uploads; reconnect
-deliberately. The saved storage preference alone does not establish a connection.
+its JWT is kept in `sessionStorage` by default and reused for subsequent uploads. Settings offers an explicit, unchecked opt-in to keep it in plain `localStorage` on that browser; only use this on a trusted device. The JWT is cleared on wallet disconnect and can be cleared in Settings. Use a dedicated Pinata key scoped to pin-only permissions, never an account-wide/admin key. Credentials are not part of snapshots, exports, or Genie context. The saved storage preference alone does not establish a connection.
+
+## Encrypted fitness snapshots
+
+Every new fitness snapshot is encrypted in the browser before it is sent to Pinata,
+IPFS Desktop, or the hosted relay. BigNuten uses AES-GCM-256 with a fresh random
+12-byte IV and an address-bound authenticated-data value. The AES key is derived
+with HKDF-SHA256 from the connected wallet's `personal_sign` signature over a
+fixed BigNuten backup-purpose message. Before an address's first encrypted
+upload in a page session, BigNuten requests the signature twice and cancels the
+remote upload if the wallet returns different signatures. The non-extractable
+key is cached in memory only; it is never persisted.
+
+The versioned `bignuten-encrypted-snapshot` envelope contains the checksummed
+wallet address, IV, and ciphertext (base64). Restoring an encrypted CID prompts
+the wallet to sign and decrypts before schema validation or local recovery/write
+steps. The same wallet is required to unlock that backup. **If wallet access is
+lost, encrypted remote backups cannot be recovered; keep a separate local JSON
+backup.** Local JSON download remains plaintext and user-held. Older plaintext
+IPFS snapshots remain supported for restore, but new fitness snapshot uploads
+are encrypted. A tampered envelope or wrong wallet is rejected without a
+partial local restore.
 
 ## Verified snapshot recovery
 
