@@ -656,6 +656,17 @@ try {
           assert.match(communityBody, /Community Guide/);
           assert.doesNotMatch(communityBody, /Synthetic resting reading|Synthetic restore meal|Synthetic restore supplement|Vitals & Body Metrics|Synthetic health response/);
           assert.equal(await page.evaluate(() => sessionStorage.getItem('genieChatSession_recent-exercises-list')), healthSessionBeforeCommunity, 'Community messages do not enter Health companion session memory');
+          await visible(`${chat} .genie-issue-helper-open`);
+          await click(`${chat} .genie-issue-helper-open`);
+          await visible('#issue-helper-dialog');
+          assert.match(await page.locator('#issue-helper-dialog').innerText(), /Model-free and local/);
+          await click('#issue-helper-close');
+          await hidden('#issue-helper-dialog');
+          assert.equal(await page.locator(`${chat} .genie-mode-selector`).inputValue(), 'community', 'Issue helper leaves Community Guide mode intact');
+          await page.evaluate(() => document.dispatchEvent(new CustomEvent('bn:issue-helper')));
+          await visible('#issue-helper-dialog');
+          await click('#issue-helper-close');
+          assert.equal(hostedRequests.length, 3, 'Issue-helper entry points never call a hosted model');
           await page.evaluate(async () => { const genie = await import('/js/genieChat.js'); genie.setGenieBackend('webllm'); });
           covered.add('genie-community-guide-and-coach');
           covered.add('genie-consent-dialog');
