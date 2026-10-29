@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>BigNuten Competition Award Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font: 16px/1.5 system-ui, sans-serif;
+      background: #10191c;
+      color: #eef4f3;
+    }
+    body {
+      max-width: 70rem;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+    .notice {
+      border-left: 4px solid #69dbb8;
+      background: #182629;
+      padding: 1rem;
+      margin: 1rem 0 2rem;
+    }
+    textarea, input, select {
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      margin-top: 0.4rem;
+      padding: 0.7rem;
+      border: 1px solid #648184;
+      border-radius: 0.35rem;
+      background: #0a1113;
+      color: inherit;
+      font: 0.9rem/1.5 ui-monospace, monospace;
+    }
+    textarea {
+      min-height: 22rem;
+      resize: vertical;
+    }
+    button {
+      margin: 0.7rem 0.7rem 0.3rem 0;
+      padding: 0.65rem 0.9rem;
+      border: 0;
+      border-radius: 0.35rem;
+      background: #69dbb8;
+      color: #071412;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    pre {
+      overflow: auto;
+      padding: 1rem;
+      background: #080e10;
+      border: 1px solid #34494b;
+      border-radius: 0.35rem;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    [data-award-status] {
+      min-height: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Competition achievement metadata</h1>
+    <p class="notice">
+      Local preview and browser-local templates only. This page never uploads
+      metadata, connects a wallet, sends transactions, or reads participant
+      records. Enter public competition rules only; health logs, progress
+      reports, and private notes are not accepted.
+    </p>
+    <div data-awards-root></div>
+  </main>
+  <script type="module">
+    import { mountCompetitionAwardsPanel } from './js/competitionAwards.mjs';
+    mountCompetitionAwardsPanel(document.querySelector('[data-awards-root]'));
+  </script>
+</body>
+</html>
