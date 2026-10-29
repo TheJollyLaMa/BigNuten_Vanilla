@@ -33,7 +33,10 @@
     "clean": "hardhat clean",
     "test:hardhat": "hardhat test",
     "test:node": "node --test test/*.test.js",
-    "test:smoke": "node test/browser-smoke.mjs"
+    "test:smoke": "node test/browser-smoke.mjs && npm run test:rehearsal:browser",
+    "test:rehearsal": "hardhat test test/hardhat/StreakBetRehearsal.test.js",
+    "test:rehearsal:browser": "node scripts/streakRehearsal.js",
+    "rehearsal:serve": "node scripts/streakRehearsal.js --serve"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
