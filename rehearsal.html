@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StreakBet REHEARSAL — no real funds</title>
+  <style>
+    body { font: 1rem/1.5 system-ui; max-width: 52rem; margin: 2rem auto; padding: 1rem; background: #101923; color: #fff; }
+    #test-mode { display: inline-block; background: #ffdd57; color: #151515; font-weight: bold; padding: .5rem; }
+    button { font: inherit; padding: .75rem; cursor: pointer; }
+    li { margin: .5rem 0; overflow-wrap: anywhere; }
+    [data-state="pending"] { color: #ffdd57; }
+    [data-state="confirmed"] { color: #8debb1; }
+    [data-state="error"] { color: #ffa8a8; }
+  </style>
+</head>
+<body>
+  <span id="test-mode">TEST MODE · LOCAL FORK · REHEARSAL ONLY</span>
+  <h1>StreakBet rehearsal</h1>
+  <p><strong>NO REAL FUNDS. TEST-BNUT is a fake token with no value.</strong>
+    Disposable Hardhat accounts only. No wallet connection, mainnet, public RPC, real staking or Aave.
+    Never send funds to these addresses or import these accounts into a real wallet.</p>
+  <p>Four synthetic meetups are time-travelled on an isolated local fork.
+    This tests the real escrow code, not real attendance or health data.</p>
+  <h2>Disposable test participants</h2>
+  <ul id="accounts"></ul>
+  <h2 id="role">Captain console</h2>
+  <button id="next" disabled>Loading local rehearsal…</button>
+  <p id="status" role="status" aria-live="polite">Starting…</p>
+  <h2>Reviewer queue — synthetic attendance only</h2>
+  <ul id="reviewer-queue"><li>No pending reviews.</li></ul>
+  <h2>Pending / confirmed transactions</h2>
+  <ol id="transactions"></ol>
+  <h2>Rehearsed actions</h2>
+  <ol id="completed"></ol>
+  <script src="/rehearsal-ethers.js"></script>
+  <script type="module" src="/js/streakRehearsalPage.mjs"></script>
+</body>
+</html>

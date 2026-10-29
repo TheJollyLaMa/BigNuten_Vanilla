@@ -17,11 +17,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Check every dashboard surface on desktop and mobile
+      - name: Check dashboard surfaces and no-real-funds local-fork StreakBet rehearsal
         run: npm run test:smoke
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: dashboard-smoke-screenshots
-          path: test-results/smoke
+          path: |
+            test-results/smoke
+            test-results/rehearsal
           if-no-files-found: warn

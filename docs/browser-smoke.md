@@ -169,3 +169,8 @@ The fixture switches from `page.clock.setFixedTime()` to `setSystemTime()` after
 stay frozen like the earlier date-only fixtures. Yoga's two-click confirmation
 uses a browser double-click to stay inside its 3.5-second window on busy hosts.
 Only synthetic sessions are used; no chanting data is sent to Genie or IPFS.
+# StreakBet local-fork rehearsal
+
+`npm run test:smoke` also runs the no-real-funds StreakBet browser rehearsal.
+See [streakbet-rehearsal.md](streakbet-rehearsal.md) for the interactive
+walkthrough, isolated local-fork setup and fail-closed guardrails.
