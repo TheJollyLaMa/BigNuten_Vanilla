@@ -157,6 +157,85 @@ check-in-and-report success.
 The disposable local Hardhat fixture exercises version 2 and its post-completion
 report path. This proves source behavior only, not current Base compatibility.
 
+## Live results, archives and publication boundary
+
+The results panels read the configured chain and present live action history as
+**not final**; completed archives show only actions and accounting present in
+contract events. Event timestamps come from their block headers. The browser
+checks the selected chain ID, escrow address/code, event identities, block
+hashes/timestamps, and the result document's deterministic SHA-256 content
+hash. This is RPC-backed evidence, not independent verification of deployed
+bytecode or a promise that an RPC is trustworthy.
+
+The public pre-settlement manifest is deliberately minimal: competition ID/name
+and a sanitized rules CID (cycle/source markers are omitted), chain/escrow/token
+identifiers and schedule, participant wallets, action type, event
+transaction/block/log identity and chain timestamp, and the canonical document
+hash. It excludes activity counts, raw health values, progress hashes,
+report/proof CIDs, notes, meetup codes and meeting URLs. The exact payload and
+field list are shown in the preview and confirmation before an explicit IPFS
+upload. A local export is not a publication; upload success without CID
+readback and matching content hash is unavailable, not verified. No upload is
+automatic.
+
+The captain must separately submit the settlement transaction with the
+uploaded manifest CID. The app checks current owner, selected network, escrow
+code, active/unpaused status, end time, complete event history and configured
+achievement readiness; it then distinguishes pending from confirmed receipts
+and verifies the `CompetitionSettled` CID against that manifest. The local
+award metadata record is not proof of the contract's private snapshotted token
+IDs; those IDs are confirmed only when settlement mint logs match the manifest
+and payout recipients. Award templates do not fabricate token URIs; a metadata
+CID is included only when the ERC-1155 `uri(tokenId)` read returns a concrete
+`ipfs://` CID at the inspected block. Unreadable or unsupported URIs remain
+unavailable. The flow does not change contract payout math.
+
+The manifest has to exist before the settlement transaction so its CID can be
+included in the existing `CompetitionSettled` event. Therefore it cannot
+contain that transaction's own hash, final `StreakPayout` amounts or subsequent
+`EditionMinted` logs. After confirmation the app derives a separate local
+settlement receipt from chain payout/mint logs, cross-links it to the manifest,
+and offers local export plus a separate explicit upload. That second receipt
+CID is **not recorded on-chain**; readers verify its hash and each event
+reference against the settlement transaction and chain. Missing NFT logs or
+metadata are reported unavailable; local award templates are aids, not proof
+of the private per-competition contract snapshot. The local rehearsal exercises
+the real event collector with disposable contracts, but never uploads or
+publishes either document.
+
+### Engine/deployment compatibility and settlement routes
+
+The results readers use the existing competition getters and result events; they
+do not require `competitionEngineVersion()` to display or settle an existing
+competition. The #379 version gate belongs to engine-owned actions such as
+flexible asset setup and the safe check-in/report retry flow. If a selected
+deployment lacks a required getter, event, complete history, or matching
+contract code, results are shown as unavailable and settlement is blocked. The
+Base deployment record identifies the current escrow address and its recorded
+configuration, but source/deployment notes are not a live check that the
+address has #379's latest engine version.
+
+The mounted monthly-challenge settle button is intercepted in document capture
+and routed through the consent, owner, network, history, and prerequisite
+checks; a browser smoke test confirms the older delegated settle handler is not
+reached. Generic legacy competitions use their own admin settle control but
+still pass through the same guarded publication and owner/history flow; they
+are not monthly challenges and therefore have no award-mint prerequisite.
+Standalone historical scripts are separate developer flows, are not mounted
+app controls, and do not inherit these UI guardrails.
+
+For a configured monthly challenge, preflight also requires the local award
+record's four token IDs/NFT address to match the currently exposed global
+getters, and the competition's stake token to match the current global
+challenge asset. A mismatch or missing getter blocks settlement rather than
+assuming an old competition uses today's settings. The current treasury's
+code and NFT minter role are checked, but there is no public per-competition
+treasury/award snapshot getter (and `setStreakAwards` has no change event).
+Therefore even matching current values are **not proof** of the private
+snapshot; an older competition after global reconfiguration may remain
+unverifiable. Do not repair that state by substituting current IDs or treating
+the local record as authoritative.
+
 ## Unresolved product decisions (not defaults)
 
 The captain still chooses the live entry stake and schedule; examples do not set

@@ -28,6 +28,7 @@ import {
   runAutoVerify,
 } from './streakVerify.js';
 import { ipfsGatewayUrl } from './ipfsStorage.js';
+import { beginCompetitionSettlement, initCompetitionResults } from './streakResults.mjs';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,11 @@ const ENTRANT_STATUS = { 0: 'Joined', 1: 'Completed', 2: 'Forfeited' };
 
 // Minimal ABI fragments — full ABI lives in abis/StreakBetEscrow.json
 const STREAK_BET_ABI = [
+  'function owner() view returns (address)',
   'function nextCompId() view returns (uint256)',
+  'function challengeStakeToken() view returns (address)',
+  'function challengeTreasury() view returns (address)',
+  'function streakAwardNFT() view returns (address)',
   'function getCompetition(uint256 compId) view returns (tuple(string name, address stakeToken, uint256 stakeAmount, uint256 totalWeeks, uint256 startTime, uint256 endTime, uint256 joinDeadline, bool yieldEnabled, bool potDeployed, string metadataCID, uint8 status, uint256 potBalance, uint256 entrantCount, uint256 winnerCount))',
   'function getStreakChallenge(uint256 compId) view returns (bool enabled, string habitType, string meetupGoal, uint8 requiredActivityDays, uint8 requiredMeetups, uint8 minimumWeeklyLogs, uint16 dailyGoal)',
   'function getEntrant(uint256 compId, address addr) view returns (bool joined, uint256 reportsSubmitted, uint8 status)',
@@ -509,20 +514,23 @@ async function adminCreateComp() {
 }
 
 async function adminSettleComp(compId) {
-  const cid = prompt('Enter the IPFS CID for the final leaderboard (or leave empty):') || '';
   try {
-    const wallet   = await requireMetaMask();
+    await requireMetaMask();
     const provider = new ethers.BrowserProvider(window.ethereum);
     await requireActiveNetwork(provider);
     const streakAddr = requireStreakDeployment();
     const signer   = await provider.getSigner();
     const contract = new ethers.Contract(streakAddr, STREAK_BET_ABI, signer);
-    const tx = await contract.settleCompetition(compId, cid);
-    await tx.wait();
-    alert(`✅ Competition #${compId} settled!`);
-    await renderAdminCompList();
+    await beginCompetitionSettlement({
+      ethers,
+      provider,
+      signer,
+      contract,
+      compId,
+      expectedChainId: Number(window.CONTRACTS?.chainId),
+    });
   } catch (err) {
-    alert('❌ ' + (err.reason || err.message));
+    alert('BLOCKED / UNAVAILABLE — ' + (err.reason || err.message));
   }
 }
 
@@ -778,6 +786,11 @@ function addCompHistory(entry) {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 export function initCompetitions() {
+  initCompetitionResults();
+  window.addEventListener('bignuten:competition-settled', () => {
+    void Promise.all([renderAdminCompList(), renderUserCompList()]);
+  });
+
   // Admin: create button
   const createBtn = document.getElementById('comp-create-btn');
   if (createBtn) {

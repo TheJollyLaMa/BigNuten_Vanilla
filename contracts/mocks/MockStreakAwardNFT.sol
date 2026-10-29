@@ -22,6 +22,10 @@ contract MockStreakAwardNFT {
         return _roles[role][account];
     }
 
+    function uri(uint256) external pure returns (string memory) {
+        return "";
+    }
+
     function grantMinter(address account) external {
         require(_roles[bytes32(0)][msg.sender], "MockNFT: not admin");
         _roles[MINTER_ROLE][account] = true;

@@ -9,8 +9,20 @@ describe('StreakBet NO REAL FUNDS rehearsal', function () {
     const states = [];
     const steps = await createRehearsalSteps(hre.ethers, hre.ethers.provider, fixture,
       (state, method) => states.push({ state, method }));
-    expect(steps).to.have.length(13);
-    for (const step of steps) await step.run();
+    expect(steps).to.have.length(14);
+    let resultPreview;
+    for (const step of steps) {
+      const outcome = await step.run();
+      if (outcome?.resultDocument) resultPreview = outcome.resultDocument;
+    }
+    expect(resultPreview.schema).to.equal('bignuten-competition-result/v1');
+    expect(resultPreview.participants).to.have.length(2);
+    expect(resultPreview.participants.some(person => person.actions.some(action => action.type === 'payout'))).to.equal(true);
+    expect(resultPreview.awards).to.have.length(4);
+    expect(new Set(resultPreview.awards.map(award => award.role))).to.deep.equal(new Set(['completion', 'first', 'second']));
+    expect(resultPreview.awardLinks.every(link => !Object.hasOwn(link, 'metadataCID'))).to.equal(true);
+    expect(resultPreview.manifest).to.equal(undefined);
+    expect(JSON.stringify(resultPreview)).not.to.match(/activityDays|progressHash|proofCID|notes|healthData/i);
     expect(states.filter(item => item.state === 'confirmed')).to.have.length(40);
     expect(states.some(item => /Aave/.test(item.method))).to.equal(false);
     expect(await hre.ethers.provider.getBalance(fixture.contracts.escrow.address)).to.equal(0n);

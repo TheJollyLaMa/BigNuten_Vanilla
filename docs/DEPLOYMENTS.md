@@ -30,6 +30,23 @@ BigNuten defaults to **Base Mainnet** (Chain ID `8453`). The BNUT token and six 
 | DecentNFT | [`0xe63EC9f8228720bAAC2fD528C0A6d06B3Dc5439B`](https://basescan.org/address/0xe63EC9f8228720bAAC2fD528C0A6d06B3Dc5439B) | Collection URI and hydration award IDs 0–3 configured |
 | DecentEscrow | [`0x31b07b83e99A9bdF379bf40225b8A80d3804C89d`](https://basescan.org/address/0x31b07b83e99A9bdF379bf40225b8A80d3804C89d) | Deployed; subscription plans and DNFT listings not configured |
 
+The deployment table is a repository record, not a live RPC verification of
+current bytecode or configuration. The mounted competition results and
+settlement UI reads the existing escrow ABI and does not require the new
+`competitionEngineVersion()` gate to show or settle existing competitions.
+Engine-owned asset configuration and participant check-in/report actions do
+use that gate. Result history or settlement prerequisites that cannot be read
+are explicitly unavailable and block the app flow.
+
+Challenge settlement preflight compares the local four-ID award record and
+competition stake asset with the escrow's current public award/asset getters,
+and checks the current treasury code and NFT minter role. The per-competition
+treasury and award-ID snapshot is private; matching current settings do not
+prove that an older competition captured those same values. A detectable
+configuration mismatch blocks settlement; an unverifiable historical snapshot
+must remain unavailable rather than be inferred from today's globals. See the
+[results and publication boundary](STREAKBET_JOURNEY.md#engine-deployment-compatibility-and-settlement-routes).
+
 StreakBetEscrow is the single reusable engine for hydration, nutrition,
 exercise, weight, and future meetup challenges. The replacement contract
 includes solo self-verification, peer agreement, majority resolution after

@@ -49,7 +49,7 @@ async function main() {
       'eth_chainId', 'eth_accounts', 'eth_blockNumber', 'eth_getBlockByNumber', 'eth_getBalance',
       'eth_getCode', 'eth_call', 'eth_getTransactionCount', 'eth_gasPrice', 'eth_maxPriorityFeePerGas',
       'eth_feeHistory', 'eth_getTransactionByHash', 'eth_getTransactionReceipt',
-      'evm_setNextBlockTimestamp', 'evm_mine',
+      'eth_getLogs', 'evm_setNextBlockTimestamp', 'evm_mine',
     ]);
     const interfaces = Object.fromEntries(Object.entries(fixture.contracts).map(([key, spec]) =>
       [spec.address.toLowerCase(), { key, iface: new hre.ethers.Interface(spec.abi) }]));
@@ -80,6 +80,13 @@ async function main() {
         } else {
           assert.ok(readableMethods.has(method), `RPC method blocked: ${method}`);
           if (method === 'eth_call') assertRehearsalTransaction(fixture, { ...params[0], from: fixture.accounts[0] });
+          if (method === 'eth_getLogs') {
+            const filter = params[0] || {};
+            const allowedAddresses = Object.values(fixture.contracts).map(contract => contract.address.toLowerCase());
+            const queriedAddresses = Array.isArray(filter.address) ? filter.address : [filter.address];
+            assert.ok(queriedAddresses.length && queriedAddresses.every(address =>
+              allowedAddresses.includes(String(address).toLowerCase())), 'Only disposable fixture contracts may be indexed');
+          }
         }
         const result = await hre.network.provider.request({ method, params });
         return { jsonrpc: '2.0', id, result };
@@ -93,6 +100,8 @@ async function main() {
       '/rehearsal-ethers.js': ['node_modules/ethers/dist/ethers.umd.min.js', 'text/javascript'],
       '/js/streakRehearsal.mjs': ['js/streakRehearsal.mjs', 'text/javascript'],
       '/js/streakRehearsalPage.mjs': ['js/streakRehearsalPage.mjs', 'text/javascript'],
+      '/js/streakResults.mjs': ['js/streakResults.mjs', 'text/javascript'],
+      '/js/chainHistory.js': ['js/chainHistory.js', 'text/javascript'],
     };
     server = createServer(async (req, res) => {
       const origin = `http://127.0.0.1:${server.address().port}`;
@@ -151,7 +160,8 @@ async function main() {
     await page.goto(url);
     assert.match(await page.locator('#test-mode').innerText(), /TEST MODE.*LOCAL FORK/);
     assert.match(await page.locator('body').innerText(), /fake token with no value/);
-    for (let index = 0; index < 13; index++) {
+    const rehearsalActions = 14;
+    for (let index = 0; index < rehearsalActions; index++) {
       await page.waitForFunction(() => !document.getElementById('next').disabled ||
         document.getElementById('status').dataset.state === 'error');
       assert.equal(await page.locator('#status').getAttribute('data-state'), null, await page.locator('#status').innerText());
@@ -164,6 +174,12 @@ async function main() {
       if (index === 6) assert.match(await page.locator('#reviewer-queue').innerText(), /Alice.*DISPUTED.*captain must invite/);
       if (index === 7) assert.match(await page.locator('#reviewer-queue').innerText(), /guest invited; awaiting tie-break/);
       if (index === 8) assert.match(await page.locator('#reviewer-queue').innerText(), /No pending reviews/);
+      if (index === 13) {
+        assert.match(await page.locator('#result-state').innerText(), /^LOCAL DRAFT/);
+        assert.match(await page.locator('#result-preview').innerText(), /contentHash/);
+        assert.match(await page.locator('#result-preview').innerText(), /leaderboardCID/);
+        assert.doesNotMatch(await page.locator('#result-preview').innerText(), /activityDays|progressHash|proofCID|notes|healthData/i);
+      }
     }
     assert.match(await page.locator('#status').innerText(), /^PASS/);
     assert.ok(await page.locator('[data-state="pending"]').count() > 0);
@@ -189,10 +205,10 @@ async function main() {
     await mkdir('test-results/rehearsal', { recursive: true });
     await page.screenshot({ path: 'test-results/rehearsal/complete.png', fullPage: true });
     await writeFile('test-results/rehearsal/result.json', JSON.stringify({
-      mode: 'REHEARSAL', chainId: 31337, localFork: true, actions: 13,
+      mode: 'REHEARSAL', chainId: 31337, localFork: true, actions: rehearsalActions,
       realFunds: false, transactions,
     }, null, 2));
-    console.log(`PASS: 13 local-fork browser actions, ${transactions.length} confirmed fake-token transactions; 5 server guard checks`);
+    console.log(`PASS: ${rehearsalActions} local-fork browser actions, ${transactions.length} confirmed fake-token transactions; 5 server guard checks`);
   } finally {
     if (browser) await browser.close();
     if (server) await new Promise(resolve => server.close(resolve));
