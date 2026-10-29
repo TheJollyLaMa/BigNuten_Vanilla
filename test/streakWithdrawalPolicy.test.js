@@ -73,6 +73,7 @@ test('actual Join handler confirms the policy before approval or value transfer,
           };
           const context = {
             joinDisclosure, readContract: async () => reader,
+            streakPayoutPolicyVersion: async () => 1,
             signerContract: async () => ({ account: 'entrant', signer: {}, contract }),
             challengeAsset: async () => asset,
             competitionEngineVersion: async () => 2, COMPETITION_ENGINE_VERSION: 2,
