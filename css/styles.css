@@ -9648,6 +9648,8 @@ svg text {
 #chanting-modal.chanting-running .chanting-time span { animation: chanting-breath 6s ease-in-out infinite; }
 #chanting-modal .chanting-controls, #chanting-sensations { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
 #chanting-modal button { min-height: 40px; }
+#chanting-modal button:not(.modal-close) { background: #06283d; border: 1px solid #347fa4; border-radius: 8px; color: #bfe9ff; padding: .45rem .7rem; font: inherit; cursor: pointer; }
+#chanting-modal button:focus-visible { outline: 2px solid #8edaff; outline-offset: 2px; }
 #chanting-modal button:disabled { opacity: .5; cursor: default; }
 #chanting-modal button[aria-pressed="true"] { background: #24536a; box-shadow: 0 0 7px #68caff; }
 #chanting-modal fieldset { margin: 1rem 0; border: 1px solid #356078; border-radius: 8px; }
