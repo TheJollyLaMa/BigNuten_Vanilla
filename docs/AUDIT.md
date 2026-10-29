@@ -133,3 +133,101 @@ VM. Search scope was this worktree's workout sources/tests, current open PRs and
 existing reuse notes above; no new cross-repo extraction was needed. Acceptance:
 `npm test` and desktop/mobile `npm run test:smoke`, covering initial preparation,
 between-set preparation and unchanged successful completion.
+
+## Dependency audit triage (#376)
+
+### Baseline, compatible updates and residual
+
+Starting point: fresh `origin/main` at `57f0d2b9932686ff70fab2652c099c0ae30cf075`
+(2026-10-29). `npm audit` and clean `npm ci` both report **43 vulnerable
+package records: 15 high, 9 moderate, 19 low, 0 critical**. After a non-forced
+`npm audit fix`, followed by `npm update --package-lock-only` within the declared
+semver ranges, `npm audit` still reports the same 43 records. The compatible
+lock refresh changed only `ansi-regex` 6.4.0 → 6.5.0 and `qs` 6.17.0 → 6.17.1;
+neither was an audit finding. `package.json` was not changed.
+
+The remaining audit records, grouped by severity, are:
+
+- **High (15):** `@fastify/busboy` 2.1.1; `@nomicfoundation/hardhat-chai-matchers`
+  2.1.2; `@nomicfoundation/hardhat-ethers` 3.1.3;
+  `@nomicfoundation/hardhat-network-helpers` 1.1.2;
+  `@nomicfoundation/hardhat-toolbox` 4.0.0; `@nomicfoundation/hardhat-verify`
+  2.1.3; `@typechain/hardhat` 9.1.0; `adm-zip` 0.4.16; `hardhat` 2.29.1;
+  `hardhat-gas-reporter` 1.0.10; `serialize-javascript` 6.0.2;
+  `solidity-coverage` 0.8.17; `tmp` 0.0.33; `undici` 5.29.0; `ws` 8.18.0.
+- **Moderate (9):** `@ethersproject/providers` 5.8.0; `bn.js` 4.11.6;
+  `eth-gas-reporter` 0.2.27; nested `ethers` 5.8.0; `ethjs-unit` 0.1.6;
+  `mocha` 10.8.2 and 11.8.0; `number-to-bn` 1.7.0; `uuid` 8.3.2;
+  `web3-utils` 1.10.4.
+- **Low (19):** `@ethersproject/abi`, `abstract-provider`, `abstract-signer`,
+  `contracts`, `hash`, `hdnode`, `json-wallets`, `signing-key`, `transactions`,
+  `wallet`, and `wordlists` (each 5.8.0); `@sentry/node` 5.30.0; `cookie`
+  0.4.2; `diff` 7.0.0; `elliptic` 6.6.1; `ethereum-cryptography` 0.1.3;
+  `ethereumjs-util` 7.1.5; `secp256k1` 4.0.5; `solc` 0.8.26.
+
+These are npm's vulnerable-package records, not a count of unique GHSA
+identifiers. The locked versions, affected ranges, advisory titles/links,
+installed paths and npm's proposed fixes are available in `npm audit --json`.
+That output marks every finding as a development dependency: its 43 records
+cover 46 installed lockfile paths, all marked `dev`; the two direct vulnerable
+packages are the development dependencies Hardhat and Hardhat Toolbox, and
+the rest are transitive. `npm audit --omit=dev` reports **0** before and after
+the lock refresh. `npm explain ws` confirms one concrete path through nested
+ethers 5 used by `eth-gas-reporter` / `hardhat-gas-reporter`; other affected
+paths sit in the Hardhat compiler, test and plugin graph. These paths are
+reachable when the associated developer tooling runs. npm's dependency graph
+does not establish whether an advisory's vulnerable operation is reached with
+attacker-controlled input, so this triage does not label the remaining code
+paths exploitable or unreachable.
+
+No safe direct upgrade clears the remaining findings within the current
+manifest ranges. `hardhat@^2.22.0` resolves to 2.29.1 (the latest matching v2;
+the audit proposes 3.21.1), and `@nomicfoundation/hardhat-toolbox@^4.0.0`
+resolves to 4.0.0 (the audit proposes 7.0.0). Both proposed upgrades cross a
+major boundary and would change the Hardhat/plugin toolchain. The other
+outdated direct packages are likewise already at their declared-range versions;
+latest releases for Hardhat, Toolbox and dotenv are major versions. A non-forced
+`npm audit fix` did not clear any records. No `npm audit fix --force`, major
+toolchain migration, dependency override, or OpenZeppelin/Solidity semantic
+change was made. These residual toolchain advisories remain open for a separately
+tested major-upgrade decision.
+
+Direct-finding evidence from the audit JSON: the installed Hardhat 2.29.1 is in
+the reported affected range `0.1.0-rc.0 - 3.11.1`, with fix `hardhat@3.21.1`
+marked major; installed Toolbox 4.0.0 is in reported range `<=6.1.2`, with fix
+`@nomicfoundation/hardhat-toolbox@7.0.0` marked major. `npm outdated --json`
+also reports the current and wanted versions equal for both direct packages,
+with only those newer major releases.
+
+This npm result is not a vulnerability assessment of the whole application.
+In particular, `index.html` loads Chart.js, its date adapter and ethers from
+jsDelivr (`https://cdn.jsdelivr.net/...`); npm audit does not inspect those
+external scripts or their delivery/update behavior.
+
+### Reuse decision and receiving-app validation
+
+Need: satisfy #376 without altering contract behavior or the receiving app's
+nonfinancial/release scope. Checked this fresh worktree's `package.json`,
+`package-lock.json`, `docs/AUDIT.md`, `.github/workflows/test.yml`,
+`hardhat.config.js`, test scripts and dependency paths; checked the Canopy
+`big-nuten` lead in `DecentCanopy/data/agency-map.json` and recent BigNuten PRs
+through #385 for overlapping dependency work. The Canopy lead concerns storage
+and wellness capabilities, not npm dependency remediation; no donor helper or
+package was relevant, so none was imported and unrelated donor apps were not
+scanned. No shared toolchain was extracted. The receiving app uses a vanilla
+browser surface with CDN scripts and a Hardhat 2 / Solidity 0.8.x contract
+toolchain; adopting a donor package or Hardhat 3 migration would not be a
+compatible lock-only fix. This PR changes no runtime or contract code; it only
+adds this evidence-based audit record and the two compatible lockfile patch
+updates.
+
+Validation on the refreshed lock: `npm ci` succeeded; `npm test` passed 103
+Hardhat tests and 223 Node tests; `npm run test:smoke` passed on desktop and
+mobile (4 panels, 39 dialogs per viewport, 17 external URLs fulfilled locally,
+no unexpected console/page/network errors). Its local-only rehearsal passed 14
+browser actions, 41 fake-token transactions and 5 server guard checks; no real
+funds were used. The existing Solidity compiler versions and optimizer settings
+were not changed. `StreakBetEscrow` runtime remains **24,399 bytes** (177 bytes
+below EIP-170's 24,576-byte limit); runtime bytecode Keccak-256 is
+`0xa192afbe14c59c9c00472d4a60dff039d10d69829f5839e301e7f5be7db79989`.
+No contract source, compiler setting or tracked generated artifact changed.
