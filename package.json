@@ -4,6 +4,7 @@
   "description": "Hardhat toolchain for BigNuten smart contracts ($BNUT token, Treasury, Subscription, Governance)",
   "private": true,
   "scripts": {
+    "docs:streak-payouts": "node scripts/generateStreakPayoutExamples.mjs",
     "compile": "hardhat compile",
     "test": "npm run test:hardhat && npm run test:node",
     "test:payroll": "node --test test/payroll.test.js test/commentArt.test.js",

@@ -3284,6 +3284,33 @@
       </div>
       <p class="streak-peer-note">Joining requires the listed BNUT stake and a little Base ETH for transaction fees. Need BNUT to get started? Ask the captain about a newcomer allocation.</p>
       <p class="streak-peer-note">This is a peer-verified leaderboard challenge, not a random lottery. Your app logs are browser-local; peers review your displayed progress during calls. The blockchain records self-claims, review votes, guest invitations, stakes, and payouts.</p>
+      <section id="streak-journey" aria-labelledby="streak-journey-title">
+        <h3 id="streak-journey-title">Rehearse the StreakBet journey</h3>
+        <p><strong>Walkthrough only:</strong> reading these steps and examples sends no transactions or health data. The separate Join button below is live, not a simulation.</p>
+        <ol>
+          <li><strong>Commit:</strong> check the listed stake, challenge rules and dates before joining. The captain chooses the BNUT stake; 100 BNUT examples do not set it. No automatic USD quote.</li>
+          <li><strong>Practice:</strong> record an ordinary day truthfully in the app. A missed day is not an immediate forfeit; check remaining days and weekly minimums. No promised grace period or make-up.</li>
+          <li><strong>Gather:</strong> join the scheduled call, share only necessary progress and use the captain’s code to attest to the meetup goal. Do not force an activity or fluid intake to protect a stake.</li>
+          <li><strong>Review:</strong> a solo entrant is self-trusted. Otherwise a checked-in peer confirms or disputes. A tied claim stays unresolved; the captain can invite a no-stake guest. A strict majority after at least three votes resolves disputes; review closes 24 hours after the call closes. Majority rejection disqualifies.</li>
+          <li><strong>Settle:</strong> meet the configured totals and approved meetups, then wait for the owner to settle after challenge end. Rank uses activity days, reports, earliest qualification, then join order. Completion is not a full-principal guarantee.</li>
+        </ol>
+        <p><strong>Evidence caveat:</strong> self/peer attestations and hashes are not medical proof or cryptographic proof that activity occurred. Wallets, counts, hashes and votes are public on-chain. Screen-sharing discloses what you show; public IPFS publication is optional, wallet-linked and may persist indefinitely.</p>
+        <details>
+          <summary>Participant, captain and guest paths: missed days, disputes and exits</summary>
+          <p>Participant: track actual activity; a missed day may leave enough qualifying days, but missing completion means zero payout. A voluntary contract forfeit is irreversible while active and only available before completion. This walkthrough has no forfeit transaction button.</p>
+          <p>Captain: publish rules, configure and schedule calls, reveal codes during calls, invite a non-entrant guest to break a tie, then settle after end. Only the owner can cancel an active challenge; cancellation refunds stakes rather than awarding rank bonuses. The app only exposes cancellation of expired empty challenges.</p>
+          <p>Guest reviewer: use your invited wallet to confirm or dispute once before the review deadline. No stake, enrollment or access to private health records is required. There is no automatic dispute extension or guest settlement authority.</p>
+          <p>Successful finish: the participant receives configured achievement awards and the deterministic payout after owner settlement, not immediately on logging a final day.</p>
+        </details>
+        <h4>Before joining: payout and forfeit consequences</h4>
+        <p>Forfeit or failure to complete returns <strong>zero at settlement</strong>. Finishers start with full principal except <strong>third place, which starts with half principal</strong> rounded down. The rest of the pot—including that withheld half even without forfeits—is a bonus pool. Weights are <strong>3:2:1</strong> for the top three and <strong>1 for each additional finisher</strong>, divided by the weights of actual finishers. Each bonus rounds down; dust goes to the configured treasury. If nobody completes, the whole pot goes to treasury.</p>
+        <p><strong>Simulation, not a live quote:</strong> examples assume 100 BNUT per entrant and no yield. They explain current source contract math, not a new/final economic policy or a guaranteed return. Live stake, dates and rules must be checked below and with the captain. USD conversion, swaps, yield and future grace/appeal policy remain separate decisions.</p>
+        <details id="streak-payout-details">
+          <summary>Worked simulation: 1, 2, 3 and 5 entrants, with forfeits</summary>
+          <div id="streak-payout-examples" class="streak-payout-scroll" tabindex="0" role="region" aria-label="Exact simulated payout examples"><p>Examples unavailable until the app module loads. Read the generated examples linked below.</p></div>
+        </details>
+        <p>Rules source: <a href="docs/STREAKBET_JOURNEY.md" target="_blank" rel="noopener noreferrer">journey and policy boundaries</a> · <a href="contracts/StreakBetEscrow.sol" target="_blank" rel="noopener noreferrer">source contract</a> · <a href="docs/DEPLOYMENTS.md" target="_blank" rel="noopener noreferrer">deployment notes</a> · <a href="docs/STREAKBET_PAYOUT_EXAMPLES.md" target="_blank" rel="noopener noreferrer">generated examples</a>. Source examples do not verify deployed contract behavior; if rules are unavailable or unclear, do not join.</p>
+      </section>
       <div id="streak-challenge-list"><p class="gov-loading">Loading monthly challenges…</p></div>
     </div>
   </div>

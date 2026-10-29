@@ -8546,6 +8546,21 @@ svg text {
 .water-leaderboard {
   grid-column: 1 / -1;
 }
+.streak-payout-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
+}
+.streak-payout-scroll table {
+  border-collapse: collapse;
+  min-width: 32rem;
+}
+.streak-payout-scroll th,
+.streak-payout-scroll td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid currentColor;
+}
 .streak-peer-note {
   margin: 0.4rem 0;
   color: #b7c5cc;

@@ -600,6 +600,19 @@ try {
         ['subscription-modal', '#aes-sub-btn'], ['challenge-modal', '#aes-challenge-btn'],
         ['bounty-register-modal', '#aes-bounty-register-btn'],
       ]) await modal(id, trigger, undefined, ['#aesculapius-right']);
+      await click('#aesculapius-right');
+      await click('#aes-challenge-btn');
+      await visible('#challenge-modal');
+      const rehearsalWalletCalls = walletCalls.length;
+      assert.match(await page.locator('#streak-journey').innerText(), /Commit:[\s\S]*Practice:[\s\S]*Gather:[\s\S]*Review:[\s\S]*Settle:/);
+      assert.match(await page.locator('#streak-journey').innerText(), /not medical proof/);
+      assert.match(await page.locator('#streak-journey').innerText(), /third place, which starts with half principal/i);
+      await page.locator('#streak-payout-details > summary').click();
+      assert.match(await page.locator('#streak-payout-examples').innerText(), /Simulation only/);
+      assert.equal(await page.locator('#streak-payout-examples tbody tr').count(), 9);
+      assert.match(await page.locator('#streak-payout-examples tbody').innerText(), /#5:/);
+      assert.equal(walletCalls.slice(rehearsalWalletCalls).some(method => /sendTransaction|sign|requestAccounts/.test(method)), false, 'Reading rehearsal must not request signatures, transfers or wallet access');
+      await click('#challenge-modal-close');
       await modal('about-modal', '#aes-dnft-btn', undefined, ['#aesculapius-right']);
       await modal('genie-memory-modal', '#genie-memory-review-btn', undefined, ['#aesculapius-right', '#aes-settings-btn']);
       await click('#genie-revoke-consent');
