@@ -53,3 +53,40 @@ test('join disclosure uses actual terms and warns before live approval', async (
   assert.equal((renderPayoutExamples().match(/<tr>/g) || []).length, 10);
   assert.match(joinDisclosure({ stakeAmount: 1n }, {}), /No public rules reference/);
 });
+
+test('join disclosure formats native ETH and ERC-20 amounts with their own decimals', async () => {
+  const { joinDisclosure } = await import('../js/streakJourney.mjs');
+  const config = {
+    requiredActivityDays: 28, requiredMeetups: 4, minimumWeeklyLogs: 5, meetupGoal: 'meet locally',
+  };
+  const usdc = joinDisclosure({
+    stakeToken: '0x1111111111111111111111111111111111111111',
+    stakeAmount: 1_250_000n,
+  }, config, { symbol: 'USDC', decimals: 6 });
+  assert.match(usdc, /1\.25 USDC/);
+  assert.match(usdc, /0x1111111111111111111111111111111111111111/);
+  const eth = joinDisclosure({
+    stakeToken: '0x0000000000000000000000000000000000000000',
+    stakeAmount: 25n * 10n ** 16n,
+  }, config, { symbol: 'ETH', decimals: 18 });
+  assert.match(eth, /0\.25 ETH/);
+  assert.match(eth, /plus network gas/);
+  assert.match(eth, /Raw activity records stay local/);
+});
+
+test('default on-chain check-in commitment contains no raw activity records', async () => {
+  const { publicCheckinCommitment } = await import('../js/streakJourney.mjs');
+  const commitment = publicCheckinCommitment({
+    competitionId: 7,
+    meetupWeek: 2,
+    wallet: '0xAbC',
+    qualifyingDays: 11,
+    weeklyMetricTotals: { hydration: 5 },
+    activityRecords: [{ date: 'private-date', foods: ['private-food'] }],
+  });
+  assert.deepEqual(Object.keys(commitment), [
+    'schema', 'competitionId', 'meetupWeek', 'wallet', 'qualifyingDays', 'weeklyMetricTotals',
+  ]);
+  assert.equal(JSON.stringify(commitment).includes('private-date'), false);
+  assert.equal(commitment.wallet, '0xabc');
+});

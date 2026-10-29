@@ -2509,6 +2509,13 @@
           <div class="gov-admin-section-body">
             <div id="streak-captain-panel" hidden>
               <p data-streak-setup-status class="gov-admin-hint">Configure unlimited Achievement DNFT IDs and grant MINTER_ROLE to StreakBetEscrow.</p>
+              <h3>Challenge escrow asset</h3>
+              <label class="gov-label">Stake token address<input id="streak-asset-token" class="gov-input" type="text" placeholder="0x0000000000000000000000000000000000000000 for native ETH" /></label>
+              <label class="gov-label">Forfeit/dust treasury address<input id="streak-asset-treasury" class="gov-input" type="text" placeholder="Payable receiver for ETH; matching-token treasury for ERC-20" /></label>
+              <p id="streak-asset-capability" role="status" class="gov-admin-hint">Flexible asset settings require verified competition engine version 2.</p>
+              <button id="streak-asset-configure-button" class="gov-admin-action-btn" type="button" disabled>Configure challenge asset and treasury</button>
+              <p id="streak-asset-config-status" class="gov-form-status" aria-live="polite"></p>
+              <p class="gov-admin-hint">Use the zero address only for native ETH. ERC-20 amounts use that token's on-chain decimals. ERC-20 treasury must report the same token; ETH needs a payable treasury contract. Configuration applies to future challenges only and does not change deployed addresses or existing competitions.</p>
               <label class="gov-label">DecentNFT address
                 <input id="streak-award-nft" class="gov-input" type="text" placeholder="0x…" />
               </label>
@@ -2521,13 +2528,13 @@
               <button id="streak-authorize-minter-button" class="gov-admin-action-btn">Authorize StreakBet to mint achievements</button>
               <button id="streak-awards-button" class="gov-admin-action-btn">Configure reusable DNFT awards</button>
               <p class="gov-admin-hint">Use a fresh group of four IDs for each competition: completion, 1st, 2nd, and 3rd. The challenge stores that group when configured; each ID is an ERC-1155 award edition shared by recipients, not a one-of-one token per person.</p>
-            <p class="gov-admin-hint">One StreakBetEscrow runs all challenge types. This first adapter reads the existing hydration tracker; future nutrition, exercise, and weight adapters use the same contract. Entries are fixed BNUT amounts because there is no liquid BNUT/USD market for automatic $5 conversion.</p>
+            <p class="gov-admin-hint">One StreakBetEscrow supports native ETH or a configured ERC-20 for each new challenge. This first adapter reads the existing hydration tracker; future nutrition, exercise, and weight adapters use the same contract. Stake amounts are fixed in the selected asset's native units; no USD quote or swap is provided.</p>
             <label class="gov-label">Challenge name<input id="streak-create-name" class="gov-input" type="text" value="Monthly Hydration Streak" /></label>
             <label class="gov-label">Activity type
               <select id="streak-create-habit" class="gov-input"><option value="hydration">Hydration</option><option value="multi">Combined metrics</option></select>
             </label>
             <label class="gov-label">Pinned rules JSON CID <span>(required for combined metrics)</span><input id="streak-create-rules-cid" class="gov-input" type="text" placeholder="ipfs://CID" /></label>
-            <label class="gov-label">Entry stake (BNUT)<input id="streak-create-stake" class="gov-input gov-input-short" type="number" min="0" step="any" placeholder="Exact BNUT amount" /></label>
+            <label class="gov-label"><span id="streak-create-stake-unit">Entry stake</span><input id="streak-create-stake" class="gov-input gov-input-short" type="number" min="0" step="any" placeholder="Exact asset amount" /></label>
             <label class="gov-label">Fallback daily goal<input id="streak-create-goal" class="gov-input gov-input-short" type="number" min="1" step="1" value="8" /></label>
             <label class="gov-label">Meetup confirmation goal<input id="streak-create-meetup-goal" class="gov-input" type="text" value="Drink 1 liter together during the call" /></label>
             <div class="streak-award-grid">
@@ -2535,7 +2542,7 @@
               <label class="gov-label">Monthly window<input class="gov-input" type="text" value="30 days · 28 tracked days · 4 meetups" readonly /></label>
             </div>
             <p class="gov-admin-hint">Registration stays open through the first 24 hours after the start. The existing expired challenge cannot be reopened; cancel it from the list below and create a new one with a future start.</p>
-            <p class="gov-admin-hint">Combined rules use daily gates that must all pass for a qualifying day, plus independent weekly gates. Publish a `streak-rules.json` file first. Four peer-approved calls and 28 qualifying days complete the month. Stats stay private unless a participant opts into public IPFS reporting.</p>
+            <p class="gov-admin-hint">Combined rules use daily gates that must all pass for a qualifying day, plus independent weekly gates. Publish a `streak-rules.json` file first. Four peer-approved calls and 28 qualifying days complete the month. Weekly counts are submitted on-chain; raw logs stay local unless a participant separately confirms a public IPFS upload.</p>
             <button id="streak-create-button" class="gov-admin-action-btn">Create monthly challenge</button>
             <p id="streak-create-status" class="gov-form-status"></p>
 

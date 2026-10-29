@@ -117,8 +117,9 @@ contract MeetupReviewArbiter is IMeetupReviewArbiter {
 // ─── Contract ─────────────────────────────────────────────────────────────────
 
 contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
-
     using SafeERC20 for IERC20;
+
+    uint8 public constant COMPETITION_ENGINE_VERSION = 2;
 
     error InvalidChallengeConfiguration(uint8 reason);
     error InvalidMeetupAction(uint8 reason);
@@ -297,6 +298,10 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
         reviewArbiter = IMeetupReviewArbiter(address(new MeetupReviewArbiter(address(this))));
     }
 
+    function competitionEngineVersion() external pure returns (uint8) {
+        return COMPETITION_ENGINE_VERSION;
+    }
+
     // ── Admin: Create Competition ─────────────────────────────────────────────
 
     /// @notice Create a new competition. Only the owner can call this.
@@ -341,8 +346,20 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
 
     function setChallengeTreasury(address treasuryAddress) external onlyOwner {
         if (treasuryAddress == address(0) || treasuryAddress.code.length == 0) revert InvalidChallengeConfiguration(2);
-        if (address(ICompetitionTreasury(treasuryAddress).bnutToken()) != challengeStakeToken) revert InvalidChallengeConfiguration(3);
+        if (challengeStakeToken == address(0) || address(ICompetitionTreasury(treasuryAddress).bnutToken()) != challengeStakeToken) revert InvalidChallengeConfiguration(3);
         challengeTreasury = treasuryAddress;
+        emit ChallengeTreasuryConfigured(treasuryAddress);
+    }
+
+    function setChallengeAsset(address token, address treasuryAddress) external onlyOwner {
+        if (token != address(0) && token.code.length == 0) revert InvalidChallengeConfiguration(1);
+        if (treasuryAddress == address(0) || treasuryAddress.code.length == 0) revert InvalidChallengeConfiguration(2);
+        if (token != address(0) && address(ICompetitionTreasury(treasuryAddress).bnutToken()) != token) {
+            revert InvalidChallengeConfiguration(3);
+        }
+        challengeStakeToken = token;
+        challengeTreasury = treasuryAddress;
+        emit ChallengeTokenConfigured(token);
         emit ChallengeTreasuryConfigured(treasuryAddress);
     }
 
@@ -376,7 +393,7 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
     ) external onlyOwner whenNotPaused {
         Competition storage c = competitions[compId];
         if (c.status != CompStatus.Active || c.entrantCount != 0) revert InvalidChallengeConfiguration(7);
-        if (c.stakeToken != challengeStakeToken || challengeStakeToken == address(0)) revert InvalidChallengeConfiguration(8);
+        if (c.stakeToken != challengeStakeToken) revert InvalidChallengeConfiguration(8);
         if (c.yieldEnabled || c.totalWeeks != requiredMeetups) revert InvalidChallengeConfiguration(9);
         if (bytes(habitType).length == 0 || bytes(habitType).length > 32) revert InvalidChallengeConfiguration(10);
         if (requiredActivityDays == 0 || requiredActivityDays > 30) revert InvalidChallengeConfiguration(11);
@@ -550,7 +567,11 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
         require(idx != 0, "Escrow: not an entrant");
 
         Entrant storage e = entrants[compId][idx];
-        require(e.status == EntrantStatus.Joined, "Escrow: already completed or forfeited");
+        bool streakChallenge = streakChallenges[compId].enabled;
+        require(
+            e.status == EntrantStatus.Joined || (streakChallenge && e.status == EntrantStatus.Completed),
+            "Escrow: already completed or forfeited"
+        );
         require(e.reportsSubmitted < c.totalWeeks, "Escrow: all reports already filed");
 
         e.reportsSubmitted++;
@@ -558,7 +579,7 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
         emit WeeklyReport(compId, msg.sender, e.reportsSubmitted, proofCID);
 
         // Auto-complete if all weeks are reported
-        if (e.reportsSubmitted == c.totalWeeks && !streakChallenges[compId].enabled) {
+        if (e.reportsSubmitted == c.totalWeeks && !streakChallenge) {
             e.status = EntrantStatus.Completed;
             c.winnerCount++;
             emit EntrantCompleted(compId, msg.sender);
@@ -830,7 +851,7 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
         }
 
         if (competition.winnerCount == 0) {
-            if (totalPot > 0) IERC20(competition.stakeToken).safeTransfer(config.treasury, totalPot);
+            if (totalPot > 0) _transferOut(competition.stakeToken, config.treasury, totalPot);
             competition.potBalance = 0;
             emit CompetitionSettled(compId, 0, totalPot, leaderboardCID);
             return;
@@ -840,7 +861,7 @@ contract StreakBetEscrow is Ownable, ReentrancyGuard, Pausable {
         uint256 bonusPool = totalPot - baseRefundTotal;
         uint256 distributed = _distributeStreakPayouts(compId, config, bonusPool, totalWeight);
         uint256 dust = totalPot - distributed;
-        if (dust > 0) IERC20(competition.stakeToken).safeTransfer(config.treasury, dust);
+        if (dust > 0) _transferOut(competition.stakeToken, config.treasury, dust);
         competition.potBalance = 0;
         emit CompetitionSettled(compId, competition.winnerCount, totalPot, leaderboardCID);
     }
