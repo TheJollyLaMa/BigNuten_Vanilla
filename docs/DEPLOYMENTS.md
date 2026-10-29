@@ -57,12 +57,22 @@ entrant’s logs are trusted; with multiple entrants, self-claims and peer votes
 are recorded. Disputes require a strict majority after at least three votes; the
 captain can invite outside, no-stake guests to break ties. Logs remain local and
 peer-reviewed, not cryptographically proven. A majority rejection disqualifies
-that entrant. Completed
-participants receive reusable achievement DNFTs and BNUT payouts: forfeits are
-shared by leaderboard weights 3:2:1; third place starts with half principal.
-This is deterministic leaderboard settlement, not a random lottery. The stake
-is an exact BNUT amount because no liquid BNUT/USD market exists for an
-automatic $5 quote.
+that entrant. At owner-called settlement, every completed participant receives
+a completion Achievement DNFT and the top three completed participants also
+receive their place tokens. The mint happens at settlement, not at competition
+start. Forfeited or still-incomplete entrants receive no awards; cancellation
+refunds non-forfeited entrants and mints no awards. If no one completes, the
+configured treasury receives the pot and no awards are minted. A mint failure
+reverts the entire settlement transaction, including payouts and status
+changes.
+
+Completed participants receive BNUT payouts under the unchanged contract
+policy: principal back except third place starts with half principal; remaining
+pool weight is 3:2:1 for first, second, and third, and completed finishers below
+third place have weight 1. Forfeited stakes stay in that pool and treasury
+receives settlement dust. This is deterministic leaderboard settlement, not a
+random lottery. The stake is an exact BNUT amount because no liquid BNUT/USD
+market exists for an automatic $5 quote.
 
 Before enrollment, use the [participant/captain/guest journey](STREAKBET_JOURNEY.md)
 and [generated payout simulations](STREAKBET_PAYOUT_EXAMPLES.md). These explain
@@ -71,8 +81,9 @@ rounding dust), not a live quote or a newly selected stake.
 
 Hydration award metadata is published to Pinata and local IPFS. DecentNFT IDs
 `0–3` are registered with unlimited supply and assigned to the current
-StreakBet. They are reserved for the first hydration challenge; use a fresh
-consecutive group of four IDs for each later competition. Awardees share each
+StreakBet. They are reserved for the first hydration challenge. Every later
+competition needs a fresh consecutive group of four IDs so its completion and
+placement metadata are unique. Awardees in the same competition share each
 ERC-1155 ID. The award JSON uses the BigNuten favicon at its verified GitHub
 Pages URL because the currently deployed Render relay still allows JSON only;
 the local relay source supports image MIME types, but its Render deployment must
@@ -80,20 +91,38 @@ be updated before media can also be pinned to Pinata. The captain still needs to
 choose the entry stake and schedule challenge/meetup times before creating the
 first competition.
 
-For a future competition with its own award art, publish its four metadata
-records with token IDs starting at the next unused DecentNFT ID, then configure
-that range before creating the challenge:
+`js/competitionAwards.mjs` provides an allowlisted, local-only metadata preview
+and device-local competition templates; details are in
+[`competition-achievement-awards.md`](competition-achievement-awards.md).
+Previewing does not upload metadata or reserve IDs. The administrator must
+publish each four-file metadata batch and register it in the existing DecentNFT
+before configuring that competition. Reuse the current DecentNFT deployment;
+no new ERC-721 is needed. The awards/template helper does not perform those
+privileged operations.
+
+For a future competition, publish its four metadata records with token IDs
+starting at the actual next unused DecentNFT ID, then select that unique range
+before configuring the challenge:
 
 ```sh
 STREAK_AWARD_FIRST_ID=4 npm run metadata:publish -- metadata/next-competition-awards
 STREAK_AWARD_FIRST_ID=4 npm run configure:base:streak-awards
 ```
 
+`4` is only an example for the case where IDs `0–3` are the only registered
+tokens. Before each later batch, use the actual DecentNFT `nextTokenId`; do not
+assume the next range is four IDs beyond the last award if other tokens were
+registered in the shared collection.
+
 The publisher writes `deployments/decent-metadata-cids.json`. The Base-only
 setup script checks that file, registers the selected four IDs as unlimited
 Achievement tokens, grants the current StreakBet `MINTER_ROLE`, and configures
-the completion/placement IDs. It refuses to proceed if the signer or existing
-IDs do not match.
+the completion/placement IDs. Run the existing owner configuration for each
+competition before `configureStreakChallenge`; the escrow snapshots those IDs
+for that challenge. It refuses to proceed if the signer or existing IDs do not
+match. Registration prepares token metadata; it does not mint participant
+awards. No deployment, publication, or wallet transaction is part of the
+metadata/template feature or its local tests.
 
 Base Aave supports USDC but not BNUT, and no BNUT/USDC pool was found during
 preparation. Therefore the pilot does not swap or earn Aave yield; conversion,
