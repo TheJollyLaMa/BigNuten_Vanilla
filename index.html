@@ -444,6 +444,9 @@
         <input type="number" id="rawFoodAmount" aria-label="Amount" min="0.01" step="any" placeholder="Amount" required />
         <input type="text" id="rawFoodUnit" aria-label="Unit" placeholder="Unit (e.g., cup, tbsp)" required />
         <input type="number" id="rawFoodProtein" aria-label="Estimated protein in grams" min="0" step="any" placeholder="Estimated protein (g)" required />
+        <input type="number" id="rawFoodCalories" aria-label="Calories" min="0" step="any" placeholder="Calories (optional)" />
+        <label for="rawFoodTime">Time eaten</label>
+        <input type="time" id="rawFoodTime" aria-label="Time eaten" required />
         <button type="submit">Log Intake</button>
       </form>
     </div>
@@ -559,6 +562,16 @@
       <button class="diet-modal-close" id="closeDietModal">&times;</button>
       <h2 class="diet-modal-title">🥗 Log Diet</h2>
       <button type="button" id="dietQuickLogBtn" class="diet-submit-btn">🥕 Raw food quick log</button>
+      <section id="diet-day-summary" class="diet-day-summary" aria-live="polite">
+        <h3>Today in your diet log</h3>
+        <p id="diet-today-calories"></p>
+        <ul id="diet-meal-timeline" class="diet-meal-timeline"></ul>
+        <p id="diet-meal-gaps" class="diet-meal-gaps"></p>
+      </section>
+      <section class="diet-daily-totals">
+        <h3>Daily calorie totals</h3>
+        <ul id="diet-daily-totals-list"></ul>
+      </section>
 
       <!-- Input Form -->
       <form id="dietForm" class="diet-form" autocomplete="off">
@@ -592,6 +605,13 @@
               <option value="handful">handful</option>
               <option value="scoop">scoop</option>
             </select>
+          </div>
+        </div>
+
+        <div class="diet-form-row">
+          <div class="diet-form-group">
+            <label class="diet-label" for="dietFoodTime">Time eaten</label>
+            <input type="time" id="dietFoodTime" class="diet-input" required>
           </div>
         </div>
 

@@ -188,6 +188,13 @@ export function getCurrentTimeInUserTz() {
   });
 }
 
+/** Returns the current wall-clock time in the selected timezone as HH:MM. */
+export function getTimeInUserTz(date = new Date()) {
+  return date.toLocaleTimeString('en-GB', {
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: getUserTimezone(),
+  });
+}
+
 /**
  * Returns a curated list of IANA timezone identifiers grouped by region.
  * Covers all major populated timezones without depending on any external library.

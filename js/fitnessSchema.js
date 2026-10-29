@@ -81,6 +81,16 @@ function coerceObject(source, keys) {
   return {};
 }
 
+function normalizeFoodEntries(entries) {
+  return entries.map(entry => {
+    if (!isPlainObject(entry) || entry.time === undefined) return entry;
+    if (typeof entry.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(entry.time)) return entry;
+    const normalized = { ...entry };
+    delete normalized.time;
+    return normalized;
+  });
+}
+
 function normalizeExerciseBlock(source) {
   const block = unwrapFitnessDataPayload(source);
 
@@ -131,7 +141,7 @@ export function normalizeFitnessData(data) {
   normalized.weightLogs = coerceArray(source, ['weightLogs', 'weightHistory', 'weights']);
   normalized.waterDailyHistory = coerceObject(source, ['waterDailyHistory', 'waterHistory']);
   normalized.supplements = coerceArray(source, ['supplements', 'supplementLogs', 'supplementHistory']);
-  normalized.foods = coerceArray(source, ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods']);
+  normalized.foods = normalizeFoodEntries(coerceArray(source, ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods']));
   normalized.metricLogs = normalizeMetricLogs(source.metricLogs);
   normalized.measurements = coerceArray(source, ['measurements', 'measurementLogs', 'bodyMeasurements']);
   normalized.sessionLog = coerceArray(source, ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog']);
