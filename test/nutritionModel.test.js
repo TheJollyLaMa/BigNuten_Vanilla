@@ -32,3 +32,47 @@ test('unsupported sources, no search, incomplete JSON and changed identity withh
       fetchImpl: async () => ({ ok: true, json: async () => value }) }));
   }
 });
+
+for (const citationsOnly of [false, true]) {
+  test(`source URL normalization matches card validation (${citationsOnly ? 'citations' : 'search sources'})`, async () => {
+    const { lookupNutrition } = await import('../services/nutritionModel.mjs');
+    const value = response();
+    const source = { url: 'HTTPS://EXAMPLE.COM:443', title: 'Synthetic reference' };
+    const answer = JSON.parse(value.output[1].content[0].text);
+    answer.card.sources = [source];
+    value.output[1].content[0].text = JSON.stringify(answer);
+    value.output[0].action.sources = citationsOnly ? [] : [source];
+    if (citationsOnly) value.output[1].content[0].annotations = [{ type: 'url_citation', ...source }];
+    const result = await lookupNutrition({ apiKey: 'fixture', model: 'fixture',
+      input: { name: card.name, kind: 'whole', preparation: 'raw' },
+      fetchImpl: async () => ({ ok: true, json: async () => value }) });
+    assert.equal(result.card.sources[0].url, 'https://example.com/');
+  });
+}
+
+test('normalization never discards document paths, product queries or fragment-based food identities', async () => {
+  const { lookupNutrition } = await import('../services/nutritionModel.mjs');
+  for (const url of ['https://other.example/oats?product=1#food-1', 'https://example.com/rice?product=1#food-1',
+    'https://example.com/oats?product=2#food-1', 'https://example.com/oats?product=1#food-2',
+    'https://example.com/oats/?product=1#food-1', 'https://example.com/oats?product=1&utm_source=chatgpt.com#food-1']) {
+    const value = response();
+    value.output[0].action.sources = [{ url: 'https://example.com/oats?product=1#food-1' }];
+    const answer = JSON.parse(value.output[1].content[0].text);
+    answer.card.sources = [{ url, title: 'Unsupported synthetic reference' }];
+    value.output[1].content[0].text = JSON.stringify(answer);
+    await assert.rejects(lookupNutrition({ apiKey: 'fixture', model: 'fixture',
+      input: { name: card.name, kind: 'whole', preparation: 'raw' },
+      fetchImpl: async () => ({ ok: true, json: async () => value }) }), /source URLs were not supported/);
+  }
+});
+
+test('missing and malformed search evidence fail explicitly without an unchecked card', async () => {
+  const { lookupNutrition } = await import('../services/nutritionModel.mjs');
+  for (const [sources, message] of [[[], /no verifiable source URLs/], [[{ url: 'not-a-url' }], /invalid source URL/]]) {
+    const value = response();
+    value.output[0].action.sources = sources;
+    await assert.rejects(lookupNutrition({ apiKey: 'fixture', model: 'fixture',
+      input: { name: card.name, kind: 'whole', preparation: 'raw' },
+      fetchImpl: async () => ({ ok: true, json: async () => value }) }), message);
+  }
+});
