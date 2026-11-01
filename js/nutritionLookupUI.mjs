@@ -1,13 +1,6 @@
 import { NUTRIENTS, validateNutrition, saveNutritionDefault, matchingDefaults, scaleNutrition } from './nutritionDefaults.mjs';
-
-export function serviceUrl(value) {
-  const url = new URL(value);
-  if (url.username || url.password || url.search || url.hash ||
-      (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)))) {
-    throw new Error('Use an HTTPS nutrition service URL (HTTP only on loopback).');
-  }
-  return url.href.replace(/\/$/, '');
-}
+import { genieClient, serviceUrl } from './genieService.mjs';
+export { serviceUrl } from './genieService.mjs';
 
 export function initNutritionLookup({ load, save, apply }) {
   const opener = document.getElementById('dietNutritionGenie');
@@ -17,7 +10,7 @@ export function initNutritionLookup({ load, save, apply }) {
   dialog.setAttribute('aria-labelledby', 'nutritionLookupTitle');
   dialog.className = 'genie-consent-dialog nutrition-lookup';
   dialog.innerHTML = `
-    <h2 id="nutritionLookupTitle">Genie nutrition review</h2>
+    <h2 id="nutritionLookupTitle">Nutrition review</h2>
     <p>Find food facts, review the base serving, then return to your food entry. Nothing logs automatically.</p>
     <form id="nutritionLookupForm">
       <label>Food name <input id="nutritionName" maxlength="200" required></label>
@@ -33,10 +26,12 @@ export function initNutritionLookup({ load, save, apply }) {
         <label>Render nutrition service URL <input id="nutritionServiceUrl" type="url"></label>
         <button type="button" id="nutritionSaveService">Save service URL</button>
       </details>
-      <label><input type="checkbox" id="nutritionConsent"> I allow this food/product query and supplied label text to be sent to the BigNuten nutrition service and OpenAI web search. No health logs, chat history or Genie memory are included. The service retains only per-wallet usage totals, not food queries.</label>
+      <div id="nutritionAI" data-genie-access hidden>
+      <label><input type="checkbox" id="nutritionConsent"> I allow this food/product query and supplied label text to be sent to the BigNuten Genie service and OpenAI web search. No health logs, chat history or Genie memory are included. The service retains only per-wallet usage totals, not food queries.</label>
       <button type="button" id="nutritionSignIn">Sign in with invited wallet</button>
-      <button type="button" id="nutritionSignOut">Sign out</button>
+      <button type="button" id="nutritionSignOut">Sign out of all Genies</button>
       <button type="submit" id="nutritionSearch">Search nutrition facts</button>
+      </div>
     </form>
     <p id="nutritionLookupStatus" role="status" aria-live="polite"></p>
     <p id="nutritionUsage"></p>
@@ -60,7 +55,7 @@ export function initNutritionLookup({ load, save, apply }) {
   document.body.append(dialog);
   const el = id => dialog.querySelector(`#nutrition${id}`);
   let card = null, originalName = '', generation = 0, controller = null;
-  let credential = '', wallet = '', expiresAt = 0, pending = false;
+  let pending = false;
   function invalidate() {
     el('Reviewed').checked = false;
     el('Use').disabled = true; el('Keep').disabled = true;
@@ -72,24 +67,19 @@ export function initNutritionLookup({ load, save, apply }) {
     return serviceUrl(value);
   }
   async function request(route, body, signal) {
-    const response = await fetch(`${baseUrl()}${route}`, {
-      method: body === null ? 'DELETE' : 'POST', signal,
-      headers: { 'Content-Type': 'application/json', ...(credential ? { Authorization: `Bearer ${credential}` } : {}) },
-      ...(body === null ? {} : { body: JSON.stringify(body) }),
-    });
-    let value;
-    try { value = await response.json(); } catch { throw new Error('Nutrition service returned an unreadable response.'); }
-    if (!response.ok) throw new Error(value.error || `Nutrition service failed (HTTP ${response.status}).`);
-    return value;
+    if (baseUrl() !== serviceUrl(localStorage.getItem('bignutenNutritionServiceUrl') || window.BIGNUTEN_NUTRITION_SERVICE_URL)) {
+      throw new Error('Save the changed service URL before signing in or searching.');
+    }
+    return genieClient.request(route, body, signal);
   }
   function controls() {
     el('Search').disabled = pending; el('SignIn').disabled = pending;
-    el('SignOut').disabled = !credential;
+    el('SignOut').disabled = !genieClient.state().authenticated;
     el('Manual').disabled = pending; el('Saved').disabled = pending;
   }
-  function clearSession() {
+  function resetLookup() {
     generation++; controller?.abort(); controller = null; pending = false;
-    credential = ''; wallet = ''; expiresAt = 0; controls();
+    controls();
     invalidate();
   }
   function currentWallet() { return String(window._connectedAccount || '').toLowerCase(); }
@@ -137,48 +127,48 @@ export function initNutritionLookup({ load, save, apply }) {
     el('Saved').replaceChildren(new Option('Choose a saved default', ''));
     const matches = matchingDefaults(load().nutritionDefaults, originalName);
     for (const entry of matches) el('Saved').add(new Option(`${entry.kind}: ${entry.brand || entry.preparation || entry.name} ${entry.market}`, entry.id));
-    status('Search with explicit consent and invited-wallet sign-in, or enter a label manually.');
+    status(genieClient.state().eligible ? 'Search with explicit consent and invited-wallet sign-in, or enter a label manually.' : 'Manual nutrition review is available. AI access is not enabled for this wallet.');
     controls(); dialog.showModal(); el('Name').focus();
   });
   el('SaveService').addEventListener('click', () => {
-    try { const url = baseUrl(); clearSession(); localStorage.setItem('bignutenNutritionServiceUrl', url); status('Service URL saved. Sign in again.'); }
+    try {
+      const url = baseUrl(); resetLookup(); localStorage.setItem('bignutenNutritionServiceUrl', url);
+      genieClient.clear('Service URL changed. Check assistant access again.');
+      void genieClient.refresh().catch(error => { status(error.message); });
+      status('Service URL saved for all Genies. Check access and sign in again.');
+    }
     catch (error) { status(error.message); }
   });
-  el('ServiceUrl').addEventListener('input', clearSession);
+  el('ServiceUrl').addEventListener('input', resetLookup);
   el('SignIn').addEventListener('click', async () => {
     if (!el('Consent').checked) { status('Review and check the food-only data notice before signing in.'); return; }
     const address = currentWallet();
     if (!address || !window.ethereum) { status('Connect your wallet with the site header first. Nutrition lookup does not connect automatically.'); return; }
-    clearSession(); const attempt = generation; pending = true; controls(); controller = new AbortController();
+    resetLookup(); const attempt = generation; pending = true; controls(); controller = new AbortController();
     try {
-      const chainId = Number(await window.ethereum.request({ method: 'eth_chainId' }));
-      const challenge = await request('/challenge', { address, chainId }, controller.signal);
+      if (baseUrl() !== serviceUrl(localStorage.getItem('bignutenNutritionServiceUrl') || window.BIGNUTEN_NUTRITION_SERVICE_URL)) throw new Error('Save the changed service URL first.');
+      await genieClient.ensureSignedIn();
       if (attempt !== generation || address !== currentWallet()) return;
-      const signature = await window.ethereum.request({ method: 'personal_sign', params: [window.ethers.hexlify(window.ethers.toUtf8Bytes(challenge.message)), address] });
-      if (attempt !== generation || address !== currentWallet()) return;
-      const session = await request('/session', { ...challenge, signature }, controller.signal);
-      if (attempt !== generation || address !== currentWallet()) return;
-      credential = session.token; wallet = session.wallet; expiresAt = session.expiresAt;
       status('Signed in to the separate nutrition service. Search sends only the current food query.');
     } catch (error) { if (attempt === generation) status(error.message); }
     finally { if (attempt === generation) { pending = false; controller = null; controls(); } }
   });
   el('SignOut').addEventListener('click', async () => {
-    try { if (credential) await request('/session', null); status('Nutrition session signed out.'); }
+    try { await genieClient.signOut(); status('All Genie sessions signed out for this tab.'); }
     catch (error) { status(`Local sign-out completed; server sign-out unavailable: ${error.message}`); }
-    finally { clearSession(); }
+    finally { resetLookup(); }
   });
   el('LookupForm').addEventListener('submit', async event => {
     event.preventDefault();
     if (!el('Consent').checked) { status('Consent is required; nothing sent.'); return; }
-    if (!credential || currentWallet() !== wallet || expiresAt <= Date.now()) { clearSession(); status('Sign in with your invited wallet first.'); return; }
+    if (!genieClient.state().eligible || !genieClient.state().authenticated) { resetLookup(); status('Sign in with your invited wallet first.'); return; }
     const input = { ...identity(), label: el('Label').value, url: el('Url').value };
     const attempt = ++generation; controller?.abort(); controller = new AbortController(); pending = true; controls();
     invalidate(); card = null; el('Review').hidden = true; status('Searching for source-backed nutrition...');
     try {
       const result = await request('/lookup', { input, consent: true }, controller.signal);
-      if (attempt !== generation || currentWallet() !== wallet || !dialog.open) return;
-      el('Usage').textContent = `Nutrition usage: ${result.usage.calls} calls, ${result.usage.inputTokens} input / ${result.usage.outputTokens} output tokens. Failed/canceled calls count; web-search charges are separate.`;
+      if (attempt !== generation || !dialog.open) return;
+      el('Usage').textContent = `Shared Genie usage: ${result.usage.calls} calls, ${result.usage.inputTokens} input / ${result.usage.outputTokens} output tokens. Failed/canceled calls count; web-search charges are separate.`;
       if (result.found) populate(result.card);
       status(result.reason || (result.found ? 'Review the sources, serving and nutrient figures below.' : 'Exact nutrition unavailable. Refine the food or enter a label manually.'));
     } catch (error) { if (attempt === generation) status(error.message); }
@@ -190,7 +180,7 @@ export function initNutritionLookup({ load, save, apply }) {
     generation++; controller?.abort(); pending = false; controls(); invalidate();
     if (card) { card = null; el('Review').hidden = true; status('Food query changed. Search or select a saved default again.'); }
     else if (canceled) status('Food query changed; pending lookup/sign-in canceled. Try again with the updated query.');
-    if (event.target === el('Consent') && !el('Consent').checked) clearSession();
+    if (event.target === el('Consent') && !el('Consent').checked) resetLookup();
   });
   el('Saved').addEventListener('change', () => {
     try {
@@ -236,5 +226,14 @@ export function initNutritionLookup({ load, save, apply }) {
   });
   el('Cancel').addEventListener('click', close);
   dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
-  window.addEventListener('bignuten:wallet-changed', () => { clearSession(); if (dialog.open) { card = null; el('Review').hidden = true; status('Wallet changed. Pending lookup and sign-in cleared.'); } });
+  function updateAccess() {
+    const eligible = genieClient.state().eligible;
+    opener.textContent = eligible ? '🧞 Genie' : 'Nutrition label';
+    opener.setAttribute('aria-label', eligible ? 'Ask Genie for nutrition facts' : 'Review a nutrition label');
+    el('AI').hidden = !eligible; controls();
+    if (!eligible && pending) { resetLookup(); status('Assistant access changed. Pending lookup canceled; manual nutrition entry remains available.'); }
+  }
+  window.addEventListener('bignuten:genie-access-changed', updateAccess);
+  window.addEventListener('bignuten:wallet-changed', () => { resetLookup(); if (dialog.open) { card = null; el('Review').hidden = true; status('Wallet changed. Pending lookup and sign-in cleared.'); } });
+  updateAccess();
 }

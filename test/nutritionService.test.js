@@ -31,6 +31,26 @@ async function setup(options = {}) {
     close: async () => { await new Promise(resolve => service.server.close(resolve)); service.close(); } };
 }
 const input = { name: 'Synthetic banana', kind: 'whole' };
+test('health, Yoga and Community requests share nutrition invitation checks and one durable call cap', async () => {
+  const seen = [];
+  const fixture = await setup({ settings: { maxCalls: 4 }, dependencies: {
+    genieCall: async value => { seen.push(value.input); return { answer: 'Synthetic scoped reply', usage: { input_tokens: 2, output_tokens: 3 } }; },
+  } });
+  try {
+    const session = await fixture.signin();
+    const body = { assistant: 'health', messages: [{ role: 'user', content: 'Synthetic question' }], consent: true };
+    assert.equal((await fixture.request('/assistant', body)).status, 401);
+    assert.equal((await fixture.request('/assistant', { ...body, consent: false }, session.token)).status, 400);
+    assert.equal((await fixture.request('/assistant', { ...body, secret: 'unexpected' }, session.token)).status, 400);
+    for (const assistant of ['health', 'yoga', 'community']) {
+      const result = await fixture.request('/assistant', { ...body, assistant }, session.token);
+      assert.equal(result.status, 200); assert.equal(result.body.answer, 'Synthetic scoped reply');
+    }
+    assert.deepEqual(seen.map(value => value.assistant), ['health', 'yoga', 'community']);
+    assert.equal((await fixture.request('/lookup', { input, consent: true }, session.token)).status, 200);
+    assert.equal((await fixture.request('/assistant', body, session.token)).status, 429);
+  } finally { await fixture.close(); }
+});
 test('wallet-bound one-use auth, food-only payloads and separate durable accounting', async () => {
   const fixture = await setup();
   try {

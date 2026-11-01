@@ -1,11 +1,9 @@
 import { METRIC_REGISTRY } from './metrics.js';
+import { genieClient } from './genieService.mjs';
 /**
  * genieChat.js — AI Chat assistant for BigNuten side panels.
  *
- * Supports multiple backends:
- *   • WebLLM (local, private — default offline fallback)
- *   • GitHub Models (Claude 3.5 Sonnet / GPT-4o — hosted)
- *   • OpenAI API (GPT-4o — hosted)
+ * Invited-wallet assistants use the private BigNuten service or local WebLLM.
  *
  * Exports:
  *   initGenieChat()   — call once on DOMContentLoaded
@@ -19,8 +17,7 @@ import { METRIC_REGISTRY } from './metrics.js';
  *     (toward the page centre), never on top of it.
  *   • WebLLM (via CDN) is lazy-loaded only when the user first sends a message
  *     and the WebLLM backend is selected.
- *   • Hosted backends (GitHub Models, OpenAI) use the user's API key stored in
- *     localStorage — keys are never hardcoded or logged.
+ *   • Hosted requests use a server-held key and explicit context consent.
  *   • LLM is strictly data-driven: it only reports what is in the logs and says
  *     "The logs don't show data for that" when information is missing.
  *   • Per-panel open/close state is preserved in localStorage.
@@ -49,43 +46,14 @@ import {
 const LS_ENABLED      = 'genieEnabled';
 const LS_OPEN         = 'genieChatOpen';    // JSON object: { panelId: true/false }
 const LS_MODEL_ID     = 'genieModelId';
-const LS_BACKEND      = 'genieBackend';     // 'webllm' | 'github-models' | 'openai'
-const LS_API_KEY      = 'genieApiKey';      // user-provided key, localStorage only
-const LS_MODEL_NAME   = 'genieModelName';   // hosted model name (persisted per-user)
+const LS_BACKEND      = 'genieBackend';     // 'webllm' | 'private-genie'
 const LS_GENIE_CATS   = 'genieContextCategories'; // JSON: { exercises: true, ... }
 const STORAGE_KEY     = 'fitnessTrackerData';
 
-const DEFAULT_BACKEND = 'github-models'; // default to hosted for best experience
+const DEFAULT_BACKEND = 'private-genie';
 
-// GitHub Models endpoint (OpenAI-compatible)
-const GITHUB_MODELS_ENDPOINT = 'https://models.inference.ai.azure.com/chat/completions';
-
-// ── Hosted model catalogues ─────────────────────────────────────────────────
-// Each entry: { value: modelId, label: display name }
-// Update these lists when providers add/rename models.
-const GITHUB_MODELS_LIST = [
-  { value: 'Meta-Llama-3.1-405B-Instruct', label: '🦙 Llama 3.1 405B (128K — recommended)', contextTokens: 100_000, maxTokens: 4000 },
-  { value: 'Meta-Llama-3.1-8B-Instruct',   label: '🦙 Llama 3.1 8B (128K — fast)',          contextTokens: 100_000, maxTokens: 4000 },
-  { value: 'gpt-4o',                        label: 'GPT-4o (8K — small queries only)',        contextTokens: 6_000,   maxTokens: 800  },
-  { value: 'gpt-4o-mini',                   label: 'GPT-4o Mini (8K — small queries only)',   contextTokens: 6_000,   maxTokens: 800  },
-];
-
-const OPENAI_MODELS_LIST = [
-  { value: 'gpt-4o',          label: 'GPT-4o' },
-  { value: 'gpt-4o-mini',     label: 'GPT-4o Mini' },
-  { value: 'gpt-3.5-turbo',   label: 'GPT-3.5 Turbo' },
-];
-
-const DEFAULT_HOSTED_MODEL = 'Meta-Llama-3.1-405B-Instruct'; // 128K context, handles all health data
-
-// Combined model list for metadata lookups (avoids repeated array allocation)
-const ALL_HOSTED_MODELS = [...GITHUB_MODELS_LIST, ...OPENAI_MODELS_LIST];
-
-// Context window for hosted models (safe budget within 128K Llama window)
-const HOSTED_CONTEXT_TOKENS = 100_000;
-
-// Maximum reply tokens for hosted backends
-const HOSTED_MAX_TOKENS = 4000;
+// Browser-side prompt budget; the service controls the hosted model.
+const HOSTED_CONTEXT_TOKENS = 12_000;
 
 // Regex that matches meta-questions about what data Genie has access to.
 // Using non-greedy .*? to avoid catastrophic backtracking.
@@ -135,6 +103,7 @@ const MAX_INSIGHT_TEXT_LENGTH = 300;
 
 export function initGenieChat() {
   _applyEnabledState();
+  window.addEventListener('bignuten:genie-access-changed', _applyEnabledState);
 
   // Watch all dashboard-panel class changes to show/hide genie elements.
   const observer = new MutationObserver((mutations) => {
@@ -169,7 +138,7 @@ export function setGenieEnabled(enabled) {
 }
 
 export function isGenieEnabled() {
-  return localStorage.getItem(LS_ENABLED) === 'true';
+  return localStorage.getItem(LS_ENABLED) !== 'false' && genieClient.state().eligible;
 }
 
 /** Returns the currently selected model ID (persisted in localStorage). */
@@ -194,15 +163,16 @@ export function getGenieModels() {
   return GENIE_MODELS;
 }
 
-/** Returns the active backend: 'webllm' | 'github-models' | 'openai' */
+/** Legacy browser-key selections migrate to the private service without reading keys. */
 export function getGenieBackend() {
   const stored = localStorage.getItem(LS_BACKEND);
-  return ['webllm', 'github-models', 'openai'].includes(stored)
+  return ['webllm', 'private-genie'].includes(stored)
     ? stored
     : DEFAULT_BACKEND;
 }
 
 export function setGenieBackend(backend) {
+  if (!['webllm', 'private-genie'].includes(backend)) throw new Error('Choose the private Genie service or WebLLM.');
   localStorage.setItem(LS_BACKEND, backend);
   document.dispatchEvent(new CustomEvent('genie-backend-changed', { detail: backend }));
   document.querySelectorAll('.genie-chat-hint').forEach(hint => {
@@ -218,53 +188,19 @@ export function setGenieBackend(backend) {
   }
 }
 
-/**
- * Returns the user's API key from localStorage.
- * The key is stored as plain text in localStorage by design — there is no
- * server-side component. Callers must not log the returned value.
- */
-export function getGenieApiKey() {
-  return localStorage.getItem(LS_API_KEY) || '';
-}
 
-/**
- * Persist or clear the user's API key in localStorage.
- * Stored as plain text — intentional for a purely client-side app with no server.
- */
-export function setGenieApiKey(key) {
-  if (key) {
-    localStorage.setItem(LS_API_KEY, key);
-  } else {
-    localStorage.removeItem(LS_API_KEY);
-  }
-}
 
-export function hasGenieApiKey() {
-  return !!getGenieApiKey();
-}
+
+
+
 
 // ── Hosted model picker helpers ─────────────────────────────────────────────
 
-/** Returns the model list for a given backend (or empty array for webllm). */
-export function getHostedModelsForBackend(backend) {
-  if (backend === 'github-models') return GITHUB_MODELS_LIST;
-  if (backend === 'openai')        return OPENAI_MODELS_LIST;
-  return [];
-}
 
-/** Returns the persisted hosted model name (or a safe default). */
-export function getGenieHostedModelName() {
-  const stored  = localStorage.getItem(LS_MODEL_NAME);
-  if (stored) return stored; // respect user's last choice always
-  const backend = getGenieBackend();
-  const list    = getHostedModelsForBackend(backend);
-  return list[0]?.value || DEFAULT_HOSTED_MODEL;
-}
 
-/** Persist the hosted model name. */
-export function setGenieHostedModelName(name) {
-  localStorage.setItem(LS_MODEL_NAME, name);
-}
+
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal helpers
@@ -550,8 +486,7 @@ function _buildGenieHint(mode = 'health') {
   }
   const hints = {
     'webllm':        '🔒 Local &amp; private — powered by WebLLM',
-    'github-models': '⭐ GitHub Models — health context sent only with permission',
-    'openai':        '🟢 OpenAI — health context sent only with permission',
+    'private-genie': '☁️ Private BigNuten service — health context sent only with permission',
   };
   return hints[backend] || hints['webllm'];
 }
@@ -785,6 +720,7 @@ function _getWelcomeMessage(panelId) {
 async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
   const text = inputEl.value.trim();
   if (!text) return;
+  const attempt = genieClient.state().revision;
 
   const win = document.querySelector(`.genie-chat-window[data-panel="${panelId}"]`);
   const mode = win?.querySelector('.genie-mode-selector')?.value || 'health';
@@ -800,6 +736,8 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
     const backend = getGenieBackend();
 
     // Only load WebLLM engine if using local backend
+    if (!genieClient.state().authenticated) await genieClient.ensureSignedIn();
+    genieClient.assertCurrent(attempt);
     if (backend === 'webllm' && !(mode === 'community' && isCommunityCoachQuestion(text))) {
       const modelId   = getGenieModelId();
       const modelMeta = GENIE_MODELS[modelId] || GENIE_MODELS[DEFAULT_MODEL_ID];
@@ -813,6 +751,7 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
 
     statusEl.textContent = '🧞 Thinking…';
     const reply = await chatWithGenie(text, panelId, statusEl, { mode });
+    genieClient.assertCurrent(attempt);
     if (mode === 'community' && reply && typeof reply === 'object') {
       _appendCommunityMessage(messagesEl, reply);
     } else {
@@ -821,7 +760,7 @@ async function _sendMessage(panelId, inputEl, messagesEl, statusEl) {
     statusEl.textContent = '';
   } catch (err) {
     console.error('[GenieChat]', err);
-    _appendMessage(messagesEl, 'error', `⚠️ Error: ${err.message || 'Unknown error'}`, panelId);
+    if (attempt === genieClient.state().revision) _appendMessage(messagesEl, 'error', `⚠️ Error: ${err.message || 'Unknown error'}`, panelId);
     statusEl.textContent = '';
   } finally {
     inputEl.disabled = false;
@@ -952,8 +891,8 @@ async function _generateSessionSummary(panelId) {
 
   const backend = getGenieBackend();
 
-  // Only attempt summary via hosted backends (need API key)
-  if (backend === 'webllm' || !hasGenieApiKey() || !hasGenieHostedConsent(backend)) {
+  // Hosted summaries require signed access and existing Health permission.
+  if (backend === 'webllm' || !genieClient.state().authenticated || !hasGenieHostedConsent(backend)) {
     // Fallback: save a simple summary without LLM
     const topicWords = messages
       .filter(m => m.role === 'user')
@@ -980,12 +919,7 @@ async function _generateSessionSummary(panelId) {
       { role: 'user',   content: prompt },
     ];
 
-    let rawReply;
-    if (backend === 'github-models') {
-      rawReply = await _chatViaGitHubModels(summaryMessages, null);
-    } else {
-      rawReply = await _chatViaOpenAI(summaryMessages, null);
-    }
+    const rawReply = await _chatViaPrivateService(summaryMessages, null);
 
     let parsed;
     try {
@@ -1378,6 +1312,8 @@ function _buildDataSections(panelId, budgetTokens, userMessage = '') {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function chatWithGenie(userMessage, panelId, statusEl, options = {}) {
+  if (!genieClient.state().eligible) throw new Error('Genie access is not enabled for this wallet.');
+  if (!genieClient.state().authenticated) await genieClient.ensureSignedIn();
   if (options.mode === 'community') {
     if (isCommunityCoachQuestion(userMessage)) {
       if (statusEl) statusEl.textContent = 'Reading public challenge state only…';
@@ -1399,8 +1335,7 @@ export async function chatWithGenie(userMessage, panelId, statusEl, options = {}
     const backend = getGenieBackend();
     const backendLabel = {
       'webllm':        'WebLLM (local, private)',
-      'github-models': 'GitHub Models (Claude/GPT-4o, hosted)',
-      'openai':        'OpenAI API (hosted)',
+      'private-genie': 'Private BigNuten Genie service (OpenAI, hosted)',
     }[backend] || backend;
     return `🧞 I read your locally-stored BigNuten fitness logs. ` +
            `Currently running via: ${backendLabel}. ` +
@@ -1412,10 +1347,9 @@ export async function chatWithGenie(userMessage, panelId, statusEl, options = {}
   const backend = getGenieBackend();
 
   // Context window budget: use per-model metadata when available
-  const modelMeta     = ALL_HOSTED_MODELS.find(m => m.value === getGenieHostedModelName());
   const contextTokens = (backend === 'webllm')
     ? (GENIE_MODELS[getGenieModelId()]?.contextTokens ?? 4_096)
-    : (modelMeta?.contextTokens || HOSTED_CONTEXT_TOKENS);
+    : HOSTED_CONTEXT_TOKENS;
 
   const dataBudget    = contextTokens - TOKEN_RESERVE_OVERHEAD - TOKEN_RESERVE_REPLY
                         - _estimateTokens(userMessage);
@@ -1458,12 +1392,7 @@ export async function chatWithGenie(userMessage, panelId, statusEl, options = {}
   if (action !== 'allow' || getGenieBackend() !== backend) return 'Request cancelled. Nothing was sent.';
 
   // ── Dispatch to the selected backend ──────────────────────────────────
-  if (backend === 'github-models') {
-    return _chatViaGitHubModels(messages, statusEl);
-  }
-  if (backend === 'openai') {
-    return _chatViaOpenAI(messages, statusEl);
-  }
+  if (backend === 'private-genie') return _chatViaPrivateService(messages, statusEl);
 
   // Default: WebLLM (existing streaming path)
   return _chatViaWebLLM(messages, statusEl);
@@ -1471,10 +1400,9 @@ export async function chatWithGenie(userMessage, panelId, statusEl, options = {}
 
 async function _chatWithCommunityGuide(userMessage, statusEl) {
   const backend = getGenieBackend();
-  const modelMeta = ALL_HOSTED_MODELS.find(model => model.value === getGenieHostedModelName());
   const contextTokens = backend === 'webllm'
     ? (GENIE_MODELS[getGenieModelId()]?.contextTokens ?? 4_096)
-    : (modelMeta?.contextTokens || HOSTED_CONTEXT_TOKENS);
+    : HOSTED_CONTEXT_TOKENS;
   const systemPrompt = buildCommunityGuidePrompt(userMessage);
   const fullTokenEst = _estimateTokens(systemPrompt) + _estimateTokens(userMessage);
   if (fullTokenEst > contextTokens - TOKEN_RESERVE_REPLY - 300) {
@@ -1493,126 +1421,19 @@ async function _chatWithCommunityGuide(userMessage, statusEl) {
   }
   if (action !== 'allow' || getGenieBackend() !== backend) return 'Request cancelled. Nothing was sent.';
 
-  if (backend === 'github-models') return _chatViaGitHubModels(messages, statusEl, 'community');
-  if (backend === 'openai') return _chatViaOpenAI(messages, statusEl, 'community');
+  if (backend === 'private-genie') return _chatViaPrivateService(messages, statusEl, 'community');
   return _chatViaWebLLM(messages, statusEl);
 }
 
-/**
- * Send messages to GitHub Models (OpenAI-compatible endpoint).
- * Uses the user's GitHub PAT (Personal Access Token) with models:read scope.
- * Key is read from localStorage — never hardcoded.
- */
-async function _chatViaGitHubModels(messages, statusEl, scope = 'health') {
-  if (!hasGenieHostedConsent('github-models', scope)) throw new Error(`Hosted ${scope}-context permission required.`);
-  const key = getGenieApiKey();
-  if (!key) {
-    throw new Error(
-      '🔑 No API key saved. Go to Settings → Genie AI → paste your GitHub PAT and click Save.'
-    );
-  }
-
-  const modelName = getGenieHostedModelName();
-  const modelMeta = GITHUB_MODELS_LIST.find(m => m.value === modelName);
-  const maxTokens = modelMeta?.maxTokens || HOSTED_MAX_TOKENS;
-
-  // Pre-flight guard: warn if selected model's context window is too small
-  const estimatedInput = _estimateTokens(JSON.stringify(messages));
-  const modelContextTokens = modelMeta?.contextTokens || HOSTED_CONTEXT_TOKENS;
-  if (estimatedInput > modelContextTokens) {
-    throw new Error(
-      `⚠️ Your selected model (${modelName}) has a small context window. ` +
-      `Your data is ~${estimatedInput.toLocaleString()} tokens. ` +
-      `Switch to 🦙 Llama 3.1 405B in Settings → Genie AI for full access to your health data.`
-    );
-  }
-
-  if (statusEl) statusEl.textContent = '🧞 Thinking (GitHub Models)…';
-
-  const res = await fetch(GITHUB_MODELS_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${key}`,
-      'Content-Type':  'application/json',
-    },
-    body: JSON.stringify({
-      model:       modelName,
-      messages,
-      max_tokens:  maxTokens,
-      temperature: 0,
-    }),
+async function _chatViaPrivateService(messages, statusEl, scope = 'health') {
+  if (!hasGenieHostedConsent('private-genie', scope)) throw new Error(`Hosted ${scope}-context permission required.`);
+  if (statusEl) statusEl.textContent = '🧞 Thinking (private BigNuten Genie service)…';
+  const result = await genieClient.request('/assistant', { assistant: scope, messages, consent: true }, undefined, () => {
+    if (!hasGenieHostedConsent('private-genie', scope)) throw new Error(`Hosted ${scope}-context permission required.`);
+    if (getGenieBackend() !== 'private-genie') throw new Error('Backend changed. Nothing was sent.');
   });
-
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => ({}));
-    const msg = errBody?.error?.message || `HTTP ${res.status}`;
-    if (_isUnknownModelError(msg)) {
-      throw new Error(
-        `⚠️ Unknown model "${modelName}". Please go to Settings → Genie AI and choose a different model from the dropdown.`
-      );
-    }
-    throw new Error(`GitHub Models error: ${msg}`);
-  }
-
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() || '(no response)';
-}
-
-/**
- * Send messages to OpenAI API directly.
- * Key is read from localStorage — never hardcoded.
- */
-async function _chatViaOpenAI(messages, statusEl, scope = 'health') {
-  if (!hasGenieHostedConsent('openai', scope)) throw new Error(`Hosted ${scope}-context permission required.`);
-  const key = getGenieApiKey();
-  if (!key) {
-    throw new Error(
-      '🔑 No API key saved. Go to Settings → Genie AI → paste your OpenAI API key and click Save.'
-    );
-  }
-
-  const modelName = getGenieHostedModelName();
-  const modelMeta = OPENAI_MODELS_LIST.find(m => m.value === modelName);
-  const maxTokens = modelMeta?.maxTokens || HOSTED_MAX_TOKENS;
-
-  if (statusEl) statusEl.textContent = '🧞 Thinking (OpenAI)…';
-
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${key}`,
-      'Content-Type':  'application/json',
-    },
-    body: JSON.stringify({
-      model:       modelName,
-      messages,
-      max_tokens:  maxTokens,
-      temperature: 0,
-    }),
-  });
-
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => ({}));
-    const msg = errBody?.error?.message || `HTTP ${res.status}`;
-    if (_isUnknownModelError(msg)) {
-      throw new Error(
-        `⚠️ Unknown model "${modelName}". Please go to Settings → Genie AI and choose a different model from the dropdown.`
-      );
-    }
-    throw new Error(`OpenAI error: ${msg}`);
-  }
-
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() || '(no response)';
-}
-
-/** Check if an error message indicates an unknown/invalid model. */
-function _isUnknownModelError(msg) {
-  const lower = (msg || '').toLowerCase();
-  return lower.includes('unknown model') ||
-         lower.includes('model not found') ||
-         lower.includes('does not exist') ||
-         lower.includes('invalid model');
+  if (typeof result.answer !== 'string' || !result.answer.trim()) throw new Error('Genie service returned no valid answer.');
+  return result.answer;
 }
 
 /** Extracted WebLLM streaming path (was inline in _chat) — unchanged logic */
@@ -1759,8 +1580,9 @@ function _updateTokenEstimate(panelId) {
     total += _estimateTokens(JSON.stringify(arr));
   }
 
-  const modelMeta     = ALL_HOSTED_MODELS.find(m => m.value === getGenieHostedModelName());
-  const contextTokens = modelMeta?.contextTokens || HOSTED_CONTEXT_TOKENS;
+  const contextTokens = getGenieBackend() === 'webllm'
+    ? GENIE_MODELS[getGenieModelId()].contextTokens
+    : HOSTED_CONTEXT_TOKENS;
   const pct = Math.min(100, Math.round(total / contextTokens * 100));
   estEl.textContent = `~${total.toLocaleString()} tokens used (${pct}% of ${Math.round(contextTokens / 1000)}K context)`;
   estEl.style.color = pct > 80 ? '#ff8888' : pct > 60 ? '#ffcc44' : '#00ff88';

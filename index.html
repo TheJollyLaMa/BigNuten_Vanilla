@@ -16,7 +16,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
 </head>
-<body>
+<body class="footer-visible">
   
   <header>
     <div id="header-left">
@@ -663,7 +663,7 @@
           <div class="diet-nutr-card__header">
             <span class="diet-nutr-card__icon">📊</span>
             <span class="diet-nutr-card__title">Nutritional Info <em id="dietNutrCardServingLabel">per serving</em></span>
-            <button type="button" id="dietNutritionGenie" class="diet-input" aria-label="Ask Genie for nutrition facts">🧞 Genie</button>
+            <button type="button" id="dietNutritionGenie" class="diet-input" aria-label="Review a nutrition label">Nutrition label</button>
           </div>
           <div class="diet-nutr-grid">
             <div class="diet-nutr-field">
@@ -699,7 +699,7 @@
               <input type="number" id="dietNutrSugar" class="diet-input diet-input--nutr" placeholder="g" min="0" step="0.1">
             </div>
           </div>
-          <div class="diet-nutr-card__note" id="dietNutritionStatus" role="status">Review Genie nutrition before saving a per-serving default. Unknown nutrients stay blank.</div>
+          <div class="diet-nutr-card__note" id="dietNutritionStatus" role="status">Review nutrition before saving a per-serving default. Unknown nutrients stay blank.</div>
         </div>
 
         <button type="submit" class="diet-submit-btn">
@@ -822,7 +822,7 @@
       <div class="yoga-modal-header">
         <span class="yoga-modal-title">🧘 Yoga Flow</span>
         <div style="display:flex;align-items:center;gap:4px;">
-          <button id="yoga-genie-btn" class="yoga-genie-btn" aria-label="Open Yoga Genie AI" title="Ask the Yoga Genie 🧞">🧞</button>
+          <button id="yoga-genie-btn" class="yoga-genie-btn" data-genie-access hidden aria-label="Open Yoga Genie AI" title="Ask the Yoga Genie 🧞">🧞</button>
           <button id="yoga-close-btn" class="yoga-close-btn" aria-label="Close Yoga Flow modal" title="Close">✕</button>
         </div>
       </div>
@@ -1826,13 +1826,20 @@
       </section>
 
       <!-- Genie AI Assistant Section -->
-      <button id="genie-issue-helper-open" type="button">🧞 Report an issue / suggest an idea (no AI needed)</button>
-      <section class="settings-section">
+      <button id="genie-issue-helper-open" type="button">Report an issue / suggest an idea (no AI needed)</button>
+      <div class="assistant-access-control">
+        <button id="assistant-access-check" type="button">Check assistant access</button>
+        <span id="assistant-access-status" role="status" aria-live="polite"></span>
+      </div>
+      <button id="genie-legacy-key-clear" type="button">Remove a legacy browser AI key</button>
+      <p id="genie-legacy-key-status" role="status"></p>
+      <section class="settings-section" data-genie-access hidden>
         <h3>🧞 Genie AI Assistant</h3>
         <p class="settings-desc">
-          AI chat assistant inside each side panel. Choose a hosted backend
-          (GitHub Models or OpenAI) for best quality, or use
-          <strong>WebLLM</strong> for fully local &amp; private processing.
+          Invited-wallet AI chat inside each side panel. The private BigNuten
+          service holds the OpenAI key on the server. Health context is shared
+          only after permission. Verified invited wallets may also use local
+          <strong>WebLLM</strong>.
         </p>
         <div class="genie-settings-row">
           <label for="genie-enabled-toggle" class="genie-settings-label">
@@ -1850,15 +1857,9 @@
           <div class="genie-backend-options" role="radiogroup" aria-label="Genie AI Backend">
 
             <label class="genie-backend-option">
-              <input type="radio" name="genie-backend" value="github-models" />
-              <span class="backend-badge backend-github">⭐ GitHub Models</span>
-              <span class="backend-desc">Claude 3.5 Sonnet / GPT-4o — free tier, best quality</span>
-            </label>
-
-            <label class="genie-backend-option">
-              <input type="radio" name="genie-backend" value="openai" />
-              <span class="backend-badge backend-openai">🟢 OpenAI API</span>
-              <span class="backend-desc">GPT-4o — bring your own key</span>
+              <input type="radio" name="genie-backend" value="private-genie" />
+              <span class="backend-badge backend-openai">Private BigNuten Genie</span>
+              <span class="backend-desc">Server-held OpenAI key; shared pilot usage cap</span>
             </label>
 
             <label class="genie-backend-option">
@@ -1868,34 +1869,6 @@
             </label>
 
           </div>
-        </div>
-
-        <!-- API key input (shown only for hosted backends) -->
-        <div class="genie-apikey-section" id="genie-apikey-section">
-          <label class="genie-settings-label" for="genie-api-key-input">
-            API Key
-            <span id="genie-apikey-status" class="genie-apikey-status"></span>
-          </label>
-          <div class="genie-apikey-input-row">
-            <input
-              type="password"
-              id="genie-api-key-input"
-              class="genie-api-key-input"
-              placeholder="Paste your GitHub PAT or OpenAI key…"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <button id="genie-api-key-save" class="genie-key-btn">Save</button>
-            <button id="genie-api-key-clear" class="genie-key-btn genie-key-btn--clear">Clear</button>
-          </div>
-          <p class="settings-hint">
-            🔒 Kept only in memory for this tab. Never sent to BigNuten.
-            Sent directly and only to the AI provider you select.
-            <br />
-            <strong>GitHub PAT:</strong>
-            <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a>
-            — create a fine-grained token with <code>models:read</code> scope only.
-          </p>
         </div>
 
         <!-- WebLLM model picker — only shown when WebLLM backend is selected -->
@@ -1908,18 +1881,6 @@
           </select>
         </div>
 
-        <!-- Hosted model picker — shown when GitHub Models or OpenAI backend is selected -->
-        <div class="genie-settings-row" id="genie-hosted-model-row" style="display:none;">
-          <label for="genie-hosted-model-select" class="genie-settings-label">
-            Model
-          </label>
-          <select id="genie-hosted-model-select" class="genie-model-select" aria-label="Select hosted AI model">
-            <!-- populated dynamically by JS -->
-          </select>
-        </div>
-
-        <button type="button" id="genie-revoke-consent">Reset hosted AI permissions</button>
-        <p id="genie-consent-status" role="status"></p>
         <p class="settings-hint" id="genie-settings-hint">
           <!-- dynamically updated by JS based on selected backend -->
         </p>
@@ -1927,7 +1888,9 @@
 
       <!-- Genie Memory Section -->
       <section class="settings-section">
-        <h3>🧠 Genie Memory</h3>
+        <h3>🧠 Assistant memory (browser-local)</h3>
+        <button type="button" id="genie-revoke-consent">Reset hosted AI permissions</button>
+        <p id="genie-consent-status" role="status"></p>
         <p class="settings-desc">
           Genie remembers your conversations across sessions. Recent chats are
           auto-summarized and key insights can be pinned for permanent recall.

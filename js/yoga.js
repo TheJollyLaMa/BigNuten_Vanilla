@@ -4,9 +4,10 @@
 
 import { BREATH_PHASES, YOGA_BREATH_PATTERN } from './breathwork.js';
 import { ensureGenieHostedConsent, hasGenieHostedConsent } from './geniePrivacy.js';
+import { genieClient } from './genieService.mjs';
 import { getFitnessData, saveFitnessData } from './fitnessData.js';
 import {
-  isGenieEnabled, getGenieBackend, setGenieBackend, getGenieApiKey, getGenieHostedModelName
+  getGenieBackend, setGenieBackend
 } from './genieChat.js';
 
 const YOGA_POSES_KEY  = 'yogaCustomPoses';
@@ -1015,121 +1016,70 @@ function setGenieStatus(text) {
   if (el) el.textContent = text;
 }
 
+
+
 export async function sendGenieMessage() {
   const input = document.getElementById('yoga-genie-input');
   const sendBtn = document.getElementById('yoga-genie-send');
-  if (!input) return;
-  const text = input.value.trim();
-  if (!text) return;
-
-  input.value = '';
-  if (input) input.disabled = true;
+  if (!input || !input.value.trim()) return;
+  if (!genieClient.state().eligible) { setGenieStatus('Genie access is not enabled for this wallet. Yoga tracking remains available.'); return; }
+  const text = input.value.trim(), attempt = genieClient.state().revision;
+  input.value = ''; input.disabled = true;
   if (sendBtn) sendBtn.disabled = true;
-
-  appendGenieMessage('user', text);
-  setGenieStatus('🧞 Thinking…');
-
-  // Build context from current session and yoga data
-  const currentPose = yogaSession.poses[yogaSession.currentIndex];
-  const poseContext = currentPose
-    ? `Current pose: ${currentPose.english} (${currentPose.sanskrit} / ${currentPose.devanagari})\nBreath cue: ${currentPose.breathCue}`
-    : `Flow has ${yogaSession.poses.length} poses: ${yogaSession.poses.map(p => p.english).join(', ')}`;
-
-  const yogaData = await getFitnessData();
-  const yogaSessions = (yogaData.sessionLog || [])
-    .filter(s => s.type === 'yoga').slice(-5);
-
-  const systemPrompt = `You are the Yoga Genie 🧞, a wise and compassionate yoga guide embedded in BigNuten health tracker.
-You have deep knowledge of:
-- Yoga asanas (poses), their Sanskrit names, benefits, contraindications, and modifications
-- The Yoga Sutras of Patanjali and classical yoga philosophy
-- Pranayama (breathing techniques) and their effects
-- Chakra theory and energy work
-- Mindfulness, meditation, and the mind-body connection
-- Ayurveda as it relates to yoga practice
-- Modern sports science and biomechanics of yoga
-
-${poseContext}
-
-Recent yoga sessions logged:
-${yogaSessions.length > 0 ? JSON.stringify(yogaSessions, null, 1) : 'No recent yoga sessions logged yet.'}
-
-Be warm, encouraging, and precise. Weave Sanskrit terms naturally into explanations.
-For pose questions, mention both benefits and safety cues.
-Keep responses concise — 2-4 sentences unless a detailed explanation is requested.`;
-
-  const previousMessages = genieMessages.slice(0, -1).slice(-8);
-  const conversationHistory = previousMessages.map(m => ({
-    role: m.role === 'user' ? 'user' : 'assistant',
-    content: m.text
-  }));
-  conversationHistory.push({ role: 'user', content: text });
-
+  appendGenieMessage('user', text); setGenieStatus('🧞 Thinking…');
   try {
+    if (!genieClient.state().authenticated) await genieClient.ensureSignedIn();
+    genieClient.assertCurrent(attempt);
     const backend = getGenieBackend();
-    let reply = '';
-
     if (backend === 'webllm') {
-      setGenieStatus('🧞 (WebLLM not available in Yoga Panel — switch backend in Settings)');
-      reply = 'Please switch to GitHub Models or OpenAI backend in Settings to use the Yoga Genie.';
-    } else if (backend === 'openai' || backend === 'github-models') {
-      const categories = [currentPose ? 'Current yoga pose and breath cue' : 'Current yoga flow'];
-      if (yogaSessions.length) categories.push('Recent yoga sessions');
-      if (previousMessages.length) categories.push('Yoga conversation history');
-      categories.push('Your message');
-      const action = await ensureGenieHostedConsent(backend, categories);
-      if (action === 'local') {
-        setGenieBackend('webllm');
-        appendGenieMessage('genie', '🔒 Switched to local WebLLM. Nothing was sent. The Yoga Genie needs a hosted backend; use a dashboard Genie chat for local WebLLM.');
-        setGenieStatus('');
-        return;
-      }
-      if (action !== 'allow' || getGenieBackend() !== backend) {
-        appendGenieMessage('genie', 'Request cancelled. Nothing was sent.');
-        setGenieStatus('');
-        return;
-      }
-      const apiKey = getGenieApiKey();
-      const modelName = getGenieHostedModelName();
-
-      const endpoint = backend === 'openai'
-        ? 'https://api.openai.com/v1/chat/completions'
-        : `https://models.inference.ai.azure.com/chat/completions`;
-
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      };
-
-      const body = JSON.stringify({
-        model: modelName,
-        messages: [{ role: 'system', content: systemPrompt }, ...conversationHistory],
-        temperature: 0.7,
-        max_tokens: 512
-      });
-
-      if (!hasGenieHostedConsent(backend)) throw new Error('Hosted health-context permission required.');
-      const res = await fetch(endpoint, { method: 'POST', headers, body });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error?.message || `HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      reply = data.choices?.[0]?.message?.content?.trim() || '(no response)';
-    } else {
-      reply = 'Please configure a Genie AI backend in Settings to use the Yoga Genie.';
+      appendGenieMessage('genie', 'The Yoga Genie needs the private hosted backend; use a dashboard Genie chat for local WebLLM. Nothing was sent.');
+      setGenieStatus('');
+      return;
     }
-
-    appendGenieMessage('genie', reply);
-    setGenieStatus('');
-  } catch (err) {
-    console.error('Yoga Genie error:', err);
-    appendGenieMessage('genie', `⚠️ ${err.message || 'An error occurred. Check your API key in Settings.'}`);
-    setGenieStatus('');
+    const currentPose = yogaSession.poses[yogaSession.currentIndex];
+    const poseContext = currentPose
+      ? `Current pose: ${currentPose.english} (${currentPose.sanskrit} / ${currentPose.devanagari})\nBreath cue: ${currentPose.breathCue}`
+      : `Flow has ${yogaSession.poses.length} poses: ${yogaSession.poses.map(pose => pose.english).join(', ')}`;
+    const yogaData = await getFitnessData();
+    genieClient.assertCurrent(attempt);
+    const sessions = (yogaData.sessionLog || []).filter(session => session.type === 'yoga').slice(-5);
+    const previous = genieMessages.slice(0, -1).slice(-8);
+    const messages = [
+      { role: 'system', content: `${poseContext}\nRecent yoga sessions logged:\n${sessions.length ? JSON.stringify(sessions) : 'No recent yoga sessions logged yet.'}` },
+      ...previous.map(message => ({ role: message.role === 'user' ? 'user' : 'assistant', content: message.text })),
+      { role: 'user', content: text },
+    ];
+    const categories = [currentPose ? 'Current yoga pose and breath cue' : 'Current yoga flow'];
+    if (sessions.length) categories.push('Recent yoga sessions');
+    if (previous.length) categories.push('Yoga conversation history');
+    categories.push('Your message');
+    const action = await ensureGenieHostedConsent(backend, categories, undefined, 'yoga');
+    if (action === 'local') {
+      setGenieBackend('webllm');
+      appendGenieMessage('genie', 'Switched to local WebLLM. Nothing was sent. The Yoga Genie needs a hosted backend; use a dashboard Genie chat for local WebLLM.');
+      setGenieStatus(''); return;
+    }
+    genieClient.assertCurrent(attempt);
+    if (action !== 'allow' || getGenieBackend() !== backend) {
+      appendGenieMessage('genie', 'Request cancelled. Nothing was sent.'); setGenieStatus(''); return;
+    }
+    if (!hasGenieHostedConsent('private-genie', 'yoga')) throw new Error('Yoga context permission required.');
+    const result = await genieClient.request('/assistant', { assistant: 'yoga', messages, consent: true }, undefined, () => {
+      if (!hasGenieHostedConsent('private-genie', 'yoga')) throw new Error('Yoga context permission required.');
+      if (getGenieBackend() !== backend) throw new Error('Backend changed. Nothing was sent.');
+    });
+    genieClient.assertCurrent(attempt);
+    if (typeof result.answer !== 'string' || !result.answer.trim()) throw new Error('Genie service returned no valid answer.');
+    appendGenieMessage('genie', result.answer); setGenieStatus('');
+  } catch (error) {
+    console.error('[Yoga Genie]', error);
+    if (attempt === genieClient.state().revision) {
+      appendGenieMessage('genie', `⚠️ ${error.message || 'Genie request failed.'}`); setGenieStatus('');
+    }
   } finally {
-    if (input) input.disabled = false;
-    if (sendBtn) sendBtn.disabled = false;
-    if (input) input.focus();
+    if (attempt === genieClient.state().revision) {
+      input.disabled = false; if (sendBtn) sendBtn.disabled = false; input.focus();
+    }
   }
 }
 
@@ -1142,6 +1092,7 @@ function initGenieChat() {
 
   genieBtn?.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (!genieClient.state().eligible) { setGenieStatus('Genie access is not enabled for this wallet.'); return; }
     if (!geniePanel) return;
     const isOpen = geniePanel.style.display !== 'none';
     geniePanel.style.display = isOpen ? 'none' : 'flex';
@@ -1151,6 +1102,15 @@ function initGenieChat() {
         "Namaste 🧞🙏 I'm your Yoga Genie! Ask me about any pose in your flow, the Yoga Sutras, breathing techniques, or the meaning behind the Sanskrit names. What shall we explore?");
     }
     if (!isOpen) setTimeout(() => genieInput?.focus(), 50);
+  });
+  window.addEventListener('bignuten:genie-access-changed', event => {
+    if (event.detail.eligible) return;
+    if (geniePanel) geniePanel.style.display = 'none';
+    genieBtn?.classList.remove('genie-active');
+    genieMessages = [];
+    document.getElementById('yoga-genie-messages')?.replaceChildren();
+    if (genieInput) { genieInput.value = ''; genieInput.disabled = false; }
+    if (genieSend) genieSend.disabled = false;
   });
 
   genieClose?.addEventListener('click', () => {

@@ -8,6 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { getAddress, verifyMessage } from 'ethers';
 import { pathToFileURL } from 'node:url';
 import { lookupNutrition, validateLookup } from './nutritionModel.mjs';
+import { chatWithPrivateGenie, validateGenieInput } from './genieModel.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const problem = (status, message) => Object.assign(new Error(message), { status });
@@ -30,7 +31,7 @@ export function nutritionSettings(env = process.env) {
     stateFile: env.BIGNUTEN_NUTRITION_STATE_FILE || './nutrition-state.sqlite' };
 }
 
-export function createNutritionServer(settings, { modelCall = lookupNutrition, now = Date.now, logger = console } = {}) {
+export function createNutritionServer(settings, { modelCall = lookupNutrition, genieCall = chatWithPrivateGenie, now = Date.now, logger = console } = {}) {
   const db = new DatabaseSync(settings.stateFile);
   if (settings.stateFile !== ':memory:') chmodSync(settings.stateFile, 0o600);
   db.exec(`PRAGMA journal_mode=WAL;
@@ -47,13 +48,13 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, n
     if (++entry.count > cap) throw problem(429, 'Please wait a minute before trying again.');
   }
   function ready() {
-    if (!settings.enabled || !settings.apiKey) throw problem(503, 'Nutrition search is not enabled/configured yet. Manual nutrition entry remains available.');
+    if (!settings.enabled || !settings.apiKey)     throw problem(503, 'Genie service is not enabled/configured yet. Manual health tracking remains available.');
   }
   function authorized(request) {
     const header = request.headers.authorization || '';
-    if (!/^Bearer [a-f0-9]{64}$/.test(header)) throw problem(401, 'Sign in to nutrition lookup with an invited wallet.');
+    if (!/^Bearer [a-f0-9]{64}$/.test(header)) throw problem(401, 'Sign in to Genie with an invited wallet.');
     const key = hash(header.slice(7)), session = sessions.get(key);
-    if (!session || session.expiresAt <= now()) throw problem(401, 'Nutrition sign-in expired. Sign in again.');
+    if (!session || session.expiresAt <= now()) throw problem(401, 'Genie sign-in expired. Sign in again.');
     if (!settings.wallets.has(session.wallet)) throw problem(403, 'This wallet is not invited.');
     return { key, session };
   }
@@ -62,7 +63,7 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, n
     const chunks = []; let size = 0;
     for await (const chunk of request) {
       size += chunk.length;
-      if (size > 16000) throw problem(413, 'Nutrition request is too large.');
+      if (size > (request.url === '/assistant' ? 262144 : 16000)) throw problem(413, 'Genie request is too large. Reduce the shared data/time range.');
       chunks.push(chunk);
     }
     let value;
@@ -98,7 +99,7 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, n
         const payload = await body(request);
         let wallet;
         try { wallet = getAddress(payload.address); } catch { throw problem(400, 'Invalid wallet address.'); }
-        if (!settings.wallets.has(wallet.toLowerCase())) throw problem(403, 'This wallet is not invited to nutrition lookup.');
+        if (!settings.wallets.has(wallet.toLowerCase())) throw problem(403, 'Genie access is not enabled for this wallet. Manual tracking remains available.');
         const chainId = Number(payload.chainId);
         if (!Number.isSafeInteger(chainId) || chainId < 1) throw problem(400, 'Invalid wallet chain ID.');
         for (const [key, value] of challenges) if (value.expiresAt <= now()) challenges.delete(key);
@@ -106,7 +107,7 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, n
         if (challenges.size >= 1000 || sessions.size >= 1000) throw problem(503, 'Sign-in capacity reached.');
         const nonce = random(), expiresAt = now() + 300000;
         // Exact server-issued message verification avoids trusting client-supplied SIWE fields.
-        const message = `${new URL(origin).host} wants you to sign in with your Ethereum account:\n${wallet}\n\nSign in to BigNuten nutrition lookup only. No transaction, payment or token approval.\n\nURI: ${origin}/\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${new Date(now()).toISOString()}\nExpiration Time: ${new Date(expiresAt).toISOString()}`;
+        const message = `${new URL(origin).host} wants you to sign in with your Ethereum account:\n${wallet}\n\nSign in to BigNuten Genie access only. No transaction, payment or token approval.\n\nURI: ${origin}/\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${new Date(now()).toISOString()}\nExpiration Time: ${new Date(expiresAt).toISOString()}`;
         challenges.set(nonce, { wallet: wallet.toLowerCase(), origin, message, expiresAt });
         return send(200, { nonce, message });
       }
@@ -127,17 +128,18 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, n
         if (session.origin !== origin) throw problem(403, 'Session origin changed.');
         return send(200, usage(session.wallet));
       }
-      if (request.method === 'POST' && request.url === '/lookup') {
+      if (request.method === 'POST' && ['/lookup', '/assistant'].includes(request.url)) {
+        const nutrition = request.url === '/lookup';
         const { key, session } = authorized(request);
         if (session.origin !== origin) throw problem(403, 'Session origin changed.');
         limit(`wallet:${session.wallet}`, 6);
-        if (active.has(key) || active.size >= 3) throw problem(429, 'Nutrition lookup is busy. Please wait.');
+        if (active.has(key) || active.size >= 3) throw problem(429, 'Genie service is busy. Please wait.');
         const payload = await body(request);
-        if (payload.consent !== true || Object.keys(payload).some(key => !['input', 'consent'].includes(key))) throw problem(400, 'Explicit food-only lookup consent is required.');
+        if (nutrition && (payload.consent !== true || Object.keys(payload).some(key => !['input', 'consent'].includes(key)))) throw problem(400, 'Explicit food-only lookup consent is required.');
         let input;
-        try { input = validateLookup(payload.input); } catch (error) { throw problem(400, error.message); }
-        if (active.has(key) || active.size >= 3) throw problem(429, 'Nutrition lookup is busy. Please wait.');
-        if (db.prepare('SELECT calls FROM budget WHERE id=1').get().calls >= settings.maxCalls) throw problem(429, 'Nutrition pilot budget exhausted. Contact the steward.');
+        try { input = nutrition ? validateLookup(payload.input) : validateGenieInput(payload); } catch (error) { throw problem(400, error.message); }
+        if (active.has(key) || active.size >= 3) throw problem(429, 'Genie service is busy. Please wait.');
+        if (db.prepare('SELECT calls FROM budget WHERE id=1').get().calls >= settings.maxCalls) throw problem(429, 'Shared Genie pilot budget exhausted. Contact the steward.');
         db.exec('BEGIN IMMEDIATE');
         try {
           db.prepare('UPDATE budget SET calls=calls+1 WHERE id=1').run();
@@ -145,25 +147,29 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, n
           db.exec('COMMIT');
         } catch (error) { db.exec('ROLLBACK'); throw error; }
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(problem(504, 'Nutrition lookup timed out; no card was applied.')), 60000);
-        const disconnect = () => { if (!response.writableEnded) controller.abort(problem(499, 'Lookup canceled.')); };
+        const timer = setTimeout(() => controller.abort(problem(504, nutrition
+          ? 'Nutrition lookup timed out; no card was applied.'
+          : 'Genie request timed out; no answer was accepted.')), 60000);
+        const disconnect = () => { if (!response.writableEnded) controller.abort(problem(499, 'Genie request canceled.')); };
         response.on('close', disconnect); active.set(key, controller);
         try {
-          const result = await modelCall({ apiKey: settings.apiKey, model: settings.model, input, signal: controller.signal });
+          const result = await (nutrition ? modelCall : genieCall)({ apiKey: settings.apiKey, model: settings.model, input, signal: controller.signal });
           controller.signal.throwIfAborted(); ready(); authorized(request);
           if (Number.isSafeInteger(result.usage?.input_tokens) && result.usage.input_tokens >= 0 &&
               Number.isSafeInteger(result.usage?.output_tokens) && result.usage.output_tokens >= 0) {
             db.prepare('UPDATE usage SET input_tokens=input_tokens+?, output_tokens=output_tokens+? WHERE wallet=?')
               .run(result.usage.input_tokens, result.usage.output_tokens, session.wallet);
           }
-          return send(200, { found: result.found, card: result.card, reason: result.reason, usage: usage(session.wallet) });
+          return send(200, { ...(nutrition ? { found: result.found, card: result.card, reason: result.reason } : { answer: result.answer }), usage: usage(session.wallet) });
         } finally { clearTimeout(timer); response.off('close', disconnect); active.delete(key); }
       }
       throw problem(404, 'Not found.');
     } catch (error) {
       // Log categories/status only: no food text, signatures, credentials or health history.
-      logger.warn('[nutrition]', error.status || 503);
-      send(error.status || 503, { error: error.status ? error.message : 'Nutrition lookup failed validation or provider access. No card was applied. Try manual entry or contact the steward.' });
+      logger.warn('[BigNuten Genie]', error.status || 503);
+      send(error.status || 503, { error: error.status ? error.message : request.url === '/assistant'
+        ? 'Genie request failed validation or provider access. No answer was accepted. Contact the steward.'
+        : 'Nutrition lookup failed validation or provider access. No card was applied. Try manual entry or contact the steward.' });
     }
   });
   return { server, close: () => { for (const controller of active.values()) controller.abort(problem(503, 'Service shutting down.')); db.close(); } };

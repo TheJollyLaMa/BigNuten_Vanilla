@@ -50,11 +50,9 @@ function emptyValue(type) {
   if (type.type.startsWith('bytes')) return '0x' + '00'.repeat(Number(type.type.slice(5)) || 0);
   return 0;
 }
-// Use the app's already-public allowlisted address only as a read-only fixture.
+// Read-only synthetic wallet; invitation decisions are fixture-owned.
 // There is no real wallet, signature, key, or external RPC behind this provider.
-const appSource = await readFile(resolve(root, 'js/app.js'), 'utf8');
-const wallet = appSource.match(/const WALLET_WHITELIST = \[\s*"(0x[0-9a-f]{40})"/i)?.[1];
-assert.ok(wallet, 'Dashboard access requires a configured public whitelist fixture');
+const wallet = '0x' + '12'.repeat(20);
 const walletCalls = [];
 let walletGranted = false;
 async function rpc({ method, params = [] }) {
@@ -85,7 +83,10 @@ const libraries = new Map([
 ]);
 // No console/page/network failure is silently ignored. Keep this explicit even
 // when empty; any future exception needs a bug reference and narrow matcher.
-const allowedErrors = [];
+const allowedErrors = [{
+  issue: '#394: deliberate uninvited-wallet challenge rejection',
+  match: /^console: Failed to load resource:.*403.*"url":"https:\/\/bignuten-nutrition\.onrender\.com\/challenge"/,
+}];
 let browser;
 try {
   browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -141,14 +142,33 @@ try {
       }]));
     });
     const hostedRequests = [];
+    let deniedChallenges = 0;
     await page.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url());
       if (url.origin === origin) return route.continue();
       external.add(request.url());
       if (libraries.has(request.url())) return route.fulfill({ contentType: 'text/javascript', body: await readFile(resolve(root, libraries.get(request.url()))) });
-      if (['models.inference.ai.azure.com', 'api.openai.com'].includes(url.hostname)) {
-        hostedRequests.push({ hostname: url.hostname, body: request.postDataJSON() });
-        return route.fulfill({ json: { choices: [{ message: { content: 'Synthetic health response' } }] } });
+      if (url.hostname === 'bignuten-nutrition.onrender.com') {
+        const headers = { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS' };
+        if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+        const body = request.method() === 'POST' ? request.postDataJSON() : null;
+        if (url.pathname === '/challenge') {
+          assert.deepEqual(Object.keys(body).sort(), ['address', 'chainId']);
+          if (body.address !== wallet) {
+            deniedChallenges++;
+            return route.fulfill({ status: 403, headers, json: { error: 'Genie access is not enabled for this wallet. Manual tracking remains available.' } });
+          }
+          return route.fulfill({ headers, json: { nonce: 'b'.repeat(64),
+            message: `${new URL(origin).host} wants you to sign in with your Ethereum account:\n${wallet}\n\nSign in to BigNuten Genie access only. No transaction, payment or token approval.\n\nURI: ${origin}/\n` } });
+        }
+        if (url.pathname === '/session') return route.fulfill({ headers, json: request.method() === 'DELETE' ? { cleared: true }
+          : { token: 'a'.repeat(64), wallet, expiresAt: await page.evaluate(() => Date.now()) + 900000 } });
+        if (url.pathname === '/usage') return route.fulfill({ headers, json: { calls: hostedRequests.length, inputTokens: 10, outputTokens: 20 } });
+        assert.equal(url.pathname, '/assistant', 'Every private Genie route needs an explicit fixture');
+        assert.deepEqual(Object.keys(body).sort(), ['assistant', 'consent', 'messages']);
+        assert.equal(body.consent, true);
+        hostedRequests.push({ hostname: url.hostname, body });
+        return route.fulfill({ headers, json: { answer: body.assistant === 'yoga' ? 'Synthetic yoga response' : 'Synthetic health response', usage: { calls: hostedRequests.length, inputTokens: 10, outputTokens: 20 } } });
       }
       if (url.pathname.endsWith('/ipfs/bafysyntheticwaterrestore')) return route.fulfill({ json: restoredSnapshot });
       if (url.hostname === 'fonts.googleapis.com') return route.fulfill({ contentType: 'text/css', body: '' });
@@ -253,9 +273,20 @@ try {
         await visible('#ipfs-edu-overlay'); await shot('ipfs-education');
         await click('#ipfs-edu-skip-btn'); await hidden('#ipfs-edu-overlay'); covered.add('ipfs-edu-overlay');
       }
+      await visible('#dietBtn');
+      assert.equal(await page.locator('.genie-icon-btn').count(), 0, 'Guest has health controls, not Genie icons');
+      assert.equal(await page.locator('#yoga-genie-btn').isVisible(), false);
+      assert.equal(await page.locator('#dietNutritionGenie').innerText(), 'Nutrition label');
+      assert.equal(await page.locator('#genie-api-key-input').count(), 0, 'No browser AI-key entry is offered');
       await click('#wallet-connect');
       await page.waitForFunction(() => document.getElementById('wallet-connect').dataset.walletState === 'connected');
       assert.equal(await page.locator('#wallet-connect').getAttribute('data-wallet-address'), wallet);
+      await page.waitForFunction(() => document.getElementById('assistant-access-status').textContent.includes('available for this wallet'));
+      await click('#aesculapius-right');
+      await click('#aes-settings-btn');
+      await click('#assistant-access-check');
+      await page.waitForFunction(() => document.getElementById('assistant-access-status').textContent.startsWith('Signed in'));
+      await click('#settings-modal-close');
       for (const selector of ['#body-figure-wrapper', '#water-tracker', 'footer', '#wallet-connect', '#chakra-aura-canvas', '.chakra-icon']) await visible(selector);
       assert.equal(await page.evaluate(() => window.ethereum.request({ method: 'eth_chainId' })), '0x2105');
       assert.ok(await page.locator('#chakra-aura-canvas').evaluate(canvas => canvas.width > 0 && canvas.height > 0), 'Aura canvas has drawing dimensions');
@@ -386,8 +417,8 @@ try {
         const path = new URL(route.request().url()).pathname;
         const body = route.request().postDataJSON();
         nutritionRequests.push({ path, body });
-        if (path === '/challenge') return route.fulfill({ json: { nonce: 'synthetic', message: 'Synthetic nutrition sign-in only.' } });
-        if (path === '/session') return route.fulfill({ json: { token: 'a'.repeat(64), wallet: wallet.toLowerCase(), expiresAt: Date.parse('2026-10-29T00:00:00Z') } });
+        if (path === '/challenge') return route.fulfill({ json: { nonce: 'synthetic', message: `${wallet}\nSign in to BigNuten Genie access only. No transaction, payment or token approval.\nURI: ${origin}/\n` } });
+        if (path === '/session') return route.fulfill({ json: { token: 'a'.repeat(64), wallet: wallet.toLowerCase(), expiresAt: await page.evaluate(() => Date.now()) + 900000 } });
         assert.equal(path, '/lookup');
         assert.deepEqual(Object.keys(body).sort(), ['consent', 'input']);
         assert.ok(!JSON.stringify(body).includes('Synthetic restore meal'));
@@ -409,7 +440,7 @@ try {
       await page.locator('#nutritionBrand').fill('Synthetic brand');
       await page.locator('#nutritionMarket').fill('US');
       await click('#nutritionSignIn');
-      assert.equal(nutritionRequests.length, 0, 'Unchecked consent sends nothing');
+      assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, 0, 'Unchecked consent sends no food query; eligibility uses only wallet metadata');
       await page.locator('#nutritionConsent').check();
       await click('#nutritionSignIn');
       await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Signed in'));
@@ -426,6 +457,11 @@ try {
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '195');
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults.length), 1, 'Use-once does not save a new packaged default');
       assert.equal(await page.evaluate(() => [...Object.keys(localStorage), ...Object.keys(sessionStorage)].some(key => /nutrition.*token/i.test(key))), false);
+      await page.evaluate(async () => {
+        localStorage.removeItem('bignutenNutritionServiceUrl');
+        const { genieClient } = await import('/js/genieService.mjs');
+        genieClient.clear('Synthetic endpoint reset'); await genieClient.refresh(); await genieClient.ensureSignedIn();
+      });
       console.log(`${name}: Genie packaged lookup, scoped consent, source review and use-once passed with mocked service`);
       console.log(`${name}: Genie manual review, explicit save, scaling, cancel and default protection passed`);
       await click('#closeDietModal');
@@ -631,6 +667,10 @@ try {
       await hidden('#issue-helper-dialog');
       assert.equal(await page.evaluate(() => JSON.stringify({ ...localStorage })), helperStorageBefore, 'No draft or consent persisted');
       covered.add('issue-helper-dialog');
+      if (await page.locator('#genie-enabled-toggle').isChecked()) {
+        await click('label:has(#genie-enabled-toggle)');
+        assert.equal(await page.locator('#genie-enabled-toggle').isChecked(), false);
+      }
       await click('label:has(#genie-enabled-toggle)');
       assert.equal(await page.locator('#genie-enabled-toggle').isChecked(), true);
       await click('#settings-modal-close');
@@ -672,7 +712,7 @@ try {
           }
           await ask();
           await visible('#genie-consent-dialog');
-          assert.match(await page.locator('#genie-consent-dialog').innerText(), /GitHub Models/);
+          assert.match(await page.locator('#genie-consent-dialog').innerText(), /private Genie service/);
           assert.match(await page.locator('#genie-consent-dialog ul').innerText(), /Food \/ Diet Log/);
           assert.match(await page.locator('#genie-consent-dialog ul').innerText(), /Vitals & Body Metrics/);
           assert.equal(hostedRequests.length, 0, 'No hosted request before permission');
@@ -692,9 +732,9 @@ try {
           assert.match(await page.locator(`${chat} .genie-chat-messages`).innerText(), /Synthetic health response/);
           await ask();
           await page.waitForFunction(selector => !document.querySelector(selector).disabled, `${chat} .genie-chat-input`);
-          assert.equal(hostedRequests.length, 2, 'Permission remembered for GitHub Models');
+          assert.equal(hostedRequests.length, 2, 'Permission remembered for private Health companion');
           await hidden('#genie-consent-dialog');
-          await page.evaluate(async () => { const genie = await import('/js/genieChat.js'); genie.setGenieBackend('openai'); });
+          await page.evaluate(async () => { const privacy = await import('/js/geniePrivacy.js'); privacy.revokeGenieHostedConsent(); });
           await ask();
           await visible('#genie-consent-dialog');
           assert.match(await page.locator('#genie-consent-dialog').innerText(), /OpenAI/);
@@ -720,7 +760,7 @@ try {
           assert.equal(hostedRequests.length, 2, 'Read-only challenge coach does not call hosted AI');
           assert.equal(walletCalls.filter(method => method === 'eth_requestAccounts').length, walletAccessBeforeCoach, 'Coach never requests wallet access');
 
-          await page.evaluate(async () => { const genie = await import('/js/genieChat.js'); genie.setGenieBackend('github-models'); });
+          await page.evaluate(async () => { const genie = await import('/js/genieChat.js'); genie.setGenieBackend('private-genie'); });
           const healthSessionBeforeCommunity = await page.evaluate(() => sessionStorage.getItem('genieChatSession_recent-exercises-list'));
           await page.locator(`${chat} .genie-chat-input`).fill('How do I write a helpful issue?');
           await click(`${chat} .genie-chat-send`);
@@ -860,7 +900,7 @@ try {
         const genie = await import('/js/genieChat.js');
         const privacy = await import('/js/geniePrivacy.js');
         privacy.revokeGenieHostedConsent();
-        genie.setGenieBackend('github-models');
+        genie.setGenieBackend('private-genie');
       });
       await click('#yoga-genie-btn');
       const beforeYoga = hostedRequests.length;
@@ -872,12 +912,22 @@ try {
       await click('[data-consent-action="cancel"]');
       await page.waitForFunction(() => !document.getElementById('yoga-genie-input').disabled);
       assert.equal(hostedRequests.length, beforeYoga, 'Yoga Cancel sends nothing');
+      await page.locator('#yoga-genie-input').fill('How can I modify this pose?');
+      await click('#yoga-genie-send');
+      await visible('#genie-consent-dialog');
+      await click('[data-consent-action="allow"]');
+      await page.waitForFunction(() => !document.getElementById('yoga-genie-input').disabled);
+      assert.equal(hostedRequests.length, beforeYoga + 1);
+      assert.equal(hostedRequests.at(-1).body.assistant, 'yoga');
+      assert.doesNotMatch(JSON.stringify(hostedRequests.at(-1).body), /Vitals & Body Metrics|Synthetic resting reading|Food \/ Diet Log/);
+      assert.match(await page.locator('#yoga-genie-messages').innerText(), /Synthetic yoga response/);
+      await page.evaluate(async () => { (await import('/js/geniePrivacy.js')).revokeGenieHostedConsent(); });
       await page.locator('#yoga-genie-input').fill('Try locally instead');
       await click('#yoga-genie-send');
       await visible('#genie-consent-dialog');
       await click('[data-consent-action="local"]');
       await page.waitForFunction(() => !document.getElementById('yoga-genie-input').disabled);
-      assert.equal(hostedRequests.length, beforeYoga, 'Yoga local alternative sends nothing');
+      assert.equal(hostedRequests.length, beforeYoga + 1, 'Yoga local alternative sends nothing');
       assert.match(await page.locator('#yoga-genie-messages').innerText(), /Yoga Genie needs a hosted backend/);
       assert.equal(await page.evaluate(() => localStorage.getItem('genieBackend')), 'webllm');
       await click('#yoga-genie-chat-close');
@@ -1227,6 +1277,22 @@ try {
       assert.equal(hostedRequests.length, questHostedBefore, 'Quest never calls a hosted model');
       assert.deepEqual(walletCalls.slice(questWalletBefore).filter(method => /sign|send|requestAccounts|switchEthereumChain|addEthereumChain/i.test(method)), [], 'Quest never signs, sends, connects or switches a wallet');
       console.log(`${name}: Quest opt-in, keyboard safety, reload/resume, seven chapters, local badge, issue-helper handoff, exit, reset/clear and storage failures verified without financial actions`);
+      const recordsBeforeLock = await page.evaluate(() => localStorage.getItem('fitnessTrackerData'));
+      const modelCallsBeforeLock = hostedRequests.length;
+      await page.evaluate(() => {
+        window._connectedAccount = '0x' + '34'.repeat(20);
+        window.dispatchEvent(new CustomEvent('bignuten:wallet-changed'));
+      });
+      await page.waitForFunction(() => document.getElementById('assistant-access-status').textContent.includes('not enabled'));
+      assert.equal(deniedChallenges, 1);
+      assert.equal(await page.locator('.genie-icon-btn').count(), 0);
+      assert.equal(await page.locator('.genie-chat-window').count(), 0);
+      assert.equal(await page.locator('#yoga-genie-btn').isVisible(), false);
+      await visible('#dietBtn');
+      assert.equal(await page.locator('#dietNutritionGenie').innerText(), 'Nutrition label');
+      assert.equal(await page.evaluate(() => localStorage.getItem('fitnessTrackerData')), recordsBeforeLock, 'Genie lock does not erase health records');
+      assert.equal(hostedRequests.length, modelCallsBeforeLock, 'Uninvited wallet sends no model context');
+      console.log(`${name}: real HTTP 403 fixture locks every Genie surface while preserving manual health tracking and records`);
       const exclusions = new Map([
         ...(name === 'desktop' ? [['mobile-data-sheet', 'Mobile-only IPFS menu by design.']] : [['ipfs-edu-overlay', 'Desktop-only onboarding by design.']]),
       ]);
@@ -1238,7 +1304,7 @@ try {
       assert.ok(walletCalls.includes('eth_call'), 'Real ethers contract reads exercised');
       console.log(`${name}: covered ${panels.length} panels / ${covered.size} dialogs; ${external.size} external URLs fulfilled locally`);
       assert.deepEqual(unexpected, [], 'External requests need explicit fixtures');
-      assert.deepEqual(failed, [], 'No failed requests or HTTP errors');
+      assert.deepEqual(failed.filter(failure => failure !== '403 https://bignuten-nutrition.onrender.com/challenge'), [], 'No failed requests beyond the deliberate invitation denial');
       const unallowed = errors.filter(error => !allowedErrors.some(entry => entry.match.test(error)));
       for (const error of errors.filter(error => !unallowed.includes(error))) console.warn(`ALLOWLISTED (${name}): ${error}`);
       assert.deepEqual(unallowed, [], 'No unexpected console errors or page exceptions');
