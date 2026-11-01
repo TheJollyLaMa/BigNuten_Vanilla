@@ -28,6 +28,12 @@ unit or explicitly enter a matching serving. Source-backed means traceable,
 not independently verified. A search result is not proof a label is current,
 an allergen-safety guarantee or dietary/medical advice.
 
+Source matching uses the same URL normalization as the reviewed card (host
+case, default port and root trailing slash). Document paths, query parameters and
+fragments remain significant, including fragment-based food identities.
+Missing or unsupported search/citation evidence withholds the card; it is not
+silently replaced with model knowledge or an unverified reference.
+
 Approved defaults include exact identity/preparation, brand, market and barcode
 when supplied. Multiple defaults sharing a typed name do not auto-select an
 arbitrary product: reopen the nutrition review and choose the exact saved default. Saved

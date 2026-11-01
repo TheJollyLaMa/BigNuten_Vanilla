@@ -25,7 +25,9 @@ Potassium is % Daily Value to match this app: only populate an explicit label %D
 Unknown nutrients must be null, never fabricated zeros. Include source URLs, limitations,
 and ingredients only when available. Source-backed means traceable, not independently verified.
 Do not claim freshness, allergen safety, diagnosis or treatment. A lower-quality reference
-must be labeled estimate. Keep the exact supplied food identity fields.`;
+must be labeled estimate. Keep the exact supplied food identity fields.
+Copy source URLs exactly from the web search results or citations. Do not rewrite
+paths, shorten links, or remove query parameters or fragments.`;
 
 class NutritionModelError extends Error {
   constructor(message) { super(message); this.status = 502; }
@@ -82,15 +84,19 @@ export async function lookupNutrition({ apiKey, model, input, signal, fetchImpl 
   catch { throw new NutritionModelError('Nutrition response was not a readable card.'); }
   if (typeof answer.found !== 'boolean' || typeof answer.reason !== 'string') throw new NutritionModelError('Nutrition response failed validation.');
   if (!answer.found) return { found: false, reason: answer.reason.slice(0, 2000), usage };
-  const evidence = new Set(searches.flatMap(item => item.action?.sources || []).map(source => source.url));
+  const evidenceUrls = searches.flatMap(item => item.action?.sources || []).map(source => source.url);
   for (const part of content) for (const citation of part.annotations || []) {
-    if (citation.type === 'url_citation') evidence.add(citation.url);
+    if (citation.type === 'url_citation') evidenceUrls.push(citation.url);
   }
+  let evidence;
+  try { evidence = new Set(evidenceUrls.map(url => new URL(url).href)); }
+  catch { throw new NutritionModelError('Search returned an invalid source URL. No unchecked card was applied.'); }
   const card = validateNutrition({ ...answer.card, retrievedAt: new Date().toISOString() });
   const identity = validateLookup(input);
   for (const key of ['name', 'kind', 'preparation', 'brand', 'market', 'barcode']) {
     if (card[key].toLowerCase() !== identity[key].toLowerCase()) throw new NutritionModelError('The returned food identity changed. Refine the lookup rather than applying a different product.');
   }
+  if (!evidence.size) throw new NutritionModelError('Web search returned no verifiable source URLs. No unchecked card was applied.');
   if (!card.sources.length || card.sources.some(source => !evidence.has(source.url))) {
     throw new NutritionModelError('Nutrition source URLs were not supported by the search response. No unchecked card was applied.');
   }
