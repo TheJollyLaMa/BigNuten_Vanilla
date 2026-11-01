@@ -140,6 +140,17 @@ Everything accessible to every user in the browser — no wallet required to sta
 - 📊 **Correlation Graph** — visualize relationships between any two data streams (e.g. sleep vs. mood, water vs. energy)
 - 🌐 **Community Dashboard** — opt-in aggregated wellness data, leaderboards, community trends
 
+### Genie nutrition lookup
+
+**Diet → Genie** opens an editable nutrition review card with whole-food and
+exact packaged-product inputs. Approved per-serving defaults prefill locally
+and scale to compatible quantities; approval never logs a meal automatically.
+Manual label review needs no AI or wallet. Search uses a **separate invited-wallet
+Render service with a server-held OpenAI key**, not the existing chat API key.
+Deployment, sources, estimates, consent and setup are described in
+[GENIE_NUTRITION.md](docs/GENIE_NUTRITION.md). Search remains unavailable until
+that service is configured and its real endpoint is supplied.
+
 ### Genie privacy and raw-food quick log
 
 - **GitHub Models remains the default.** Health companion requests to GitHub Models and OpenAI are sent remotely. Before the first request to each hosted backend, Genie asks permission and lists the actual included log sections, recent conversation summaries, pinned insights, and message. Categories absent from the prompt are not listed. Health permission is remembered per backend in this browser (including future enabled categories); Community guide has a separate permission covering only the user's message and shared guide text. Cancel sends nothing. **Use local WebLLM instead** switches the backend without sending; resend to download/load the local model.

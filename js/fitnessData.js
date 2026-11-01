@@ -150,6 +150,9 @@ function recordIdentity(entry) {
 
 export function mergeSnapshotData(current, imported) {
   const merged = { ...current, dataVersion: 1, timeZone: current.timeZone || imported.timeZone || '', measurementReminderDismissedOn: [current.measurementReminderDismissedOn || '', imported.measurementReminderDismissedOn || ''].sort().at(-1) };
+  // Existing approved defaults win on import; replacing a default is explicit.
+  const currentDefaults = current.nutritionDefaults || [];
+  merged.nutritionDefaults = [...currentDefaults, ...(imported.nutritionDefaults || []).filter(card => !currentDefaults.some(entry => entry.id === card.id))];
 
   // Preserve distinct records even if they share a timestamp.
   const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'breathworkSessions', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights'];

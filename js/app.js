@@ -900,6 +900,8 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 import { providerRegistry } from './storageProvider.js';
+import { initNutritionLookup } from './nutritionLookupUI.mjs';
+import { matchingDefaults, scaleNutrition } from './nutritionDefaults.mjs';
 import { PinataProvider } from './providers/pinataProvider.js';
 import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
 import { initCommunityDashboard } from './communityDashboard.js';
@@ -914,6 +916,9 @@ import { initCorrelationGraph } from './correlationGraph.js';
 
 /** Returns the nutritional info stored for a food name, or null if unknown */
 function getDietNutrCache(foodName) {
+  const approved = matchingDefaults(getFitnessData().nutritionDefaults, foodName);
+  if (approved.length === 1) return { ...approved[0], approved: true };
+  if (approved.length > 1) return { ambiguous: true };
   const cache = JSON.parse(localStorage.getItem('dietNutrCache') || '{}');
   const entry = cache[foodName.toLowerCase()];
   if (!entry) return null;
@@ -924,6 +929,7 @@ function getDietNutrCache(foodName) {
 
 /** Saves nutritional info for a food name into the cache, including last-used amount and unit */
 function setDietNutrCache(foodName, nutr, amount, unit) {
+  if (matchingDefaults(getFitnessData().nutritionDefaults, foodName).length) return;
   const cache = JSON.parse(localStorage.getItem('dietNutrCache') || '{}');
   cache[foodName.toLowerCase()] = { nutr, amount: amount ?? null, unit: unit ?? null };
   localStorage.setItem('dietNutrCache', JSON.stringify(cache));
@@ -945,15 +951,26 @@ function updateNutrCardTitle() {
 function recalcDietNutrForAmount() {
   if (!_dietNutrBase || !_dietNutrBase.nutr || _dietNutrBase.amount == null) return;
   const newAmount = parseFloat(document.getElementById('dietFoodAmount')?.value);
-  if (isNaN(newAmount) || newAmount <= 0 || _dietNutrBase.amount <= 0) return;
-  const scale = newAmount / _dietNutrBase.amount;
+  let scaledNutr;
+  try {
+    scaledNutr = scaleNutrition(_dietNutrBase, newAmount, document.getElementById('dietFoodUnit')?.value);
+    document.getElementById('dietNutritionStatus').textContent = _dietNutrBase.approved
+      ? 'Using reviewed per-serving default. Logging does not replace it.' : 'Scaling from the saved base quantity.';
+  } catch (error) {
+    document.getElementById('dietNutritionStatus').textContent = error.message;
+    for (const key of Object.keys(_dietNutrBase.nutr)) {
+      const input = document.getElementById(`dietNutr${key[0].toUpperCase()}${key.slice(1)}`);
+      if (input) input.value = '';
+    }
+    return;
+  }
   const fields = ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar'];
   fields.forEach(f => {
     const el = document.getElementById(`dietNutr${f}`);
     if (!el) return;
     const baseVal = _dietNutrBase.nutr[f.toLowerCase()];
     if (baseVal != null) {
-      const scaled = baseVal * scale;
+      const scaled = scaledNutr[f.toLowerCase()];
       // Calories and Potassium rounded to integers; others to 1 decimal place
       el.value = (f === 'Calories' || f === 'Potassium' || f === 'Sodium')
         ? Math.round(scaled)
@@ -971,7 +988,7 @@ function prefillDietNutr(foodName) {
 
   // Set the base for proportional scaling when the user changes the amount
   _dietNutrBase = entry && entry.amount != null
-    ? { nutr: structuredClone(nutr), amount: entry.amount }
+    ? { nutr: structuredClone(nutr), amount: entry.amount, unit: entry.unit, approved: entry.approved }
     : null;
 
   const fields = ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar'];
@@ -981,16 +998,18 @@ function prefillDietNutr(foodName) {
   });
 
   // Prefill amount and unit with last-used values
-  if (entry && entry.amount != null) {
+  if (entry && !entry.approved && entry.amount != null) {
     const amountEl = document.getElementById('dietFoodAmount');
     if (amountEl) amountEl.value = entry.amount;
   }
-  if (entry && entry.unit) {
+  if (entry && !entry.approved && entry.unit) {
     const unitEl = document.getElementById('dietFoodUnit');
     if (unitEl) unitEl.value = entry.unit;
   }
 
   updateNutrCardTitle();
+  if (entry?.approved) recalcDietNutrForAmount();
+  if (entry?.ambiguous) document.getElementById('dietNutritionStatus').textContent = 'Several preparations/products share this name. Open Genie and select the exact saved default.';
 }
 
 const KNOWN_NUTR_KEYS = new Set(['calories','protein','carbs','fat','fiber','potassium','sodium','sugar']);
@@ -1122,6 +1141,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const rawFoodModal = document.getElementById('rawFoodModal');
   const rawFoodForm = document.getElementById('rawFoodForm');
   const quickLogButton = document.getElementById('dietQuickLogBtn');
+  initNutritionLookup({ load: getFitnessData, save: saveFitnessData, apply: card => {
+    _dietNutrBase = { ...card, approved: true };
+    for (const field of ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar']) document.getElementById(`dietNutr${field}`).value = '';
+    recalcDietNutrForAmount();
+  } });
   function closeRawFood() {
     rawFoodModal.classList.add('hidden');
     rawFoodModal.style.display = 'none';
@@ -1140,6 +1164,30 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('rawFoodName').focus();
   });
   document.getElementById('closeRawFoodModal')?.addEventListener('click', closeRawFood);
+  let quickNutritionAutoFilled = false;
+  function prefillQuickNutrition() {
+    const name = document.getElementById('rawFoodName').value;
+    const defaults = matchingDefaults(getFitnessData().nutritionDefaults, name);
+    if (defaults.length !== 1) {
+      if (quickNutritionAutoFilled) {
+        document.getElementById('rawFoodProtein').value = '';
+        document.getElementById('rawFoodCalories').value = '';
+        quickNutritionAutoFilled = false;
+      }
+      return;
+    }
+    try {
+      const nutr = scaleNutrition(defaults[0], document.getElementById('rawFoodAmount').value, document.getElementById('rawFoodUnit').value);
+      document.getElementById('rawFoodProtein').value = nutr.protein ?? '';
+      document.getElementById('rawFoodCalories').value = nutr.calories ?? '';
+      quickNutritionAutoFilled = true;
+    } catch (error) {
+      document.getElementById('rawFoodProtein').value = '';
+      document.getElementById('rawFoodCalories').value = '';
+      document.getElementById('dietNutritionStatus').textContent = error.message;
+    }
+  }
+  for (const id of ['rawFoodName', 'rawFoodAmount', 'rawFoodUnit']) document.getElementById(id)?.addEventListener('input', prefillQuickNutrition);
   rawFoodModal?.addEventListener('click', event => { if (event.target === rawFoodModal) closeRawFood(); });
   rawFoodModal?.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); closeRawFood(); }
@@ -1203,7 +1251,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Update nutrition card title when unit changes
   const dietFoodUnitEl = document.getElementById('dietFoodUnit');
   if (dietFoodUnitEl) {
-    dietFoodUnitEl.addEventListener('change', updateNutrCardTitle);
+    dietFoodUnitEl.addEventListener('change', () => { updateNutrCardTitle(); recalcDietNutrForAmount(); });
+  }
+  for (const field of ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar']) {
+    document.getElementById(`dietNutr${field}`)?.addEventListener('input', () => {
+      // A one-off edit becomes the current form's base, never a saved default.
+      const nutr = {};
+      for (const name of ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar']) {
+        const raw = document.getElementById(`dietNutr${name}`).value;
+        if (raw !== '') nutr[name.toLowerCase()] = Number(raw);
+      }
+      _dietNutrBase = { nutr, amount: Number(document.getElementById('dietFoodAmount').value), unit: document.getElementById('dietFoodUnit').value };
+    });
   }
 
   // Diet form submission
@@ -3298,6 +3357,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     walletButton.setAttribute('aria-pressed', connected ? 'true' : 'false');
     walletButton.title = connected && normalizedAccount ? `Connected: ${normalizedAccount}` : 'Connect wallet';
     window._connectedAccount = normalizedAccount || null;
+    if (previousAccount.toLowerCase() !== normalizedAccount.toLowerCase()) window.dispatchEvent(new CustomEvent('bignuten:wallet-changed'));
     window.connectedWallet = normalizedAccount || null;
   }
 

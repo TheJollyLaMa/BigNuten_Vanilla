@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css" />
     <link rel="stylesheet" href="css/issueHelper.css" />
+    <link rel="stylesheet" href="css/nutrition-lookup.css" />
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
@@ -662,6 +663,7 @@
           <div class="diet-nutr-card__header">
             <span class="diet-nutr-card__icon">📊</span>
             <span class="diet-nutr-card__title">Nutritional Info <em id="dietNutrCardServingLabel">per serving</em></span>
+            <button type="button" id="dietNutritionGenie" class="diet-input" aria-label="Ask Genie for nutrition facts">🧞 Genie</button>
           </div>
           <div class="diet-nutr-grid">
             <div class="diet-nutr-field">
@@ -697,7 +699,7 @@
               <input type="number" id="dietNutrSugar" class="diet-input diet-input--nutr" placeholder="g" min="0" step="0.1">
             </div>
           </div>
-          <div class="diet-nutr-card__note">Nutritional fields pre-fill from previous entries &amp; update as you go.</div>
+          <div class="diet-nutr-card__note" id="dietNutritionStatus" role="status">Review Genie nutrition before saving a per-serving default. Unknown nutrients stay blank.</div>
         </div>
 
         <button type="submit" class="diet-submit-btn">

@@ -10,6 +10,7 @@
     "test:payroll": "node --test test/payroll.test.js test/commentArt.test.js",
     "validate:payroll": "node scripts/validatePayrollQueue.js",
     "storage:serve": "node services/storageRelay.js",
+    "nutrition:serve": "node services/nutritionService.mjs",
     "test:storage-relay": "node --test test/storageRelay.test.js",
     "metadata:publish": "node scripts/publishDecentMetadata.js",
     "configure:base:streak-awards": "hardhat run scripts/configureBaseStreakAwards.js --network base",
