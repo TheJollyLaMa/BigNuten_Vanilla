@@ -144,3 +144,6 @@ streakbot-live-state.json
 
 # Playwright browser smoke screenshots
 test-results/
+
+# Private nutrition-service usage state
+nutrition-state.sqlite*

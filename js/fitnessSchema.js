@@ -1,4 +1,5 @@
 import { normalizeBreathSessions } from './breathwork.js';
+import { validateNutrition } from './nutritionDefaults.mjs';
 import { normalizeMetricLogs } from './metrics.js';
 import { normalizeWorkoutSession, normalizeMeasurement, measurementDayNumber } from './workoutBody.js';
 
@@ -23,6 +24,7 @@ export const defaultData = {
   waterDailyHistory: {},
   supplements: [],
   foods: [],
+  nutritionDefaults: [],
   measurements: [],
   measurementReminderDismissedOn: '',
   metricLogs: [],
@@ -146,6 +148,7 @@ export function normalizeFitnessData(data) {
   normalized.waterDailyHistory = coerceObject(source, ['waterDailyHistory', 'waterHistory']);
   normalized.supplements = coerceArray(source, ['supplements', 'supplementLogs', 'supplementHistory']);
   normalized.foods = normalizeFoodEntries(coerceArray(source, ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods']));
+  normalized.nutritionDefaults = coerceArray(source, ['nutritionDefaults']).map(validateNutrition);
 
   normalized.breathworkSessions = normalizeBreathSessions(source.breathworkSessions);
   normalized.metricLogs = normalizeMetricLogs(source.metricLogs);
@@ -182,7 +185,7 @@ export function validateFitnessSnapshot(raw) {
     ['weightLogs', 'weightHistory', 'weights'], ['supplements', 'supplementLogs', 'supplementHistory'],
     ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods'], ['measurements', 'measurementLogs', 'bodyMeasurements'],
     ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog'], ['painLogs', 'painLog'],
-    ['emotions', 'emotionLogs', 'feelings'], ['metricLogs'], ['breathworkSessions'], ['genieSessions'], ['genieInsights'], ['chantingSessions'],
+    ['emotions', 'emotionLogs', 'feelings'], ['metricLogs'], ['breathworkSessions'], ['genieSessions'], ['genieInsights'], ['chantingSessions'], ['nutritionDefaults'],
   ];
   const known = arrays.flat().concat(['waterDailyHistory', 'waterHistory', 'exercises', 'exerciseLogs', 'workoutExercises']);
   if (!known.some(key => Object.hasOwn(source, key))) throw new Error('Invalid snapshot: missing supported records.');

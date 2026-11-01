@@ -69,6 +69,7 @@ async function rpc({ method, params = [] }) {
     case 'eth_getCode': return '0x01';
     case 'eth_getLogs': return [];
     case 'wallet_switchEthereumChain': case 'wallet_addEthereumChain': return null;
+    case 'personal_sign': return '0x' + '11'.repeat(65); // UI-only signature; service tests verify real ephemeral signatures.
     case 'eth_call': {
       const entry = functions.get(params[0].data?.slice(0, 10));
       assert.ok(entry, `Unfixtureed eth_call ${params[0].data}`);
@@ -341,6 +342,88 @@ try {
       await editableTime.fill('11:45');
       await editableTime.dispatchEvent('change');
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).foods.find(food => food.name === 'Smoke oats').time), '11:45');
+      await page.locator('#dietFoodName').fill('Synthetic Genie oats');
+      await page.locator('#dietFoodAmount').fill('50');
+      await page.locator('#dietFoodUnit').selectOption('g');
+      await page.locator('#dietFoodTime').fill('12:15');
+      const beforeNutrition = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).foods.length);
+      await click('#dietNutritionGenie');
+      await visible('#nutritionLookupDialog');
+      await click('#nutritionManual');
+      await page.locator('#nutritionBaseAmount').fill('100');
+      await page.locator('#nutritionValue-calories').fill('389');
+      await page.locator('#nutritionValue-protein').fill('16.9');
+      assert.equal(await page.locator('#nutritionKeep').isDisabled(), true);
+      await page.locator('#nutritionReviewed').check();
+      await click('#nutritionKeep');
+      await hidden('#nutritionLookupDialog');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '195');
+      assert.equal(await page.locator('#dietNutrProtein').inputValue(), '8.5');
+      assert.equal(await page.locator('#dietFoodAmount').inputValue(), '50');
+      assert.equal(await page.locator('#dietFoodTime').inputValue(), '12:15');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).foods.length), beforeNutrition);
+      await page.locator('#dietFoodAmount').fill('100');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '389');
+      await page.locator('#dietFoodUnit').selectOption('ml');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '');
+      assert.match(await page.locator('#dietNutritionStatus').innerText(), /Cannot scale/);
+      await page.locator('#dietFoodUnit').selectOption('g');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '389');
+      await click('#dietNutritionGenie');
+      await click('#nutritionCancel');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '389');
+      await page.locator('#dietNutrCalories').fill('400');
+      await click('#dietForm button[type="submit"]');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults[0].nutr.calories), 389, 'One-off logging cannot replace approved defaults');
+      await page.locator('#dietFoodName').fill('Synthetic Genie oats');
+      await page.locator('#dietFoodAmount').fill('50');
+      await page.locator('#dietFoodUnit').selectOption('g');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '195');
+      await shot('genie-nutrition-prefill');
+      const nutritionRequests = [];
+      await page.route('https://nutrition.fixture/**', async route => {
+        const path = new URL(route.request().url()).pathname;
+        const body = route.request().postDataJSON();
+        nutritionRequests.push({ path, body });
+        if (path === '/challenge') return route.fulfill({ json: { nonce: 'synthetic', message: 'Synthetic nutrition sign-in only.' } });
+        if (path === '/session') return route.fulfill({ json: { token: 'a'.repeat(64), wallet: wallet.toLowerCase(), expiresAt: Date.parse('2026-10-29T00:00:00Z') } });
+        assert.equal(path, '/lookup');
+        assert.deepEqual(Object.keys(body).sort(), ['consent', 'input']);
+        assert.ok(!JSON.stringify(body).includes('Synthetic restore meal'));
+        return route.fulfill({ json: { found: true, reason: 'Synthetic exact product match; review label.',
+          usage: { calls: 1, inputTokens: 10, outputTokens: 20 },
+          card: { ...body.input, amount: 100, unit: 'g', serving: '', ingredients: 'Synthetic oats',
+            nutr: { calories: 389, protein: 16.9 }, quality: 'source-backed',
+            retrievedAt: '2026-10-28T12:00:00Z', note: 'Synthetic fixture',
+            sources: [{ url: 'https://example.com/synthetic-label', title: 'Synthetic label source' }] } } });
+      });
+      await click('#dietNutritionGenie');
+      await page.locator('#nutritionLookupDialog summary').click();
+      await page.locator('#nutritionServiceUrl').fill('https://nutrition.fixture');
+      await click('#nutritionSaveService');
+      await page.locator('#nutritionKind').selectOption('packaged');
+      await page.locator('#nutritionBrand').fill('Synthetic brand');
+      await page.locator('#nutritionMarket').fill('US');
+      await click('#nutritionSignIn');
+      assert.equal(nutritionRequests.length, 0, 'Unchecked consent sends nothing');
+      await page.locator('#nutritionConsent').check();
+      await click('#nutritionSignIn');
+      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Signed in'));
+      await click('#nutritionSearch');
+      await page.locator('#nutritionReview').waitFor({ state: 'visible' });
+      assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, 1);
+      assert.match(await page.locator('#nutritionProvenance').innerText(), /source-backed/);
+      assert.equal(await page.locator('#nutritionSources a').getAttribute('href'), 'https://example.com/synthetic-label');
+      await page.locator('#nutritionReviewed').check();
+      await page.locator('#nutritionValue-calories').fill('390');
+      assert.equal(await page.locator('#nutritionUse').isDisabled(), true, 'Editing invalidates review');
+      await page.locator('#nutritionReviewed').check();
+      await click('#nutritionUse');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '195');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults.length), 1, 'Use-once does not save a new packaged default');
+      assert.equal(await page.evaluate(() => [...Object.keys(localStorage), ...Object.keys(sessionStorage)].some(key => /nutrition.*token/i.test(key))), false);
+      console.log(`${name}: Genie packaged lookup, scoped consent, source review and use-once passed with mocked service`);
+      console.log(`${name}: Genie manual review, explicit save, scaling, cancel and default protection passed`);
       await click('#closeDietModal');
       await click('[data-panel="recent-foods-list"].panel-toggle-btn');
       assert.match(await page.locator('#recent-foods-list').innerText(), /Smoke carrot/);

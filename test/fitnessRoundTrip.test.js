@@ -47,6 +47,11 @@ test('every defaultData key survives real JSON export → clear → import and s
       waterDailyHistory: { '2026-10-27': 3, '2026-10-28': 5 },
       supplements: [{ id: 'synthetic-supplement', name: 'Vitamin C', dose: 50 }],
       foods: [{ id: 'synthetic-food', name: 'Apple', grams: 120, time: '08:15', nutr: { calories: 95 } }],
+      nutritionDefaults: [(await import('../js/nutritionDefaults.mjs')).validateNutrition({
+        name: 'Apple', kind: 'whole', preparation: 'raw', brand: '', market: '', barcode: '',
+        amount: 100, unit: 'g', serving: '', ingredients: '', note: 'Synthetic label',
+        quality: 'user-entered', retrievedAt: '2026-10-28T12:00:00Z', sources: [], nutr: { calories: 52 },
+      })],
       measurements: [{ id: 'synthetic-measurement', type: 'Waist', measurement: 80, unit: 'cm', date: '2026-10-28', time: '10:00', progressPhotoTaken: true, progressPhotoNote: 'Private photo elsewhere', bodyFatMetricId: 'synthetic-fat' }],
       measurementReminderDismissedOn: '2026-10-27',
       metricLogs: [{ id: 'synthetic-rhr', metric: 'rhr', value: 62, unit: 'bpm', date: '2026-10-28', time: '10:00', note: 'Resting', source: 'self-reported' }, { id: 'synthetic-sleep', metric: 'sleep', value: 27000, unit: 's', date: '2026-10-28', time: '07:30', sleepQuality: 8, bedtime: '23:00', note: 'Synthetic dream', source: 'self-reported' }, { id: 'synthetic-energy', metric: 'energy', value: 7, unit: 'rating', date: '2026-10-28', time: '10:00', note: '', source: 'self-reported' }, { id: 'synthetic-fat', metric: 'bodyFat', value: 22.5, unit: '%', date: '2026-10-28', time: '10:00', note: '', source: 'imported' }, ...vitalLogs],

@@ -1,0 +1,20 @@
+.nutrition-lookup {
+  width: min(680px, calc(100vw - 32px));
+  max-height: 85vh;
+  overflow: auto;
+  color: #e8f4f7;
+  background: #15242e;
+  border: 1px solid #7fc9d6;
+  border-radius: 16px;
+  padding: 20px;
+}
+.nutrition-lookup label { display: block; margin: 10px 0; }
+.nutrition-lookup input:not([type="checkbox"]),
+.nutrition-lookup select,
+.nutrition-lookup textarea { display: block; box-sizing: border-box; width: 100%; padding: 8px; }
+.nutrition-lookup input[type="checkbox"] { margin-right: 8px; }
+.nutrition-lookup button { margin: 6px 4px 6px 0; padding: 10px; cursor: pointer; }
+.nutrition-lookup button:disabled { opacity: .5; cursor: default; }
+.nutrition-lookup a { color: #8ee9ff; overflow-wrap: anywhere; }
+.nutrition-lookup::backdrop { background: rgba(0, 0, 0, .65); }
+#dietNutritionGenie { margin-left: auto; width: auto; cursor: pointer; }

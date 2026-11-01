@@ -15,10 +15,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
       - run: npm ci
       - run: npm test
       - run: npm run validate:payroll
       - name: Check first-party JavaScript syntax
-        run: find js scripts -type f \( -name '*.js' -o -name '*.mjs' \) -not -path 'js/vendor/*' -print0 | xargs -0 -n 1 node --check
+        run: find js scripts services -type f \( -name '*.js' -o -name '*.mjs' \) -not -path 'js/vendor/*' -print0 | xargs -0 -n 1 node --check

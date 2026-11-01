@@ -12,3 +12,32 @@ services:
         value: https://uploads.pinata.cloud/v3/files/sign
       - key: BIGNUTEN_STORAGE_ALLOWED_ORIGINS
         sync: false
+  - type: web
+    name: bignuten-nutrition
+    runtime: node
+    buildCommand: npm ci
+    startCommand: npm run nutrition:serve
+    healthCheckPath: /health
+    disk:
+      name: nutrition-usage
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 24.3.0
+      - key: BIGNUTEN_NUTRITION_HOST
+        value: 0.0.0.0
+      - key: BIGNUTEN_NUTRITION_STATE_FILE
+        value: /var/data/nutrition-state.sqlite
+      - key: BIGNUTEN_NUTRITION_ENABLED
+        value: "false"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: BIGNUTEN_NUTRITION_ALLOWED_ORIGINS
+        sync: false
+      - key: BIGNUTEN_NUTRITION_WALLETS
+        sync: false
+      - key: BIGNUTEN_NUTRITION_MAX_CALLS
+        value: "100"
+      - key: BIGNUTEN_NUTRITION_MODEL
+        value: gpt-4.1
