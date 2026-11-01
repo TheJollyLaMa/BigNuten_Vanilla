@@ -82,10 +82,13 @@ available usage only, and web-search charges are separate (at most three tool
 calls are requested per lookup). Monitor OpenAI project budgets/alerts as well;
 they may not enforce a hard spending cap.
 
-In **Genie nutrition review → Nutrition service setup**, paste Render's actual
-HTTPS service URL and save it. Alternatively a deployment may explicitly set
-`window.BIGNUTEN_NUTRITION_SERVICE_URL` before opening the modal. Do not assume
-a guessed Render hostname is deployed.
+The published app is preconfigured for the separate Render service at
+`https://bignuten-nutrition.onrender.com`; the storage relay remains unchanged.
+For another deployment, use **Genie nutrition review → Nutrition service
+setup** to save its actual HTTPS service URL. A saved browser override takes
+precedence over `window.BIGNUTEN_NUTRITION_SERVICE_URL`. This endpoint
+configuration does not itself establish that live AI search is enabled or
+verified.
 
 Auth adapts DBusker's invited-wallet, purpose/origin/nonce-bound sign-in and
 hashed short-lived sessions using BigNuten's existing ethers v6 primitives.

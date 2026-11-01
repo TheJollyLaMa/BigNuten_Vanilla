@@ -967,9 +967,10 @@
   <script src="js/contracts.js"></script>
   <!-- Stripe Payment Links & Customer Portal URL — must load before ES modules (Issue #41) -->
   <script src="js/stripe-config.js"></script>
-  <!-- Hosted private-storage relay; the relay never receives uploaded file contents. -->
+  <!-- Separate hosted endpoints; the storage relay never receives uploaded file contents. -->
   <script>
     window.BIGNUTEN_STORAGE_RELAY_URL = 'https://bignuten-vanilla.onrender.com';
+    window.BIGNUTEN_NUTRITION_SERVICE_URL = 'https://bignuten-nutrition.onrender.com';
   </script>
 
   <script type="module" src="js/app.js"></script>

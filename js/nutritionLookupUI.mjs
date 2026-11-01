@@ -133,7 +133,7 @@ export function initNutritionLookup({ load, save, apply }) {
     el('Name').value = originalName; el('Kind').value = 'whole';
     for (const key of ['Preparation', 'Brand', 'Market', 'Barcode', 'Url', 'Label']) el(key).value = '';
     el('Consent').checked = false; el('Review').hidden = true; card = null; invalidate();
-    el('ServiceUrl').value = window.BIGNUTEN_NUTRITION_SERVICE_URL || localStorage.getItem('bignutenNutritionServiceUrl') || '';
+    el('ServiceUrl').value = localStorage.getItem('bignutenNutritionServiceUrl') || window.BIGNUTEN_NUTRITION_SERVICE_URL || '';
     el('Saved').replaceChildren(new Option('Choose a saved default', ''));
     const matches = matchingDefaults(load().nutritionDefaults, originalName);
     for (const entry of matches) el('Saved').add(new Option(`${entry.kind}: ${entry.brand || entry.preparation || entry.name} ${entry.market}`, entry.id));

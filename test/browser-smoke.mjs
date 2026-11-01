@@ -349,6 +349,7 @@ try {
       const beforeNutrition = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).foods.length);
       await click('#dietNutritionGenie');
       await visible('#nutritionLookupDialog');
+      assert.equal(await page.locator('#nutritionServiceUrl').inputValue(), 'https://bignuten-nutrition.onrender.com', 'Published default uses the separate nutrition service');
       await click('#nutritionManual');
       await page.locator('#nutritionBaseAmount').fill('100');
       await page.locator('#nutritionValue-calories').fill('389');
@@ -401,6 +402,9 @@ try {
       await page.locator('#nutritionLookupDialog summary').click();
       await page.locator('#nutritionServiceUrl').fill('https://nutrition.fixture');
       await click('#nutritionSaveService');
+      await click('#nutritionCancel');
+      await click('#dietNutritionGenie');
+      assert.equal(await page.locator('#nutritionServiceUrl').inputValue(), 'https://nutrition.fixture', 'Saved service override survives reopening the modal');
       await page.locator('#nutritionKind').selectOption('packaged');
       await page.locator('#nutritionBrand').fill('Synthetic brand');
       await page.locator('#nutritionMarket').fill('US');
