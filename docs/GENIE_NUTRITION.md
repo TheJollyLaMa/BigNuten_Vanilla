@@ -97,7 +97,9 @@ replicas need a shared auth/budget design first.
 
 ## Verification and release
 
-Run `node --test test/nutrition*.test.js test/fitnessRoundTrip.test.js` and
+Use Node 24.3+ for the full test suite and nutrition service (CI runs Node 24).
+The static browser app still needs no Node runtime. Run
+`node --test test/nutrition*.test.js test/fitnessRoundTrip.test.js` and
 `npm run test:smoke`. Fixtures use synthetic source/label data and mocked
 providers, not live AI. Verify `/health` returns `enabled: true`, sign in
 with an invited wallet and review one whole-food and one exact-product lookup
