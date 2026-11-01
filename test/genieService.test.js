@@ -23,6 +23,21 @@ async function setup(genieCall = async () => ({ answer: 'Synthetic answer', usag
 }
 const input = { assistant: 'health', messages: [{ role: 'user', content: 'Synthetic question' }], consent: true };
 
+test('provider failure usage reaches the client without becoming a successful answer', async () => {
+  const f = await setup(async () => {
+    throw Object.assign(new Error('Synthetic provider refusal'), { status: 502, usage: { input_tokens: 7, output_tokens: 4 } });
+  });
+  try {
+    await f.client.refresh(); await f.client.ensureSignedIn();
+    await assert.rejects(f.client.request('/assistant', input), error => {
+      assert.equal(error.status, 502);
+      assert.deepEqual(error.usage, { calls: 1, inputTokens: 7, outputTokens: 4 });
+      assert.match(error.message, /Synthetic provider refusal/);
+      return true;
+    });
+  } finally { await f.close(); }
+});
+
 test('eligibility sends no context; three consumers share one real signed session with no serialized credential', async () => {
   const f = await setup();
   try {

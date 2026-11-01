@@ -92,7 +92,66 @@ test('provider failure consumes a call but never returns a successful card', asy
     const result = await f.request('/lookup', { input, consent: true }, session.token);
     assert.equal(result.status, 503); assert.match(result.body.error, /No card/);
     assert.ok(!result.body.card);
+    assert.deepEqual(result.body.usage, { calls: 1, inputTokens: 0, outputTokens: 0 });
   } finally { await f.close(); }
+});
+test('both nutrition stages reserve durable calls and record tokens exactly once', async () => {
+  const f = await setup({ dependencies: { modelCall: async ({ reserveAdditionalCall, recordUsage }) => {
+    recordUsage({ input_tokens: 20, output_tokens: 10 });
+    reserveAdditionalCall();
+    recordUsage({ input_tokens: 5, output_tokens: 3 });
+    return { found: false, reason: 'Synthetic unavailable', usage: { input_tokens: 25, output_tokens: 13 } };
+  } } });
+  try {
+    const session = await f.signin();
+    const result = await f.request('/lookup', { input, consent: true }, session.token);
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.body.usage, { calls: 2, inputTokens: 25, outputTokens: 13 });
+    assert.equal((await f.request('/lookup', { input, consent: true }, session.token)).status, 429);
+  } finally { await f.close(); }
+});
+test('second-stage budget exhaustion retains first-stage tokens without reserving beyond cap', async () => {
+  let secondStageStarted = false;
+  const f = await setup({ settings: { maxCalls: 1 }, dependencies: { modelCall: async ({ reserveAdditionalCall, recordUsage }) => {
+    recordUsage({ input_tokens: 20, output_tokens: 10 });
+    reserveAdditionalCall(); secondStageStarted = true;
+    return { found: false, reason: 'Unexpected' };
+  } } });
+  try {
+    const session = await f.signin();
+    const result = await f.request('/lookup', { input, consent: true }, session.token);
+    assert.equal(result.status, 429); assert.match(result.body.error, /budget exhausted/);
+    assert.deepEqual(result.body.usage, { calls: 1, inputTokens: 20, outputTokens: 10 });
+    assert.equal(secondStageStarted, false);
+  } finally { await f.close(); }
+});
+test('failed extraction returns both-stage usage and persists it across restart', async () => {
+  const { mkdtemp, rm } = require('node:fs/promises');
+  const { tmpdir } = require('node:os');
+  const { join } = require('node:path');
+  const directory = await mkdtemp(join(tmpdir(), 'bignuten-stages-test-'));
+  const stateFile = join(directory, 'usage.sqlite');
+  let f;
+  try {
+    f = await setup({ settings: { stateFile }, dependencies: { modelCall: async ({ reserveAdditionalCall, recordUsage }) => {
+      recordUsage({ input_tokens: 20, output_tokens: 10 }); reserveAdditionalCall();
+      recordUsage({ input_tokens: 5, output_tokens: 3 });
+      throw Object.assign(new Error('Synthetic invalid extraction'), { status: 502 });
+    } } });
+    const session = await f.signin();
+    const result = await f.request('/lookup', { input, consent: true }, session.token);
+    assert.equal(result.status, 502); assert.ok(!result.body.card);
+    assert.deepEqual(result.body.usage, { calls: 2, inputTokens: 25, outputTokens: 13 });
+    const wallet = f.wallet;
+    await f.close(); f = null;
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync(stateFile);
+    try {
+      assert.deepEqual({ ...db.prepare('SELECT * FROM budget').get() }, { id: 1, calls: 2 });
+      assert.deepEqual({ ...db.prepare('SELECT * FROM usage WHERE wallet=?').get(wallet.address.toLowerCase()) },
+        { wallet: wallet.address.toLowerCase(), calls: 2, input_tokens: 25, output_tokens: 13 });
+    } finally { db.close(); }
+  } finally { if (f) await f.close(); await rm(directory, { recursive: true }); }
 });
 test('nutrition settings reject invalid allowlists and service stays disabled without credentials', async () => {
   const { nutritionSettings } = await import('../services/nutritionService.mjs');
