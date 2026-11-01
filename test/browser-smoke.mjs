@@ -86,6 +86,9 @@ const libraries = new Map([
 const allowedErrors = [{
   issue: '#394: deliberate uninvited-wallet challenge rejection',
   match: /^console: Failed to load resource:.*403.*"url":"https:\/\/bignuten-nutrition\.onrender\.com\/challenge"/,
+}, {
+  issue: '#390: deliberate nutrition provider failure with reported usage',
+  match: /^console: Failed to load resource:.*502.*"url":"https:\/\/nutrition\.fixture\/lookup"/,
 }];
 let browser;
 try {
@@ -422,8 +425,12 @@ try {
         assert.equal(path, '/lookup');
         assert.deepEqual(Object.keys(body).sort(), ['consent', 'input']);
         assert.ok(!JSON.stringify(body).includes('Synthetic restore meal'));
+        if (nutritionRequests.filter(request => request.path === '/lookup').length === 2) {
+          return route.fulfill({ status: 502, json: { error: 'Synthetic extraction failure. No card was applied.',
+            usage: { calls: 3, inputTokens: 25, outputTokens: 30 } } });
+        }
         return route.fulfill({ json: { found: true, reason: 'Synthetic exact product match; review label.',
-          usage: { calls: 1, inputTokens: 10, outputTokens: 20 },
+          usage: { calls: 2, inputTokens: 10, outputTokens: 20 },
           card: { ...body.input, amount: 100, unit: 'g', serving: '', ingredients: 'Synthetic oats',
             nutr: { calories: 389, protein: 16.9 }, quality: 'source-backed',
             retrievedAt: '2026-10-28T12:00:00Z', note: 'Synthetic fixture',
@@ -447,6 +454,7 @@ try {
       await click('#nutritionSearch');
       await page.locator('#nutritionReview').waitFor({ state: 'visible' });
       assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, 1);
+      assert.match(await page.locator('#nutritionUsage').innerText(), /2 provider calls/);
       assert.match(await page.locator('#nutritionProvenance').innerText(), /source-backed/);
       assert.equal(await page.locator('#nutritionSources a').getAttribute('href'), 'https://example.com/synthetic-label');
       await page.locator('#nutritionReviewed').check();
@@ -457,6 +465,14 @@ try {
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '195');
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults.length), 1, 'Use-once does not save a new packaged default');
       assert.equal(await page.evaluate(() => [...Object.keys(localStorage), ...Object.keys(sessionStorage)].some(key => /nutrition.*token/i.test(key))), false);
+      await click('#dietNutritionGenie');
+      await page.locator('#nutritionConsent').check();
+      await click('#nutritionSearch');
+      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.includes('Synthetic extraction failure'));
+      assert.match(await page.locator('#nutritionUsage').innerText(), /3 provider calls, 25 input \/ 30 output/);
+      assert.equal(await page.locator('#nutritionReview').isVisible(), false);
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults.length), 1, 'Failed extraction never changes saved defaults');
+      await click('#nutritionCancel');
       await page.evaluate(async () => {
         localStorage.removeItem('bignutenNutritionServiceUrl');
         const { genieClient } = await import('/js/genieService.mjs');
@@ -1304,7 +1320,7 @@ try {
       assert.ok(walletCalls.includes('eth_call'), 'Real ethers contract reads exercised');
       console.log(`${name}: covered ${panels.length} panels / ${covered.size} dialogs; ${external.size} external URLs fulfilled locally`);
       assert.deepEqual(unexpected, [], 'External requests need explicit fixtures');
-      assert.deepEqual(failed.filter(failure => failure !== '403 https://bignuten-nutrition.onrender.com/challenge'), [], 'No failed requests beyond the deliberate invitation denial');
+      assert.deepEqual(failed.filter(failure => !['403 https://bignuten-nutrition.onrender.com/challenge', '502 https://nutrition.fixture/lookup'].includes(failure)), [], 'No failed requests beyond deliberate invitation/provider failures');
       const unallowed = errors.filter(error => !allowedErrors.some(entry => entry.match.test(error)));
       for (const error of errors.filter(error => !unallowed.includes(error))) console.warn(`ALLOWLISTED (${name}): ${error}`);
       assert.deepEqual(unallowed, [], 'No unexpected console errors or page exceptions');

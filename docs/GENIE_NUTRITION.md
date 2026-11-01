@@ -34,6 +34,16 @@ fragments remain significant, including fragment-based food identities.
 Missing or unsupported search/citation evidence withholds the card; it is not
 silently replaced with model knowledge or an unverified reference.
 
+Nutrition lookup uses two stages: a readable, cited web search followed by
+tool-free structured extraction constrained to those exact verified URLs.
+The second stage does not search or fill unknown nutrients from model knowledge.
+Missing evidence stops before extraction. Each lookup can use two provider
+calls, with at most one web-search tool call; both provider attempts are reserved
+individually against the unchanged shared lifetime cap. Cancellation, revoked
+access or exhausted allowance prevents the next stage from starting. There
+are no automatic paid retries. Nutrition has a 90-second overall timeout;
+Health, Yoga and Community retain their existing single-call behavior and timeout.
+
 Approved defaults include exact identity/preparation, brand, market and barcode
 when supplied. Multiple defaults sharing a typed name do not auto-select an
 arbitrary product: reopen the nutrition review and choose the exact saved default. Saved
@@ -130,11 +140,15 @@ In Render's **bignuten-nutrition → Environment**, configure:
 The Render disk requires a compatible paid service plan; do not replace it with
 ephemeral storage and claim durable budgets. Service restart invalidates
 sessions/challenges, but retains aggregate per-wallet call/token totals. No
-food text or conversation logs are stored. Failed/canceled attempts count
+food text or conversation logs are stored. Provider-reported token usage is
+recorded before card validation, including rejected/incomplete responses when
+usage is available; error responses update the nutrition usage display.
+Unavailable usage is not reconstructed or presented as a complete billing total.
+Failed/canceled attempts count
 toward the same call cap; six requests/minute/wallet, three active globally
 and one active per session apply across both model routes. Reported token totals cover successful responses with
 available usage only, and web-search charges are separate (at most three tool
-calls are requested per lookup). Monitor OpenAI project budgets/alerts as well;
+call is requested per lookup). Monitor OpenAI project budgets/alerts as well;
 they may not enforce a hard spending cap.
 
 The published app is preconfigured for the separate Render service at
@@ -179,3 +193,10 @@ and deployment remain separate. No donor
 health-sync or search integration was assumed. Canopy was consulted as a lead;
 actual DBusker source/worktree was checked. Test results and deployed evidence
 belong in the release PR; keep personal findings out of public inventories.
+
+For the staged lookup repair, adapt the per-attempt reserve/finish pattern in
+DBusker `agent-service/server.mjs` at the same `6be300e` commit, retaining the
+existing BigNuten SQLite ledger and food-only boundary. Build the two-stage
+search/extraction adapter here: the inspected donor handles community retrieval,
+not a tested nutrition integration. The donor checkout's unrelated unfinished
+radio/promotion work is not part of this change.

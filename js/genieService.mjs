@@ -44,7 +44,7 @@ export function createGenieClient({ getWallet, getUrl, getChainId, signMessage, 
       let value;
       try { value = await response.json(); }
       catch { throw new Error('Genie service returned an unreadable response.'); }
-      if (!response.ok) throw Object.assign(new Error(value.error || `Genie service failed (HTTP ${response.status}).`), { status: response.status });
+      if (!response.ok) throw Object.assign(new Error(value.error || `Genie service failed (HTTP ${response.status}).`), { status: response.status, usage: value.usage });
       return value;
     } finally {
       controllers.delete(controller); signal?.removeEventListener('abort', abort);

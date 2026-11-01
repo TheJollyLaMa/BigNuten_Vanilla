@@ -30,6 +30,7 @@ export function initNutritionLookup({ load, save, apply }) {
       <label><input type="checkbox" id="nutritionConsent"> I allow this food/product query and supplied label text to be sent to the BigNuten Genie service and OpenAI web search. No health logs, chat history or Genie memory are included. The service retains only per-wallet usage totals, not food queries.</label>
       <button type="button" id="nutritionSignIn">Sign in with invited wallet</button>
       <button type="button" id="nutritionSignOut">Sign out of all Genies</button>
+      <p>Lookup first retrieves cited facts, then builds your review card: up to two provider calls from the shared allowance. Failed/canceled attempts count; web-search charges are separate.</p>
       <button type="submit" id="nutritionSearch">Search nutrition facts</button>
       </div>
     </form>
@@ -61,6 +62,11 @@ export function initNutritionLookup({ load, save, apply }) {
     el('Use').disabled = true; el('Keep').disabled = true;
   }
   function status(text) { el('LookupStatus').textContent = text; }
+  function showUsage(usage) {
+    if (usage && ['calls', 'inputTokens', 'outputTokens'].every(key => Number.isSafeInteger(usage[key]) && usage[key] >= 0)) {
+      el('Usage').textContent = `Shared Genie usage: ${usage.calls} provider calls, ${usage.inputTokens} input / ${usage.outputTokens} output tokens reported by the provider. Failed/canceled calls count; unavailable token usage is not included; web-search charges are separate.`;
+    }
+  }
   function baseUrl() {
     const value = el('ServiceUrl').value.trim();
     if (!value) throw new Error('Configure the dedicated Render nutrition service URL first. Manual entry is still available.');
@@ -168,10 +174,10 @@ export function initNutritionLookup({ load, save, apply }) {
     try {
       const result = await request('/lookup', { input, consent: true }, controller.signal);
       if (attempt !== generation || !dialog.open) return;
-      el('Usage').textContent = `Shared Genie usage: ${result.usage.calls} calls, ${result.usage.inputTokens} input / ${result.usage.outputTokens} output tokens. Failed/canceled calls count; web-search charges are separate.`;
+      showUsage(result.usage);
       if (result.found) populate(result.card);
       status(result.reason || (result.found ? 'Review the sources, serving and nutrient figures below.' : 'Exact nutrition unavailable. Refine the food or enter a label manually.'));
-    } catch (error) { if (attempt === generation) status(error.message); }
+    } catch (error) { if (attempt === generation) { showUsage(error.usage); status(error.message); } }
     finally { if (attempt === generation) { pending = false; controller = null; controls(); } }
   });
   el('LookupForm').addEventListener('input', event => {

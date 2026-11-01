@@ -139,28 +139,44 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
         let input;
         try { input = nutrition ? validateLookup(payload.input) : validateGenieInput(payload); } catch (error) { throw problem(400, error.message); }
         if (active.has(key) || active.size >= 3) throw problem(429, 'Genie service is busy. Please wait.');
-        if (db.prepare('SELECT calls FROM budget WHERE id=1').get().calls >= settings.maxCalls) throw problem(429, 'Shared Genie pilot budget exhausted. Contact the steward.');
-        db.exec('BEGIN IMMEDIATE');
-        try {
-          db.prepare('UPDATE budget SET calls=calls+1 WHERE id=1').run();
-          db.prepare('INSERT INTO usage VALUES(?,1,0,0) ON CONFLICT(wallet) DO UPDATE SET calls=calls+1').run(session.wallet);
-          db.exec('COMMIT');
-        } catch (error) { db.exec('ROLLBACK'); throw error; }
+        function reserveCall() {
+          ready(); authorized(request);
+          db.exec('BEGIN IMMEDIATE');
+          try {
+            if (db.prepare('SELECT calls FROM budget WHERE id=1').get().calls >= settings.maxCalls) throw problem(429, 'Shared Genie pilot budget exhausted. Contact the steward.');
+            db.prepare('UPDATE budget SET calls=calls+1 WHERE id=1').run();
+            db.prepare('INSERT INTO usage VALUES(?,1,0,0) ON CONFLICT(wallet) DO UPDATE SET calls=calls+1').run(session.wallet);
+            db.exec('COMMIT');
+          } catch (error) { db.exec('ROLLBACK'); throw error; }
+        }
+        reserveCall();
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(problem(504, nutrition
           ? 'Nutrition lookup timed out; no card was applied.'
-          : 'Genie request timed out; no answer was accepted.')), 60000);
+          : 'Genie request timed out; no answer was accepted.')), nutrition ? 90000 : 60000);
         const disconnect = () => { if (!response.writableEnded) controller.abort(problem(499, 'Genie request canceled.')); };
         response.on('close', disconnect); active.set(key, controller);
-        try {
-          const result = await (nutrition ? modelCall : genieCall)({ apiKey: settings.apiKey, model: settings.model, input, signal: controller.signal });
-          controller.signal.throwIfAborted(); ready(); authorized(request);
-          if (Number.isSafeInteger(result.usage?.input_tokens) && result.usage.input_tokens >= 0 &&
-              Number.isSafeInteger(result.usage?.output_tokens) && result.usage.output_tokens >= 0) {
+        let reportedUsage = false;
+        function recordUsage(value) {
+          reportedUsage = true;
+          if (Number.isSafeInteger(value?.input_tokens) && value.input_tokens >= 0 &&
+              Number.isSafeInteger(value?.output_tokens) && value.output_tokens >= 0) {
             db.prepare('UPDATE usage SET input_tokens=input_tokens+?, output_tokens=output_tokens+? WHERE wallet=?')
-              .run(result.usage.input_tokens, result.usage.output_tokens, session.wallet);
+              .run(value.input_tokens, value.output_tokens, session.wallet);
           }
+        }
+        try {
+          const result = await (nutrition ? modelCall : genieCall)({ apiKey: settings.apiKey, model: settings.model, input, signal: controller.signal,
+            ...(nutrition ? { reserveAdditionalCall: () => { controller.signal.throwIfAborted(); reserveCall(); }, recordUsage } : {}) });
+          if (!reportedUsage) recordUsage(result.usage);
+          controller.signal.throwIfAborted(); ready(); authorized(request);
           return send(200, { ...(nutrition ? { found: result.found, card: result.card, reason: result.reason } : { answer: result.answer }), usage: usage(session.wallet) });
+        } catch (error) {
+          if (!reportedUsage && error.usage) recordUsage(error.usage);
+          send(error.status || 503, { error: error.status ? error.message : nutrition
+            ? 'Nutrition lookup failed validation or provider access. No card was applied. Try manual entry or contact the steward.'
+            : 'Genie request failed validation or provider access. No answer was accepted. Contact the steward.', usage: usage(session.wallet) });
+          logger.warn('[BigNuten Genie]', error.status || 503);
         } finally { clearTimeout(timer); response.off('close', disconnect); active.delete(key); }
       }
       throw problem(404, 'Not found.');
