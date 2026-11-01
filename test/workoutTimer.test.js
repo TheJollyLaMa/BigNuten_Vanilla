@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 // Execute the production workout block without loading the app's unrelated integrations.
 const app = readFileSync(require.resolve('../js/app.js'), 'utf8');
-const source = app.slice(app.indexOf("const workoutModal = document.getElementById('workout-timer-modal');"), app.indexOf('const WALLET_WHITELIST ='));
+const source = app.slice(app.indexOf("const workoutModal = document.getElementById('workout-timer-modal');"), app.indexOf('const LAST_SNAPSHOT_KEY'));
 function harness() {
   const nodes = [], timers = new Map(), ready = [];
   let nextTimer = 0, feelings = 0;

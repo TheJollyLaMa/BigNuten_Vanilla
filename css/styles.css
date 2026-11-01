@@ -1480,7 +1480,7 @@ main {
 }
 
 footer {
-  display: none;
+  display: flex;
   justify-content: space-around;
   padding: 1rem;
   background-color: #000010;
@@ -1489,6 +1489,17 @@ footer {
   width: 100%;
   opacity: 0.8;
   z-index: 10000;
+}
+
+[data-genie-access][hidden] {
+  display: none !important;
+}
+
+.assistant-access-control {
+  display: flex;
+  flex-direction: column;
+  max-width: 15rem;
+  font-size: 0.65rem;
 }
 
 .round-button {

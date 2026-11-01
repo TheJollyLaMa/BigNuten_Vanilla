@@ -28,7 +28,11 @@ button or submit a transaction.
 Community Guide mode excludes health logs, Health companion chat history, and
 Genie memory by default. Hosted AI uses a separate permission from Health
 companion. That permission covers only the user's message and shared guide
-text, and is remembered separately for each hosted provider. Cancel sends
+text, and is remembered separately from Health and Yoga permission. Hosted
+requests use the shared private BigNuten service, server-held OpenAI key,
+invited-wallet signature and global pilot call cap. Direct browser-key hosted
+paths are retired. See [shared Genie access](GENIE_NUTRITION.md#shared-genie-access-394).
+Cancel sends
 nothing. WebLLM processes guide prompts locally after its model is available;
 the first model download requires a network connection. The deterministic tour
 and challenge coach require no model.

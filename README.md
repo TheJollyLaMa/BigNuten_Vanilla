@@ -142,19 +142,20 @@ Everything accessible to every user in the browser — no wallet required to sta
 
 ### Genie nutrition lookup
 
-**Diet → Genie** opens an editable nutrition review card with whole-food and
+**Diet → Nutrition label** (**Genie** for invited wallets) opens an editable nutrition review card with whole-food and
 exact packaged-product inputs. Approved per-serving defaults prefill locally
 and scale to compatible quantities; approval never logs a meal automatically.
 Manual label review needs no AI or wallet. Search uses a **separate invited-wallet
-Render service with a server-held OpenAI key**, not the existing chat API key.
+Render service with a server-held OpenAI key**, shared by all BigNuten hosted Genies.
 Deployment, sources, estimates, consent and setup are described in
 [GENIE_NUTRITION.md](docs/GENIE_NUTRITION.md). Search remains unavailable until
 that service is configured and its real endpoint is supplied.
 
 ### Genie privacy and raw-food quick log
 
-- **GitHub Models remains the default.** Health companion requests to GitHub Models and OpenAI are sent remotely. Before the first request to each hosted backend, Genie asks permission and lists the actual included log sections, recent conversation summaries, pinned insights, and message. Categories absent from the prompt are not listed. Health permission is remembered per backend in this browser (including future enabled categories); Community guide has a separate permission covering only the user's message and shared guide text. Cancel sends nothing. **Use local WebLLM instead** switches the backend without sending; resend to download/load the local model.
-- **WebLLM** processes prompts and health context in-browser, but downloads model files over the network. Hosted-provider processing/retention is subject to that provider's policies. **Settings → Genie AI → Reset hosted AI permissions** requires permission again on the next hosted request; it cannot recall data already sent. Automatic hosted conversation summaries run only with existing permission; otherwise summaries stay local. Yoga Genie uses this same permission before sending its current pose/flow, any recent yoga sessions and conversation history, and your message. Choosing local in Yoga switches to WebLLM and sends nothing; use a dashboard Genie chat for local processing because the Yoga panel requires a hosted backend.
+- **Invitations gate Genie, not health tracking.** The five-button health footer and manual nutrition review stay available without an invited wallet. All hosted Genies share signed, short-lived access to the private BigNuten service, one server-held key and the original global pilot call cap. Existing admin permissions are unchanged. Wallet access does not sync or isolate browser-local health profiles; #391 remains separate.
+- **Private BigNuten Genie is the default.** Browser OpenAI/GitHub Models key entry and direct hosted calls are retired. Health, Yoga and Community have distinct hosted-consent scopes and contexts; notices list the actual included categories before transmission. Community excludes Health logs/memory by default, and nutrition sends food/product inputs only. Cancel sends nothing.
+- **WebLLM** remains available to verified invited wallets: it processes prompts locally but downloads model files. **Settings → Assistant memory → Reset hosted AI permissions** requires permission again; it cannot recall data already sent. Automatic hosted Health summaries require existing Health permission, otherwise they stay local. Yoga requires the private hosted backend; choosing local sends nothing and directs users to dashboard chat for WebLLM. Server Responses use `store: false`, not a zero-retention guarantee. Legacy browser keys can be removed explicitly without deleting health records.
 - **Diet → Raw food quick log** captures a food, amount, unit, and estimated protein. It uses the same recovery-aware `foods` store, nutrition cache, recent-food display, and all-time Diet log as the full logger; closing or submitting returns to Diet. Additional macros remain unknown until supplied through the full logger.
 
 ### Data Ownership
@@ -848,7 +849,7 @@ npx hardhat run scripts/deploy.js --network optimism
 | **Blockchain** | Base Mainnet (Chain ID: 8453); Optimism Mainnet retained as a legacy archive |
 | **DeFi** | Aave V3 Pool (yield on competition pots), Alchemix V2 |
 | **Subscriptions** | DecentEscrow v0.1 (external) |
-| **AI / LLM** | WebLLM (local), GitHub Models (Azure), OpenAI GPT-4o |
+| **AI / LLM** | Invited local WebLLM; private server-held OpenAI Responses (default GPT-4.1) |
 | **Fonts** | Bungee (Google Fonts) |
 | **Payments** | Stripe, PayPal (fiat on-ramp for DNFTs) |
 
@@ -869,7 +870,8 @@ User-facing local delete/reset flows must import `clearAllLocalData()` from `js/
 js/
 ├── app.js               — Main app bootstrap, Admin Panel wiring, all IIFE init
 ├── fitnessData.js       — Central data schema, normalize, merge, IPFS snapshot
-├── genieChat.js         — Genie AI: 3-backend LLM, 10 context categories, model picker
+├── genieChat.js         — Invited Health/Community chat, private service or local WebLLM
+├── genieService.mjs     — Shared signed Genie access, memory-only sessions and revocation
 ├── genieMemory.js       — 3-tier AI memory (session / summaries / pinned insights)
 ├── competitions.js      — StreakBet frontend: create/settle/cancel, IPFS report chain
 ├── streakVerify.js      — Auto-verifier: checks local logs, submits on-chain reports

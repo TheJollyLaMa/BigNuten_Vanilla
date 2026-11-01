@@ -1,12 +1,12 @@
 /** Hosted AI opt-in is separate from public community data-sharing consent. */
 const CONSENT_PREFIX = 'genieHostedConsent:v1:';
-const HOSTED_LABELS = { 'github-models': 'GitHub Models', openai: 'OpenAI' };
+const HOSTED_LABELS = { 'github-models': 'GitHub Models', openai: 'OpenAI', 'private-genie': 'OpenAI through BigNuten’s private Genie service' };
 let revision = 0;
 const pending = new Map();
 
 function consentKey(backend, scope = 'health') {
-  return scope === 'community'
-    ? `${CONSENT_PREFIX}community:${backend}`
+  return scope !== 'health'
+    ? `${CONSENT_PREFIX}${scope}:${backend}`
     : `${CONSENT_PREFIX}${backend}`;
 }
 
@@ -17,9 +17,12 @@ export function geniePrivacyNotice(backend, scope = 'health') {
       : 'WebLLM processes your prompts and health context locally in your browser; they are not sent to a hosted AI provider. The model download requires a network connection.';
   }
   if (scope === 'community') {
-    return `${HOSTED_LABELS[backend] || backend} is a hosted AI provider. After your permission, your message and the shared Community Guide text are sent to that provider for processing. Community Guide mode includes no health logs or Genie memory by default. This permission is separate from Health companion permission. Cancel sends nothing. You can revoke permission in Settings → Genie AI; revocation cannot recall data already sent.`;
+    return `${HOSTED_LABELS[backend] || backend} is a hosted AI provider. After your permission, your message and the shared Community Guide text are sent to that provider for processing. Community Guide mode includes no health logs or Genie memory by default. This permission is separate from Health companion and Yoga permission. Cancel sends nothing. You can revoke permission in Settings → Assistant memory; revocation cannot recall data already sent.`;
   }
-  return `${HOSTED_LABELS[backend] || backend} is a hosted AI provider. After your permission, your message, included health logs, and Genie memory are sent to that provider for processing, subject to its policies. Cancel sends nothing. You can revoke permission in Settings → Genie AI; revocation cannot recall data already sent.`;
+  if (backend === 'private-genie') {
+    return `${HOSTED_LABELS[backend]} is a hosted AI provider. After your permission, your message and the listed ${scope === 'yoga' ? 'yoga' : 'health'} context are sent to the BigNuten service and OpenAI for processing, subject to OpenAI’s policies. BigNuten keeps aggregate wallet usage totals, not these prompts or conversations, and requests store:false from OpenAI; this is not a zero-retention guarantee. Cancel sends no health context. Changing wallets does not switch this browser’s health records; use separate browser profiles for different people. You can revoke permission in Settings → Assistant memory; revocation cannot recall data already sent.`;
+  }
+  return `${HOSTED_LABELS[backend] || backend} is a hosted AI provider. After your permission, your message, included health logs, and Genie memory are sent to that provider for processing, subject to its policies. Cancel sends nothing. You can revoke permission in Settings → Assistant memory; revocation cannot recall data already sent.`;
 }
 
 export function hasGenieHostedConsent(backend, scope = 'health') {
@@ -30,6 +33,7 @@ export function revokeGenieHostedConsent() {
   for (const backend of Object.keys(HOSTED_LABELS)) {
     localStorage.removeItem(consentKey(backend, 'health'));
     localStorage.removeItem(consentKey(backend, 'community'));
+    localStorage.removeItem(consentKey(backend, 'yoga'));
   }
   revision++;
 }
@@ -80,7 +84,7 @@ function showConsentDialog(backend, categories, scope = 'health') {
       list.appendChild(item);
     }
     const future = document.createElement('p');
-    future.textContent = 'Allow remembers permission for this backend on this browser, including future enabled log categories, messages and memory. Use the Data controls to limit logs. Local WebLLM requires a model download and resending your question.';
+    future.textContent = 'Allow remembers permission for this backend and assistant context on this browser, including future enabled log categories, messages and memory. Wallet changes reset permission. Use the Data controls to limit logs. Local WebLLM requires a model download and resending your question.';
     const actions = document.createElement('div');
     const finish = action => {
       dialog.close();

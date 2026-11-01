@@ -13,7 +13,8 @@ import { loadPayrollQueue, getTreasuryBalance, getPayrollSettlementOptions, getB
 import { settleDataSharingRewards } from './dataSharing.js';
 import { getUserTimezone, setUserTimezone, formatInUserTz, getTodayInUserTz, getDateInUserTz, getDayCycleStart, setDayCycleStart, DAY_CYCLE_DEFAULT, getCurrentTimeInUserTz, getTimeInUserTz, getGroupedTimezones } from './timezone.js';
 import { initDataControl, getStorageMode, setStorageMode, exportDataAsJSON, importDataFromJSONFile, STORAGE_MODE_LABELS, _openConnectDialog } from './dataControl.js';
-import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieApiKey, setGenieApiKey, hasGenieApiKey, getHostedModelsForBackend, getGenieHostedModelName, setGenieHostedModelName, getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory, rateGenieSession, deleteGenieSession, MAX_INSIGHTS } from './genieChat.js';
+import { initGenieChat, setGenieEnabled, isGenieEnabled, setGenieModelId, getGenieModelId, getGenieBackend, setGenieBackend, getGenieSessions, getGenieInsights, deleteInsight, clearAllGenieMemory, rateGenieSession, deleteGenieSession, MAX_INSIGHTS } from './genieChat.js';
+import { initGenieAccess } from './genieService.mjs';
 import { initFeelingsWheel, openFeelingsModal } from './feelingsWheel.js';
 import { initChakraAura, refreshChakraAura, isChakraAuraEnabled, setChakraAuraEnabled } from './chakra.js';
 import { initCompetitions, loadCompetitionsList } from './competitions.js';
@@ -2902,10 +2903,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 });
-const WALLET_WHITELIST = [
-  "0x807061df657a7697c04045da7d16d941861caabc", // Add real wallet addresses here
-];
-
 // --- Snapshot helper functions ---
 const LAST_SNAPSHOT_KEY = 'lastAutoSnapshotTimestamp';
 const HOURLY_SNAPSHOT_INTERVAL_MS = 60 * 60 * 1000;
@@ -3408,15 +3405,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (!account || typeof account !== 'string') return;
         setWalletConnectionState(true, account);
         console.log(`Connected to ${account}`);
-
-        if (WALLET_WHITELIST.includes(account.toLowerCase())) {
-          footer.style.display = 'flex';
-          document.body.classList.add('footer-visible');
-        } else {
-          footer.style.display = 'none';
-          document.body.classList.remove('footer-visible');
-          alert('This wallet is not whitelisted.');
-        }
 
         // walletDisplay.innerHTML = shortenAddress(account);
 
@@ -7627,6 +7615,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   // ── Genie AI Chat ─────────────────────────────────────────────────────────
+  initGenieAccess();
   initGenieChat();
 
   // Wire up the Settings toggle for the Genie assistant.
@@ -7637,6 +7626,7 @@ document.addEventListener('DOMContentLoaded', () => {
     genieToggleEl.addEventListener('change', () => {
       setGenieEnabled(genieToggleEl.checked);
     });
+    window.addEventListener('bignuten:genie-access-changed', () => { genieToggleEl.checked = isGenieEnabled(); });
   }
 
   // Wire up the model selector.
@@ -7648,52 +7638,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Wire up backend selector, API key input, hosted model dropdown, and hint text.
+  // Hosted credentials and model selection belong to the private service.
   {
     const backendRadios       = document.querySelectorAll('input[name="genie-backend"]');
-    const apiKeySection       = document.getElementById('genie-apikey-section');
     const webllmModelRow      = document.getElementById('genie-webllm-model-row');
-    const hostedModelRow      = document.getElementById('genie-hosted-model-row');
-    const hostedModelSelect   = document.getElementById('genie-hosted-model-select');
-    const apiKeyInput         = document.getElementById('genie-api-key-input');
-    const apiKeyStatus        = document.getElementById('genie-apikey-status');
-    const apiKeySaveBtn       = document.getElementById('genie-api-key-save');
-    const apiKeyClearBtn      = document.getElementById('genie-api-key-clear');
     const hintEl              = document.getElementById('genie-settings-hint');
 
-    /** Populate the hosted model dropdown for the given backend. */
-    function _populateHostedModelDropdown(backend) {
-      if (!hostedModelSelect) return;
-      hostedModelSelect.innerHTML = '';
-      const models = getHostedModelsForBackend(backend);
-      for (const m of models) {
-        const opt   = document.createElement('option');
-        opt.value   = m.value;
-        opt.textContent = m.label;
-        hostedModelSelect.appendChild(opt);
-      }
-      hostedModelSelect.value = getGenieHostedModelName();
-    }
-
     function _updateGenieSettingsUI(backend) {
-      const isHosted = backend !== 'webllm';
       const isWebLLM = backend === 'webllm';
-      if (apiKeySection)  apiKeySection.style.display  = isHosted ? '' : 'none';
       if (webllmModelRow) webllmModelRow.style.display = isWebLLM ? '' : 'none';
-      if (hostedModelRow) hostedModelRow.style.display = isHosted ? '' : 'none';
-      if (isHosted) _populateHostedModelDropdown(backend);
-      const hints = {
-        'github-models': '⭐ Get a free GitHub PAT at <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a> with <code>models:read</code> scope. Free tier is generous during GitHub Models preview.',
-        'openai':        '🟢 Uses your OpenAI API key. Billed per token at OpenAI rates — very cheap for personal use.',
-        'webllm':        '🔒 All AI processing happens locally in your browser. No key needed. Model is downloaded once (~2.2 GB) and cached.',
-      };
-      if (hintEl) {
-        hintEl.innerHTML = hints[backend] || '';
-        const privacy = document.createElement('span');
-        privacy.style.display = 'block';
-        privacy.textContent = geniePrivacyNotice(backend);
-        hintEl.appendChild(privacy);
-      }
+      if (hintEl) hintEl.textContent = geniePrivacyNotice(backend);
     }
 
     document.addEventListener('genie-backend-changed', event => {
@@ -7710,14 +7664,6 @@ document.addEventListener('DOMContentLoaded', () => {
     backendRadios.forEach(r => { r.checked = (r.value === savedBackend); });
     _updateGenieSettingsUI(savedBackend);
 
-    // Show saved key status
-    if (hasGenieApiKey()) {
-      if (apiKeyStatus) {
-        apiKeyStatus.textContent = '✅ Key saved';
-        apiKeyStatus.className   = 'genie-apikey-status saved';
-      }
-    }
-
     // Backend radio change
     backendRadios.forEach(radio => {
       radio.addEventListener('change', () => {
@@ -7725,39 +7671,10 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    // Hosted model dropdown change
-    if (hostedModelSelect) {
-      hostedModelSelect.addEventListener('change', () => {
-        setGenieHostedModelName(hostedModelSelect.value);
-      });
-    }
-
-    // Save API key
-    if (apiKeySaveBtn) {
-      apiKeySaveBtn.addEventListener('click', () => {
-        const val = apiKeyInput ? apiKeyInput.value.trim() : '';
-        if (!val) return;
-        setGenieApiKey(val);
-        if (apiKeyInput)  apiKeyInput.value        = '';
-        if (apiKeyStatus) {
-          apiKeyStatus.textContent = '✅ Key saved';
-          apiKeyStatus.className   = 'genie-apikey-status saved';
-        }
-      });
-    }
-
-    // Clear API key
-    if (apiKeyClearBtn) {
-      apiKeyClearBtn.addEventListener('click', () => {
-        setGenieApiKey('');
-        if (apiKeyInput)  apiKeyInput.value        = '';
-        if (apiKeyStatus) {
-          apiKeyStatus.textContent = '🗑 Key cleared';
-          apiKeyStatus.className   = 'genie-apikey-status cleared';
-          setTimeout(() => { apiKeyStatus.textContent = ''; }, 2500);
-        }
-      });
-    }
+    document.getElementById('genie-legacy-key-clear')?.addEventListener('click', () => {
+      localStorage.removeItem('genieApiKey');
+      document.getElementById('genie-legacy-key-status').textContent = 'Legacy browser AI key removed. The private service key is unchanged.';
+    });
   }
 
   // ── Genie Memory Settings & Review Modal ──────────────────────────────────

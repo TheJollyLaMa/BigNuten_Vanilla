@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const keys = ['localStorage', 'document', 'fetch', 'CustomEvent', 'window', 'requestIdleCallback'];
 const originals = Object.fromEntries(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
 const values = new Map();
-let privacy, genie, dialogs, requests;
+let privacy, genie, client, dialogs, requests;
 let yogaElements;
 class Element {
   constructor(tag) { this.tag = tag; this.children = []; this.dataset = {}; this.events = {}; }
@@ -23,33 +23,52 @@ function listed() { return dialogs.at(-1).children.find(child => child.tag === '
 function seed(data) { values.set('fitnessTrackerData', JSON.stringify(data)); }
 before(async () => {
   global.requestIdleCallback = () => {};
-  global.window = { dispatchEvent() {}, addEventListener() {} };
+  global.window = { dispatchEvent() {}, addEventListener() {}, _connectedAccount: '0x' + '12'.repeat(20),
+    location: { origin: 'https://privacy.fixture' }, BIGNUTEN_NUTRITION_SERVICE_URL: 'https://genie.fixture',
+    ethers: require('ethers'), ethereum: { request: async ({ method }) => {
+      if (method === 'eth_chainId') return '0x2105';
+      if (method === 'personal_sign') return '0x' + '11'.repeat(65);
+      throw new Error('Unexpected synthetic wallet request');
+    } } };
   global.localStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), removeItem: key => values.delete(key) };
   global.document = { createElement: tag => new Element(tag), body: new Element('body'), querySelectorAll: () => [], getElementById: id => yogaElements?.[id] || null, dispatchEvent() {} };
   global.CustomEvent = class { constructor(type, options) { this.type = type; this.detail = options.detail; } };
-  global.fetch = async (url, options) => { requests.push({ url, body: JSON.parse(options.body) }); return { ok: true, json: async () => ({ choices: [{ message: { content: 'Synthetic response' } }] }) }; };
+  global.fetch = async (url, options) => {
+    const address = window._connectedAccount.toLowerCase();
+    if (url.endsWith('/challenge')) return { ok: true, json: async () => ({ nonce: 'synthetic',
+      message: `${address}\nSign in to BigNuten Genie access only. No transaction, payment or token approval.\nURI: ${window.location.origin}/\n` }) };
+    if (url.endsWith('/session')) return { ok: true, json: async () => ({ token: 'a'.repeat(64), wallet: address, expiresAt: Date.now() + 900000 }) };
+    if (url.endsWith('/usage')) return { ok: true, json: async () => ({ calls: 0, inputTokens: 0, outputTokens: 0 }) };
+    assert.equal(url, 'https://genie.fixture/assistant');
+    requests.push({ url, body: JSON.parse(options.body) });
+    return { ok: true, json: async () => ({ answer: 'Synthetic response' }) };
+  };
   privacy = await import('../js/geniePrivacy.js');
   genie = await import('../js/genieChat.js');
+  client = (await import('../js/genieService.mjs')).genieClient;
 });
 after(() => { for (const [key, descriptor] of Object.entries(originals)) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; } });
-beforeEach(() => { values.clear(); dialogs = []; requests = []; values.set('genieApiKey', 'synthetic-key'); });
+beforeEach(async () => {
+  values.clear(); dialogs = []; requests = []; values.set('genieApiKey', 'synthetic-key');
+  client.clear(); await client.refresh(); await client.ensureSignedIn();
+});
 
-for (const backend of ['webllm', 'github-models', 'openai']) {
+for (const backend of ['webllm', 'private-genie']) {
   test(`${backend}: privacy notice and data-source answer match processing location`, async () => {
     genie.setGenieBackend(backend);
     const notice = privacy.geniePrivacyNotice(backend);
     const answer = await genie.chatWithGenie('What data can you see?', 'test');
     assert.ok(answer.includes(notice));
     if (backend === 'webllm') { assert.match(notice, /locally in your browser/); assert.match(notice, /model download/i); }
-    else { assert.match(notice, /hosted AI provider/); assert.match(notice, /After your permission/); assert.match(notice, /sent to that provider/); }
+    else { assert.match(notice, /hosted AI provider/); assert.match(notice, /After your permission/); assert.match(notice, /sent to the BigNuten service and OpenAI/); }
     assert.doesNotMatch(answer, /never leaves your device/);
     assert.equal(requests.length, 0);
     assert.equal(dialogs.length, 0);
   });
 }
 
-test('default backend stays GitHub Models; no fetch before consent and Cancel sends nothing', async () => {
-  assert.equal(genie.getGenieBackend(), 'github-models');
+test('default uses private Genie; no hosted context request before consent and Cancel sends nothing', async () => {
+  assert.equal(genie.getGenieBackend(), 'private-genie');
   const pending = genie.chatWithGenie('Review my health today', 'test');
   assert.equal(dialogs.length, 1);
   assert.equal(requests.length, 0);
@@ -57,7 +76,7 @@ test('default backend stays GitHub Models; no fetch before consent and Cancel se
   act('cancel');
   assert.match(await pending, /cancelled/);
   assert.equal(requests.length, 0);
-  assert.equal(privacy.hasGenieHostedConsent('github-models'), false);
+  assert.equal(privacy.hasGenieHostedConsent('private-genie'), false);
 });
 
 test('Community Guide gets separate hosted consent and never reads or sends health data or Genie memory', async () => {
@@ -84,7 +103,7 @@ test('Community Guide gets separate hosted consent and never reads or sends heal
     assert.match(await pending, /cancelled/i);
     assert.equal(requests.length, 0);
     assert.equal(healthReads, 0);
-    assert.equal(privacy.hasGenieHostedConsent('github-models', 'community'), false);
+    assert.equal(privacy.hasGenieHostedConsent('private-genie', 'community'), false);
 
     const allowed = genie.chatWithGenie('How do I file a useful bug report?', 'test', null, { mode: 'community' });
     act('allow');
@@ -94,8 +113,8 @@ test('Community Guide gets separate hosted consent and never reads or sends heal
     assert.match(body, /Community Guide/);
     assert.doesNotMatch(body, /Synthetic private health entry|Synthetic private Genie memory|Synthetic pinned health memory/);
     assert.equal(healthReads, 0);
-    assert.equal(privacy.hasGenieHostedConsent('github-models', 'community'), true);
-    assert.equal(privacy.hasGenieHostedConsent('github-models', 'health'), false);
+    assert.equal(privacy.hasGenieHostedConsent('private-genie', 'community'), true);
+    assert.equal(privacy.hasGenieHostedConsent('private-genie', 'health'), false);
 
     const health = genie.chatWithGenie('Review my health today', 'test');
     assert.equal(dialogs.length, 1, 'community permission must not authorize Health companion');
@@ -109,8 +128,8 @@ test('Community Guide gets separate hosted consent and never reads or sends heal
   }
 });
 
-test('Allow is remembered separately per backend and reset gates again', async () => {
-  for (const backend of ['github-models', 'openai']) {
+test('private hosted permission is remembered and reset gates again', async () => {
+  for (const backend of ['private-genie']) {
     genie.setGenieBackend(backend);
     const before = requests.length;
     const pending = genie.chatWithGenie('Review my health today', 'test');
@@ -123,11 +142,11 @@ test('Allow is remembered separately per backend and reset gates again', async (
     assert.equal(await genie.chatWithGenie('Review my health today', 'test'), 'Synthetic response');
     assert.equal(dialogs.length, 0);
   }
-  genie.setGenieBackend('github-models');
+  genie.setGenieBackend('private-genie');
   await genie.chatWithGenie('Review my health today', 'test');
   assert.equal(dialogs.length, 0);
   privacy.revokeGenieHostedConsent();
-  assert.equal(privacy.hasGenieHostedConsent('github-models'), false);
+  assert.equal(privacy.hasGenieHostedConsent('private-genie'), false);
   assert.equal(privacy.hasGenieHostedConsent('openai'), false);
   const count = requests.length;
   const pending = genie.chatWithGenie('Review my health today', 'test');
@@ -143,7 +162,7 @@ test('local alternative switches backend and sends nothing; Escape also cancels'
   assert.match(await pending, /Switched to local WebLLM/);
   assert.equal(genie.getGenieBackend(), 'webllm');
   assert.equal(requests.length, 0);
-  genie.setGenieBackend('openai');
+  genie.setGenieBackend('private-genie');
   pending = genie.chatWithGenie('Review my health today', 'test');
   let prevented = false;
   dialogs.at(-1).events.cancel({ preventDefault() { prevented = true; } });
@@ -193,7 +212,7 @@ test('reset or backend change while consent is pending prevents the request', as
   assert.equal(requests.length, 0);
   assert.equal(privacy.hasGenieHostedConsent('github-models'), false);
   pending = genie.chatWithGenie('Review my health today', 'test');
-  genie.setGenieBackend('openai'); act('allow');
+  genie.setGenieBackend('webllm'); act('allow');
   assert.match(await pending, /cancelled/);
   assert.equal(requests.length, 0);
 });
@@ -219,7 +238,7 @@ test('failure to remember permission fails closed without a hosted fetch', async
   try { act('allow'); await assert.rejects(pending, /Storage unavailable/); }
   finally { localStorage.setItem = save; }
   assert.equal(requests.length, 0);
-  assert.equal(privacy.hasGenieHostedConsent('github-models'), false);
+  assert.equal(privacy.hasGenieHostedConsent('private-genie'), false);
 });
 
 
@@ -234,7 +253,7 @@ async function waitForDialog() {
   assert.equal(dialogs.length, 1);
 }
 
-for (const backend of ['github-models', 'openai']) {
+for (const backend of ['private-genie']) {
   test(`Yoga ${backend}: logged sessions cannot leave before consent; Allow remembered and reset gates again`, async () => {
     genie.setGenieBackend(backend);
     seed({ sessionLog: [{ type: 'yoga', date: new Date().toISOString(), name: 'Synthetic yoga session' }, { type: 'exercise', name: 'Not yoga' }] });
@@ -289,7 +308,7 @@ test('Yoga fetch defense fails closed if permission is revoked after the dialog 
   const log = console.error;
   const errors = [];
   localStorage.getItem = key => {
-    if (key === 'genieApiKey') privacy.revokeGenieHostedConsent();
+    if (key === 'genieBackend') privacy.revokeGenieHostedConsent();
     return get(key);
   };
   console.error = (...args) => errors.push(args);
@@ -297,5 +316,35 @@ test('Yoga fetch defense fails closed if permission is revoked after the dialog 
   finally { localStorage.getItem = get; console.error = log; }
   assert.equal(requests.length, 0);
   assert.equal(errors.length, 1);
-  assert.match(yogaElements['yoga-genie-messages'].children.at(-1).textContent, /Hosted health-context permission required/);
+  assert.match(yogaElements['yoga-genie-messages'].children.at(-1).textContent, /Yoga context permission required/);
+});
+
+test('legacy browser keys are never read or reused by private Health and Yoga requests', async () => {
+  values.set('genieBackend', 'openai');
+  assert.equal(genie.getGenieBackend(), 'private-genie');
+  const get = localStorage.getItem;
+  localStorage.getItem = key => {
+    assert.notEqual(key, 'genieApiKey', 'A private request must not read a legacy browser credential');
+    return get(key);
+  };
+  try {
+    const health = genie.chatWithGenie('Review my health today', 'test');
+    act('allow'); await health;
+    const send = await yogaChat();
+    const yoga = send('Help with my pose'); await waitForDialog(); act('allow'); await yoga;
+    assert.equal(requests.length, 2);
+    assert.deepEqual(requests.map(request => request.body.assistant), ['health', 'yoga']);
+    assert.equal(values.get('genieApiKey'), 'synthetic-key');
+  } finally { localStorage.getItem = get; }
+});
+
+test('Health request rechecks consent at dispatch after authentication may have waited', async () => {
+  const request = client.request;
+  client.request = (...args) => { privacy.revokeGenieHostedConsent(); return request(...args); };
+  try {
+    const pending = genie.chatWithGenie('Review my health today', 'test');
+    act('allow');
+    await assert.rejects(pending, /Hosted health-context permission required/);
+    assert.equal(requests.length, 0);
+  } finally { client.request = request; }
 });
