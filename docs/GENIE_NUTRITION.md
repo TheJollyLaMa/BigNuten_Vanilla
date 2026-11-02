@@ -1,24 +1,24 @@
 # Genie nutrition lookup (#390)
 
-Open **Diet**, enter the food, quantity and unit, and choose **Nutrition label**
-(**Genie** for an invited wallet) next to nutrition. Whole foods need a preparation when relevant; packaged foods need
-the brand, exact variant and country/market. Optional product URLs, barcodes and
-pasted labels help distinguish products. Barcode camera scanning and label-photo
-recognition are not included.
+Open **Diet**, enter the food, quantity and unit, and press **Genie**.
+It checks the shared community library first, then fetches missing nutrition
+facts and fills the existing card directly. There is no separate nutrition
+review window, consent checkbox or sign-in button. Clicking Genie authorizes
+the food-only lookup described beside the card. Only an ambiguous food prompts
+one focused question (for example, cooked or dry pasta); answering does not
+log food. Cancel leaves the nutrient fields unchanged.
 
-The nutrition modal supports manual label entry without a model or wallet.
-For search, connect an invited wallet using the site header, read/check the
-food-only consent notice and choose **Sign in with invited wallet**. Signing
-authorizes a 15-minute BigNuten Genie session only; it is not a transaction,
-payment or token approval. Search requires the separately deployed BigNuten
-Genie service, which also handles Health, Yoga and Community assistants.
-DBusker credentials, sessions and conversations are not reused.
+The inline **Food details / saved defaults** section supports preparation,
+exact product brand/market/barcode, manual serving descriptions and local
+defaults. Packaged foods need their exact variant, brand and country/market.
+Manual nutrient fields and **Use community food facts (no AI)** remain available
+without a wallet. Genie itself appears only for eligible addresses. Barcode
+camera scanning and label-photo recognition are not included.
 
-Review/edit the resulting card, base amount/unit, source-defined serving,
-ingredients and source links. Check the review box, then choose **Use for this
-entry only** or **Save as default per serving & use**. The original food form
-returns with scaled figures, keeping your quantity and time. Logging remains a
-separate action. Cancel does not change the original form or defaults.
+Results fill proportional figures for your current amount/unit, with sources,
+source-defined serving, preparation and retrieval date shown inline. Logging
+remains a separate action. **Save these figures as my default** is optional and
+local; editing or logging does not silently replace an existing default.
 
 Unknown nutrients stay blank. Potassium uses the existing app's **%DV** unit,
 not mg; the lookup only fills an explicit source-label %DV. Mass conversion
@@ -46,10 +46,35 @@ Health, Yoga and Community retain their existing single-call behavior and timeou
 
 Approved defaults include exact identity/preparation, brand, market and barcode
 when supplied. Multiple defaults sharing a typed name do not auto-select an
-arbitrary product: reopen the nutrition review and choose the exact saved default. Saved
+arbitrary product: choose the exact saved default in the inline details. Saved
 defaults prefill without another model call, and logging/one-off edits do not
 replace them. Old logged meals are unchanged when a default is replaced.
-Editing card values labels them user-entered and requires fresh review.
+Edited figures save as user-entered defaults only when explicitly requested.
+
+## Shared public food library
+
+The existing service disk stores validated, source-backed food cards keyed by
+food name/type, preparation, brand, market and barcode (case/whitespace normalized).
+Cooked and dry foods, brands and markets remain distinct. The extraction schema
+constrains supplied identity fields rather than asking a model to reproduce them
+unconstrained; it cannot silently rewrite a name or product identity.
+
+Successful source-backed lookups are automatically reusable across people and
+browsers. Only the food identity, source-defined serving, nutrients, ingredients,
+source links, limitations and retrieval date are stored; there is no wallet
+attribution, meal quantity/time, health record, consent history or conversation.
+User-entered and estimated cards, personal edits/defaults and pasted-label
+requests are not published. Shared data is public, not encrypted personal backup.
+Previously shared cards remain shared when someone deletes local health data.
+
+`POST /foods` reads exact matches from approved origins without a wallet, model
+call or enabled provider key. `POST /lookup` also rechecks the library before
+reserving a provider call, including after the global cap is exhausted.
+Concurrent identical misses return an explicit busy message rather than pay
+for duplicate searches. There is no arbitrary browser card-upload endpoint.
+Entries survive service restarts; retrieval dates remain visible. There is no
+automatic freshness guarantee or overwrite by personal edits. This is a food
+reference library, not health-profile or cross-browser log synchronization.
 
 ## Local records and privacy
 
@@ -64,9 +89,9 @@ overwrite approved defaults.
 Lookup sends only the supplied food/product fields to the service and OpenAI
 web search. It does not include health logs, symptoms, chat history, Genie
 memory or DBusker context. Do not paste personal notes into the product label
-field. Unchecking food consent aborts pending lookup work;
-it cannot recall already transmitted data. Wallet changes and closing the
-modal cancel pending results. Service URL is browser-local configuration,
+field. Food/amount changes, manual editing, wallet changes and closing Diet
+cancel pending results; cancellation cannot recall transmitted provider data.
+Service URL is browser-local configuration,
 not a secret. No OpenAI key or bearer session token is persisted in the browser
 by the shared Genie client.
 
@@ -79,8 +104,14 @@ are unchanged. Manual nutrition review, approved defaults and browser-local
 memory/privacy controls remain available when Genie access is locked.
 
 **Settings → Check assistant access** sends only wallet address and chain ID. The server
-verifies invitation eligibility and later verifies a purpose/origin/nonce-bound
-wallet signature. One browser's assistants share a memory-only session, never
+checks invitation eligibility. The default **signed** mode verifies a
+purpose/origin/nonce-bound wallet signature. The steward-approved
+**address-only pilot** mode skips signatures across all hosted Genies: anyone
+can claim an invited address, so it is a convenience gate, not verified private
+access control. It does not expose another user's browser-local health records,
+but it can permit impersonation and consumption of the shared allowance.
+Do not treat per-address usage in that mode as verified ownership.
+One browser's assistants share a memory-only 15-minute session, never
 an OpenAI key. Sign out applies to all Genies. Wallet/service changes, expiry
 and server rejection invalidate access; returning focus rechecks an active
 session. Access failures are shown explicitly rather than falling back to an
@@ -103,7 +134,8 @@ Their notices list actual included categories before transmission. Resetting
 hosted permissions or changing wallets requires permission again. Automatic
 hosted Health summaries require existing Health permission; otherwise summaries
 stay local. OpenAI Responses use `store: false`; this is **not a guarantee of
-zero vendor retention**. BigNuten stores no prompts or conversations server-side.
+zero vendor retention**. BigNuten stores no prompts or conversations server-side;
+public source-backed food cards are the explicit exception to local-only food facts.
 
 The default chat backend is **Private BigNuten Genie**. Direct browser OpenAI
 and GitHub Models calls/key-entry controls are retired; old stored keys are not
@@ -133,6 +165,7 @@ In Render's **bignuten-nutrition → Environment**, configure:
 | `BIGNUTEN_NUTRITION_ALLOWED_ORIGINS` | Exact app origins, e.g. `https://thejollylama.github.io` (no paths); add only approved local origins |
 | `BIGNUTEN_NUTRITION_ENABLED` | `true` only after configuration and deployment review |
 | `BIGNUTEN_NUTRITION_MODEL` | Default `gpt-4.1`; verify current Responses + web-search + structured-output support for your project |
+| `BIGNUTEN_GENIE_ACCESS_MODE` | `signed` (default) or explicitly approved `address-only` pilot; the latter does not prove wallet ownership |
 | `BIGNUTEN_NUTRITION_MAX_CALLS` | Shared lifetime call cap for nutrition and all hosted Genies, default 100; increasing it requires steward approval |
 | `BIGNUTEN_NUTRITION_STATE_FILE` | `/var/data/nutrition-state.sqlite` on the private persistent disk |
 | `NODE_VERSION` | `24.3.0` or compatible Node 24 with `node:sqlite` |
@@ -140,20 +173,21 @@ In Render's **bignuten-nutrition → Environment**, configure:
 The Render disk requires a compatible paid service plan; do not replace it with
 ephemeral storage and claim durable budgets. Service restart invalidates
 sessions/challenges, but retains aggregate per-wallet call/token totals. No
-food text or conversation logs are stored. Provider-reported token usage is
+prompts or conversation logs are stored; the separate public `foods` table stores
+only source-backed food cards without wallet attribution. Provider-reported token usage is
 recorded before card validation, including rejected/incomplete responses when
 usage is available; error responses update the nutrition usage display.
 Unavailable usage is not reconstructed or presented as a complete billing total.
 Failed/canceled attempts count
 toward the same call cap; six requests/minute/wallet, three active globally
-and one active per session apply across both model routes. Reported token totals cover successful responses with
-available usage only, and web-search charges are separate (at most three tool
-call is requested per lookup). Monitor OpenAI project budgets/alerts as well;
+and one active per session apply across both model routes. Reported token totals
+include failed nutrition responses when usage is available; web-search charges
+are separate (at most one tool call per lookup). Monitor OpenAI project budgets/alerts as well;
 they may not enforce a hard spending cap.
 
 The published app is preconfigured for the separate Render service at
 `https://bignuten-nutrition.onrender.com`; the storage relay remains unchanged.
-For another deployment, use **Nutrition review → Nutrition service setup** to save its
+For another deployment, use **Diet → Food details / saved defaults → Nutrition service setup** to save its
 actual HTTPS service URL. This applies to **all Genies**, not just nutrition.
 A saved browser override takes
 precedence over `window.BIGNUTEN_NUTRITION_SERVICE_URL`. This endpoint
@@ -163,7 +197,8 @@ verified.
 Auth adapts DBusker's invited-wallet, purpose/origin/nonce-bound sign-in and
 hashed short-lived sessions using BigNuten's existing ethers v6 primitives.
 Unlike DBusker's SIWE parser dependency, this service verifies an exact
-server-issued sign-in message; no client-supplied identity fields are trusted.
+server-issued sign-in message in signed mode. Address-only mode explicitly
+trusts the claimed address, with the impersonation limitations described above.
 The service enforces origin, invitation, rate/concurrency limits, single-use
 nonces and a durable call budget. One Render instance is supported: multiple
 replicas need a shared auth/budget design first.

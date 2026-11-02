@@ -1010,7 +1010,7 @@ function prefillDietNutr(foodName) {
 
   updateNutrCardTitle();
   if (entry?.approved) recalcDietNutrForAmount();
-  if (entry?.ambiguous) document.getElementById('dietNutritionStatus').textContent = 'Several preparations/products share this name. Open Genie and select the exact saved default.';
+  if (entry?.ambiguous) document.getElementById('dietNutritionStatus').textContent = 'Several preparations/products share this name. Select the exact saved default in Food details / saved defaults.';
 }
 
 const KNOWN_NUTR_KEYS = new Set(['calories','protein','carbs','fat','fiber','potassium','sodium','sugar']);
@@ -1143,7 +1143,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const rawFoodForm = document.getElementById('rawFoodForm');
   const quickLogButton = document.getElementById('dietQuickLogBtn');
   initNutritionLookup({ load: getFitnessData, save: saveFitnessData, apply: card => {
-    _dietNutrBase = { ...card, approved: true };
+    _dietNutrBase = { ...card, approved: card.approved === true };
     for (const field of ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar']) document.getElementById(`dietNutr${field}`).value = '';
     recalcDietNutrForAmount();
   } });

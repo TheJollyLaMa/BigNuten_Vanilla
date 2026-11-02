@@ -48,6 +48,25 @@ export function validateLookup(input) {
   return value;
 }
 
+export function nutritionKey(input) {
+  const fields = ['name', 'kind', 'preparation', 'brand', 'market', 'barcode'];
+  const value = validateLookup(Object.fromEntries(fields.map(key => [key, input[key]])));
+  return JSON.stringify(fields
+    .map(key => value[key].toLowerCase().replace(/\s+/g, ' ')));
+}
+
+export function nutritionClarification(input) {
+  if (input.kind !== 'whole' || input.preparation) return null;
+  const name = input.name.toLowerCase().replace(/^nutrition facts (?:of|for)\s+/, '').trim();
+  if (/^(pasta|spaghetti|macaroni|noodles|rice|chickpeas|lentils|beans)$/.test(name)) {
+    return { question: `Is your ${name} cooked or dry?`, options: ['Cooked, plain, without added salt', 'Dry, uncooked'] };
+  }
+  if (/^(yogurt|yoghurt)$/.test(name)) {
+    return { question: 'Which plain yogurt should we look up?', options: ['Plain regular whole-milk yogurt', 'Plain regular nonfat yogurt', 'Plain nonfat Greek yogurt', 'Plain whole-milk Greek yogurt'] };
+  }
+  return null;
+}
+
 export async function lookupNutrition({ apiKey, model, input, signal, fetchImpl = fetch,
   reserveAdditionalCall = () => {}, recordUsage = () => {} }) {
   const identity = validateLookup(input);
@@ -116,7 +135,9 @@ Explain any selected generic preparation/variant in the card note and serving de
     text: { format: { type: 'json_schema', name: 'bignuten_nutrition', strict: true,
       schema: { type: 'object', additionalProperties: false,
         properties: { found: { type: 'boolean' }, reason: text, card: { type: 'object',
-          additionalProperties: false, properties, required: Object.keys(properties) } },
+          additionalProperties: false, properties: { ...properties,
+            ...Object.fromEntries(['name', 'kind', 'preparation', 'brand', 'market', 'barcode']
+              .map(key => [key, { type: 'string', enum: [identity[key]] }])) }, required: Object.keys(properties) } },
         required: ['found', 'reason', 'card'] } } },
   });
   const parts = structured.output.flatMap(item => item.type === 'message' ? item.content || [] : []);

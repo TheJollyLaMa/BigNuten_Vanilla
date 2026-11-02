@@ -88,7 +88,8 @@ export function createGenieClient({ getWallet, getUrl, getChainId, signMessage, 
       if (!eligible || !challenge || now() - challengeAt > 240000 || boundUrl !== serviceUrl(getUrl())) await refresh(true);
       if (!eligible) throw new Error('Connect an invited wallet before using a Genie.');
       const attempt = revision, issued = challenge;
-      const signature = await signMessage(issued.message, wallet);
+      if (issued.accessMode && !['signed', 'address-only'].includes(issued.accessMode)) throw new Error('Unsupported Genie access mode.');
+      const signature = issued.accessMode === 'address-only' ? undefined : await signMessage(issued.message, wallet);
       assertCurrent(attempt);
       const session = await transport('/session', { ...issued, signature });
       assertCurrent(attempt);
@@ -99,7 +100,9 @@ export function createGenieClient({ getWallet, getUrl, getChainId, signMessage, 
       token = session.token; expiresAt = session.expiresAt; challenge = null;
       expiryTimer = setTimeout(() => clear('Assistant sign-in expired. Check access and sign in again.'), expiresAt - now());
       expiryTimer.unref?.();
-      notify('Signed in. Each hosted request still requires the appropriate data-sharing consent.');
+      notify(issued.accessMode === 'address-only'
+        ? 'Address-only pilot access. Wallet ownership is not verified; this is not private access control.'
+        : 'Signed in. Each hosted request still requires the appropriate data-sharing consent.');
     })();
     signing = promise;
     try { await promise; }

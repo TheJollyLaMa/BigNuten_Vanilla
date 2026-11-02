@@ -192,3 +192,110 @@ test('concurrent same-session requests cannot reserve a second provider call', a
     release(); assert.equal((await first).status, 200);
   } finally { release?.(); await f.close(); }
 });
+
+const publicCard = {
+  name: 'Pasta', kind: 'whole', preparation: 'Cooked, plain, without added salt', brand: '', market: '', barcode: '',
+  amount: 100, unit: 'g', serving: '100 g cooked pasta', ingredients: '', note: 'Synthetic public food facts',
+  nutr: { calories: 158, protein: 5.8 }, quality: 'source-backed',
+  retrievedAt: '2026-11-02T00:00:00Z', sources: [{ url: 'https://example.com/pasta', title: 'Synthetic source' }],
+};
+test('address-only pilot is explicit, nonce/origin bound, rechecks invitations and needs no signature', async () => {
+  const f = await setup({ settings: { accessMode: 'address-only' } });
+  try {
+    const challenge = (await f.request('/challenge', { address: f.wallet.address, chainId: 8453 })).body;
+    assert.equal(challenge.accessMode, 'address-only');
+    assert.equal((await f.request('/session', challenge, undefined, 'https://wrong.example')).status, 403);
+    const session = await f.request('/session', challenge);
+    assert.equal(session.status, 200);
+    assert.equal((await f.request('/session', challenge)).status, 401);
+    f.settings.wallets.clear();
+    assert.equal((await f.request('/lookup', { input, consent: true }, session.body.token)).status, 403);
+  } finally { await f.close(); }
+});
+test('default signed mode rejects unsigned session attempts and invalid configuration fails explicitly', async () => {
+  const f = await setup();
+  try {
+    const challenge = (await f.request('/challenge', { address: f.wallet.address, chainId: 8453 })).body;
+    assert.equal(challenge.accessMode, 'signed');
+    assert.equal((await f.request('/session', challenge)).status, 401);
+  } finally { await f.close(); }
+});
+test('food facts are shared without provider calls after cap exhaustion, without storing edits or wallet attribution', async () => {
+  const f = await setup({ settings: { maxCalls: 1 }, dependencies: { modelCall: async () => ({
+    found: true, card: structuredClone(publicCard), reason: 'Synthetic', usage: { input_tokens: 10, output_tokens: 5 },
+  }) } });
+  try {
+    const session = await f.signin();
+    const food = { name: publicCard.name, kind: publicCard.kind, preparation: publicCard.preparation };
+    const first = await f.request('/lookup', { input: food, consent: true }, session.token);
+    assert.equal(first.status, 200); assert.equal(first.body.cached, false);
+    const next = await f.request('/lookup', { input: food, consent: true }, session.token);
+    assert.equal(next.status, 200); assert.equal(next.body.cached, true);
+    assert.deepEqual(next.body.usage, first.body.usage);
+    const shared = await f.request('/foods', { input: food });
+    assert.equal(shared.status, 200); assert.equal(shared.body.cached, true);
+    assert.equal(shared.body.card.nutr.calories, 158);
+    assert.ok(!JSON.stringify(shared.body).includes(f.wallet.address.toLowerCase()));
+    assert.ok(!shared.body.usage);
+    const dry = await f.request('/foods', { input: { ...food, preparation: 'Dry, uncooked' } });
+    assert.equal(dry.body.found, false);
+    assert.equal((await f.request('/foods', { input: food, card: publicCard })).status, 400);
+    assert.equal((await f.request('/foods', { input: { ...food, healthLogs: [] } })).status, 400);
+    assert.equal((await f.request('/foods', { input: food }, undefined, 'https://wrong.example')).status, 403);
+  } finally { await f.close(); }
+});
+test('ambiguous food questions cost no calls and shared food facts survive restart', async () => {
+  const { mkdtemp, rm } = require('node:fs/promises');
+  const { tmpdir } = require('node:os'); const { join } = require('node:path');
+  const directory = await mkdtemp(join(tmpdir(), 'bignuten-foods-test-'));
+  let f;
+  try {
+    const settings = { stateFile: join(directory, 'foods.sqlite') };
+    f = await setup({ settings, dependencies: { modelCall: async () => ({ found: true, card: structuredClone(publicCard) }) } });
+    const session = await f.signin();
+    const question = await f.request('/lookup', { input: { name: 'Pasta', kind: 'whole' }, consent: true }, session.token);
+    assert.equal(question.status, 200); assert.equal(question.body.usage.calls, 0);
+    assert.equal(question.body.clarification.options.length, 2);
+    const food = { name: 'Pasta', kind: 'whole', preparation: publicCard.preparation };
+    assert.equal((await f.request('/lookup', { input: food, consent: true }, session.token)).status, 200);
+    await f.close(); f = null;
+    f = await setup({ settings });
+    const result = await f.request('/foods', { input: food });
+    assert.equal(result.body.card.nutr.calories, 158);
+    assert.equal(f.seen.length, 0);
+  } finally { if (f) await f.close(); await rm(directory, { recursive: true }); }
+});
+test('user-entered and estimated model cards are never published to the food library', async () => {
+  for (const quality of ['estimate', 'user-entered']) {
+    const f = await setup({ dependencies: { modelCall: async () => ({ found: true, card: { ...publicCard, quality } }) } });
+    try {
+      const session = await f.signin();
+      const food = { name: 'Pasta', kind: 'whole', preparation: publicCard.preparation };
+      assert.equal((await f.request('/lookup', { input: food, consent: true }, session.token)).status, 200);
+      assert.equal((await f.request('/foods', { input: food })).body.found, false);
+    } finally { await f.close(); }
+  }
+});
+test('identical concurrent library misses never duplicate paid provider work', async () => {
+  let release, started;
+  const waiting = new Promise(resolve => { started = resolve; });
+  let calls = 0;
+  const f = await setup({ dependencies: { modelCall: async () => {
+    calls++; started();
+    return new Promise(resolve => { release = () => resolve({ found: true, card: structuredClone(publicCard) }); });
+  } } });
+  try {
+    const first = await f.signin(), second = await f.signin();
+    const payload = { input: { name: 'Pasta', kind: 'whole', preparation: publicCard.preparation }, consent: true };
+    const pending = f.request('/lookup', payload, first.token);
+    await waiting;
+    const busy = await f.request('/lookup', payload, second.token);
+    assert.equal(busy.status, 429); assert.match(busy.body.error, /already being fetched/);
+    release(); assert.equal((await pending).status, 200);
+    const cached = await f.request('/lookup', payload, second.token);
+    assert.equal(cached.body.cached, true); assert.equal(calls, 1);
+    assert.equal(cached.body.usage.calls, 1);
+    f.settings.apiKey = '';
+    assert.equal((await f.request('/foods', { input: payload.input })).body.card.nutr.calories, 158);
+  } finally { release?.(); await f.close(); }
+});

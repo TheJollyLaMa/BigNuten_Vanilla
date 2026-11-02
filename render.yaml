@@ -41,3 +41,5 @@ services:
         value: "100"
       - key: BIGNUTEN_NUTRITION_MODEL
         value: gpt-4.1
+      - key: BIGNUTEN_GENIE_ACCESS_MODE
+        value: signed
