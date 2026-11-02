@@ -2,6 +2,7 @@ import { workoutDurationSeconds } from './workoutBody.js';
 import { initBodyMeasurements } from './bodyMeasurements.js';
 import { initWorkoutReview } from './workoutReview.js';
 import { initHeartMetrics } from './heartMetrics.js';
+import { initGutHealth } from './gutHealth.mjs';
 import { persistDietIntake, summarizeCalories, summarizeCaloriesByDay, buildMealTimingInsights } from './dietIntake.js';
 import { geniePrivacyNotice, revokeGenieHostedConsent } from './geniePrivacy.js';
 import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
@@ -772,6 +773,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initPainLogModal();
   initChantingModal({ getFitnessData, saveFitnessData, showModal, hideModal });
   initHeartMetrics({ load: getFitnessData, save: saveFitnessData, showModal, hideModal });
+  initGutHealth({ load: getFitnessData, save: saveFitnessData, showModal, hideModal });
   // --- Feelings Wheel (3-ring interactive, one-click logging + analytics) ---
   initFeelingsWheel();
 });
