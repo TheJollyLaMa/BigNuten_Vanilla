@@ -323,3 +323,39 @@ test('identical concurrent library misses never duplicate paid provider work', a
     assert.equal((await f.request('/foods', { input: payload.input })).body.card.nutr.calories, 158);
   } finally { release?.(); await f.close(); }
 });
+
+test('captions and protocol drafts use the same invitation, wallet rate limit and shared lifetime call cap', async () => {
+  const captionInputs = [], protocolInputs = [];
+  const f = await setup({ settings: { maxCalls: 3 }, dependencies: {
+    oembedCall: async input => { captionInputs.push({ ...input, type: 'oembed' }); return { title: 'Synthetic video title', thumbnailUrl: 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg' }; },
+    captionCall: async input => { captionInputs.push(input); return { transcript: 'Synthetic caption text', source: 'youtube-captions' }; },
+    researchCall: async input => {
+      protocolInputs.push(input.input);
+      input.recordUsage({ input_tokens: 8, output_tokens: 6 });
+      return { protocol: { title: 'Synthetic protocol' }, usage: { input_tokens: 8, output_tokens: 6 } };
+    },
+  } });
+  try {
+    const session = await f.signin();
+    const caption = { videoId: 'abcdefghijk', consent: true };
+    assert.equal((await f.request('/research/oembed', caption)).status, 401);
+    assert.equal((await f.request('/research/oembed', { ...caption, title: 'unexpected' }, session.token)).status, 400);
+    const metadata = await f.request('/research/oembed', caption, session.token);
+    assert.equal(metadata.status, 200);
+    assert.equal(metadata.body.title, 'Synthetic video title');
+    assert.equal('apiKey' in captionInputs[0], false, 'oEmbed lookup does not receive a model key');
+    assert.equal((await f.request('/research/captions', { ...caption, transcript: 'unexpected' }, session.token)).status, 400);
+    const captions = await f.request('/research/captions', caption, session.token);
+    assert.equal(captions.status, 200);
+    assert.equal(captions.body.transcript, 'Synthetic caption text');
+    assert.deepEqual(captionInputs.map(({ videoId }) => videoId), ['abcdefghijk', 'abcdefghijk']);
+    assert.equal('apiKey' in captionInputs[0], false, 'Caption fetch never receives a model key');
+    const protocolInput = { title: 'Synthetic source', transcript: 'Synthetic private transcript', metrics: [{ id: 'sleep', label: 'Sleep duration' }], consent: true };
+    assert.equal((await f.request('/research/protocol', { ...protocolInput, consent: false }, session.token)).status, 400);
+    const draft = await f.request('/research/protocol', protocolInput, session.token);
+    assert.equal(draft.status, 200);
+    assert.deepEqual(protocolInputs, [{ title: 'Synthetic source', transcript: 'Synthetic private transcript', metrics: protocolInput.metrics }]);
+    assert.deepEqual(draft.body.usage, { calls: 3, inputTokens: 8, outputTokens: 6 });
+    assert.equal((await f.request('/research/captions', caption, session.token)).status, 429, 'Metadata, captions and model actions share the lifetime call cap');
+  } finally { await f.close(); }
+});

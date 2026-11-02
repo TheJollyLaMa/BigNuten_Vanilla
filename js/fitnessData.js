@@ -155,7 +155,7 @@ export function mergeSnapshotData(current, imported) {
   merged.nutritionDefaults = [...currentDefaults, ...(imported.nutritionDefaults || []).filter(card => !currentDefaults.some(entry => entry.id === card.id))];
 
   // Preserve distinct records even if they share a timestamp.
-  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'breathworkSessions', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights'];
+  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'breathworkSessions', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights', 'latestResearch', 'researchProtocols', 'researchExperiments'];
   simpleArrayFields.forEach(field => {
     const a = Array.isArray(current[field]) ? current[field] : [];
     const b = Array.isArray(imported[field]) ? imported[field] : [];
@@ -168,7 +168,7 @@ export function mergeSnapshotData(current, imported) {
         combined.push(entry);
       }
     });
-    const sortTime = entry => field === 'metricLogs' ? `${entry.date}T${entry.time}` : entry.timestamp || entry.date || '';
+    const sortTime = entry => field === 'metricLogs' ? `${entry.date}T${entry.time}` : entry.timestamp || entry.createdAt || entry.addedAt || entry.date || '';
     combined.sort((x, y) => sortTime(x).localeCompare(sortTime(y)));
     if (field === 'metricLogs') {
       const days = new Set();
