@@ -145,7 +145,7 @@ export function mergeSnapshotData(current, imported) {
   merged.nutritionDefaults = [...currentDefaults, ...(imported.nutritionDefaults || []).filter(card => !currentDefaults.some(entry => entry.id === card.id))];
 
   // Preserve distinct records even if they share a timestamp.
-  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'breathworkSessions', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights'];
+  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'breathworkSessions', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights', 'latestResearch', 'researchProtocols', 'researchExperiments'];
   simpleArrayFields.forEach(field => {
     const a = Array.isArray(current[field]) ? current[field] : [];
     const b = Array.isArray(imported[field]) ? imported[field] : [];
@@ -158,7 +158,7 @@ export function mergeSnapshotData(current, imported) {
         combined.push(entry);
       }
     });
-    const sortTime = entry => field === 'metricLogs' ? `${entry.date}T${entry.time}` : entry.timestamp || entry.date || '';
+    const sortTime = entry => field === 'metricLogs' ? `${entry.date}T${entry.time}` : entry.timestamp || entry.createdAt || entry.addedAt || entry.date || '';
     combined.sort((x, y) => sortTime(x).localeCompare(sortTime(y)));
     if (field === 'metricLogs') {
       const days = new Set();
@@ -171,6 +171,26 @@ export function mergeSnapshotData(current, imported) {
       }).sort((x, y) => sortTime(x).localeCompare(sortTime(y)));
     } else merged[field] = combined;
   });
+
+  const currentGut = current.gutHealth || { sessions: [], symptoms: [] };
+  const importedGut = imported.gutHealth || { sessions: [], symptoms: [] };
+  const mergeById = (a = [], b = []) => {
+    const entries = new Map(a.map(entry => [entry.id, entry]));
+    for (const entry of b) {
+      const existing = entries.get(entry.id);
+      if (!existing) entries.set(entry.id, entry);
+      else if (Array.isArray(existing.readings) && Array.isArray(entry.readings)) {
+        const readings = new Map(existing.readings.map(reading => [reading.id, reading]));
+        for (const reading of entry.readings) if (!readings.has(reading.id)) readings.set(reading.id, reading);
+        entries.set(entry.id, { ...entry, ...existing, readings: [...readings.values()].sort((x, y) => x.timestamp.localeCompare(y.timestamp)) });
+      }
+    }
+    return [...entries.values()];
+  };
+  merged.gutHealth = {
+    sessions: mergeById(currentGut.sessions, importedGut.sessions).sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
+    symptoms: mergeById(currentGut.symptoms, importedGut.symptoms).sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+  };
 
   merged.waterDailyHistory = {
     ...(isPlainObject(imported.waterDailyHistory) ? imported.waterDailyHistory : {}),

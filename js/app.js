@@ -3,6 +3,7 @@ import { workoutDurationSeconds } from './workoutBody.js';
 import { initBodyMeasurements } from './bodyMeasurements.js';
 import { initWorkoutReview } from './workoutReview.js';
 import { initHeartMetrics } from './heartMetrics.js';
+import { initGutHealth } from './gutHealth.mjs';
 import { persistDietIntake, summarizeCalories, summarizeCaloriesByDay, buildMealTimingInsights } from './dietIntake.js';
 import { geniePrivacyNotice, revokeGenieHostedConsent } from './geniePrivacy.js';
 import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
@@ -774,6 +775,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initPainLogModal();
   initChantingModal({ getFitnessData, saveFitnessData, showModal, hideModal });
   initHeartMetrics({ load: getFitnessData, save: saveFitnessData, showModal, hideModal });
+  initGutHealth({ load: getFitnessData, save: saveFitnessData, showModal, hideModal });
   // --- Feelings Wheel (3-ring interactive, one-click logging + analytics) ---
   initFeelingsWheel();
 });
@@ -905,6 +907,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 import { providerRegistry } from './storageProvider.js';
 import { initNutritionLookup } from './nutritionLookupUI.mjs';
+import { initResearchExperiments } from './researchExperimentsUI.mjs';
 import { matchingDefaults, scaleNutrition } from './nutritionDefaults.mjs';
 import { PinataProvider } from './providers/pinataProvider.js';
 import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
@@ -7876,6 +7879,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initChakraAura();
 
   // ── v3.1.0 Competitions (Streak Bets) ───────────────────────────────────
+  initResearchExperiments();
   initCompetitions();
 
   console.timeEnd('[startup] DOMContentLoaded → interactive');

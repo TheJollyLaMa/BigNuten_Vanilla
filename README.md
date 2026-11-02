@@ -128,6 +128,7 @@ Everything accessible to every user in the browser — no wallet required to sta
 | 😊 **Emotions / Mood** | Feelings wheel with granular emotion selection |
 | 🌀 **Chakra** | Chakra energy tracker with visualization; Throat opens a chanting timer, mantra selector and session log |
 | 🤕 **Pain** | Body pain location and intensity logging |
+| 🫄 **Gut health** | Manual hydrogen/methane breath readings, optional challenge sessions and symptom check-ins; [scope and privacy](docs/gut-health-tracker.md) |
 | 🌬️ **Breathwork** | Guided breathing exercises and session logging |
 | 🧘 **Yoga Flow** | 12 pose library with custom sequences, SVG animations, session log |
 | 💧 **Hydration** | Daily water intake tracking (used by StreakBet verifier) |
@@ -157,6 +158,24 @@ Render service with a server-held OpenAI key**, shared by all BigNuten hosted Ge
 Deployment, sources, estimates, consent and setup are described in
 [GENIE_NUTRITION.md](docs/GENIE_NUTRITION.md). Search remains unavailable until
 that service is configured and its real endpoint is supplied.
+
+### Research and personal experiments (#405)
+
+Use the **Research** toolbar to save a YouTube video and a transcript, ask the
+invited Genie for one editable protocol, then track daily done/skip check-ins
+and compare selected scalar metrics across a baseline and experiment window.
+Pasting and saving is entirely local and makes no service or AI request. YouTube
+metadata/captions are explicit, best-effort actions; a failed caption request
+never blocks pasting. A protocol transcript is sent only after checking consent
+and clicking **Draft protocol**. Saved entries can be opted into Genie chat; its
+context is token-budgeted and cites the saved video title. Experiments display
+adherence, missing logs and personal observations, not proof or medical advice.
+
+Research content is stored in the user's `fitnessTrackerData` record and is
+never published to the shared food library. User-created backups may include
+it under the existing backup/privacy rules. See
+[RESEARCH_EXPERIMENTS.md](docs/RESEARCH_EXPERIMENTS.md) for the local data model,
+privacy boundaries, service endpoints and deployment note.
 
 ### Genie privacy and raw-food quick log
 

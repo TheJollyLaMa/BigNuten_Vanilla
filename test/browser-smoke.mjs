@@ -179,7 +179,7 @@ try {
         raw: JSON.stringify({ dataVersion: 1, weightLogs: [], waterDailyHistory: {} }),
       }]));
     });
-    const hostedRequests = [], autoLookups = [];
+    const hostedRequests = [], autoLookups = [], researchRequests = [];
     let deniedChallenges = 0;
     await page.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url());
@@ -206,6 +206,29 @@ try {
         if (url.pathname === '/lookup') {
           autoLookups.push(body);
           return route.fulfill({ headers, json: { found: false, reason: 'Synthetic hosted fixture has no card.', usage: { calls: 0, inputTokens: 0, outputTokens: 0 } } });
+        }
+        if (url.pathname === '/research/oembed') {
+          assert.deepEqual(Object.keys(body).sort(), ['consent', 'videoId']);
+          assert.equal(body.consent, true);
+          researchRequests.push({ path: url.pathname, body });
+          return route.fulfill({ headers, json: { title: `Synthetic YouTube ${body.videoId}`, thumbnailUrl: `https://i.ytimg.com/vi/${body.videoId}/hqdefault.jpg`, usage: { calls: researchRequests.length, inputTokens: 0, outputTokens: 0 } } });
+        }
+        if (url.pathname === '/research/captions') {
+          assert.deepEqual(Object.keys(body).sort(), ['consent', 'videoId']);
+          assert.equal(body.consent, true);
+          researchRequests.push({ path: url.pathname, body });
+          return route.fulfill({ headers, json: { transcript: 'Synthetic captions about a gentle sleep routine.', source: 'youtube-captions', language: 'en', usage: { calls: researchRequests.length, inputTokens: 0, outputTokens: 0 } } });
+        }
+        if (url.pathname === '/research/protocol') {
+          assert.deepEqual(Object.keys(body).sort(), ['consent', 'metrics', 'title', 'transcript']);
+          assert.equal(body.consent, true);
+          assert.match(body.transcript, /Synthetic pasted transcript/);
+          assert.ok(body.metrics.some(metric => metric.id === 'sleep'));
+          researchRequests.push({ path: url.pathname, body });
+          return route.fulfill({ headers, json: { protocol: { title: 'Synthetic sleep routine', summary: 'A consistent wind-down routine to observe.', rationale: 'Track sleep without treating short-term change as proof.', durationDays: 7, baselineDays: 3,
+            actions: [{ action: 'Use a comfortable wind-down routine', dose: 'Optional; no supplements', timing: 'Before bed' }],
+            targetMetrics: [{ metricId: 'sleep', metricLabel: 'Sleep duration', direction: 'observe' }], clinicianReviewRequired: false, clinicianReviewReason: '' },
+            usage: { calls: researchRequests.length, inputTokens: 25, outputTokens: 18 } } });
         }
         assert.equal(url.pathname, '/assistant', 'Every private Genie route needs an explicit fixture');
         assert.deepEqual(Object.keys(body).sort(), ['assistant', 'consent', 'messages']);
@@ -400,6 +423,56 @@ try {
         console.log(`${name}: ${source} restore repopulated water, weight, food/nutrition, supplements, exercises, measurements, pain and feelings without reload`);
       }
       await click('#correlation-graph-modal .modal-close');
+      await click('#gut-health-open');
+      await visible('#gut-health-modal');
+      assert.match(await page.locator('.gut-health-notice').innerText(), /not diagnosis/i);
+      await page.locator('#gut-session-challenge').fill('Synthetic smoke session');
+      await page.locator('#gut-session-start').fill('2026-10-28T10:00');
+      const mealValue = await page.locator('#gut-meal-link option').filter({ hasText: 'Synthetic restore meal' }).getAttribute('value');
+      assert.ok(mealValue, 'Existing diet entry is available as an optional reference');
+      await page.locator('#gut-meal-link').selectOption(mealValue);
+      await page.locator('#gut-session-form button[type="submit"]').click();
+      assert.match(await page.locator('#gut-health-status').innerText(), /session saved/i);
+      assert.ok(await page.locator('#gut-session-picker').inputValue(), `Newly created session remains selected; options=${await page.locator('#gut-session-picker').innerText()} state=${JSON.stringify(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).gutHealth))}`);
+      await page.locator('#gut-reading-time').fill('2026-10-28T10:00');
+      await page.locator('#gut-reading-phase').selectOption('baseline');
+      await page.locator('#gut-hydrogen').fill('4');
+      await page.locator('#gut-hydrogen-scale').fill('ppm');
+      await page.locator('#gut-reading-source').fill('FoodMarble AIRE 2 (manual)');
+      await page.locator('#gut-reading-form button[type="submit"]').click();
+      assert.match(await page.locator('#gut-health-status').innerText(), /Breath reading saved/i, 'Baseline submit status');
+      await page.locator('#gut-reading-time').fill('2026-10-28T10:30');
+      await page.locator('#gut-reading-phase').selectOption('after-challenge');
+      await page.locator('#gut-hydrogen').fill('18');
+      await page.locator('#gut-hydrogen-scale').fill('ppm');
+      await page.locator('#gut-methane').fill('3');
+      await page.locator('#gut-methane-scale').fill('FoodMarble AIRE 2 score');
+      await page.locator('#gut-reading-source').fill('FoodMarble AIRE 2 (manual)');
+      await page.locator('#gut-reading-form button[type="submit"]').click();
+      await page.locator('#gut-symptom-session').selectOption(await page.locator('#gut-session-picker').inputValue());
+      await page.locator('#gut-symptom-type').selectOption('Bloating');
+      await page.locator('#gut-symptom-intensity').fill('4');
+      await page.locator('#gut-symptom-form button[type="submit"]').click();
+      assert.match(await page.locator('#gut-session-history').innerText(), /Hydrogen|hydrogen/);
+      assert.match(await page.locator('#gut-session-history').innerText(), /linked diet log: Synthetic restore meal/);
+      assert.match(await page.locator('#gut-symptom-history').innerText(), /Bloating 4\/10/);
+      assert.equal(await page.locator('#gut-health-chart circle').count(), 1, 'Same-scale hydrogen session renders a chart point');
+      assert.match(await page.locator('#gut-trend-summary').innerText(), /rise \+14 ppm/);
+      const baselineEdit = page.locator('#gut-session-history button[aria-label^="Edit breath reading"]').last();
+      await baselineEdit.click();
+      await page.locator('#gut-hydrogen').fill('5');
+      await page.locator('#gut-reading-form button[type="submit"]').click();
+      assert.match(await page.locator('#gut-trend-summary').innerText(), /rise \+13 ppm/, 'Corrected baseline updates the same-scale chart');
+      const storedGut = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).gutHealth);
+      assert.equal(storedGut.sessions[0].readings.length, 2);
+      assert.equal(storedGut.sessions[0].readings.find(reading => reading.phase === 'baseline').hydrogen.value, 5);
+      assert.equal(storedGut.sessions[0].mealContext.name, 'Synthetic restore meal');
+      assert.equal(storedGut.symptoms[0].sessionId, storedGut.sessions[0].id);
+      await shot(`${name}-gut-health-tracker`);
+      await click('#gut-health-modal-close');
+      await hidden('#gut-health-modal');
+      covered.add('gut-health-modal');
+      console.log(`${name}: manually logged gut session, breath trend, meal reference and symptom`);
       // Log one synthetic exercise through the real form to populate the workout
       // path. Fresh browser contexts guarantee this never touches user data.
       await click('#log-exercise');
@@ -1412,6 +1485,91 @@ try {
       assert.equal(hostedRequests.length, questHostedBefore, 'Quest never calls a hosted model');
       assert.deepEqual(walletCalls.slice(questWalletBefore).filter(method => /sign|send|requestAccounts|switchEthereumChain|addEthereumChain/i.test(method)), [], 'Quest never signs, sends, connects or switches a wallet');
       console.log(`${name}: Quest opt-in, keyboard safety, reload/resume, seven chapters, local badge, issue-helper handoff, exit, reset/clear and storage failures verified without financial actions`);
+      await click('#research-open');
+      await visible('#research-experiments-dialog');
+      covered.add('research-experiments-dialog');
+      assert.match(await page.locator('#research-library').innerText(), /private research library is empty/i);
+      assert.ok(await page.locator('#research-experiments-dialog').evaluate(dialog => dialog.getBoundingClientRect().width <= window.innerWidth), `${name}: research dialog fits the viewport`);
+      const modelCallsBeforePaste = hostedRequests.length;
+      await page.locator('#research-url').fill('https://www.youtube.com/watch?v=abcdefghijk');
+      await click('#research-preview');
+      await page.waitForFunction(() => document.getElementById('research-new-title').value.includes('abcdefghijk'));
+      await page.locator('#research-category').selectOption('sleep');
+      await page.locator('#research-tags').fill('sleep, routine');
+      await page.locator('#research-transcript').fill('Synthetic pasted transcript: keep a consistent, comfortable bedtime routine.');
+      const serviceCallsBeforePaste = researchRequests.length;
+      await page.locator('#research-add-form button[type="submit"]').click();
+      await page.waitForFunction(() => document.getElementById('research-status').textContent.includes('Saved privately on this device'));
+      assert.equal(hostedRequests.length, modelCallsBeforePaste, 'Pasting and saving a transcript makes no AI request');
+      assert.equal(researchRequests.length, serviceCallsBeforePaste, 'Manual transcript save makes no service request');
+      let savedResearch = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).latestResearch);
+      assert.equal(savedResearch.length, 1);
+      assert.equal(savedResearch[0].transcript, 'Synthetic pasted transcript: keep a consistent, comfortable bedtime routine.');
+      assert.equal(savedResearch[0].title, 'Synthetic YouTube abcdefghijk', 'YouTube oEmbed title is saved');
+      await page.locator('#research-url').fill('https://youtu.be/lmnopqrstuv');
+      await click('#research-preview');
+      await page.waitForFunction(() => document.getElementById('research-new-title').value.includes('lmnopqrstuv'));
+      await page.locator('#research-add-form button[type="submit"]').click();
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).latestResearch.length === 2);
+      await page.locator('#research-filter').selectOption('sleep');
+      await page.waitForFunction(() => document.querySelectorAll('.research-card').length === 1);
+      await page.locator('#research-filter').selectOption('all');
+      const captionCard = page.locator('.research-card').filter({ hasText: 'Synthetic YouTube lmnopqrstuv' });
+      await captionCard.locator('[data-action="fetch-captions"]').click();
+      await page.waitForFunction(() => document.getElementById('research-status').textContent.includes('No AI model was called'));
+      assert.equal(researchRequests.filter(call => call.path === '/research/oembed').length, 2, 'Explicit oEmbed action sends one video ID per video');
+      assert.equal(researchRequests.filter(call => call.path === '/research/captions').length, 1, 'Caption action calls the hosted caption endpoint once');
+      assert.equal(researchRequests.find(call => call.path === '/research/captions').body.videoId, 'lmnopqrstuv');
+      const pastedCard = page.locator('.research-card').filter({ hasText: 'Synthetic YouTube abcdefghijk' });
+      await pastedCard.locator('[data-action="include-research"]').check();
+      await page.locator('#research-genie-consent').check();
+      await page.locator('#research-target-metrics input[data-metric-id="sleep"]').check();
+      await pastedCard.locator('[data-action="draft-protocol"]').click();
+      await page.waitForFunction(() => !document.getElementById('research-draft-protocol').hidden);
+      assert.equal(researchRequests.filter(call => call.path === '/research/protocol').length, 1, 'Genie protocol action makes one structured request');
+      assert.equal(researchRequests.at(-1).body.transcript, savedResearch.find(entry => entry.youtubeId === 'abcdefghijk').transcript, 'Only the chosen transcript is sent for protocol drafting');
+      await page.locator('#research-draft-form button[type="submit"]').click();
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).researchProtocols.length === 1);
+      await page.evaluate(() => {
+        const data = JSON.parse(localStorage.getItem('fitnessTrackerData'));
+        data.metricLogs = [
+          { id: 'synthetic-research-sleep-1', metric: 'sleep', value: 25200, unit: 's', date: '2026-10-25', time: '21:00', note: '', source: 'self-reported' },
+          { id: 'synthetic-research-sleep-2', metric: 'sleep', value: 25200, unit: 's', date: '2026-10-26', time: '21:00', note: '', source: 'self-reported' },
+          { id: 'synthetic-research-sleep-3', metric: 'sleep', value: 25200, unit: 's', date: '2026-10-27', time: '21:00', note: '', source: 'self-reported' },
+          { id: 'synthetic-research-sleep-4', metric: 'sleep', value: 28800, unit: 's', date: '2026-10-28', time: '21:00', note: '', source: 'self-reported' },
+        ];
+        localStorage.setItem('fitnessTrackerData', JSON.stringify(data));
+      });
+      await page.locator('[data-action="start-experiment"] button[type="submit"]').click();
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).researchExperiments.length === 1);
+      const checkIn = page.locator('form[data-action="check-in"]');
+      await checkIn.locator('[name="status"]').selectOption('done');
+      await checkIn.locator('button[type="submit"]').click();
+      await page.waitForFunction(() => document.getElementById('research-status').textContent.includes('Saved done'));
+      const comparison = await page.locator('.research-experiment-result').innerText();
+      assert.match(comparison, /Adherence: 100%/);
+      assert.match(comparison, /baseline 25200/);
+      assert.match(comparison, /during 28800/);
+      assert.match(comparison, /Personal observation only/);
+      await page.locator('#research-search').fill('no matching research result');
+      await page.waitForFunction(() => document.getElementById('research-library').textContent.includes('No saved videos match'));
+      assert.match(await page.locator('#research-library').innerText(), /No saved videos match/);
+      await page.locator('#research-search').fill('');
+      await page.locator('#research-experiments-dialog .research-close').click();
+      await hidden('#research-experiments-dialog');
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.locator('#app-title-name').waitFor({ state: 'visible' });
+      await click('#research-open');
+      await visible('#research-experiments-dialog');
+      savedResearch = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).latestResearch);
+      assert.equal(savedResearch.length, 2, 'Research entries persist after reload');
+      assert.equal(await page.locator('.research-experiment-card').count(), 1, 'Experiment and check-in persist after reload');
+      await page.locator('.research-card').filter({ hasText: 'Synthetic YouTube lmnopqrstuv' }).locator('[data-action="delete-research"]').click();
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).latestResearch.length === 1);
+      await page.locator('#research-experiments-dialog .research-close').click();
+      await hidden('#research-experiments-dialog');
+      console.log(`${name}: research URL/oEmbed, offline transcript save, best-effort captions, consented protocol, local experiment, comparison and reload persistence verified`);
+
       const recordsBeforeLock = await page.evaluate(() => localStorage.getItem('fitnessTrackerData'));
       const modelCallsBeforeLock = hostedRequests.length;
       const deniedWallet = '0x' + '34'.repeat(20);

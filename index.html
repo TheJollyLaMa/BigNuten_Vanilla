@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="css/styles.css" />
     <link rel="stylesheet" href="css/issueHelper.css" />
     <link rel="stylesheet" href="css/nutrition-lookup.css" />
+    <link rel="stylesheet" href="css/research-experiments.css" />
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
@@ -101,6 +102,10 @@
 
   <!-- Left Panel Toolbar: Supplements & Raw Intake -->
   <nav id="left-panel-toolbar" class="side-toolbar left-toolbar" aria-label="Left panel controls">
+    <button type="button" class="panel-toggle-btn" id="research-open" title="Research and personal experiments" aria-haspopup="dialog" aria-controls="research-experiments-dialog">
+      <span class="toolbar-emoji">🔬</span>
+      <span>Research</span>
+    </button>
     <button class="panel-toggle-btn" data-panel="recent-supplements-list" title="Supplements (7 days)">
       <img src="img/Supplements.png" alt="Supplements">
       <span>Supps</span>
@@ -108,6 +113,9 @@
     <button class="panel-toggle-btn" data-panel="recent-foods-list" title="Raw Intake (7 days)">
       <img src="img/Diet.png" alt="Raw Intake">
       <span>Intake</span>
+    </button>
+    <button class="gut-health-launcher" id="gut-health-open" type="button" title="Gut-health tracking" aria-haspopup="dialog">
+      <span aria-hidden="true">🫄</span><span>Gut</span>
     </button>
   </nav>
 
@@ -963,6 +971,63 @@
     </div>
   </div>
   
+  <div id="research-experiments-dialog" class="research-overlay" role="dialog" aria-modal="true" aria-labelledby="research-title" hidden>
+    <section class="research-modal">
+      <header class="research-header">
+        <div><p class="research-eyebrow">PRIVATE ON THIS DEVICE</p><h2 id="research-title">Learn → Plan → Track → Check</h2></div>
+        <button type="button" class="research-close" aria-label="Close research library">×</button>
+      </header>
+      <p class="research-notice">Personal observations, not proof or medical advice. Review health-related plans with a clinician. Research transcripts, protocols, and experiments remain in your local BigNuten data and are never added to the shared food library.</p>
+      <p id="research-status" class="research-status" role="status" aria-live="polite"></p>
+      <div class="research-columns">
+        <section class="research-column" aria-labelledby="research-add-heading">
+          <h3 id="research-add-heading">1 · Learn</h3>
+          <form id="research-add-form" class="research-add-form">
+            <label for="research-url">YouTube URL</label>
+            <div class="research-url-row"><input id="research-url" type="url" placeholder="https://www.youtube.com/watch?v=…" required><button type="button" id="research-preview">Load details</button></div>
+            <label for="research-new-title">Title <span>(optional)</span></label>
+            <input id="research-new-title" maxlength="300" placeholder="Loaded from YouTube oEmbed when available">
+            <label for="research-tags">Tags <span>(comma separated, optional)</span></label>
+            <input id="research-tags" maxlength="400" placeholder="sleep, strength, recovery">
+            <label for="research-category">Category</label>
+            <select id="research-category"><option value="exercise">Exercise</option><option value="nutrition">Nutrition</option><option value="supplements">Supplements</option><option value="sleep">Sleep</option><option value="mental">Mental health</option><option value="general">General</option></select>
+            <label for="research-transcript">Transcript <span>(paste works offline; no AI call)</span></label>
+            <textarea id="research-transcript" rows="6" maxlength="100000" placeholder="Paste your transcript here. It stays local unless you explicitly request a Genie action."></textarea>
+            <label for="research-summary">Short summary for Genie chat <span>(optional, stays local)</span></label>
+            <textarea id="research-summary" rows="2" maxlength="1200" placeholder="Add a brief summary to keep useful details available when the full transcript does not fit the chat context."></textarea>
+            <button type="submit" class="research-primary">Save to private library</button>
+          </form>
+          <div class="research-library-controls">
+            <label for="research-search">Search saved research</label><input id="research-search" type="search" placeholder="Title, transcript, tags…">
+            <label for="research-filter">Category</label><select id="research-filter"><option value="all">All categories</option><option value="exercise">Exercise</option><option value="nutrition">Nutrition</option><option value="supplements">Supplements</option><option value="sleep">Sleep</option><option value="mental">Mental health</option><option value="general">General</option></select>
+          </div>
+          <div id="research-library" class="research-library" aria-live="polite"></div>
+        </section>
+        <section class="research-column" aria-labelledby="research-plan-heading">
+          <h3 id="research-plan-heading">2–4 · Plan, track &amp; check</h3>
+          <p class="research-consent-note">Genie sees a transcript only after you check consent and click “Draft protocol”. The explicit video-details and caption actions send only a video ID to the hosted service; neither calls an AI model. Pasting and saving a transcript works without any service request.</p>
+          <label class="research-check"><input id="research-genie-consent" type="checkbox"> I agree to send the selected transcript and metric names to Genie for one protocol draft.</label>
+          <fieldset><legend>Select metrics for a draft or review returned targets</legend><div id="research-target-metrics" class="research-metrics"></div></fieldset>
+          <div id="research-draft-protocol" class="research-draft" hidden>
+            <h4>Edit Genie protocol draft</h4>
+            <form id="research-draft-form">
+              <label for="protocol-title">Protocol title</label><input id="protocol-title" maxlength="240" required>
+              <label for="protocol-summary">Short summary for Genie chat</label><textarea id="protocol-summary" rows="2" maxlength="1200"></textarea>
+              <label for="protocol-rationale">Rationale</label><textarea id="protocol-rationale" rows="3" maxlength="2000"></textarea>
+              <div class="research-number-row"><label>Duration (days)<input id="protocol-duration" type="number" min="1" max="180" required></label><label>Baseline window (days)<input id="protocol-baseline" type="number" min="1" max="90" required></label></div>
+              <label for="protocol-actions">Actions <span>(one per line: action | dose/amount | timing)</span></label><textarea id="protocol-actions" rows="4" required></textarea>
+              <label class="research-check"><input id="protocol-clinician-review" type="checkbox"> Clinician review recommended</label>
+              <label for="protocol-clinician-reason">Review note</label><textarea id="protocol-clinician-reason" rows="2" maxlength="1000"></textarea>
+              <button type="submit" class="research-primary">Save protocol</button>
+            </form>
+          </div>
+          <div id="research-protocols" class="research-protocols"></div>
+          <div id="research-experiments" class="research-experiments"></div>
+        </section>
+      </div>
+    </section>
+  </div>
+
   <!-- Contract addresses & token metadata — must load before ES modules -->
   <script src="js/contracts.js"></script>
   <!-- Stripe Payment Links & Customer Portal URL — must load before ES modules (Issue #41) -->
@@ -1651,6 +1716,86 @@
   </div>
 
   <!-- ── Settings Modal ────────────────────────────────────────────────────── -->
+  <div id="gut-health-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="gut-health-title">
+    <div class="modal gut-health-modal">
+      <button class="modal-close" id="gut-health-modal-close" aria-label="Close gut-health tracker">×</button>
+      <h2 id="gut-health-title">🫄 Gut-health tracker</h2>
+      <p class="gut-health-notice"><strong>Personal tracking, not diagnosis.</strong> Breath readings and symptom patterns do not diagnose SIBO/IMO, food intolerance, cause, or recovery. No device connection is used; enter readings manually exactly as your source reports them. This is not medical advice.</p>
+      <p>Records stay in your BigNuten fitness data and browser storage. Browser storage is not encrypted. Export is optional and user-initiated through the existing data controls. No meals are logged from this tracker.</p>
+      <section aria-labelledby="gut-session-heading">
+        <h3 id="gut-session-heading">Test / challenge session</h3>
+        <label for="gut-session-picker">Session for breath readings</label>
+        <select id="gut-session-picker"></select>
+        <form id="gut-session-form">
+          <label for="gut-session-challenge">Session label or clinician-directed challenge (optional)</label>
+          <input name="challenge" id="gut-session-challenge" maxlength="200" placeholder="Your own label; no protocol is recommended" />
+          <label for="gut-session-start">Session date and time</label>
+          <input name="startedAt" id="gut-session-start" type="datetime-local" required />
+          <label for="gut-meal-link">Link an existing diet log (optional; reference only)</label>
+          <select name="mealIndex" id="gut-meal-link"><option value="">No meal linked</option></select>
+          <label for="gut-session-note">Session notes (optional)</label>
+          <textarea name="note" id="gut-session-note" rows="2" maxlength="2000"></textarea>
+          <div class="gut-health-actions">
+            <button type="submit">Create test / challenge session</button>
+            <button id="gut-session-new" type="button">New session</button>
+            <button id="gut-session-delete" type="button">Delete selected session</button>
+          </div>
+        </form>
+      </section>
+      <section aria-labelledby="gut-reading-heading">
+        <h3 id="gut-reading-heading">Manual breath reading</h3>
+        <p>Enter hydrogen, methane, or both. Enter ppm only when the source reports ppm; other labels are stored and charted as exact reported scales, never converted to ppm or combined with a different scale.</p>
+        <form id="gut-reading-form">
+          <label for="gut-reading-time">Reading date and time</label>
+          <input name="timestamp" id="gut-reading-time" type="datetime-local" required />
+          <label for="gut-reading-phase">Reading phase</label>
+          <select name="phase" id="gut-reading-phase"><option value="baseline">Baseline</option><option value="after-challenge">After challenge</option><option value="other">Other</option></select>
+          <div class="gut-health-gases">
+            <label for="gut-hydrogen">Hydrogen (optional)<input name="hydrogenValue" id="gut-hydrogen" type="number" min="0" step="any" /></label>
+            <label for="gut-hydrogen-scale">Hydrogen exact unit / score scale<input name="hydrogenScale" id="gut-hydrogen-scale" maxlength="80" placeholder="ppm or exact named score scale" /></label>
+            <label for="gut-methane">Methane (optional)<input name="methaneValue" id="gut-methane" type="number" min="0" step="any" /></label>
+            <label for="gut-methane-scale">Methane exact unit / score scale<input name="methaneScale" id="gut-methane-scale" maxlength="80" placeholder="ppm or exact named score scale" /></label>
+          </div>
+          <label for="gut-reading-source">Manual source / device name (required)</label>
+          <input name="source" id="gut-reading-source" maxlength="120" required placeholder="For example, FoodMarble AIRE 2 (manual)" />
+          <label for="gut-reading-note">Reading notes (optional)</label>
+          <textarea name="note" id="gut-reading-note" rows="2" maxlength="2000"></textarea>
+          <button type="submit">Save breath reading</button>
+        </form>
+      </section>
+      <section aria-labelledby="gut-symptom-heading">
+        <h3 id="gut-symptom-heading">Digestive symptom check-in</h3>
+        <p>Symptom entries can stand alone without a breath device or test session. Intensity is your personal rating from 0 (none) to 10 (most intense).</p>
+        <form id="gut-symptom-form">
+          <label for="gut-symptom-time">Date and time</label><input name="timestamp" id="gut-symptom-time" type="datetime-local" required />
+          <label for="gut-symptom-session">Link a session (optional)</label><select name="sessionId" id="gut-symptom-session"><option value="">No linked session</option></select>
+          <label for="gut-symptom-type">Symptom</label>
+          <select name="type" id="gut-symptom-type"><option>Bloating</option><option>Abdominal discomfort</option><option>Gas</option><option>Nausea</option><option>Constipation</option><option>Diarrhea</option><option>Other</option></select>
+          <label for="gut-symptom-intensity">Personal intensity (0–10): <output name="intensity-label" for="gut-symptom-intensity">0</output></label>
+          <input name="intensity" id="gut-symptom-intensity" type="range" min="0" max="10" step="1" value="0" />
+          <label for="gut-stool-form">Bowel movement form (optional, 1–7)</label>
+          <select name="stoolForm" id="gut-stool-form"><option value="">Not recorded</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option></select>
+          <label for="gut-symptom-note">Notes (optional)</label><textarea name="note" id="gut-symptom-note" rows="2" maxlength="2000"></textarea>
+          <div class="gut-health-actions"><button type="submit">Save symptom</button><button type="button" id="gut-symptom-clear">Clear symptom form</button></div>
+        </form>
+      </section>
+      <p id="gut-health-status" role="status" aria-live="polite"></p>
+      <section aria-labelledby="gut-progress-heading">
+        <h3 id="gut-progress-heading">Progress over time</h3>
+        <p>Session comparisons use the earliest baseline and the highest later reading on the same exact scale. They are descriptive records only—not a diagnostic threshold, treatment target, or proof of recovery. Missing readings remain missing; associations do not establish cause.</p>
+        <label for="gut-trend-picker">Comparable gas / scale</label><select id="gut-trend-picker"></select>
+        <svg id="gut-health-chart" viewBox="0 0 640 220" role="img" aria-label="No comparable readings yet"><title>Manual breath reading trend</title></svg>
+        <div id="gut-trend-summary" aria-live="polite"></div>
+      </section>
+      <section aria-labelledby="gut-history-heading">
+        <h3 id="gut-history-heading">Test sessions &amp; breath-reading history</h3><ul id="gut-session-history"></ul>
+      </section>
+      <section aria-labelledby="gut-symptom-history-heading">
+        <h3 id="gut-symptom-history-heading">Symptom history</h3><ul id="gut-symptom-history"></ul>
+      </section>
+    </div>
+  </div>
+
   <div id="heart-modal" class="modal-overlay modal-hidden" role="dialog" aria-modal="true" aria-labelledby="heart-modal-title">
     <div class="modal heart-metrics-modal">
       <button class="modal-close" id="heart-modal-close" aria-label="Close Heart hub">×</button>
