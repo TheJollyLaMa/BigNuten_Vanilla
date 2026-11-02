@@ -45,7 +45,8 @@ test('structured household portions retain only source-linked equivalents', asyn
       input: { name: card.name, kind: 'whole', preparation: 'raw' },
       fetchImpl: async (_url, options) => {
         const payload = JSON.parse(options.body);
-        if (payload.tools) assert.equal(JSON.parse(payload.input).requestedPortionUnit, 'cup');
+        assert.equal(JSON.parse(payload.input).requestedPortionUnit, 'cup');
+        if (payload.tools) assert.match(payload.instructions, /specifically ONE cup/);
         return { ok: true, json: async () => value };
       } });
     if (sourceUrl === card.sources[0].url) {
