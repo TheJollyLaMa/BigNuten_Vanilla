@@ -261,9 +261,9 @@ export function initDataControl({ provider: activeProvider = providerRegistry.ge
   };
 
   syncRestoredSession().then(result => {
-    if (!result && !educSeen) {
+    if (!result && !educSeen && !localStorage.getItem(EDUC_SEEN_KEY)) {
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        _openOverlay();
+        if (!localStorage.getItem(EDUC_SEEN_KEY)) _openOverlay();
       }));
     }
   });

@@ -257,7 +257,16 @@ export function initQuestMode() {
   if (state.enabled) start();
 }
 
+function initializeWhenProfileReady() {
+  const ready = globalThis.__bignutenProfileReady;
+  if (ready && typeof ready.then === 'function') {
+    ready.then(initQuestMode).catch(error => console.error('[quest] Profile startup was stopped before Quest initialization.', error));
+    return;
+  }
+  window.addEventListener('bignuten:profile-changed', initializeWhenProfileReady, { once: true });
+}
+
 if (typeof document !== 'undefined') {
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initQuestMode, { once: true });
-  else initQuestMode();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initializeWhenProfileReady, { once: true });
+  else initializeWhenProfileReady();
 }
