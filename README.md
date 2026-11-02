@@ -128,6 +128,7 @@ Everything accessible to every user in the browser — no wallet required to sta
 | 😊 **Emotions / Mood** | Feelings wheel with granular emotion selection |
 | 🌀 **Chakra** | Chakra energy tracker with visualization; Throat opens a chanting timer, mantra selector and session log |
 | 🤕 **Pain** | Body pain location and intensity logging |
+| 🫄 **Gut health** | Manual hydrogen/methane breath readings, optional challenge sessions and symptom check-ins; [scope and privacy](docs/gut-health-tracker.md) |
 | 🌬️ **Breathwork** | Guided breathing exercises and session logging |
 | 🧘 **Yoga Flow** | 12 pose library with custom sequences, SVG animations, session log |
 | 💧 **Hydration** | Daily water intake tracking (used by StreakBet verifier) |
