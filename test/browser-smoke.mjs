@@ -401,6 +401,28 @@ try {
       assert.match(await page.locator('#dietNutritionStatus').innerText(), /Cannot scale/);
       await page.locator('#dietFoodUnit').selectOption('g');
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '389');
+      await page.locator('#dietFoodAmount').fill('1');
+      await page.locator('#dietFoodUnit').selectOption('cup');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '');
+      assert.equal(await page.locator('#nutritionPortionEditor').isVisible(), true);
+      await page.locator('#nutritionPortionAmount').fill('80');
+      await click('#nutritionApplyPortion');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '311');
+      await page.locator('#dietFoodAmount').fill('0.5');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '156');
+      await page.locator('#dietFoodAmount').fill('2');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '622');
+      await page.locator('#dietFoodUnit').selectOption('serving');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '778');
+      assert.match(await page.locator('#dietFoodUnit option:checked').innerText(), /100 g/);
+      await click('#nutritionAdjustPortion');
+      await page.locator('#nutritionPortionAmount').fill('30');
+      await click('#nutritionApplyPortion');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '233');
+      await click('#nutritionKeep');
+      await page.locator('#dietFoodAmount').fill('100');
+      await page.locator('#dietFoodUnit').selectOption('g');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '389', 'Portion edits never replace the unrounded nutrient base');
       await page.locator('#dietNutrCalories').fill('400');
       await click('#dietForm button[type="submit"]');
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults[0].nutr.calories), 389, 'One-off logging cannot replace approved defaults');
@@ -408,6 +430,11 @@ try {
       await page.locator('#dietFoodAmount').fill('50');
       await page.locator('#dietFoodUnit').selectOption('g');
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '195');
+      await page.locator('#dietFoodAmount').fill('0.5');
+      await page.locator('#dietFoodUnit').selectOption('cup');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '156', 'Saved food-specific portion survives form reset and default prefill');
+      await page.locator('#dietFoodAmount').fill('50');
+      await page.locator('#dietFoodUnit').selectOption('g');
       await shot('genie-nutrition-prefill');
       const nutritionRequests = [];
       let sharedFixture = null;
@@ -424,13 +451,15 @@ try {
             ? { found: true, cached: true, card: sharedFixture } : { found: false } });
         }
         assert.equal(path, '/lookup');
-        assert.deepEqual(Object.keys(body).sort(), ['consent', 'input']);
+        assert.deepEqual(Object.keys(body).sort(), body.portionUnit ? ['consent', 'input', 'portionUnit'] : ['consent', 'input']);
         assert.ok(!JSON.stringify(body).includes('Synthetic restore meal'));
-        if (nutritionRequests.filter(request => request.path === '/lookup').length === 2) {
+        if (body.input.name === 'Pasta') {
           return route.fulfill({ status: 502, json: { error: 'Synthetic extraction failure. No card was applied.',
             usage: { calls: 3, inputTokens: 25, outputTokens: 30 } } });
         }
         sharedFixture = { ...body.input, amount: 100, unit: 'g', serving: '', ingredients: 'Synthetic oats',
+            measures: [{ amount: 1, unit: 'cup', baseAmount: 140, sourceUrl: 'https://example.com/synthetic-label' },
+              { amount: 1, unit: 'serving', baseAmount: 80, sourceUrl: 'https://example.com/synthetic-label' }],
             nutr: { calories: 389, protein: 16.9 }, quality: 'source-backed',
             retrievedAt: '2026-10-28T12:00:00Z', note: 'Synthetic fixture',
             sources: [{ url: 'https://example.com/synthetic-label', title: 'Synthetic label source' }] };
@@ -456,11 +485,36 @@ try {
       assert.match(await page.locator('#nutritionProvenance').innerText(), /source-backed/);
       assert.equal(await page.locator('#nutritionSources a').getAttribute('href'), 'https://example.com/synthetic-label');
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '195');
+      const beforeScaling = nutritionRequests.length;
+      await page.locator('#dietFoodAmount').fill('0.5');
+      await page.locator('#dietFoodUnit').selectOption('cup');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '272');
+      await page.locator('#dietFoodAmount').fill('2');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '1089');
+      await page.locator('#dietFoodUnit').selectOption('serving');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '622');
+      assert.match(await page.locator('#dietFoodUnit option:checked').innerText(), /80 g/);
+      assert.equal(nutritionRequests.length, beforeScaling, 'Portion arithmetic makes no network requests');
+      await page.locator('#dietFoodAmount').fill('50');
+      await page.locator('#dietFoodUnit').selectOption('g');
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults.length), 1, 'Direct fill does not silently save a local default');
       const beforeReuse = nutritionRequests.length;
       await click('#dietNutritionGenie');
       await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Filled from the community'));
       assert.equal(nutritionRequests.slice(beforeReuse).some(request => request.path === '/lookup'), false, 'Shared food hit never calls Genie');
+      sharedFixture = { ...sharedFixture, measures: [] };
+      await page.locator('#dietFoodAmount').fill('0.5');
+      await page.locator('#dietFoodUnit').selectOption('cup');
+      await click('#dietNutritionGenie');
+      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Nutrition filled'));
+      assert.equal(nutritionRequests.at(-1).body.portionUnit, 'cup', 'Legacy cache misses request only the missing portion unit, not meal quantities');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '272', 'Legacy cached facts gain a source-defined cup equivalent');
+      const afterPortion = nutritionRequests.length;
+      await page.locator('#dietFoodAmount').fill('2');
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '1089');
+      assert.equal(nutritionRequests.length, afterPortion);
+      await page.locator('#dietFoodAmount').fill('50');
+      await page.locator('#dietFoodUnit').selectOption('g');
       assert.equal(await page.evaluate(() => [...Object.keys(localStorage), ...Object.keys(sessionStorage)].some(key => /nutrition.*token/i.test(key))), false);
       await page.locator('#dietFoodName').fill('Pasta');
       await click('#dietNutritionGenie');

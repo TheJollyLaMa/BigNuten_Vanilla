@@ -8,7 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { getAddress, verifyMessage } from 'ethers';
 import { pathToFileURL } from 'node:url';
 import { lookupNutrition, validateLookup, nutritionKey, nutritionClarification } from './nutritionModel.mjs';
-import { validateNutrition } from '../js/nutritionDefaults.mjs';
+import { validateNutrition, portionBaseAmount, NUTRITION_UNITS } from '../js/nutritionDefaults.mjs';
 import { chatWithPrivateGenie, validateGenieInput } from './genieModel.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -156,13 +156,14 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
         limit(`wallet:${session.wallet}`, 6);
         if (active.has(key) || active.size >= 3) throw problem(429, 'Genie service is busy. Please wait.');
         const payload = await body(request);
-        if (nutrition && (payload.consent !== true || Object.keys(payload).some(key => !['input', 'consent'].includes(key)))) throw problem(400, 'Explicit food-only lookup consent is required.');
+        if (nutrition && (payload.consent !== true || Object.keys(payload).some(key => !['input', 'consent', 'portionUnit'].includes(key)))) throw problem(400, 'Explicit food-only lookup consent is required.');
+        if (nutrition && payload.portionUnit !== undefined && !NUTRITION_UNITS.includes(payload.portionUnit)) throw problem(400, 'Choose a supported portion unit.');
         let input;
         try { input = nutrition ? validateLookup(payload.input) : validateGenieInput(payload); } catch (error) { throw problem(400, error.message); }
         const foodKey = nutrition ? nutritionKey(input) : null;
         if (nutrition) {
           const cached = !input.label && sharedFood(input);
-          if (cached) return send(200, { found: true, card: cached, cached: true, reason: 'Using shared community food facts. No provider call.', usage: usage(session.wallet) });
+          if (cached && (!payload.portionUnit || portionBaseAmount(cached, payload.portionUnit) !== null)) return send(200, { found: true, card: cached, cached: true, reason: 'Using shared community food facts. No provider call.', usage: usage(session.wallet) });
           const clarification = nutritionClarification(input);
           if (clarification) return send(200, { found: false, clarification, reason: clarification.question, usage: usage(session.wallet) });
           if (foodLookups.has(foodKey)) throw problem(429, 'This food is already being fetched for the community. Try again shortly to reuse its facts.');
@@ -197,14 +198,16 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
         }
         try {
           const result = await (nutrition ? modelCall : genieCall)({ apiKey: settings.apiKey, model: settings.model, input, signal: controller.signal,
-            ...(nutrition ? { reserveAdditionalCall: () => { controller.signal.throwIfAborted(); reserveCall(); }, recordUsage } : {}) });
+            ...(nutrition ? { portionUnit: payload.portionUnit, reserveAdditionalCall: () => { controller.signal.throwIfAborted(); reserveCall(); }, recordUsage } : {}) });
           if (!reportedUsage) recordUsage(result.usage);
           controller.signal.throwIfAborted(); ready(); authorized(request);
           if (nutrition && result.found) {
             result.card = validateNutrition(result.card);
             if (nutritionKey(result.card) !== foodKey) throw problem(502, 'The returned food identity changed. No nutrition was applied.');
             if (result.card.quality === 'source-backed' && !input.label) {
-              db.prepare('INSERT OR IGNORE INTO foods VALUES(?,?)').run(foodKey, JSON.stringify(result.card));
+              if (payload.portionUnit && portionBaseAmount(result.card, payload.portionUnit) !== null) {
+                db.prepare('INSERT INTO foods VALUES(?,?) ON CONFLICT(identity) DO UPDATE SET card=excluded.card').run(foodKey, JSON.stringify(result.card));
+              } else db.prepare('INSERT OR IGNORE INTO foods VALUES(?,?)').run(foodKey, JSON.stringify(result.card));
             }
           }
           return send(200, { ...(nutrition ? { found: result.found, card: result.card, reason: result.reason, cached: false } : { answer: result.answer }), usage: usage(session.wallet) });

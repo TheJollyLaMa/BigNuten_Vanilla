@@ -147,7 +147,11 @@ community facts before making a paid lookup. Ambiguous foods get one focused
 question, such as cooked or dry pasta. No extra review modal, consent checkbox
 or separate sign-in step. Source-backed food cards become public community
 references; health logs, meals, quantities eaten and personal edits do not.
-Local per-serving defaults remain optional and scale to compatible quantities.
+Local per-serving defaults remain optional. Amounts, fractions and source-defined
+cups/servings scale from the original base without another AI call. Serving sizes
+are displayed; missing food-specific weights can be defined inline and saved
+locally without publishing personal overrides. Cups/spoons use US nutrition-label
+volume units; food density is never guessed.
 Manual entry and community reuse need no AI or wallet. Search uses a **separate invited-wallet
 Render service with a server-held OpenAI key**, shared by all BigNuten hosted Genies.
 Deployment, sources, estimates, consent and setup are described in

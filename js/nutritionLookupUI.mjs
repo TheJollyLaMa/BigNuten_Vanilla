@@ -1,4 +1,4 @@
-import { NUTRIENTS, validateNutrition, saveNutritionDefault, matchingDefaults, scaleNutrition } from './nutritionDefaults.mjs';
+import { NUTRIENTS, validateNutrition, saveNutritionDefault, matchingDefaults, portionBaseAmount, nutritionUnitRatio } from './nutritionDefaults.mjs';
 import { genieClient, serviceUrl } from './genieService.mjs';
 export { serviceUrl } from './genieService.mjs';
 
@@ -10,6 +10,16 @@ export function initNutritionLookup({ load, save, apply }) {
   panel.innerHTML = `
     <p>Genie fills this card directly. It shares only food facts and source links with the community library, never your meals or health history. Clicking Genie sends the food query to our service and, on a library miss, OpenAI. Up to two provider calls; saved community facts use none. Check the serving and sources before logging.</p>
     <button type="button" id="nutritionCommunity">Use community food facts (no AI)</button>
+    <div id="nutritionPortion" hidden>
+      <p id="nutritionPortionSummary"></p>
+      <button type="button" id="nutritionAdjustPortion">Define / adjust this portion</button>
+      <div id="nutritionPortionEditor" hidden>
+        <p>No weight is guessed for a cup, piece or other food-specific portion. Use the label, a source or your scale. This override stays local and is not shared.</p>
+        <label id="nutritionPortionLabel" for="nutritionPortionAmount"></label>
+        <input id="nutritionPortionAmount" type="number" min="0.000001" max="1000000" step="any">
+        <button type="button" id="nutritionApplyPortion">Use this portion size</button>
+      </div>
+    </div>
     <details><summary>Food details / saved defaults</summary>
       <label>Food type <select id="nutritionKind"><option value="whole">Generic food</option><option value="packaged">Exact packaged product</option></select></label>
       <label>Preparation / variant <input id="nutritionPreparation" maxlength="300" placeholder="Cooked, dry, plain, nonfat..."></label>
@@ -54,6 +64,8 @@ export function initNutritionLookup({ load, save, apply }) {
   function reset() {
     const pending = Boolean(controller || clarification);
     cancel(); card = null; edited = false;
+    el('Portion').hidden = true; el('PortionEditor').hidden = true;
+    unit.querySelector('option[value="serving"]').textContent = 'serving';
     el('Sources').replaceChildren(); el('Provenance').textContent = '';
     if (pending) status('Food/access changed. Pending lookup canceled; no new facts applied.');
   }
@@ -63,9 +75,23 @@ export function initNutritionLookup({ load, save, apply }) {
       el('Saved').add(new Option(`${entry.brand || entry.name}: ${entry.preparation || entry.serving} ${entry.market}`, entry.id));
     }
   }
+  function showPortion() {
+    el('Portion').hidden = !card;
+    if (!card) return true;
+    const base = portionBaseAmount(card, unit.value);
+    const servingBase = portionBaseAmount(card, 'serving');
+    unit.querySelector('option[value="serving"]').textContent = `serving (${Number(servingBase.toFixed(4))} ${card.unit})`;
+    el('PortionSummary').textContent = base === null
+      ? `Define one ${unit.value} of this ${card.name} in ${card.unit} to fill nutrition.`
+      : `1 ${unit.value} = ${Number(base.toFixed(4))} ${card.unit}. Amount changes scale all available nutrients from the original base. Cups/spoons use US nutrition-label volumes.`;
+    el('AdjustPortion').hidden = !unit.value || ['g', 'oz'].includes(unit.value) && ['g', 'oz'].includes(card.unit) || unit.value === card.unit;
+    el('PortionEditor').hidden = base !== null;
+    el('PortionAmount').value = base === null ? '' : String(base);
+    el('PortionLabel').textContent = `One ${unit.value || 'portion'} equals how many ${card.unit}?`;
+    return base !== null;
+  }
   function populate(value, saved = false) {
     const next = validateNutrition(value);
-    scaleNutrition(next, amount.value, unit.value);
     apply({ ...next, approved: saved });
     card = next; edited = false;
     el('Serving').value = next.serving;
@@ -76,6 +102,7 @@ export function initNutritionLookup({ load, save, apply }) {
       link.href = source.url; link.textContent = source.title || source.url;
       link.target = '_blank'; link.rel = 'noopener noreferrer'; li.append(link); el('Sources').append(li);
     }
+    return showPortion();
   }
   async function ask(question) {
     clarification = document.createElement('dialog');
@@ -123,9 +150,12 @@ export function initNutritionLookup({ load, save, apply }) {
         el('Preparation').value = answer; input = identity();
         result = await shared(input, signal); current();
       }
-      if (!result.found && ai) {
-        status('Fetching food facts...');
-        result = await genieClient.request('/lookup', { input, consent: true }, signal, current);
+      const missingPortion = result.found && portionBaseAmount(validateNutrition(result.card), unit.value) === null;
+      if ((!result.found || missingPortion) && ai) {
+        if (missingPortion) populate(result.card);
+        status(missingPortion ? 'Finding a source-defined portion for this food...' : 'Fetching food facts...');
+        const requestPortion = missingPortion || !['g', 'oz', 'ml', 'serving'].includes(unit.value);
+        result = await genieClient.request('/lookup', { input, consent: true, ...(requestPortion ? { portionUnit: unit.value } : {}) }, signal, current);
         current(); showUsage(result.usage);
         if (result.clarification) {
           const answer = await ask(result.clarification); current();
@@ -138,7 +168,10 @@ export function initNutritionLookup({ load, save, apply }) {
         }
       }
       if (!result.found) { status(result.reason || 'No shared facts for this exact food/preparation yet. Use Genie or enter the figures manually.'); return; }
-      populate(result.card);
+      if (!populate(result.card)) {
+        status('Food facts found. Define the portion size below once; then amounts scale without another lookup.');
+        return;
+      }
       status(result.cached ? 'Filled from the community food library. No provider call. Check serving and sources; nothing logged.'
         : result.card.quality === 'source-backed' ? 'Nutrition filled. Source-backed food facts are reusable by the community. Check serving and sources; nothing logged.'
           : 'Nutrition filled as an estimate, not added to the shared library. Check serving and sources; nothing logged.');
@@ -156,11 +189,34 @@ export function initNutritionLookup({ load, save, apply }) {
       if (input === foodName) {
         for (const key of ['Preparation', 'Brand', 'Market', 'Barcode', 'Serving']) el(key).value = '';
         el('Kind').value = 'whole'; defaults();
+        const saved = matchingDefaults(load().nutritionDefaults, foodName.value);
+        if (saved.length === 1) populate(saved[0], true);
       }
     });
   }
   for (const input of [amount, unit]) input.addEventListener('input', () => {
     if (controller) { cancel(); status('Amount/unit changed. Pending lookup canceled; fetch again for the new entry.'); }
+  });
+  unit.addEventListener('change', () => {
+    if (card && !showPortion()) status('Define this portion below to calculate nutrition. No extra lookup is needed.');
+  });
+  el('AdjustPortion').addEventListener('click', () => {
+    el('PortionEditor').hidden = false; el('PortionAmount').focus();
+  });
+  el('ApplyPortion').addEventListener('click', () => {
+    try {
+      if (!card) throw new Error('Fetch food facts or select a default first.');
+      if (controller) throw new Error('Wait for the lookup to finish before changing the portion.');
+      if (edited) throw new Error('Save your edited figures as a default before changing the portion definition.');
+      const baseAmount = Number(el('PortionAmount').value);
+      const next = validateNutrition({ ...card, quality: 'user-entered',
+        note: 'Local portion override. Original sources do not verify your portion definition.',
+        measures: [...card.measures.filter(measure => nutritionUnitRatio(measure.unit, unit.value) === null), {
+          amount: 1, unit: unit.value, baseAmount, sourceUrl: '',
+        }] });
+      populate(next);
+      status('Portion defined locally. Change the amount to scale nutrition. Save as your default to keep this definition; nothing logged or shared.');
+    } catch (error) { status(error.message); }
   });
   for (const key of Object.keys(NUTRIENTS)) {
     document.getElementById(`dietNutr${key[0].toUpperCase()}${key.slice(1)}`).addEventListener('input', () => {
@@ -175,7 +231,8 @@ export function initNutritionLookup({ load, save, apply }) {
       if (!entry) return;
       cancel();
       for (const key of ['Kind', 'Preparation', 'Brand', 'Market', 'Barcode']) el(key).value = entry[key.toLowerCase()];
-      populate(entry, true); status('Filled from your local default. Nothing logged.');
+      status(populate(entry, true) ? 'Filled from your local default. Nothing logged.'
+        : 'Local default found. Define this portion below to calculate nutrition.');
     } catch (error) { status(error.message); }
   });
   el('Keep').addEventListener('click', () => {
