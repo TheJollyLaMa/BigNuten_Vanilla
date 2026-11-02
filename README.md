@@ -128,6 +128,7 @@ Everything accessible to every user in the browser — no wallet required to sta
 | 😊 **Emotions / Mood** | Feelings wheel with granular emotion selection |
 | 🌀 **Chakra** | Chakra energy tracker with visualization; Throat opens a chanting timer, mantra selector and session log |
 | 🤕 **Pain** | Body pain location and intensity logging |
+| 🫄 **Gut health** | Manual hydrogen/methane breath readings, optional challenge sessions and symptom check-ins; [scope and privacy](docs/gut-health-tracker.md) |
 | 🌬️ **Breathwork** | Guided breathing exercises and session logging |
 | 🧘 **Yoga Flow** | 12 pose library with custom sequences, SVG animations, session log |
 | 💧 **Hydration** | Daily water intake tracking (used by StreakBet verifier) |
@@ -157,6 +158,24 @@ Render service with a server-held OpenAI key**, shared by all BigNuten hosted Ge
 Deployment, sources, estimates, consent and setup are described in
 [GENIE_NUTRITION.md](docs/GENIE_NUTRITION.md). Search remains unavailable until
 that service is configured and its real endpoint is supplied.
+
+### Research and personal experiments (#405)
+
+Use the **Research** toolbar to save a YouTube video and a transcript, ask the
+invited Genie for one editable protocol, then track daily done/skip check-ins
+and compare selected scalar metrics across a baseline and experiment window.
+Pasting and saving is entirely local and makes no service or AI request. YouTube
+metadata/captions are explicit, best-effort actions; a failed caption request
+never blocks pasting. A protocol transcript is sent only after checking consent
+and clicking **Draft protocol**. Saved entries can be opted into Genie chat; its
+context is token-budgeted and cites the saved video title. Experiments display
+adherence, missing logs and personal observations, not proof or medical advice.
+
+Research content is stored in the user's `fitnessTrackerData` record and is
+never published to the shared food library. User-created backups may include
+it under the existing backup/privacy rules. See
+[RESEARCH_EXPERIMENTS.md](docs/RESEARCH_EXPERIMENTS.md) for the local data model,
+privacy boundaries, service endpoints and deployment note.
 
 ### Genie privacy and raw-food quick log
 
@@ -322,6 +341,7 @@ open index.html   # macOS
 - Start logging weight, supplements, food, and exercise — no wallet needed
 - Connect **MetaMask** on Base to unlock Base-deployed on-chain features
 - Use the left-header IPFS control to choose hosted IPFS backup, a personal pinning account, or local IPFS Desktop. New fitness snapshots are encrypted before upload; keep a local JSON backup because losing wallet access means losing access to encrypted remote backups.
+- **Profile continuity:** guest and wallet-linked local profiles are isolated per browser. Wallet connection does not move or upload guest records; use Settings → Health profile and storage for the explicit copy action. Cross-browser sync is not automatic: for transfer instructions and limitations, see [local profile continuity](docs/PROFILE_CONTINUITY.md).
 - Join a StreakBet competition and put real money on your health goals 💪
 
 ### 🛠️ I'm a Builder
@@ -644,7 +664,7 @@ BigNuten is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155 tokens
 
 #### 🔗 Option 1 — BigNuten Supporter Token on Base
 
-The **About → About the Project** card and the Early Supporter crypto section share one pinned-listing purchase flow. **No BigNuten Supporter listing exists on Base yet:** both show “BigNuten Supporter Token coming soon on Base” with existing BigNuten artwork and a disabled button. They never scan or select other apps’ listings. The legacy Optimism editions remain a separate collection available through [DecentMarket](https://thejollylama.github.io/DecentMarket/), not through this Base card. The table above describes that legacy collection, not the unlisted Base token.
+The **About → About the Project** card and the Early Supporter crypto section share one pinned-listing purchase flow. **No BigNuten Supporter listing exists on Base yet:** both show “BigNuten Supporter Token coming soon on Base” with existing BigNuten artwork and a disabled button. A diagonal **COMING SOON** stamp crosses the artwork until the Base listing is configured. They never scan or select other apps’ listings. The legacy Optimism editions are historical; this app offers Base purchases only. The table above describes that legacy collection, not the unlisted Base token.
 
 After minting, depositing stock, and listing, the steward must submit a reviewed change to **`js/supporter-token.json`**. All seven fields are intentionally `null` until then:
 

@@ -54,6 +54,8 @@ export function createSupporterController({ roots, ethers, network, escrowAbi, e
   function state(name, message, enabled = false, txHash) {
     for (const root of roots) {
       root.dataset.supporterState = name;
+      const stamp = root.querySelector('[data-supporter-stamp]');
+      if (stamp) stamp.hidden = name !== 'coming-soon';
       const status = root.querySelector('[data-supporter-status]');
       status.textContent = message;
       if (txHash && /^0x[0-9a-f]{64}$/i.test(txHash)) {

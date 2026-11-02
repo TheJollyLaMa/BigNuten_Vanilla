@@ -1,13 +1,14 @@
 import { BASE_SUPPORTER, createSupporterController } from './supporterToken.mjs';
+import { initializeProfileContinuity } from './profileContinuity.js';
 import { workoutDurationSeconds } from './workoutBody.js';
 import { initBodyMeasurements } from './bodyMeasurements.js';
 import { initWorkoutReview } from './workoutReview.js';
 import { initHeartMetrics } from './heartMetrics.js';
+import { initGutHealth } from './gutHealth.mjs';
 import { persistDietIntake, summarizeCalories, summarizeCaloriesByDay, buildMealTimingInsights } from './dietIntake.js';
 import { geniePrivacyNotice, revokeGenieHostedConsent } from './geniePrivacy.js';
 import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
 import { createWaterIntakeStore } from './waterIntake.js';
-initializeSnapshotRecovery();
 import { initDnftPayPalPurchase, initDnftStripePurchase, listDecentEscrowPlans, createDecentEscrowPlan, deactivateDecentEscrowPlan, getDecentEscrowSubscribers } from './subscription.js';
 import { displayProposals, createProposal, isProposer, isAdmin, getBnutBalance, addProposer, removeProposer, mintBnutToAddress } from './governance.js';
 import { loadPayrollQueue, getTreasuryBalance, getPayrollSettlementOptions, getBountyCoverage, isTreasuryOwner, settlePayroll, isIssuePaid, getContributorPaidEvents } from './treasury.js';
@@ -23,6 +24,8 @@ import { initYogaFlow } from './yoga.js';
 import { initChantingModal } from './breathPractice.js';
 import { getManualPinataToken, setManualPinataToken, clearManualPinataToken, clearSnapshotEncryptionKeyCache, isManualPinataTokenPersistent, ipfsGatewayUrl } from './ipfsStorage.js';
 import { loadSnapshotManifest } from './snapshotLifecycle.js';
+
+globalThis.__bignutenProfileReady = initializeProfileContinuity().then(() => { initializeSnapshotRecovery(); });
 
 function getActiveExplorerUrl(kind, value) {
   const config = window.CONTRACTS || {};
@@ -773,6 +776,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initPainLogModal();
   initChantingModal({ getFitnessData, saveFitnessData, showModal, hideModal });
   initHeartMetrics({ load: getFitnessData, save: saveFitnessData, showModal, hideModal });
+  initGutHealth({ load: getFitnessData, save: saveFitnessData, showModal, hideModal });
   // --- Feelings Wheel (3-ring interactive, one-click logging + analytics) ---
   initFeelingsWheel();
 });
@@ -804,15 +808,16 @@ const defaultData = {
 };
 
 function getFitnessData() {
+  if (window.__bignutenProfileIsReady === false) return JSON.parse(JSON.stringify(defaultData));
   fitnessRecovery.recover();
   let data = localStorage.getItem(STORAGE_KEY);
   if (data) {
     const normalized = normalizeFitnessData(JSON.parse(data));
-    saveFitnessData(normalized);
+    if (window.__bignutenProfileCanWrite?.() !== false) saveFitnessData(normalized);
     return normalized;
   } else {
-    // write default structure if no existing data
-    saveFitnessData(defaultData);
+    // Write defaults only when this tab owns the profile writer lock.
+    if (window.__bignutenProfileCanWrite?.() !== false) saveFitnessData(defaultData);
     return JSON.parse(JSON.stringify(defaultData));
   }
 }
@@ -903,6 +908,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 import { providerRegistry } from './storageProvider.js';
 import { initNutritionLookup } from './nutritionLookupUI.mjs';
+import { initResearchExperiments } from './researchExperimentsUI.mjs';
 import { matchingDefaults, scaleNutrition } from './nutritionDefaults.mjs';
 import { PinataProvider } from './providers/pinataProvider.js';
 import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
@@ -1418,7 +1424,7 @@ supplementEntries?.addEventListener('click', (e) => {
   }
 });
 
-loadSupplements();
+globalThis.__bignutenProfileReady.then(() => loadSupplements());
 
 // Display current weight
 function displayCurrentWeight() {
@@ -3938,6 +3944,7 @@ if (exerciseForm) {
   if (exerciseTypeSelect) {
     // Ensure dropdown is populated after fitness data is initialized
     populateExerciseTypeDropdown();
+    window.addEventListener('bignuten:fitness-data-restored', populateExerciseTypeDropdown);
     exerciseTypeSelect.addEventListener('change', () => {
       if (exerciseTypeSelect.value === 'add-new') {
         const newType = prompt('Enter a new exercise type:');
@@ -7623,6 +7630,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initChakraAura();
 
   // ── v3.1.0 Competitions (Streak Bets) ───────────────────────────────────
+  initResearchExperiments();
   initCompetitions();
 
   console.timeEnd('[startup] DOMContentLoaded → interactive');

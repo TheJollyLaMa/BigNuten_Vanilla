@@ -55,5 +55,24 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "overrides": {
+    "@sentry/node": {
+      "cookie": "0.7.2"
+    },
+    "bn.js@<5": "4.12.5",
+    "hardhat": {
+      "adm-zip": "0.6.1",
+      "undici": "6.29.1",
+      "uuid": "11.1.1"
+    },
+    "@nomicfoundation/hardhat-verify": {
+      "undici": "6.29.1"
+    },
+    "solc": {
+      "tmp": "0.2.7"
+    },
+    "ws@8.18.0": "8.21.0",
+    "diff@>=6 <8": "8.0.3"
   }
 }

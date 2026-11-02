@@ -1,0 +1,31 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Profile continuity browser harness</title>
+<script type="module">
+  import { createProfileStorage, LocalProfileCoordinator, migrateLegacyStorage, walletProfileId } from '../js/profileContinuityCore.mjs';
+  const nativeStorage = window.localStorage;
+  const migration = migrateLegacyStorage(nativeStorage);
+  const profile = createProfileStorage(nativeStorage);
+  Object.defineProperty(window, 'localStorage', { configurable: true, get: () => profile.storage });
+  const profileId = walletProfileId(new URL(location.href).searchParams.get('wallet'));
+  const coordinator = new LocalProfileCoordinator({
+    storage: nativeStorage,
+    profileStorage: profile.api,
+    locks: navigator.locks,
+    makeChannel: name => new BroadcastChannel(name),
+    confirmTakeover: async () => window.profileHarnessApprove === true,
+  });
+  await coordinator.activate(profileId);
+  window.profileHarness = {
+    migration,
+    get status() { return coordinator.status; },
+    get profileId() { return coordinator.profileId; },
+    switchProfile: id => coordinator.activate(id),
+    takeOver: options => coordinator.takeOver(options),
+    write: (key, value) => profile.storage.setItem(key, value),
+    read: key => profile.storage.getItem(key),
+    readLegacy: key => nativeStorage.getItem(key),
+    readGuest: key => profile.api.readProfile('guest', key),
+    close: () => coordinator.close(),
+  };
+</script>

@@ -54,6 +54,7 @@ function emptyValue(type) {
 // Read-only synthetic wallet; invitation decisions are fixture-owned.
 // There is no real wallet, signature, key, or external RPC behind this provider.
 const wallet = '0x' + '12'.repeat(20);
+let activeWallet = wallet;
 const walletCalls = [];
 let walletGranted = false;
 // Synthetic reviewed listing: never a real deployed BigNuten token or listing.
@@ -110,8 +111,8 @@ async function rpc({ method, params = [] }) {
   const supporterResult = supporterRpc({ method, params });
   if (supporterResult !== undefined) return supporterResult;
   switch (method) {
-    case 'eth_accounts': return walletGranted ? [wallet] : [];
-    case 'eth_requestAccounts': walletGranted = true; return [wallet];
+    case 'eth_accounts': return walletGranted ? [activeWallet] : [];
+    case 'eth_requestAccounts': walletGranted = true; return [activeWallet];
     case 'eth_chainId': return '0x2105';
     case 'net_version': return '8453';
     case 'eth_blockNumber': return '0x100';
@@ -143,12 +144,46 @@ const allowedErrors = [{
   match: /^console: Failed to load resource:.*502.*"url":"https:\/\/nutrition\.fixture\/lookup"/,
 }];
 let browser;
+async function profileContinuityTabs(viewport, name) {
+  const context = await browser.newContext({ viewport, locale: 'en-US', serviceWorkers: 'block' });
+  await context.addInitScript(() => localStorage.setItem('legacyContinuitySeed', 'synthetic-legacy-profile'));
+  const walletA = '0x' + 'a1'.repeat(20), walletB = '0x' + 'b2'.repeat(20);
+  const first = await context.newPage(), second = await context.newPage();
+  try {
+    await first.goto(`${base}/test/profile-continuity-harness.html?wallet=${walletA}`);
+    await first.waitForFunction(() => window.profileHarness?.status === 'writer');
+    await second.goto(`${base}/test/profile-continuity-harness.html?wallet=${walletB}`);
+    await second.waitForFunction(() => window.profileHarness?.status === 'writer');
+    await first.evaluate(() => window.profileHarness.write('fitnessTrackerData', JSON.stringify({ weight: 150, emotion: 'synthetic' })));
+    assert.equal(await second.evaluate(() => window.profileHarness.read('fitnessTrackerData')), null, 'different wallets do not share local health data');
+    await second.evaluate(() => window.profileHarness.write('fitnessTrackerData', 'wallet-b-only'));
+    assert.equal(await first.evaluate(() => window.profileHarness.read('fitnessTrackerData')), JSON.stringify({ weight: 150, emotion: 'synthetic' }));
+    assert.equal(await first.evaluate(() => window.profileHarness.readGuest('legacyContinuitySeed')), 'synthetic-legacy-profile', 'legacy data is preserved under the guest profile');
+    assert.equal(await first.evaluate(() => window.profileHarness.readLegacy('legacyContinuitySeed')), 'synthetic-legacy-profile', 'migration never deletes the unnamespaced original');
+
+    await second.evaluate(id => window.profileHarness.switchProfile(id), `wallet-${walletA.toLowerCase()}`);
+    await second.waitForFunction(() => window.profileHarness?.status === 'readonly');
+    assert.equal(await second.evaluate(() => window.profileHarness.read('fitnessTrackerData')), JSON.stringify({ weight: 150, emotion: 'synthetic' }));
+    await first.evaluate(() => { window.profileHarnessApprove = true; });
+    const takeover = second.evaluate(() => window.profileHarness.takeOver({ timeoutMs: 3000, pollMs: 10 }));
+    assert.equal(await takeover, true, 'explicit takeover obtains the writer lock');
+    await first.waitForFunction(() => window.profileHarness.status === 'readonly');
+    assert.equal(await first.evaluate(() => { try { window.profileHarness.write('fitnessTrackerData', 'stale overwrite'); return 'wrote'; } catch (error) { return error.code; } }), 'PROFILE_READ_ONLY', 'stale writer cannot overwrite after takeover');
+    await second.evaluate(() => window.profileHarness.write('fitnessTrackerData', 'wallet-a-after-takeover'));
+    assert.equal(await second.evaluate(() => window.profileHarness.read('fitnessTrackerData')), 'wallet-a-after-takeover');
+    console.log(`${name}: wallet isolation, legacy-copy preservation and fenced tab takeover passed`);
+  } finally {
+    await context.close();
+  }
+}
 try {
   browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
     const name = viewport.width === 390 ? 'mobile' : 'desktop';
+    await profileContinuityTabs(viewport, name);
     walletCalls.length = 0;
     walletGranted = false;
+    activeWallet = wallet;
     const context = await browser.newContext({ viewport, locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce', serviceWorkers: 'block' });
     const restoredSnapshot = {
       dataVersion: 1,
@@ -200,7 +235,7 @@ try {
         raw: JSON.stringify({ dataVersion: 1, weightLogs: [], waterDailyHistory: {} }),
       }]));
     });
-    const hostedRequests = [], autoLookups = [];
+    const hostedRequests = [], autoLookups = [], researchRequests = [];
     let deniedChallenges = 0;
     await page.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url());
@@ -230,6 +265,29 @@ try {
         if (url.pathname === '/lookup') {
           autoLookups.push(body);
           return route.fulfill({ headers, json: { found: false, reason: 'Synthetic hosted fixture has no card.', usage: { calls: 0, inputTokens: 0, outputTokens: 0 } } });
+        }
+        if (url.pathname === '/research/oembed') {
+          assert.deepEqual(Object.keys(body).sort(), ['consent', 'videoId']);
+          assert.equal(body.consent, true);
+          researchRequests.push({ path: url.pathname, body });
+          return route.fulfill({ headers, json: { title: `Synthetic YouTube ${body.videoId}`, thumbnailUrl: `https://i.ytimg.com/vi/${body.videoId}/hqdefault.jpg`, usage: { calls: researchRequests.length, inputTokens: 0, outputTokens: 0 } } });
+        }
+        if (url.pathname === '/research/captions') {
+          assert.deepEqual(Object.keys(body).sort(), ['consent', 'videoId']);
+          assert.equal(body.consent, true);
+          researchRequests.push({ path: url.pathname, body });
+          return route.fulfill({ headers, json: { transcript: 'Synthetic captions about a gentle sleep routine.', source: 'youtube-captions', language: 'en', usage: { calls: researchRequests.length, inputTokens: 0, outputTokens: 0 } } });
+        }
+        if (url.pathname === '/research/protocol') {
+          assert.deepEqual(Object.keys(body).sort(), ['consent', 'metrics', 'title', 'transcript']);
+          assert.equal(body.consent, true);
+          assert.match(body.transcript, /Synthetic pasted transcript/);
+          assert.ok(body.metrics.some(metric => metric.id === 'sleep'));
+          researchRequests.push({ path: url.pathname, body });
+          return route.fulfill({ headers, json: { protocol: { title: 'Synthetic sleep routine', summary: 'A consistent wind-down routine to observe.', rationale: 'Track sleep without treating short-term change as proof.', durationDays: 7, baselineDays: 3,
+            actions: [{ action: 'Use a comfortable wind-down routine', dose: 'Optional; no supplements', timing: 'Before bed' }],
+            targetMetrics: [{ metricId: 'sleep', metricLabel: 'Sleep duration', direction: 'observe' }], clinicianReviewRequired: false, clinicianReviewReason: '' },
+            usage: { calls: researchRequests.length, inputTokens: 25, outputTokens: 18 } } });
         }
         assert.equal(url.pathname, '/assistant', 'Every private Genie route needs an explicit fixture');
         assert.deepEqual(Object.keys(body).sort(), ['assistant', 'consent', 'messages']);
@@ -300,6 +358,7 @@ try {
           const card = page.locator('#about-supporter-token');
           await page.waitForFunction(() => document.querySelector('#about-supporter-token').dataset.supporterState === 'coming-soon');
           assert.match(await card.innerText(), /BigNuten Supporter Token coming soon on Base/);
+          assert.equal(await card.locator('[data-supporter-stamp]').isVisible(), true);
           assert.equal(await card.locator('[data-supporter-buy]').isDisabled(), true);
           const txCount = walletCalls.filter(method => method === 'eth_sendTransaction').length;
           await card.locator('[data-supporter-buy]').evaluate(button => button.click());
@@ -314,6 +373,7 @@ try {
               await click('#app-title-name');
               const expected = scenario === 'mismatch' ? 'failed' : scenario === 'soldOut' ? 'sold-out' : 'ready';
               await page.waitForFunction(expected => document.querySelector('#about-supporter-token').dataset.supporterState === expected, expected);
+              assert.equal(await card.locator('[data-supporter-stamp]').isVisible(), false);
               if (scenario === 'mismatch' || scenario === 'soldOut') {
                 assert.equal(await card.locator('[data-supporter-buy]').isDisabled(), true);
                 assert.equal(supporterTransactions.size, 0);
@@ -403,12 +463,38 @@ try {
       assert.equal(await page.locator('#yoga-genie-btn').isVisible(), false);
       assert.equal(await page.locator('#dietNutritionGenie').isVisible(), false);
       assert.equal(await page.locator('#genie-api-key-input').count(), 0, 'No browser AI-key entry is offered');
+      await page.evaluate(() => {
+        const data = JSON.parse(localStorage.getItem('fitnessTrackerData'));
+        data.weightLogs.push({ weight: 149, timestamp: '2026-10-27T10:00:00Z' });
+        data.emotions.push({ emotion: 'Synthetic calm', context: 'continuity smoke', timestamp: '2026-10-27T10:01:00Z' });
+        data.waterDailyHistory['2026-10-27'] = 2;
+        localStorage.setItem('fitnessTrackerData', JSON.stringify(data));
+      });
       await click('#wallet-connect');
-      await page.waitForFunction(() => document.getElementById('wallet-connect').dataset.walletState === 'connected');
+      await page.waitForFunction(() => document.getElementById('wallet-connect')?.dataset.walletState === 'connected');
+      await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; }' });
       assert.equal(await page.locator('#wallet-connect').getAttribute('data-wallet-address'), wallet);
       await page.waitForFunction(() => document.getElementById('assistant-access-status').textContent.includes('available for this wallet'));
+      if (name === 'desktop') {
+        await page.waitForTimeout(150);
+        if (await page.locator('#ipfs-edu-overlay').isVisible()) {
+          await click('#ipfs-edu-skip-btn');
+          await hidden('#ipfs-edu-overlay');
+        }
+      }
       await click('#aesculapius-right');
       await click('#aes-settings-btn');
+      await page.waitForFunction(() => {
+        const button = document.getElementById('bn-profile-copy-guest');
+        return button && !button.hidden && document.getElementById('bn-profile-state').textContent === 'Editing here';
+      });
+      await page.locator('#bn-profile-details').evaluate(element => { element.open = true; });
+      page.once('dialog', dialog => dialog.accept());
+      await click('#bn-profile-copy-guest');
+      await page.waitForFunction(() => document.getElementById('bn-profile-state').textContent.includes('Copied'));
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).emotions.some(entry => entry.emotion === 'Synthetic calm')), true, 'explicit guest copy retains synthetic health records in wallet profile');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('bignutenProfileCopyBackups.v1')).length), 1, 'source and destination bytes were backed up before merging');
+      await page.locator('#bn-profile-details').evaluate(element => { element.open = false; });
       await click('#assistant-access-check');
       await page.waitForFunction(() => document.getElementById('assistant-access-status').textContent.startsWith('Signed in'));
       await click('#settings-modal-close');
@@ -456,6 +542,56 @@ try {
         console.log(`${name}: ${source} restore repopulated water, weight, food/nutrition, supplements, exercises, measurements, pain and feelings without reload`);
       }
       await click('#correlation-graph-modal .modal-close');
+      await click('#gut-health-open');
+      await visible('#gut-health-modal');
+      assert.match(await page.locator('.gut-health-notice').innerText(), /not diagnosis/i);
+      await page.locator('#gut-session-challenge').fill('Synthetic smoke session');
+      await page.locator('#gut-session-start').fill('2026-10-28T10:00');
+      const mealValue = await page.locator('#gut-meal-link option').filter({ hasText: 'Synthetic restore meal' }).getAttribute('value');
+      assert.ok(mealValue, 'Existing diet entry is available as an optional reference');
+      await page.locator('#gut-meal-link').selectOption(mealValue);
+      await page.locator('#gut-session-form button[type="submit"]').click();
+      assert.match(await page.locator('#gut-health-status').innerText(), /session saved/i);
+      assert.ok(await page.locator('#gut-session-picker').inputValue(), `Newly created session remains selected; options=${await page.locator('#gut-session-picker').innerText()} state=${JSON.stringify(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).gutHealth))}`);
+      await page.locator('#gut-reading-time').fill('2026-10-28T10:00');
+      await page.locator('#gut-reading-phase').selectOption('baseline');
+      await page.locator('#gut-hydrogen').fill('4');
+      await page.locator('#gut-hydrogen-scale').fill('ppm');
+      await page.locator('#gut-reading-source').fill('FoodMarble AIRE 2 (manual)');
+      await page.locator('#gut-reading-form button[type="submit"]').click();
+      assert.match(await page.locator('#gut-health-status').innerText(), /Breath reading saved/i, 'Baseline submit status');
+      await page.locator('#gut-reading-time').fill('2026-10-28T10:30');
+      await page.locator('#gut-reading-phase').selectOption('after-challenge');
+      await page.locator('#gut-hydrogen').fill('18');
+      await page.locator('#gut-hydrogen-scale').fill('ppm');
+      await page.locator('#gut-methane').fill('3');
+      await page.locator('#gut-methane-scale').fill('FoodMarble AIRE 2 score');
+      await page.locator('#gut-reading-source').fill('FoodMarble AIRE 2 (manual)');
+      await page.locator('#gut-reading-form button[type="submit"]').click();
+      await page.locator('#gut-symptom-session').selectOption(await page.locator('#gut-session-picker').inputValue());
+      await page.locator('#gut-symptom-type').selectOption('Bloating');
+      await page.locator('#gut-symptom-intensity').fill('4');
+      await page.locator('#gut-symptom-form button[type="submit"]').click();
+      assert.match(await page.locator('#gut-session-history').innerText(), /Hydrogen|hydrogen/);
+      assert.match(await page.locator('#gut-session-history').innerText(), /linked diet log: Synthetic restore meal/);
+      assert.match(await page.locator('#gut-symptom-history').innerText(), /Bloating 4\/10/);
+      assert.equal(await page.locator('#gut-health-chart circle').count(), 1, 'Same-scale hydrogen session renders a chart point');
+      assert.match(await page.locator('#gut-trend-summary').innerText(), /rise \+14 ppm/);
+      const baselineEdit = page.locator('#gut-session-history button[aria-label^="Edit breath reading"]').last();
+      await baselineEdit.click();
+      await page.locator('#gut-hydrogen').fill('5');
+      await page.locator('#gut-reading-form button[type="submit"]').click();
+      assert.match(await page.locator('#gut-trend-summary').innerText(), /rise \+13 ppm/, 'Corrected baseline updates the same-scale chart');
+      const storedGut = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).gutHealth);
+      assert.equal(storedGut.sessions[0].readings.length, 2);
+      assert.equal(storedGut.sessions[0].readings.find(reading => reading.phase === 'baseline').hydrogen.value, 5);
+      assert.equal(storedGut.sessions[0].mealContext.name, 'Synthetic restore meal');
+      assert.equal(storedGut.symptoms[0].sessionId, storedGut.sessions[0].id);
+      await shot(`${name}-gut-health-tracker`);
+      await click('#gut-health-modal-close');
+      await hidden('#gut-health-modal');
+      covered.add('gut-health-modal');
+      console.log(`${name}: manually logged gut session, breath trend, meal reference and symptom`);
       // Log one synthetic exercise through the real form to populate the workout
       // path. Fresh browser contexts guarantee this never touches user data.
       await click('#log-exercise');
@@ -1347,14 +1483,6 @@ try {
       // provider. Exercise the snapshot viewer without uploading private data.
       await page.evaluate(() => localStorage.setItem('storageMode', 'ipfs'));
       await modal('ipfs-snapshot-panel', '#aes-storage-btn', '#snapshot-panel-close', ['#aesculapius-right']);
-      await page.evaluate(async () => {
-        localStorage.setItem('storageMode', 'json-only');
-        const { setManualPinataToken } = await import('/js/ipfsStorage.js');
-        setManualPinataToken('synthetic-disconnect-jwt', { persist: true });
-        window.__smokeEmitWalletEvent('accountsChanged', []);
-      });
-      assert.equal(await page.evaluate(() => sessionStorage.getItem('bignuten.pinata.jwt.session')), null, 'Wallet disconnect clears the session JWT');
-      assert.equal(await page.evaluate(() => localStorage.getItem('bignuten.pinata.jwt.persisted')), null, 'Wallet disconnect clears explicitly persisted JWTs too');
       // Real local-only Quest UI on desktop and mobile, never wallet actions.
       const questHostedBefore = hostedRequests.length;
       const questWalletBefore = walletCalls.length;
@@ -1385,6 +1513,7 @@ try {
       assert.match(await page.locator('#quest-chapter-label').innerText(), /Chapter 2 of 7/);
       await shot('quest-progress');
       await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForFunction(() => document.getElementById('quest-mode-toggle')?.dataset.ready === 'true');
       await visible('#quest-card');
       await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; }' });
       assert.match(await page.locator('#quest-chapter-label').innerText(), /Chapter 2 of 7/);
@@ -1442,7 +1571,7 @@ try {
       await page.evaluate(() => {
         window.__questSetItem = Storage.prototype.setItem;
         Storage.prototype.setItem = function(key, value) {
-          if (key === 'bignuten:quest:v1') throw new DOMException('Synthetic quota', 'QuotaExceededError');
+          if (key.endsWith('bignuten:quest:v1')) throw new DOMException('Synthetic quota', 'QuotaExceededError');
           return window.__questSetItem.call(this, key, value);
         };
       });
@@ -1454,7 +1583,7 @@ try {
         delete window.__questSetItem;
         window.__questRemoveItem = Storage.prototype.removeItem;
         Storage.prototype.removeItem = function(key) {
-          if (key === 'bignuten:quest:v1') throw new DOMException('Synthetic denied', 'SecurityError');
+          if (key.endsWith('bignuten:quest:v1')) throw new DOMException('Synthetic denied', 'SecurityError');
           return window.__questRemoveItem.call(this, key);
         };
       });
@@ -1475,22 +1604,132 @@ try {
       assert.equal(hostedRequests.length, questHostedBefore, 'Quest never calls a hosted model');
       assert.deepEqual(walletCalls.slice(questWalletBefore).filter(method => /sign|send|requestAccounts|switchEthereumChain|addEthereumChain/i.test(method)), [], 'Quest never signs, sends, connects or switches a wallet');
       console.log(`${name}: Quest opt-in, keyboard safety, reload/resume, seven chapters, local badge, issue-helper handoff, exit, reset/clear and storage failures verified without financial actions`);
+      await click('#research-open');
+      await visible('#research-experiments-dialog');
+      covered.add('research-experiments-dialog');
+      assert.match(await page.locator('#research-library').innerText(), /private research library is empty/i);
+      assert.ok(await page.locator('#research-experiments-dialog').evaluate(dialog => dialog.getBoundingClientRect().width <= window.innerWidth), `${name}: research dialog fits the viewport`);
+      const modelCallsBeforePaste = hostedRequests.length;
+      await page.locator('#research-url').fill('https://www.youtube.com/watch?v=abcdefghijk');
+      await click('#research-preview');
+      await page.waitForFunction(() => document.getElementById('research-new-title').value.includes('abcdefghijk'));
+      await page.locator('#research-category').selectOption('sleep');
+      await page.locator('#research-tags').fill('sleep, routine');
+      await page.locator('#research-transcript').fill('Synthetic pasted transcript: keep a consistent, comfortable bedtime routine.');
+      const serviceCallsBeforePaste = researchRequests.length;
+      await page.locator('#research-add-form button[type="submit"]').click();
+      await page.waitForFunction(() => document.getElementById('research-status').textContent.includes('Saved privately on this device'));
+      assert.equal(hostedRequests.length, modelCallsBeforePaste, 'Pasting and saving a transcript makes no AI request');
+      assert.equal(researchRequests.length, serviceCallsBeforePaste, 'Manual transcript save makes no service request');
+      let savedResearch = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).latestResearch);
+      assert.equal(savedResearch.length, 1);
+      assert.equal(savedResearch[0].transcript, 'Synthetic pasted transcript: keep a consistent, comfortable bedtime routine.');
+      assert.equal(savedResearch[0].title, 'Synthetic YouTube abcdefghijk', 'YouTube oEmbed title is saved');
+      await page.locator('#research-url').fill('https://youtu.be/lmnopqrstuv');
+      await click('#research-preview');
+      await page.waitForFunction(() => document.getElementById('research-new-title').value.includes('lmnopqrstuv'));
+      await page.locator('#research-add-form button[type="submit"]').click();
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).latestResearch.length === 2);
+      await page.locator('#research-filter').selectOption('sleep');
+      await page.waitForFunction(() => document.querySelectorAll('.research-card').length === 1);
+      await page.locator('#research-filter').selectOption('all');
+      const captionCard = page.locator('.research-card').filter({ hasText: 'Synthetic YouTube lmnopqrstuv' });
+      await captionCard.locator('[data-action="fetch-captions"]').click();
+      await page.waitForFunction(() => document.getElementById('research-status').textContent.includes('No AI model was called'));
+      assert.equal(researchRequests.filter(call => call.path === '/research/oembed').length, 2, 'Explicit oEmbed action sends one video ID per video');
+      assert.equal(researchRequests.filter(call => call.path === '/research/captions').length, 1, 'Caption action calls the hosted caption endpoint once');
+      assert.equal(researchRequests.find(call => call.path === '/research/captions').body.videoId, 'lmnopqrstuv');
+      const pastedCard = page.locator('.research-card').filter({ hasText: 'Synthetic YouTube abcdefghijk' });
+      await pastedCard.locator('[data-action="include-research"]').check();
+      await page.locator('#research-genie-consent').check();
+      await page.locator('#research-target-metrics input[data-metric-id="sleep"]').check();
+      await pastedCard.locator('[data-action="draft-protocol"]').click();
+      await page.waitForFunction(() => !document.getElementById('research-draft-protocol').hidden);
+      assert.equal(researchRequests.filter(call => call.path === '/research/protocol').length, 1, 'Genie protocol action makes one structured request');
+      assert.equal(researchRequests.at(-1).body.transcript, savedResearch.find(entry => entry.youtubeId === 'abcdefghijk').transcript, 'Only the chosen transcript is sent for protocol drafting');
+      await page.locator('#research-draft-form button[type="submit"]').click();
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).researchProtocols.length === 1);
+      await page.evaluate(() => {
+        const data = JSON.parse(localStorage.getItem('fitnessTrackerData'));
+        data.metricLogs = [
+          { id: 'synthetic-research-sleep-1', metric: 'sleep', value: 25200, unit: 's', date: '2026-10-25', time: '21:00', note: '', source: 'self-reported' },
+          { id: 'synthetic-research-sleep-2', metric: 'sleep', value: 25200, unit: 's', date: '2026-10-26', time: '21:00', note: '', source: 'self-reported' },
+          { id: 'synthetic-research-sleep-3', metric: 'sleep', value: 25200, unit: 's', date: '2026-10-27', time: '21:00', note: '', source: 'self-reported' },
+          { id: 'synthetic-research-sleep-4', metric: 'sleep', value: 28800, unit: 's', date: '2026-10-28', time: '21:00', note: '', source: 'self-reported' },
+        ];
+        localStorage.setItem('fitnessTrackerData', JSON.stringify(data));
+      });
+      await page.locator('[data-action="start-experiment"] button[type="submit"]').click();
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).researchExperiments.length === 1);
+      const checkIn = page.locator('form[data-action="check-in"]');
+      await checkIn.locator('[name="status"]').selectOption('done');
+      await checkIn.locator('button[type="submit"]').click();
+      await page.waitForFunction(() => document.getElementById('research-status').textContent.includes('Saved done'));
+      const comparison = await page.locator('.research-experiment-result').innerText();
+      assert.match(comparison, /Adherence: 100%/);
+      assert.match(comparison, /baseline 25200/);
+      assert.match(comparison, /during 28800/);
+      assert.match(comparison, /Personal observation only/);
+      await page.locator('#research-search').fill('no matching research result');
+      await page.waitForFunction(() => document.getElementById('research-library').textContent.includes('No saved videos match'));
+      assert.match(await page.locator('#research-library').innerText(), /No saved videos match/);
+      await page.locator('#research-search').fill('');
+      await page.locator('#research-experiments-dialog .research-close').click();
+      await hidden('#research-experiments-dialog');
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.locator('#app-title-name').waitFor({ state: 'visible' });
+      await click('#research-open');
+      await visible('#research-experiments-dialog');
+      savedResearch = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).latestResearch);
+      assert.equal(savedResearch.length, 2, 'Research entries persist after reload');
+      assert.equal(await page.locator('.research-experiment-card').count(), 1, 'Experiment and check-in persist after reload');
+      await page.locator('.research-card').filter({ hasText: 'Synthetic YouTube lmnopqrstuv' }).locator('[data-action="delete-research"]').click();
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).latestResearch.length === 1);
+      await page.locator('#research-experiments-dialog .research-close').click();
+      await hidden('#research-experiments-dialog');
+      console.log(`${name}: research URL/oEmbed, offline transcript save, best-effort captions, consented protocol, local experiment, comparison and reload persistence verified`);
+
       const recordsBeforeLock = await page.evaluate(() => localStorage.getItem('fitnessTrackerData'));
       const modelCallsBeforeLock = hostedRequests.length;
-      await page.evaluate(() => {
-        window._connectedAccount = '0x' + '34'.repeat(20);
-        window.dispatchEvent(new CustomEvent('bignuten:wallet-changed'));
-      });
-      await page.waitForFunction(() => document.getElementById('assistant-access-status').textContent.includes('not enabled'));
-      assert.equal(deniedChallenges, 1);
+      const deniedWallet = '0x' + '34'.repeat(20);
+      activeWallet = deniedWallet;
+      await Promise.all([
+        page.waitForNavigation(),
+        page.evaluate(address => window.__smokeEmitWalletEvent('accountsChanged', [address]), deniedWallet),
+      ]);
+      await page.waitForFunction(() => window.__bignutenProfileIsReady === true);
+      await page.waitForFunction(() => document.getElementById('assistant-access-status')?.textContent.includes('not enabled'));
+      assert.ok(deniedChallenges >= 1 && deniedChallenges <= 2, 'The uninvited wallet challenge is rejected, with at most one reload retry');
       assert.equal(await page.locator('.genie-icon-btn').count(), 0);
       assert.equal(await page.locator('.genie-chat-window').count(), 0);
       assert.equal(await page.locator('#yoga-genie-btn').isVisible(), false);
       await visible('#dietBtn');
       assert.equal(await page.locator('#dietNutritionGenie').isVisible(), false);
-      assert.equal(await page.evaluate(() => localStorage.getItem('fitnessTrackerData')), recordsBeforeLock, 'Genie lock does not erase health records');
+      const deniedProfile = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')));
+      assert.equal(deniedProfile.emotions.length, 0, 'another wallet sees its own empty local profile, not the previous wallet records');
       assert.equal(hostedRequests.length, modelCallsBeforeLock, 'Uninvited wallet sends no model context');
-      console.log(`${name}: real HTTP 403 fixture locks every Genie surface while preserving manual health tracking and records`);
+      activeWallet = wallet;
+      await Promise.all([
+        page.waitForNavigation(),
+        page.evaluate(address => window.__smokeEmitWalletEvent('accountsChanged', [address]), wallet),
+      ]);
+      await page.waitForFunction(() => window.__bignutenProfileIsReady === true);
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).emotions.some(entry => entry.emotion === 'Joy')), true, 'switching back restores the active wallet profile after the explicit snapshot restore');
+      walletGranted = false;
+      await Promise.all([
+        page.waitForNavigation(),
+        page.evaluate(async () => {
+          localStorage.setItem('storageMode', 'json-only');
+          const { setManualPinataToken } = await import('/js/ipfsStorage.js');
+          setManualPinataToken('synthetic-disconnect-jwt', { persist: true });
+          window.__smokeEmitWalletEvent('accountsChanged', []);
+        }),
+      ]);
+      await page.waitForFunction(() => window.__bignutenProfileIsReady === true);
+      assert.equal(await page.evaluate(() => sessionStorage.getItem('bignuten.pinata.jwt.session')), null, 'Wallet disconnect clears the session JWT');
+      assert.equal(await page.evaluate(() => localStorage.getItem('bignuten.pinata.jwt.persisted')), null, 'Wallet disconnect clears explicitly persisted JWTs too');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).emotions.some(entry => entry.emotion === 'Synthetic calm')), true, 'wallet disconnect returns to the intact guest profile');
+      console.log(`${name}: real HTTP 403 fixture locks Genie, wallet switching isolates profiles, and reconnect/disconnect preserves prior data`);
       const exclusions = new Map([
         ...(name === 'desktop' ? [['mobile-data-sheet', 'Mobile-only IPFS menu by design.']] : [['ipfs-edu-overlay', 'Desktop-only onboarding by design.']]),
       ]);
@@ -1503,8 +1742,8 @@ try {
       console.log(`${name}: covered ${panels.length} panels / ${covered.size} dialogs; ${external.size} external URLs fulfilled locally`);
       assert.deepEqual(unexpected, [], 'External requests need explicit fixtures');
       // Editing the card or food intentionally aborts an in-flight auto-fill request.
-      const canceledNutrition = /^https:\/\/(nutrition\.fixture|bignuten-nutrition\.onrender\.com)\/(foods|lookup): net::ERR_ABORTED$/;
-      assert.deepEqual(failed.filter(failure => !['403 https://bignuten-nutrition.onrender.com/challenge', '502 https://nutrition.fixture/lookup'].includes(failure) && !canceledNutrition.test(failure)), [], 'No failed requests beyond deliberate invitation/provider failures or canceled nutrition lookups');
+      const canceledRequest = /^https:\/\/(nutrition\.fixture|bignuten-nutrition\.onrender\.com)\/(foods|lookup|challenge): net::ERR_ABORTED$/;
+      assert.deepEqual(failed.filter(failure => !['403 https://bignuten-nutrition.onrender.com/challenge', '502 https://nutrition.fixture/lookup'].includes(failure) && !canceledRequest.test(failure)), [], 'No failed requests beyond deliberate invitation/provider failures or canceled requests during profile switches');
       const unallowed = errors.filter(error => !allowedErrors.some(entry => entry.match.test(error)));
       for (const error of errors.filter(error => !unallowed.includes(error))) console.warn(`ALLOWLISTED (${name}): ${error}`);
       assert.deepEqual(unallowed, [], 'No unexpected console errors or page exceptions');

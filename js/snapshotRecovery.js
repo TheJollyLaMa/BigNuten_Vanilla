@@ -69,7 +69,11 @@ export function createSnapshotRecovery(storage = globalThis.localStorage, now = 
       let valid = false;
       try { validateFitnessSnapshot(JSON.parse(raw)); valid = true; }
       catch (error) { if (error.code === 'UNSUPPORTED_SNAPSHOT_VERSION') throw error; }
-      if (valid) { storage.removeItem(UNDONE_KEY); return null; }
+      if (valid) {
+        try { storage.removeItem(UNDONE_KEY); }
+        catch (error) { if (error.code !== 'PROFILE_READ_ONLY') throw error; }
+        return null;
+      }
     }
     const undone = JSON.parse(storage.getItem(UNDONE_KEY) || 'null');
     if (undone && undone.raw === raw) return null;
@@ -145,8 +149,20 @@ export const fitnessRecovery = createSnapshotRecovery({
 export function initializeSnapshotRecovery() {
   let recovered;
   let error;
-  try { recovered = fitnessRecovery.recover();
-    if (!recovered) { const pending = fitnessRecovery.pending(); if (pending?.recoveredRaw === localStorage.getItem(DATA_KEY)) recovered = pending; }
+  try {
+    recovered = fitnessRecovery.recover();
+    if (!recovered) {
+      const pending = fitnessRecovery.pending();
+      const current = localStorage.getItem(DATA_KEY);
+      if (pending?.recoveredRaw === current) recovered = pending;
+      else if (pending?.recoveredRaw && current !== null) {
+        try {
+          const recoveredData = validateFitnessSnapshot(JSON.parse(pending.recoveredRaw));
+          const currentData = validateFitnessSnapshot(JSON.parse(current));
+          if (JSON.stringify(recoveredData) === JSON.stringify(currentData)) recovered = pending;
+        } catch { /* A changed or invalid primary is not the same recovery event. */ }
+      }
+    }
   } catch (failure) { error = failure; }
   if (!recovered && !error) return;
   const id = recovered ? eventId(recovered) : JSON.stringify([error.message, localStorage.getItem(DATA_KEY)]);

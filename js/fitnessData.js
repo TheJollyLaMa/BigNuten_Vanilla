@@ -11,6 +11,7 @@ import { fitnessRecovery } from './snapshotRecovery.js';
 export { normalizeFitnessData, validateFitnessSnapshot } from './fitnessSchema.js';
 
 export async function getFitnessData() {
+  if (globalThis.__bignutenProfileIsReady === false) return cloneDefaultData();
   fitnessRecovery.recover();
   const current = localStorage.getItem(STORAGE_KEY);
 
@@ -18,12 +19,12 @@ export async function getFitnessData() {
   // an explicit action from the storage panel, never an initialization prompt.
   if (!current) {
     const fresh = cloneDefaultData();
-    saveFitnessData(fresh);
+    if (globalThis.__bignutenProfileCanWrite?.() !== false) saveFitnessData(fresh);
     return fresh;
   }
 
   const currentData = normalizeFitnessData(JSON.parse(current));
-  saveFitnessData(currentData);
+  if (globalThis.__bignutenProfileCanWrite?.() !== false) saveFitnessData(currentData);
   return currentData;
 }
 
@@ -114,10 +115,6 @@ export function patchAllSnapshotHistory() {
   console.log("📦 Full snapshot history rebuilt. Total entries:", sorted.length);
 }
 
-// Optionally auto-run on file load
-if (typeof localStorage !== 'undefined') {
-  retrofitOldSnapshots();
-}
 export async function logWeight(weight) {
   const data = await getFitnessData();
   data.weightLogs.push({
@@ -126,13 +123,6 @@ export async function logWeight(weight) {
   });
   saveFitnessData(data);
 }
-// Run once at idle — deferred off the critical path to avoid blocking first paint.
-if (typeof localStorage !== 'undefined' && typeof requestIdleCallback === 'function') {
-  requestIdleCallback(() => patchAllSnapshotHistory(), { timeout: 5000 });
-} else if (typeof localStorage !== 'undefined') {
-  setTimeout(() => patchAllSnapshotHistory(), 3000);
-}
-
 /**
  * Merges two fitness data objects, deduplicating array entries by stable record ID or canonical content.
  * Handles the exercises object structure ({types, entries}) as well as simple arrays.
@@ -155,7 +145,7 @@ export function mergeSnapshotData(current, imported) {
   merged.nutritionDefaults = [...currentDefaults, ...(imported.nutritionDefaults || []).filter(card => !currentDefaults.some(entry => entry.id === card.id))];
 
   // Preserve distinct records even if they share a timestamp.
-  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'breathworkSessions', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights'];
+  const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'breathworkSessions', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights', 'latestResearch', 'researchProtocols', 'researchExperiments'];
   simpleArrayFields.forEach(field => {
     const a = Array.isArray(current[field]) ? current[field] : [];
     const b = Array.isArray(imported[field]) ? imported[field] : [];
@@ -168,7 +158,7 @@ export function mergeSnapshotData(current, imported) {
         combined.push(entry);
       }
     });
-    const sortTime = entry => field === 'metricLogs' ? `${entry.date}T${entry.time}` : entry.timestamp || entry.date || '';
+    const sortTime = entry => field === 'metricLogs' ? `${entry.date}T${entry.time}` : entry.timestamp || entry.createdAt || entry.addedAt || entry.date || '';
     combined.sort((x, y) => sortTime(x).localeCompare(sortTime(y)));
     if (field === 'metricLogs') {
       const days = new Set();
@@ -181,6 +171,26 @@ export function mergeSnapshotData(current, imported) {
       }).sort((x, y) => sortTime(x).localeCompare(sortTime(y)));
     } else merged[field] = combined;
   });
+
+  const currentGut = current.gutHealth || { sessions: [], symptoms: [] };
+  const importedGut = imported.gutHealth || { sessions: [], symptoms: [] };
+  const mergeById = (a = [], b = []) => {
+    const entries = new Map(a.map(entry => [entry.id, entry]));
+    for (const entry of b) {
+      const existing = entries.get(entry.id);
+      if (!existing) entries.set(entry.id, entry);
+      else if (Array.isArray(existing.readings) && Array.isArray(entry.readings)) {
+        const readings = new Map(existing.readings.map(reading => [reading.id, reading]));
+        for (const reading of entry.readings) if (!readings.has(reading.id)) readings.set(reading.id, reading);
+        entries.set(entry.id, { ...entry, ...existing, readings: [...readings.values()].sort((x, y) => x.timestamp.localeCompare(y.timestamp)) });
+      }
+    }
+    return [...entries.values()];
+  };
+  merged.gutHealth = {
+    sessions: mergeById(currentGut.sessions, importedGut.sessions).sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
+    symptoms: mergeById(currentGut.symptoms, importedGut.symptoms).sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+  };
 
   merged.waterDailyHistory = {
     ...(isPlainObject(imported.waterDailyHistory) ? imported.waterDailyHistory : {}),

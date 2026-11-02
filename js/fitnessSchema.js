@@ -1,6 +1,7 @@
 import { normalizeBreathSessions } from './breathwork.js';
 import { validateNutrition } from './nutritionDefaults.mjs';
 import { normalizeMetricLogs } from './metrics.js';
+import { normalizeGutHealth } from './gutHealth.mjs';
 import { normalizeWorkoutSession, normalizeMeasurement, measurementDayNumber } from './workoutBody.js';
 
 const DATA_VERSION = 1;
@@ -28,6 +29,7 @@ export const defaultData = {
   measurements: [],
   measurementReminderDismissedOn: '',
   metricLogs: [],
+  gutHealth: { sessions: [], symptoms: [] },
   breathworkSessions: [],
   exercises: {
     types: DEFAULT_EXERCISE_TYPES,
@@ -38,7 +40,10 @@ export const defaultData = {
   chantingSessions: [],
   emotions: [],
   genieSessions: [],
-  genieInsights: []
+  genieInsights: [],
+  latestResearch: [],
+  researchProtocols: [],
+  researchExperiments: []
 };
 
 export function cloneDefaultData() {
@@ -152,6 +157,7 @@ export function normalizeFitnessData(data) {
 
   normalized.breathworkSessions = normalizeBreathSessions(source.breathworkSessions);
   normalized.metricLogs = normalizeMetricLogs(source.metricLogs);
+  normalized.gutHealth = normalizeGutHealth(source.gutHealth);
   normalized.measurements = coerceArray(source, ['measurements', 'measurementLogs', 'bodyMeasurements']).map(normalizeMeasurement);
   normalized.measurementReminderDismissedOn = source.measurementReminderDismissedOn ?? '';
   if (typeof normalized.measurementReminderDismissedOn !== 'string' || (normalized.measurementReminderDismissedOn && !Number.isFinite(measurementDayNumber(normalized.measurementReminderDismissedOn)))) throw new Error('Invalid measurement reminder date.');
@@ -161,6 +167,9 @@ export function normalizeFitnessData(data) {
   normalized.emotions = coerceArray(source, ['emotions', 'emotionLogs', 'feelings']);
   normalized.genieSessions = coerceArray(source, ['genieSessions']);
   normalized.genieInsights = coerceArray(source, ['genieInsights']);
+  normalized.latestResearch = coerceArray(source, ['latestResearch']);
+  normalized.researchProtocols = coerceArray(source, ['researchProtocols']);
+  normalized.researchExperiments = coerceArray(source, ['researchExperiments']);
   normalized.exercises = normalizeExerciseBlock(source.exercises ?? source.exerciseLogs ?? source.workoutExercises);
 
   normalized.dataVersion = DATA_VERSION;
@@ -186,14 +195,16 @@ export function validateFitnessSnapshot(raw) {
     ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods'], ['measurements', 'measurementLogs', 'bodyMeasurements'],
     ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog'], ['painLogs', 'painLog'],
     ['emotions', 'emotionLogs', 'feelings'], ['metricLogs'], ['breathworkSessions'], ['genieSessions'], ['genieInsights'], ['chantingSessions'], ['nutritionDefaults'],
+    ['latestResearch'], ['researchProtocols'], ['researchExperiments'],
   ];
-  const known = arrays.flat().concat(['waterDailyHistory', 'waterHistory', 'exercises', 'exerciseLogs', 'workoutExercises']);
+  const known = arrays.flat().concat(['gutHealth', 'waterDailyHistory', 'waterHistory', 'exercises', 'exerciseLogs', 'workoutExercises']);
   if (!known.some(key => Object.hasOwn(source, key))) throw new Error('Invalid snapshot: missing supported records.');
   for (const key of arrays.flat()) {
     if (source[key] !== undefined && (!Array.isArray(source[key]) || source[key].some(row => !isPlainObject(row)))) {
       throw new Error(`Invalid snapshot record list: ${key}.`);
     }
   }
+  if (source.gutHealth !== undefined) normalizeGutHealth(source.gutHealth);
   for (const key of ['waterDailyHistory', 'waterHistory']) {
     if (source[key] !== undefined && (!isPlainObject(source[key]) || Object.entries(source[key]).some(([day, count]) =>
       !/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(count) || count < 0))) throw new Error('Invalid water history.');

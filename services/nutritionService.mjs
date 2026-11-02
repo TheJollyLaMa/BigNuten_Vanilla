@@ -10,6 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { lookupNutrition, validateLookup, nutritionKey } from './nutritionModel.mjs';
 import { validateNutrition, portionBaseAmount, NUTRITION_UNITS } from '../js/nutritionDefaults.mjs';
 import { chatWithPrivateGenie, validateGenieInput } from './genieModel.mjs';
+import { draftResearchProtocol, fetchYoutubeCaptions, fetchYoutubeOEmbed, validateResearchProtocolInput, validateResearchVideoId } from './researchModel.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const problem = (status, message) => Object.assign(new Error(message), { status });
@@ -33,7 +34,7 @@ export function nutritionSettings(env = process.env) {
     stateFile: env.BIGNUTEN_NUTRITION_STATE_FILE || './nutrition-state.sqlite' };
 }
 
-export function createNutritionServer(settings, { modelCall = lookupNutrition, genieCall = chatWithPrivateGenie, now = Date.now, logger = console } = {}) {
+export function createNutritionServer(settings, { modelCall = lookupNutrition, genieCall = chatWithPrivateGenie, researchCall = draftResearchProtocol, captionCall = fetchYoutubeCaptions, oembedCall = fetchYoutubeOEmbed, now = Date.now, logger = console } = {}) {
   const db = new DatabaseSync(settings.stateFile);
   if (settings.stateFile !== ':memory:') chmodSync(settings.stateFile, 0o600);
   db.exec(`PRAGMA journal_mode=WAL;
@@ -49,6 +50,16 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
   }
   const challenges = new Map(), sessions = new Map(), rates = new Map(), active = new Map();
   const usage = wallet => db.prepare('SELECT calls, input_tokens AS inputTokens, output_tokens AS outputTokens FROM usage WHERE wallet=?').get(wallet) || { calls: 0, inputTokens: 0, outputTokens: 0 };
+  function reserveCall(wallet) {
+    ready();
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      if (db.prepare('SELECT calls FROM budget WHERE id=1').get().calls >= settings.maxCalls) throw problem(429, 'Shared Genie pilot budget exhausted. Contact the steward.');
+      db.prepare('UPDATE budget SET calls=calls+1 WHERE id=1').run();
+      db.prepare('INSERT INTO usage VALUES(?,1,0,0) ON CONFLICT(wallet) DO UPDATE SET calls=calls+1').run(wallet);
+      db.exec('COMMIT');
+    } catch (error) { db.exec('ROLLBACK'); throw error; }
+  }
   function limit(key, cap) {
     for (const [id, entry] of rates) if (entry.expires <= now()) rates.delete(id);
     const entry = rates.get(key) || { count: 0, expires: now() + 60000 };
@@ -72,7 +83,7 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
     const chunks = []; let size = 0;
     for await (const chunk of request) {
       size += chunk.length;
-      if (size > (request.url === '/assistant' ? 262144 : 16000)) throw problem(413, 'Genie request is too large. Reduce the shared data/time range.');
+      if (size > (['/assistant', '/research/protocol'].includes(request.url) ? 262144 : 16000)) throw problem(413, 'Genie request is too large. Reduce the shared data/time range.');
       chunks.push(chunk);
     }
     let value;
@@ -149,6 +160,53 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
         if (session.origin !== origin) throw problem(403, 'Session origin changed.');
         return send(200, usage(session.wallet));
       }
+      if (request.method === 'POST' && ['/research/oembed', '/research/captions', '/research/protocol'].includes(request.url)) {
+        ready();
+        const { key, session } = authorized(request);
+        if (session.origin !== origin) throw problem(403, 'Session origin changed.');
+        limit(`wallet:${session.wallet}`, 6);
+        if (active.has(key) || active.size >= 3) throw problem(429, 'Genie service is busy. Please wait.');
+        const payload = await body(request);
+        let input;
+        try {
+          if (request.url === '/research/oembed' || request.url === '/research/captions') {
+            if (payload.consent !== true || Object.keys(payload).some(field => !['videoId', 'consent'].includes(field))) throw new Error('Confirm the YouTube request and send only a video ID.');
+            input = { videoId: validateResearchVideoId(payload.videoId) };
+          } else {
+            if (payload.consent !== true || Object.keys(payload).some(field => !['title', 'transcript', 'metrics', 'consent'].includes(field))) throw new Error('Explicit consent is required for a research protocol draft.');
+            const { consent, ...researchInput } = payload;
+            input = validateResearchProtocolInput(researchInput);
+          }
+        } catch (error) { throw problem(400, error.message); }
+        reserveCall(session.wallet);
+        const controller = new AbortController();
+        const timeout = request.url === '/research/oembed' ? 8000 : request.url === '/research/captions' ? 12000 : 60000;
+        const timer = setTimeout(() => controller.abort(problem(504, 'Research request timed out. Paste a transcript or try again later.')), timeout);
+        const disconnect = () => { if (!response.writableEnded) controller.abort(problem(499, 'Research request canceled.')); };
+        response.on('close', disconnect); active.set(key, controller);
+        let reportedUsage = false;
+        const recordUsage = value => {
+          if (reportedUsage) return;
+          reportedUsage = true;
+          if (Number.isSafeInteger(value?.input_tokens) && value.input_tokens >= 0 && Number.isSafeInteger(value?.output_tokens) && value.output_tokens >= 0) {
+            db.prepare('UPDATE usage SET input_tokens=input_tokens+?, output_tokens=output_tokens+? WHERE wallet=?').run(value.input_tokens, value.output_tokens, session.wallet);
+          }
+        };
+        try {
+          const result = request.url === '/research/oembed'
+            ? await oembedCall({ ...input, signal: controller.signal })
+            : request.url === '/research/captions'
+              ? await captionCall({ ...input, signal: controller.signal })
+              : await researchCall({ apiKey: settings.apiKey, model: settings.model, input, signal: controller.signal, recordUsage });
+          if (!reportedUsage) recordUsage(result?.usage);
+          controller.signal.throwIfAborted(); ready(); authorized(request);
+          return send(200, { ...result, usage: usage(session.wallet) });
+        } catch (error) {
+          if (!reportedUsage && error.usage) recordUsage(error.usage);
+          send(error.status || 503, { error: error.status ? error.message : 'Research Genie request failed. Paste a transcript to continue.', usage: usage(session.wallet) });
+          logger.warn('[BigNuten Genie]', error.status || 503);
+        } finally { clearTimeout(timer); response.off('close', disconnect); active.delete(key); }
+      }
       if (request.method === 'POST' && ['/lookup', '/assistant'].includes(request.url)) {
         const nutrition = request.url === '/lookup';
         const { key, session } = authorized(request);
@@ -167,17 +225,7 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
           if (foodLookups.has(foodKey)) throw problem(429, 'This food is already being fetched for the community. Try again shortly to reuse its facts.');
         }
         if (active.has(key) || active.size >= 3) throw problem(429, 'Genie service is busy. Please wait.');
-        function reserveCall() {
-          ready(); authorized(request);
-          db.exec('BEGIN IMMEDIATE');
-          try {
-            if (db.prepare('SELECT calls FROM budget WHERE id=1').get().calls >= settings.maxCalls) throw problem(429, 'Shared Genie pilot budget exhausted. Contact the steward.');
-            db.prepare('UPDATE budget SET calls=calls+1 WHERE id=1').run();
-            db.prepare('INSERT INTO usage VALUES(?,1,0,0) ON CONFLICT(wallet) DO UPDATE SET calls=calls+1').run(session.wallet);
-            db.exec('COMMIT');
-          } catch (error) { db.exec('ROLLBACK'); throw error; }
-        }
-        reserveCall();
+        reserveCall(session.wallet);
         if (nutrition) foodLookups.add(foodKey);
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(problem(504, nutrition
@@ -224,7 +272,7 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
     } catch (error) {
       // Log categories/status only: no food text, signatures, credentials or health history.
       logger.warn('[BigNuten Genie]', error.status || 503);
-      send(error.status || 503, { error: error.status ? error.message : request.url === '/assistant'
+      send(error.status || 503, { error: error.status ? error.message : request.url.startsWith('/research/') ? 'Research Genie request failed. Paste a transcript to continue.' : request.url === '/assistant'
         ? 'Genie request failed validation or provider access. No answer was accepted. Contact the steward.'
         : 'Nutrition lookup failed validation or provider access. No card was applied. Try manual entry or contact the steward.' });
     }
