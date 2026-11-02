@@ -642,11 +642,27 @@ BigNuten is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155 tokens
 
 ### How to Buy
 
-#### 🔗 Option 1 — Crypto (instant & trustless)
+#### 🔗 Option 1 — BigNuten Supporter Token on Base
 
-1. Visit **[DecentMarket](https://thejollylama.github.io/DecentMarket/)** or use the **🎟️ Buy Now** button inside BigNuten
-2. The existing Early Supporter editions are on Optimism. The new Base DecentNFT and escrow are deployed, but their metadata and listing are not configured yet.
-3. When a listing is active, connect to its network, approve the listed USDC amount, and confirm — escrow releases the DNFT automatically on-chain.
+The **About → About the Project** card and the Early Supporter crypto section share one pinned-listing purchase flow. **No BigNuten Supporter listing exists on Base yet:** both show “BigNuten Supporter Token coming soon on Base” with existing BigNuten artwork and a disabled button. They never scan or select other apps’ listings. The legacy Optimism editions remain a separate collection available through [DecentMarket](https://thejollylama.github.io/DecentMarket/), not through this Base card. The table above describes that legacy collection, not the unlisted Base token.
+
+After minting, depositing stock, and listing, the steward must submit a reviewed change to **`js/supporter-token.json`**. All seven fields are intentionally `null` until then:
+
+| Config field | Required reviewed value |
+|---|---|
+| `contract` | Base DecentNFT `0xe63EC9f8228720bAAC2fD528C0A6d06B3Dc5439B` |
+| `tokenId` | Minted BigNuten Supporter token ID, as a decimal string |
+| `listingId` | Its exact Base DecentEscrow listing ID, as a decimal string (zero is valid) |
+| `paymentToken` | Base USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| `expectedPriceAmount` | Exact positive USDC base-unit amount (6 decimals), as a decimal string; no price is assumed |
+| `metadataUri` | Reviewed metadata URI (`ipfs://` or `https://`) proving this is BigNuten’s supporter token |
+| `imageUri` | Reviewed DNFT artwork URI (`ipfs://` or `https://`); existing BigNuten artwork is the load-error fallback |
+
+The chain (Base 8453) and escrow (`0x31b07b83e99A9bdF379bf40225b8A80d3804C89d`) are fixed in `js/supporterToken.mjs`, not inferred from the active app network. Metadata and artwork are reviewed pins, not automatic discovery or minting. Do not reuse the existing other-app listing IDs 0–5.
+
+Before enabling purchase and again before each write, the app verifies the NFT contract/token ID, zero ETH price, exact USDC token/price, active listing, positive remaining supply, and escrow stock covering **all** listed availability. A mismatch or failed read disables purchase. Clicking connects MetaMask, switches/adds Base if necessary, approves only the exact price if allowance is short, then calls `purchaseWithToken(listingId, 1)`. It rechecks wallet/network and listing after approval; a rejection or later failure can leave an already-confirmed approval but does not indicate a successful purchase. A confirmed purchase shows a Basescan transaction link. Reopen About to refresh/retry. Partial config is an error, not a discovery fallback.
+
+**Reuse decision:** adapt DecentBusking [`js/components/about-override.js` at `951374b93d3875342d3bf269a834b984bf998ae6`](https://github.com/TheJollyLaMa/DecentBusking/blob/951374b93d3875342d3bf269a834b984bf998ae6/js/components/about-override.js), `_loadDecentBuskingListings`, `_handleBuy`, and `_doPurchase` (Apache-2.0), together with BigNuten’s existing escrow/ERC20 ABIs and `_getBignutenDnftConfig`. Its custom-element UI/session infrastructure is not copied; BigNuten uses one controller for both About surfaces, pure validators, and the existing injected-wallet runtime. The receiving-app tests cover unset config (no transaction), mismatched/sold-out listings, rejection, and the exact Base switch → USDC approve → pinned purchase sequence on desktop and mobile. Canopy’s curated offers/needs were consulted as leads, not treated as a current source index. No health data, release publication, or on-chain setup is part of this flow.
 
 #### 💳 Option 2 — PayPal (fiat-friendly)
 
