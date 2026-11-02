@@ -53,13 +53,14 @@ function emptyValue(type) {
 // Read-only synthetic wallet; invitation decisions are fixture-owned.
 // There is no real wallet, signature, key, or external RPC behind this provider.
 const wallet = '0x' + '12'.repeat(20);
+let activeWallet = wallet;
 const walletCalls = [];
 let walletGranted = false;
 async function rpc({ method, params = [] }) {
   walletCalls.push(method);
   switch (method) {
-    case 'eth_accounts': return walletGranted ? [wallet] : [];
-    case 'eth_requestAccounts': walletGranted = true; return [wallet];
+    case 'eth_accounts': return walletGranted ? [activeWallet] : [];
+    case 'eth_requestAccounts': walletGranted = true; return [activeWallet];
     case 'eth_chainId': return '0x2105';
     case 'net_version': return '8453';
     case 'eth_blockNumber': return '0x100';
@@ -91,12 +92,46 @@ const allowedErrors = [{
   match: /^console: Failed to load resource:.*502.*"url":"https:\/\/nutrition\.fixture\/lookup"/,
 }];
 let browser;
+async function profileContinuityTabs(viewport, name) {
+  const context = await browser.newContext({ viewport, locale: 'en-US', serviceWorkers: 'block' });
+  await context.addInitScript(() => localStorage.setItem('legacyContinuitySeed', 'synthetic-legacy-profile'));
+  const walletA = '0x' + 'a1'.repeat(20), walletB = '0x' + 'b2'.repeat(20);
+  const first = await context.newPage(), second = await context.newPage();
+  try {
+    await first.goto(`${base}/test/profile-continuity-harness.html?wallet=${walletA}`);
+    await first.waitForFunction(() => window.profileHarness?.status === 'writer');
+    await second.goto(`${base}/test/profile-continuity-harness.html?wallet=${walletB}`);
+    await second.waitForFunction(() => window.profileHarness?.status === 'writer');
+    await first.evaluate(() => window.profileHarness.write('fitnessTrackerData', JSON.stringify({ weight: 150, emotion: 'synthetic' })));
+    assert.equal(await second.evaluate(() => window.profileHarness.read('fitnessTrackerData')), null, 'different wallets do not share local health data');
+    await second.evaluate(() => window.profileHarness.write('fitnessTrackerData', 'wallet-b-only'));
+    assert.equal(await first.evaluate(() => window.profileHarness.read('fitnessTrackerData')), JSON.stringify({ weight: 150, emotion: 'synthetic' }));
+    assert.equal(await first.evaluate(() => window.profileHarness.readGuest('legacyContinuitySeed')), 'synthetic-legacy-profile', 'legacy data is preserved under the guest profile');
+    assert.equal(await first.evaluate(() => window.profileHarness.readLegacy('legacyContinuitySeed')), 'synthetic-legacy-profile', 'migration never deletes the unnamespaced original');
+
+    await second.evaluate(id => window.profileHarness.switchProfile(id), `wallet-${walletA.toLowerCase()}`);
+    await second.waitForFunction(() => window.profileHarness?.status === 'readonly');
+    assert.equal(await second.evaluate(() => window.profileHarness.read('fitnessTrackerData')), JSON.stringify({ weight: 150, emotion: 'synthetic' }));
+    await first.evaluate(() => { window.profileHarnessApprove = true; });
+    const takeover = second.evaluate(() => window.profileHarness.takeOver({ timeoutMs: 3000, pollMs: 10 }));
+    assert.equal(await takeover, true, 'explicit takeover obtains the writer lock');
+    await first.waitForFunction(() => window.profileHarness.status === 'readonly');
+    assert.equal(await first.evaluate(() => { try { window.profileHarness.write('fitnessTrackerData', 'stale overwrite'); return 'wrote'; } catch (error) { return error.code; } }), 'PROFILE_READ_ONLY', 'stale writer cannot overwrite after takeover');
+    await second.evaluate(() => window.profileHarness.write('fitnessTrackerData', 'wallet-a-after-takeover'));
+    assert.equal(await second.evaluate(() => window.profileHarness.read('fitnessTrackerData')), 'wallet-a-after-takeover');
+    console.log(`${name}: wallet isolation, legacy-copy preservation and fenced tab takeover passed`);
+  } finally {
+    await context.close();
+  }
+}
 try {
   browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
     const name = viewport.width === 390 ? 'mobile' : 'desktop';
+    await profileContinuityTabs(viewport, name);
     walletCalls.length = 0;
     walletGranted = false;
+    activeWallet = wallet;
     const context = await browser.newContext({ viewport, locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce', serviceWorkers: 'block' });
     const restoredSnapshot = {
       dataVersion: 1,
@@ -286,12 +321,38 @@ try {
       assert.equal(await page.locator('#yoga-genie-btn').isVisible(), false);
       assert.equal(await page.locator('#dietNutritionGenie').isVisible(), false);
       assert.equal(await page.locator('#genie-api-key-input').count(), 0, 'No browser AI-key entry is offered');
+      await page.evaluate(() => {
+        const data = JSON.parse(localStorage.getItem('fitnessTrackerData'));
+        data.weightLogs.push({ weight: 149, timestamp: '2026-10-27T10:00:00Z' });
+        data.emotions.push({ emotion: 'Synthetic calm', context: 'continuity smoke', timestamp: '2026-10-27T10:01:00Z' });
+        data.waterDailyHistory['2026-10-27'] = 2;
+        localStorage.setItem('fitnessTrackerData', JSON.stringify(data));
+      });
       await click('#wallet-connect');
-      await page.waitForFunction(() => document.getElementById('wallet-connect').dataset.walletState === 'connected');
+      await page.waitForFunction(() => document.getElementById('wallet-connect')?.dataset.walletState === 'connected');
+      await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; }' });
       assert.equal(await page.locator('#wallet-connect').getAttribute('data-wallet-address'), wallet);
       await page.waitForFunction(() => document.getElementById('assistant-access-status').textContent.includes('available for this wallet'));
+      if (name === 'desktop') {
+        await page.waitForTimeout(150);
+        if (await page.locator('#ipfs-edu-overlay').isVisible()) {
+          await click('#ipfs-edu-skip-btn');
+          await hidden('#ipfs-edu-overlay');
+        }
+      }
       await click('#aesculapius-right');
       await click('#aes-settings-btn');
+      await page.waitForFunction(() => {
+        const button = document.getElementById('bn-profile-copy-guest');
+        return button && !button.hidden && document.getElementById('bn-profile-state').textContent === 'Editing here';
+      });
+      await page.locator('#bn-profile-details').evaluate(element => { element.open = true; });
+      page.once('dialog', dialog => dialog.accept());
+      await click('#bn-profile-copy-guest');
+      await page.waitForFunction(() => document.getElementById('bn-profile-state').textContent.includes('Copied'));
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).emotions.some(entry => entry.emotion === 'Synthetic calm')), true, 'explicit guest copy retains synthetic health records in wallet profile');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('bignutenProfileCopyBackups.v1')).length), 1, 'source and destination bytes were backed up before merging');
+      await page.locator('#bn-profile-details').evaluate(element => { element.open = false; });
       await click('#assistant-access-check');
       await page.waitForFunction(() => document.getElementById('assistant-access-status').textContent.startsWith('Signed in'));
       await click('#settings-modal-close');
@@ -1230,14 +1291,6 @@ try {
       // provider. Exercise the snapshot viewer without uploading private data.
       await page.evaluate(() => localStorage.setItem('storageMode', 'ipfs'));
       await modal('ipfs-snapshot-panel', '#aes-storage-btn', '#snapshot-panel-close', ['#aesculapius-right']);
-      await page.evaluate(async () => {
-        localStorage.setItem('storageMode', 'json-only');
-        const { setManualPinataToken } = await import('/js/ipfsStorage.js');
-        setManualPinataToken('synthetic-disconnect-jwt', { persist: true });
-        window.__smokeEmitWalletEvent('accountsChanged', []);
-      });
-      assert.equal(await page.evaluate(() => sessionStorage.getItem('bignuten.pinata.jwt.session')), null, 'Wallet disconnect clears the session JWT');
-      assert.equal(await page.evaluate(() => localStorage.getItem('bignuten.pinata.jwt.persisted')), null, 'Wallet disconnect clears explicitly persisted JWTs too');
       // Real local-only Quest UI on desktop and mobile, never wallet actions.
       const questHostedBefore = hostedRequests.length;
       const questWalletBefore = walletCalls.length;
@@ -1268,6 +1321,7 @@ try {
       assert.match(await page.locator('#quest-chapter-label').innerText(), /Chapter 2 of 7/);
       await shot('quest-progress');
       await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForFunction(() => document.getElementById('quest-mode-toggle')?.dataset.ready === 'true');
       await visible('#quest-card');
       await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; }' });
       assert.match(await page.locator('#quest-chapter-label').innerText(), /Chapter 2 of 7/);
@@ -1325,7 +1379,7 @@ try {
       await page.evaluate(() => {
         window.__questSetItem = Storage.prototype.setItem;
         Storage.prototype.setItem = function(key, value) {
-          if (key === 'bignuten:quest:v1') throw new DOMException('Synthetic quota', 'QuotaExceededError');
+          if (key.endsWith('bignuten:quest:v1')) throw new DOMException('Synthetic quota', 'QuotaExceededError');
           return window.__questSetItem.call(this, key, value);
         };
       });
@@ -1337,7 +1391,7 @@ try {
         delete window.__questSetItem;
         window.__questRemoveItem = Storage.prototype.removeItem;
         Storage.prototype.removeItem = function(key) {
-          if (key === 'bignuten:quest:v1') throw new DOMException('Synthetic denied', 'SecurityError');
+          if (key.endsWith('bignuten:quest:v1')) throw new DOMException('Synthetic denied', 'SecurityError');
           return window.__questRemoveItem.call(this, key);
         };
       });
@@ -1360,20 +1414,45 @@ try {
       console.log(`${name}: Quest opt-in, keyboard safety, reload/resume, seven chapters, local badge, issue-helper handoff, exit, reset/clear and storage failures verified without financial actions`);
       const recordsBeforeLock = await page.evaluate(() => localStorage.getItem('fitnessTrackerData'));
       const modelCallsBeforeLock = hostedRequests.length;
-      await page.evaluate(() => {
-        window._connectedAccount = '0x' + '34'.repeat(20);
-        window.dispatchEvent(new CustomEvent('bignuten:wallet-changed'));
-      });
-      await page.waitForFunction(() => document.getElementById('assistant-access-status').textContent.includes('not enabled'));
-      assert.equal(deniedChallenges, 1);
+      const deniedWallet = '0x' + '34'.repeat(20);
+      activeWallet = deniedWallet;
+      await Promise.all([
+        page.waitForNavigation(),
+        page.evaluate(address => window.__smokeEmitWalletEvent('accountsChanged', [address]), deniedWallet),
+      ]);
+      await page.waitForFunction(() => window.__bignutenProfileIsReady === true);
+      await page.waitForFunction(() => document.getElementById('assistant-access-status')?.textContent.includes('not enabled'));
+      assert.ok(deniedChallenges >= 1 && deniedChallenges <= 2, 'The uninvited wallet challenge is rejected, with at most one reload retry');
       assert.equal(await page.locator('.genie-icon-btn').count(), 0);
       assert.equal(await page.locator('.genie-chat-window').count(), 0);
       assert.equal(await page.locator('#yoga-genie-btn').isVisible(), false);
       await visible('#dietBtn');
       assert.equal(await page.locator('#dietNutritionGenie').isVisible(), false);
-      assert.equal(await page.evaluate(() => localStorage.getItem('fitnessTrackerData')), recordsBeforeLock, 'Genie lock does not erase health records');
+      const deniedProfile = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')));
+      assert.equal(deniedProfile.emotions.length, 0, 'another wallet sees its own empty local profile, not the previous wallet records');
       assert.equal(hostedRequests.length, modelCallsBeforeLock, 'Uninvited wallet sends no model context');
-      console.log(`${name}: real HTTP 403 fixture locks every Genie surface while preserving manual health tracking and records`);
+      activeWallet = wallet;
+      await Promise.all([
+        page.waitForNavigation(),
+        page.evaluate(address => window.__smokeEmitWalletEvent('accountsChanged', [address]), wallet),
+      ]);
+      await page.waitForFunction(() => window.__bignutenProfileIsReady === true);
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).emotions.some(entry => entry.emotion === 'Joy')), true, 'switching back restores the active wallet profile after the explicit snapshot restore');
+      walletGranted = false;
+      await Promise.all([
+        page.waitForNavigation(),
+        page.evaluate(async () => {
+          localStorage.setItem('storageMode', 'json-only');
+          const { setManualPinataToken } = await import('/js/ipfsStorage.js');
+          setManualPinataToken('synthetic-disconnect-jwt', { persist: true });
+          window.__smokeEmitWalletEvent('accountsChanged', []);
+        }),
+      ]);
+      await page.waitForFunction(() => window.__bignutenProfileIsReady === true);
+      assert.equal(await page.evaluate(() => sessionStorage.getItem('bignuten.pinata.jwt.session')), null, 'Wallet disconnect clears the session JWT');
+      assert.equal(await page.evaluate(() => localStorage.getItem('bignuten.pinata.jwt.persisted')), null, 'Wallet disconnect clears explicitly persisted JWTs too');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).emotions.some(entry => entry.emotion === 'Synthetic calm')), true, 'wallet disconnect returns to the intact guest profile');
+      console.log(`${name}: real HTTP 403 fixture locks Genie, wallet switching isolates profiles, and reconnect/disconnect preserves prior data`);
       const exclusions = new Map([
         ...(name === 'desktop' ? [['mobile-data-sheet', 'Mobile-only IPFS menu by design.']] : [['ipfs-edu-overlay', 'Desktop-only onboarding by design.']]),
       ]);
@@ -1386,8 +1465,8 @@ try {
       console.log(`${name}: covered ${panels.length} panels / ${covered.size} dialogs; ${external.size} external URLs fulfilled locally`);
       assert.deepEqual(unexpected, [], 'External requests need explicit fixtures');
       // Editing the card or food intentionally aborts an in-flight auto-fill request.
-      const canceledNutrition = /^https:\/\/(nutrition\.fixture|bignuten-nutrition\.onrender\.com)\/(foods|lookup): net::ERR_ABORTED$/;
-      assert.deepEqual(failed.filter(failure => !['403 https://bignuten-nutrition.onrender.com/challenge', '502 https://nutrition.fixture/lookup'].includes(failure) && !canceledNutrition.test(failure)), [], 'No failed requests beyond deliberate invitation/provider failures or canceled nutrition lookups');
+      const canceledRequest = /^https:\/\/(nutrition\.fixture|bignuten-nutrition\.onrender\.com)\/(foods|lookup|challenge): net::ERR_ABORTED$/;
+      assert.deepEqual(failed.filter(failure => !['403 https://bignuten-nutrition.onrender.com/challenge', '502 https://nutrition.fixture/lookup'].includes(failure) && !canceledRequest.test(failure)), [], 'No failed requests beyond deliberate invitation/provider failures or canceled requests during profile switches');
       const unallowed = errors.filter(error => !allowedErrors.some(entry => entry.match.test(error)));
       for (const error of errors.filter(error => !unallowed.includes(error))) console.warn(`ALLOWLISTED (${name}): ${error}`);
       assert.deepEqual(unallowed, [], 'No unexpected console errors or page exceptions');

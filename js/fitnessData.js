@@ -11,6 +11,7 @@ import { fitnessRecovery } from './snapshotRecovery.js';
 export { normalizeFitnessData, validateFitnessSnapshot } from './fitnessSchema.js';
 
 export async function getFitnessData() {
+  if (globalThis.__bignutenProfileIsReady === false) return cloneDefaultData();
   fitnessRecovery.recover();
   const current = localStorage.getItem(STORAGE_KEY);
 
@@ -18,12 +19,12 @@ export async function getFitnessData() {
   // an explicit action from the storage panel, never an initialization prompt.
   if (!current) {
     const fresh = cloneDefaultData();
-    saveFitnessData(fresh);
+    if (globalThis.__bignutenProfileCanWrite?.() !== false) saveFitnessData(fresh);
     return fresh;
   }
 
   const currentData = normalizeFitnessData(JSON.parse(current));
-  saveFitnessData(currentData);
+  if (globalThis.__bignutenProfileCanWrite?.() !== false) saveFitnessData(currentData);
   return currentData;
 }
 
@@ -114,10 +115,6 @@ export function patchAllSnapshotHistory() {
   console.log("📦 Full snapshot history rebuilt. Total entries:", sorted.length);
 }
 
-// Optionally auto-run on file load
-if (typeof localStorage !== 'undefined') {
-  retrofitOldSnapshots();
-}
 export async function logWeight(weight) {
   const data = await getFitnessData();
   data.weightLogs.push({
@@ -126,13 +123,6 @@ export async function logWeight(weight) {
   });
   saveFitnessData(data);
 }
-// Run once at idle — deferred off the critical path to avoid blocking first paint.
-if (typeof localStorage !== 'undefined' && typeof requestIdleCallback === 'function') {
-  requestIdleCallback(() => patchAllSnapshotHistory(), { timeout: 5000 });
-} else if (typeof localStorage !== 'undefined') {
-  setTimeout(() => patchAllSnapshotHistory(), 3000);
-}
-
 /**
  * Merges two fitness data objects, deduplicating array entries by stable record ID or canonical content.
  * Handles the exercises object structure ({types, entries}) as well as simple arrays.

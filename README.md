@@ -322,6 +322,7 @@ open index.html   # macOS
 - Start logging weight, supplements, food, and exercise — no wallet needed
 - Connect **MetaMask** on Base to unlock Base-deployed on-chain features
 - Use the left-header IPFS control to choose hosted IPFS backup, a personal pinning account, or local IPFS Desktop. New fitness snapshots are encrypted before upload; keep a local JSON backup because losing wallet access means losing access to encrypted remote backups.
+- **Profile continuity:** guest and wallet-linked local profiles are isolated per browser. Wallet connection does not move or upload guest records; use Settings → Health profile and storage for the explicit copy action. Cross-browser sync is not automatic: for transfer instructions and limitations, see [local profile continuity](docs/PROFILE_CONTINUITY.md).
 - Join a StreakBet competition and put real money on your health goals 💪
 
 ### 🛠️ I'm a Builder

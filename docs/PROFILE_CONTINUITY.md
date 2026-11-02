@@ -1,0 +1,33 @@
+# Local profile continuity and hosted-sync design
+
+## Shipped local behavior
+
+BigNuten now stores the app's localStorage keys inside a profile namespace: `guest` or `wallet-<lowercase EVM address>`. The address is a local profile selector, not authentication, encryption, or proof of ownership. Wallet connection never claims, merges, or uploads guest data. Existing unnamespaced keys are copied to the guest namespace once; the original keys are retained as a recovery source. The UI identifies the current profile as local-only and warns that it cannot see another browser's storage.
+
+Copying guest health records into a connected wallet profile is an explicit, reversible **copy**, not a move. The app creates an exact local backup of the source and destination bytes before merging, retains the guest profile, and reports conflicts; when an existing wallet record conflicts, it remains the displayed value while the guest source and backup retain the other value. No profile is silently overwritten or deleted.
+
+On supported secure browser contexts, Web Locks serialize writers for each local profile. BroadcastChannel asks the active tab to yield only after its owner confirms; the requesting user also confirms takeover. A writer lease token fences stale tabs at every localStorage mutation. Tabs without a verified lock or BroadcastChannel remain read-only/unavailable rather than assuming exclusivity. This coordination is limited to tabs sharing the same browser storage partition and origin; it does not coordinate Brave with Chrome, separate browser profiles, devices, origins, or offline copies.
+
+Local profile namespaces are **not encryption or a shared-computer confidentiality boundary**. Anyone with access to the browser profile/devtools can read its localStorage. Lock the OS/browser profile and export only to a private location. Disconnecting or changing wallet reloads the app under the newly selected local profile to discard in-memory views and fence pending work; the wallet's currently exposed account is used only as a local selector.
+
+## Moving a profile to another browser today
+
+There is no automatic cloud sync or cross-browser profile discovery in this change. In the source browser, connect the intended wallet and open **encrypted backup options** from Settings → Health profile and storage (or use the IPFS control). Create a verified encrypted snapshot, then carry its CID out-of-band to the other browser. There, connect the same wallet, enter/import the CID in the snapshot panel, and verify the restored records. The other browser cannot discover the source browser's local snapshot pointer automatically. The existing snapshot path encrypts in the browser and uploads ciphertext; the CID is not access control. The current snapshot key is derived from a wallet signature, so wallets that do not reproduce the same signature may not decrypt cross-browser. Keep the existing separate local JSON export only if plaintext at the chosen destination is acceptable; it is not the recommended transfer path for health records.
+
+If the hosted provider is unavailable, the UI must leave the profile in a clear local-only/read-only or backup-error state; it must not claim syncing or fall back to another upload destination without consent. No sync service, Render setting, credential, or pilot build is changed by this work.
+
+## Why a hosted encrypted sync service is deferred
+
+`services/nutritionService.mjs` is not a health-data sync backend. It has invited-wallet challenge/session machinery and exact allowed-origin CORS, but its address-only mode is an access shortcut for invited Genie sessions, not health-profile authentication. Its persistence and authorization model has no profile revision pointer, transaction-level compare-and-set, stale-writer fencing, ciphertext-only health API, device enrollment/revocation, or health-data deletion/retention policy. Adapting it without those boundaries would risk exposing sensitive records or accepting stale writes. Existing encrypted IPFS snapshots are validated backup/restore objects, not a discoverable current profile or a concurrency protocol.
+
+A future hosted service needs explicit owner approval and a separately reviewed deployment. Minimum design:
+
+1. Require explicit opt-in and a signed, origin-bound, expiring challenge before reading a wallet's profile pointer. Do not treat an address or an address-only invite session as proof of health-profile access.
+2. Encrypt each complete, versioned profile envelope client-side with authenticated encryption; accept and persist ciphertext only. The server must never receive health records, keys, plaintext Genie context, or a plaintext profile name. Review address/revision/timing metadata leakage before launch.
+3. Authenticate and authorize device enrollment/revocation and encrypted pointer reads. The authoritative pointer must identify the current revision; a backup CID alone is not synchronization.
+4. Commit with atomic revision compare-and-set and a monotonic fencing token backed by the service. Enforce the token at commit, not just in the UI. Define leases, heartbeat, expiry, reconnect, service restart, and takeover behavior. Reject stale writes and preserve/report pending drafts rather than merging them silently.
+5. Reuse snapshot validation/merge only after resolving edit/delete conflicts, stable identity, tombstones, water-day conflicts, old-client compatibility, recovery backups, scoped deletion, and restore semantics. Surface conflicts and preserve pre-merge ciphertext/revisions.
+6. Validate deterministic signature/key recovery across each supported wallet, key rotation/recovery, logout, offline read-only behavior, and explicit unavailable states. Define retention and deletion before storing any ciphertext.
+7. Use exact HTTPS origin allowlists and short-lived sessions, no health telemetry, synthetic-only integration fixtures, and a deployment order that can be independently rolled back. Do not couple sync rollout to the nutrition/Genie service or its secrets.
+
+Cross-browser sync remains deferred pending those owner decisions and receiving-app tests. For this PR, the reuse choice is to adapt BigNuten's existing encrypted IPFS snapshot restore for manual transfer; `js/fitnessData.js` schema/merge and `js/snapshotRecovery.js` recovery stay local, and the nutrition service is not reused as a sync donor.
