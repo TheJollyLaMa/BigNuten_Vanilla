@@ -2,177 +2,108 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const card = { name: 'Synthetic oats', kind: 'whole', preparation: 'raw', brand: '', market: '', barcode: '',
   amount: 100, unit: 'g', serving: '', nutr: { calories: 389, protein: 16.9, potassium: null },
-  ingredients: '', note: 'Synthetic fixture, not real nutrition evidence.', quality: 'source-backed',
-  sources: [{ url: 'https://example.com/oats', title: 'Synthetic reference' }] };
-const response = () => ({ status: 'completed', usage: { input_tokens: 1, output_tokens: 2 },
-  output: [{ type: 'web_search_call', status: 'completed', action: { sources: card.sources } },
-    { type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ found: true, reason: '', card }) }] }] });
-test('cited search precedes a tool-free structured card with exact source constraints', async () => {
+  ingredients: '', note: 'Synthetic fixture, not real nutrition evidence.', quality: 'estimate', measures: [],
+  sources: [] };
+const response = (value = card, extra = {}) => ({ status: 'completed', usage: { input_tokens: 1, output_tokens: 2 },
+  output: [...(extra.sources ? [{ type: 'web_search_call', status: 'completed', action: { sources: extra.sources } }] : []),
+    { type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ found: true, assumption: extra.assumption ?? 'Raw rolled oats.', card: value }),
+      annotations: extra.annotations || [] }] }] });
+const run = async (options, value) => {
   const { lookupNutrition } = await import('../services/nutritionModel.mjs');
   const payloads = [], usages = [];
-  let reservations = 0;
-  const result = await lookupNutrition({ apiKey: 'synthetic-key', model: 'fixture', input: { name: card.name, kind: 'whole', preparation: 'raw' },
-    reserveAdditionalCall: () => { reservations++; }, recordUsage: usage => usages.push(usage),
-    fetchImpl: async (_url, options) => { payloads.push(JSON.parse(options.body)); return { ok: true, json: async () => response() }; } });
-  assert.equal(payloads.length, 2); assert.equal(reservations, 1);
-  const [search, extraction] = payloads;
-  assert.equal(search.store, false); assert.equal(search.tool_choice, 'required');
-  assert.equal(search.tools[0].type, 'web_search'); assert.equal(search.max_tool_calls, 1);
-  assert.equal(search.text, undefined);
-  assert.equal(extraction.store, false); assert.equal(extraction.tools, undefined);
-  assert.equal(extraction.text.format.type, 'json_schema');
-  assert.ok(extraction.text.format.schema.properties.card.required.includes('measures'));
-  assert.match(search.instructions, /food-specific household portions/);
-  for (const [key, value] of Object.entries({ name: card.name, kind: 'whole', preparation: 'raw', brand: '', market: '', barcode: '' })) {
-    assert.deepEqual(extraction.text.format.schema.properties.card.properties[key].enum, [value]);
-  }
-  assert.deepEqual(JSON.parse(extraction.input).verifiedSourceUrls, ['https://example.com/oats']);
-  assert.ok(!search.input.includes('health'));
-  assert.equal(usages.length, 2);
-  assert.deepEqual(result.usage, { input_tokens: 2, output_tokens: 4 });
-  assert.equal(result.card.nutr.calories, 389);
+  const result = await lookupNutrition({ apiKey: 'synthetic-key', model: 'fixture', recordUsage: usage => usages.push(usage),
+    input: { name: card.name, kind: 'whole', preparation: 'raw' }, ...options,
+    fetchImpl: async (_url, request) => { payloads.push(JSON.parse(request.body)); return { ok: true, json: async () => value }; } });
+  return { result, payloads, usages };
+};
+
+test('generic foods use one fast structured call and return a labeled best estimate', async () => {
+  const { result, payloads, usages } = await run({}, response({ ...card, name: 'Renamed by model', sources: [{ url: 'https://invented.example/', title: 'x' }] }));
+  assert.equal(payloads.length, 1); assert.equal(usages.length, 1);
+  const [payload] = payloads;
+  assert.equal(payload.store, false); assert.equal(payload.tools, undefined);
+  assert.equal(payload.text.format.type, 'json_schema');
+  assert.ok(payload.text.format.schema.properties.card.required.includes('measures'));
+  assert.match(payload.instructions, /3-4 most\s+plausible interpretations/);
+  assert.match(payload.instructions, /Do not ask\s+for clarification/);
+  assert.ok(!payload.input.includes('health'));
+  assert.equal(result.found, true); assert.equal(result.card.name, card.name, 'supplied identity is kept');
+  assert.equal(result.card.quality, 'estimate');
+  assert.deepEqual(result.card.sources, [], 'unsearched URLs are never shown as sources');
+  assert.match(result.card.note, /^Genie estimate\. Raw rolled oats\./);
+  assert.equal(result.reason, 'Raw rolled oats.');
   assert.ok(!Object.hasOwn(result.card.nutr, 'potassium'));
 });
-test('structured household portions retain only source-linked equivalents', async () => {
-  const { lookupNutrition } = await import('../services/nutritionModel.mjs');
+
+test('homemade foods get estimated household portions that scale', async () => {
   const { scaleNutrition } = await import('../js/nutritionDefaults.mjs');
-  for (const sourceUrl of [card.sources[0].url, 'https://example.com/unverified']) {
-    const value = response();
-    const answer = JSON.parse(value.output[1].content[0].text);
-    answer.card.measures = [{ amount: 1, unit: 'cup', baseAmount: 80, sourceUrl }];
-    value.output[1].content[0].text = JSON.stringify(answer);
-    const lookup = () => lookupNutrition({ apiKey: 'fixture', model: 'fixture', portionUnit: 'cup',
-      input: { name: card.name, kind: 'whole', preparation: 'raw' },
-      fetchImpl: async (_url, options) => {
-        const payload = JSON.parse(options.body);
-        assert.equal(JSON.parse(payload.input).requestedPortionUnit, 'cup');
-        if (payload.tools) assert.match(payload.instructions, /specifically ONE cup/);
-        return { ok: true, json: async () => value };
-      } });
-    if (sourceUrl === card.sources[0].url) {
-      assert.ok(Math.abs(scaleNutrition((await lookup()).card, 0.5, 'cup').calories - 155.6) < 1e-10);
-    } else await assert.rejects(lookup(), /Portion source/);
+  const yogurt = { ...card, name: 'Homemade yogurt (whole milk, inulin, L. reuteri)', preparation: '', serving: '',
+    nutr: { calories: 66, protein: 3.6, fat: 3.4, carbs: 6.2, fiber: 1 },
+    measures: [{ unit: 'tbsp', amount: 1, baseAmount: 15, sourceUrl: '' }, { unit: 'oz', amount: 1, baseAmount: 28, sourceUrl: '' },
+      { unit: 'cup', amount: 0, baseAmount: 240, sourceUrl: '' }, { unit: 'bowl', amount: 1, baseAmount: 200, sourceUrl: '' }] };
+  const { result, payloads } = await run({ input: { name: yogurt.name, kind: 'whole' }, portionUnit: 'tbsp' },
+    response(yogurt, { assumption: 'Whole-milk yogurt with a little inulin; cultures add negligible nutrition.' }));
+  assert.equal(JSON.parse(payloads[0].input).requestedPortionUnit, 'tbsp');
+  assert.deepEqual(result.card.measures.map(measure => measure.unit), ['tbsp'], 'same-dimension and invalid measures are dropped');
+  assert.equal(result.card.serving, '100 g');
+  assert.ok(Math.abs(scaleNutrition(result.card, 2, 'tbsp').calories - 19.8) < 1e-10);
+});
+
+test('packaged products search the web and stay source-backed only with verified sources and portions', async () => {
+  const sources = [{ url: 'https://example.com/oats?product=1#food-1', title: 'Label' }];
+  const input = { name: 'Synthetic oats', kind: 'packaged', brand: 'Acme', market: 'US' };
+  const backed = { ...card, ...input, quality: 'source-backed', sources,
+    measures: [{ unit: 'cup', amount: 1, baseAmount: 80, sourceUrl: sources[0].url }] };
+  const ok = await run({ input }, response(backed, { sources }));
+  assert.equal(ok.payloads[0].tools[0].type, 'web_search'); assert.equal(ok.payloads[0].tool_choice, 'auto');
+  assert.equal(ok.result.card.quality, 'source-backed'); assert.equal(ok.result.card.measures[0].sourceUrl, sources[0].url);
+  for (const [value, extra] of [
+    [{ ...backed, sources: [{ url: 'https://example.com/oats?product=2#food-1', title: 'Unsearched' }] }, { sources }],
+    [{ ...backed, measures: [{ ...backed.measures[0], sourceUrl: '' }] }, { sources }],
+    [backed, { sources: [] }],
+  ]) {
+    const { result } = await run({ input }, response(value, extra));
+    assert.equal(result.card.quality, 'estimate'); assert.match(result.card.note, /^Genie estimate/);
+    assert.ok(result.card.sources.every(source => source.url === sources[0].url));
+    assert.equal(result.card.measures[0].baseAmount, 80, 'the estimate still fills the portion');
   }
 });
 
-test('ambiguous staples ask one preparation question without guessing cooked versus dry', async () => {
-  const { nutritionClarification, nutritionKey, validateLookup } = await import('../services/nutritionModel.mjs');
+test('citation URLs are normalized like card validation', async () => {
+  const input = { name: 'Synthetic oats', kind: 'packaged', brand: 'Acme', market: 'US' };
+  const source = { url: 'HTTPS://EXAMPLE.COM:443', title: 'Synthetic reference' };
+  const { result } = await run({ input }, response({ ...card, ...input, quality: 'source-backed', sources: [source] },
+    { sources: [], annotations: [{ type: 'url_citation', ...source }] }));
+  assert.equal(result.card.sources[0].url, 'https://example.com/'); assert.equal(result.card.quality, 'source-backed');
+});
+
+test('non-food input returns found=false with the reason', async () => {
+  const value = response(card); value.output[0].content[0].text = JSON.stringify({ found: false, assumption: 'A stapler is not food.', card });
+  const { result } = await run({ input: { name: 'stapler', kind: 'whole' } }, value);
+  assert.deepEqual([result.found, result.reason], [false, 'A stapler is not food.']);
+});
+
+test('nutrition keys normalize spacing and case', async () => {
+  const { nutritionKey, validateLookup } = await import('../services/nutritionModel.mjs');
   const pasta = validateLookup({ name: 'Pasta', kind: 'whole' });
-  assert.deepEqual(nutritionClarification(pasta).options, ['Cooked, plain, without added salt', 'Dry, uncooked']);
-  assert.equal(nutritionClarification({ ...pasta, preparation: 'dry' }), null);
   assert.notEqual(nutritionKey({ ...pasta, preparation: 'dry' }), nutritionKey({ ...pasta, preparation: 'cooked' }));
   assert.equal(nutritionKey({ ...pasta, name: ' PASTA ' }), nutritionKey(pasta));
 });
-test('unsupported sources, no search, incomplete JSON and changed identity withhold cards', async () => {
-  const { lookupNutrition } = await import('../services/nutritionModel.mjs');
-  for (const mutate of [
-    value => { value.output = value.output.slice(1); },
-    value => { value.status = 'incomplete'; },
-    value => { value.output[0].action.sources = []; },
-    value => { const answer = JSON.parse(value.output[1].content[0].text); answer.card.name = 'Other food'; value.output[1].content[0].text = JSON.stringify(answer); },
-  ]) {
-    const value = response(); mutate(value);
-    await assert.rejects(() => lookupNutrition({ apiKey: 'fixture', model: 'fixture',
-      input: { name: card.name, kind: 'whole', preparation: 'raw' },
-      fetchImpl: async () => ({ ok: true, json: async () => value }) }));
-  }
-});
 
-for (const citationsOnly of [false, true]) {
-  test(`source URL normalization matches card validation (${citationsOnly ? 'citations' : 'search sources'})`, async () => {
-    const { lookupNutrition } = await import('../services/nutritionModel.mjs');
-    const value = response();
-    const source = { url: 'HTTPS://EXAMPLE.COM:443', title: 'Synthetic reference' };
-    const answer = JSON.parse(value.output[1].content[0].text);
-    answer.card.sources = [source];
-    value.output[1].content[0].text = JSON.stringify(answer);
-    value.output[0].action.sources = citationsOnly ? [] : [source];
-    if (citationsOnly) value.output[1].content[0].annotations = [{ type: 'url_citation', ...source }];
-    const result = await lookupNutrition({ apiKey: 'fixture', model: 'fixture',
-      input: { name: card.name, kind: 'whole', preparation: 'raw' },
-      fetchImpl: async () => ({ ok: true, json: async () => value }) });
-    assert.equal(result.card.sources[0].url, 'https://example.com/');
-  });
-}
-
-test('normalization never discards document paths, product queries or fragment-based food identities', async () => {
+test('usage is reported once before incomplete, rejected, refused and unreadable failures without retries', async () => {
   const { lookupNutrition } = await import('../services/nutritionModel.mjs');
-  for (const url of ['https://other.example/oats?product=1#food-1', 'https://example.com/rice?product=1#food-1',
-    'https://example.com/oats?product=2#food-1', 'https://example.com/oats?product=1#food-2',
-    'https://example.com/oats/?product=1#food-1', 'https://example.com/oats?product=1&utm_source=chatgpt.com#food-1']) {
-    const value = response();
-    value.output[0].action.sources = [{ url: 'https://example.com/oats?product=1#food-1' }];
-    const answer = JSON.parse(value.output[1].content[0].text);
-    answer.card.sources = [{ url, title: 'Unsupported synthetic reference' }];
-    value.output[1].content[0].text = JSON.stringify(answer);
-    await assert.rejects(lookupNutrition({ apiKey: 'fixture', model: 'fixture',
-      input: { name: card.name, kind: 'whole', preparation: 'raw' },
-      fetchImpl: async () => ({ ok: true, json: async () => value }) }), /source URLs were not supported/);
-  }
-});
-
-test('missing and malformed search evidence fail explicitly without an unchecked card', async () => {
-  const { lookupNutrition } = await import('../services/nutritionModel.mjs');
-  for (const [sources, message] of [[[], /no verifiable source URLs/], [[{ url: 'not-a-url' }], /invalid source URL/]]) {
-    const value = response();
-    value.output[0].action.sources = sources;
-    await assert.rejects(lookupNutrition({ apiKey: 'fixture', model: 'fixture',
-      input: { name: card.name, kind: 'whole', preparation: 'raw' },
-      fetchImpl: async () => ({ ok: true, json: async () => value }) }), message);
-  }
-});
-
-test('readable cited search facts can produce a card without structured-search annotations', async () => {
-  const { lookupNutrition } = await import('../services/nutritionModel.mjs');
-  let calls = 0;
-  const result = await lookupNutrition({ apiKey: 'fixture', model: 'fixture',
-    input: { name: card.name, kind: 'whole', preparation: 'raw' },
-    fetchImpl: async () => {
-      const value = response();
-      if (++calls === 1) {
-        value.output[0].action.sources = [];
-        value.output[1].content[0] = { type: 'output_text', text: 'Synthetic oats: 389 kcal and 16.9 g protein per 100 g.',
-          annotations: [{ type: 'url_citation', url: card.sources[0].url }] };
-      } else value.output = value.output.slice(1);
-      return { ok: true, json: async () => value };
-    } });
-  assert.equal(calls, 2); assert.equal(result.card.amount, 100); assert.equal(result.card.nutr.calories, 389);
-});
-
-test('missing evidence, canceled work and exhausted allowance never start extraction', async () => {
-  const { lookupNutrition } = await import('../services/nutritionModel.mjs');
-  for (const scenario of ['missing', 'canceled', 'budget']) {
-    const controller = new AbortController();
-    let calls = 0, reserved = 0, reported = 0;
+  for (const scenario of ['incomplete', 'rejected', 'refusal', 'not-json', 'canceled']) {
+    let calls = 0; const usages = []; const controller = new AbortController();
     await assert.rejects(lookupNutrition({ apiKey: 'fixture', model: 'fixture', signal: controller.signal,
       input: { name: card.name, kind: 'whole', preparation: 'raw' },
-      reserveAdditionalCall: () => { reserved++; throw Object.assign(new Error('Budget exhausted'), { status: 429 }); },
-      recordUsage: () => { reported++; if (scenario === 'canceled') controller.abort(new Error('Canceled')); },
-      fetchImpl: async () => {
-        calls++; const value = response();
-        if (scenario === 'missing') value.output[0].action.sources = [];
-        return { ok: true, json: async () => value };
-      } }), scenario === 'missing' ? /no verifiable/ : scenario === 'canceled' ? /Canceled/ : /Budget exhausted/);
-    assert.equal(calls, 1); assert.equal(reported, 1);
-    assert.equal(reserved, scenario === 'budget' ? 1 : 0);
-  }
-});
-
-test('usage is reported before incomplete, rejected and invalid-card failures without retries', async () => {
-  const { lookupNutrition } = await import('../services/nutritionModel.mjs');
-  for (const scenario of ['incomplete', 'rejected', 'invalid-card']) {
-    let calls = 0; const usages = [];
-    await assert.rejects(lookupNutrition({ apiKey: 'fixture', model: 'fixture',
-      input: { name: card.name, kind: 'whole', preparation: 'raw' },
-      recordUsage: usage => usages.push(usage),
+      recordUsage: usage => { usages.push(usage); if (scenario === 'canceled') controller.abort(new Error('Canceled')); },
       fetchImpl: async () => {
         calls++; const value = response();
         if (scenario === 'incomplete') value.status = 'incomplete';
-        if (scenario === 'invalid-card' && calls === 2) value.output[1].content[0].text = 'not JSON';
+        if (scenario === 'refusal') value.output[0].content = [{ type: 'refusal', refusal: 'no' }];
+        if (scenario === 'not-json') value.output[0].content[0].text = 'not JSON';
         return { ok: scenario !== 'rejected', status: 429, json: async () => value };
-      } }));
-    assert.equal(calls, scenario === 'invalid-card' ? 2 : 1);
-    assert.equal(usages.length, calls);
-    assert.ok(usages.every(usage => usage.input_tokens === 1 && usage.output_tokens === 2));
+      } }), scenario === 'canceled' ? /Canceled/ : undefined);
+    assert.equal(calls, 1); assert.equal(usages.length, 1);
   }
 });

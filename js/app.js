@@ -1146,6 +1146,9 @@ document.addEventListener('DOMContentLoaded', () => {
     _dietNutrBase = { ...card, approved: card.approved === true };
     for (const field of ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar']) document.getElementById(`dietNutr${field}`).value = '';
     recalcDietNutrForAmount();
+  }, clear: () => {
+    _dietNutrBase = null;
+    for (const field of ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar']) document.getElementById(`dietNutr${field}`).value = '';
   } });
   function closeRawFood() {
     rawFoodModal.classList.add('hidden');

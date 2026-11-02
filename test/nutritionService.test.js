@@ -95,37 +95,20 @@ test('provider failure consumes a call but never returns a successful card', asy
     assert.deepEqual(result.body.usage, { calls: 1, inputTokens: 0, outputTokens: 0 });
   } finally { await f.close(); }
 });
-test('both nutrition stages reserve durable calls and record tokens exactly once', async () => {
-  const f = await setup({ dependencies: { modelCall: async ({ reserveAdditionalCall, recordUsage }) => {
+test('each lookup reserves exactly one durable call and records tokens once', async () => {
+  const f = await setup({ dependencies: { modelCall: async ({ recordUsage, ...rest }) => {
+    assert.ok(!('reserveAdditionalCall' in rest));
     recordUsage({ input_tokens: 20, output_tokens: 10 });
-    reserveAdditionalCall();
-    recordUsage({ input_tokens: 5, output_tokens: 3 });
-    return { found: false, reason: 'Synthetic unavailable', usage: { input_tokens: 25, output_tokens: 13 } };
+    return { found: false, reason: 'Not a food', usage: { input_tokens: 20, output_tokens: 10 } };
   } } });
   try {
     const session = await f.signin();
     const result = await f.request('/lookup', { input, consent: true }, session.token);
     assert.equal(result.status, 200);
-    assert.deepEqual(result.body.usage, { calls: 2, inputTokens: 25, outputTokens: 13 });
-    assert.equal((await f.request('/lookup', { input, consent: true }, session.token)).status, 429);
-  } finally { await f.close(); }
-});
-test('second-stage budget exhaustion retains first-stage tokens without reserving beyond cap', async () => {
-  let secondStageStarted = false;
-  const f = await setup({ settings: { maxCalls: 1 }, dependencies: { modelCall: async ({ reserveAdditionalCall, recordUsage }) => {
-    recordUsage({ input_tokens: 20, output_tokens: 10 });
-    reserveAdditionalCall(); secondStageStarted = true;
-    return { found: false, reason: 'Unexpected' };
-  } } });
-  try {
-    const session = await f.signin();
-    const result = await f.request('/lookup', { input, consent: true }, session.token);
-    assert.equal(result.status, 429); assert.match(result.body.error, /budget exhausted/);
     assert.deepEqual(result.body.usage, { calls: 1, inputTokens: 20, outputTokens: 10 });
-    assert.equal(secondStageStarted, false);
   } finally { await f.close(); }
 });
-test('failed extraction returns both-stage usage and persists it across restart', async () => {
+test('failed provider work returns usage and persists it across restart', async () => {
   const { mkdtemp, rm } = require('node:fs/promises');
   const { tmpdir } = require('node:os');
   const { join } = require('node:path');
@@ -133,23 +116,22 @@ test('failed extraction returns both-stage usage and persists it across restart'
   const stateFile = join(directory, 'usage.sqlite');
   let f;
   try {
-    f = await setup({ settings: { stateFile }, dependencies: { modelCall: async ({ reserveAdditionalCall, recordUsage }) => {
-      recordUsage({ input_tokens: 20, output_tokens: 10 }); reserveAdditionalCall();
-      recordUsage({ input_tokens: 5, output_tokens: 3 });
-      throw Object.assign(new Error('Synthetic invalid extraction'), { status: 502 });
+    f = await setup({ settings: { stateFile }, dependencies: { modelCall: async ({ recordUsage }) => {
+      recordUsage({ input_tokens: 25, output_tokens: 13 });
+      throw Object.assign(new Error('Synthetic invalid card'), { status: 502 });
     } } });
     const session = await f.signin();
     const result = await f.request('/lookup', { input, consent: true }, session.token);
     assert.equal(result.status, 502); assert.ok(!result.body.card);
-    assert.deepEqual(result.body.usage, { calls: 2, inputTokens: 25, outputTokens: 13 });
+    assert.deepEqual(result.body.usage, { calls: 1, inputTokens: 25, outputTokens: 13 });
     const wallet = f.wallet;
     await f.close(); f = null;
     const { DatabaseSync } = require('node:sqlite');
     const db = new DatabaseSync(stateFile);
     try {
-      assert.deepEqual({ ...db.prepare('SELECT * FROM budget').get() }, { id: 1, calls: 2 });
+      assert.deepEqual({ ...db.prepare('SELECT * FROM budget').get() }, { id: 1, calls: 1 });
       assert.deepEqual({ ...db.prepare('SELECT * FROM usage WHERE wallet=?').get(wallet.address.toLowerCase()) },
-        { wallet: wallet.address.toLowerCase(), calls: 2, input_tokens: 25, output_tokens: 13 });
+        { wallet: wallet.address.toLowerCase(), calls: 1, input_tokens: 25, output_tokens: 13 });
     } finally { db.close(); }
   } finally { if (f) await f.close(); await rm(directory, { recursive: true }); }
 });
@@ -244,24 +226,25 @@ test('food facts are shared without provider calls after cap exhaustion, without
     assert.equal((await f.request('/foods', { input: food }, undefined, 'https://wrong.example')).status, 403);
   } finally { await f.close(); }
 });
-test('ambiguous food questions cost no calls and shared food facts survive restart', async () => {
+test('plain staple names go straight to Genie without a clarification step and shared facts survive restart', async () => {
   const { mkdtemp, rm } = require('node:fs/promises');
   const { tmpdir } = require('node:os'); const { join } = require('node:path');
   const directory = await mkdtemp(join(tmpdir(), 'bignuten-foods-test-'));
   let f;
   try {
     const settings = { stateFile: join(directory, 'foods.sqlite') };
-    f = await setup({ settings, dependencies: { modelCall: async () => ({ found: true, card: structuredClone(publicCard) }) } });
+    const food = { name: 'Pasta', kind: 'whole' };
+    f = await setup({ settings, dependencies: { modelCall: async () => ({ found: true,
+      card: { ...structuredClone(publicCard), preparation: '', quality: 'estimate', sources: [] } }) } });
     const session = await f.signin();
-    const question = await f.request('/lookup', { input: { name: 'Pasta', kind: 'whole' }, consent: true }, session.token);
-    assert.equal(question.status, 200); assert.equal(question.body.usage.calls, 0);
-    assert.equal(question.body.clarification.options.length, 2);
-    const food = { name: 'Pasta', kind: 'whole', preparation: publicCard.preparation };
-    assert.equal((await f.request('/lookup', { input: food, consent: true }, session.token)).status, 200);
+    const filled = await f.request('/lookup', { input: food, consent: true }, session.token);
+    assert.equal(filled.status, 200); assert.equal(filled.body.usage.calls, 1);
+    assert.ok(!filled.body.clarification); assert.equal(filled.body.card.quality, 'estimate');
     await f.close(); f = null;
     f = await setup({ settings });
     const result = await f.request('/foods', { input: food });
-    assert.equal(result.body.card.nutr.calories, 158);
+    assert.equal(result.body.card.nutr.calories, 158); assert.equal(result.body.card.quality, 'estimate');
+    assert.ok(!result.body.clarification);
     assert.equal(f.seen.length, 0);
   } finally { if (f) await f.close(); await rm(directory, { recursive: true }); }
 });
@@ -288,7 +271,8 @@ test('missing household portions can enrich legacy shared cards once, then reuse
 });
 test('a failed or unverified portion enrichment cannot erase a shared source-backed reference', async () => {
   for (const result of [{ found: false, reason: 'No source portion' },
-    { found: true, card: { ...publicCard, quality: 'user-entered', measures: [{ amount: 1, unit: 'cup', baseAmount: 140 }] } }]) {
+    { found: true, card: { ...publicCard, quality: 'user-entered', measures: [{ amount: 1, unit: 'cup', baseAmount: 140 }] } },
+    { found: true, card: { ...publicCard, quality: 'estimate', measures: [{ amount: 1, unit: 'cup', baseAmount: 140 }] } }]) {
     let calls = 0;
     const f = await setup({ dependencies: { modelCall: async () => ++calls === 1
       ? { found: true, card: structuredClone(publicCard) } : result } });
@@ -303,14 +287,16 @@ test('a failed or unverified portion enrichment cannot erase a shared source-bac
     } finally { await f.close(); }
   }
 });
-test('user-entered and estimated model cards are never published to the food library', async () => {
+test('labeled Genie estimates are shared but user-entered cards are never published', async () => {
   for (const quality of ['estimate', 'user-entered']) {
     const f = await setup({ dependencies: { modelCall: async () => ({ found: true, card: { ...publicCard, quality } }) } });
     try {
       const session = await f.signin();
       const food = { name: 'Pasta', kind: 'whole', preparation: publicCard.preparation };
       assert.equal((await f.request('/lookup', { input: food, consent: true }, session.token)).status, 200);
-      assert.equal((await f.request('/foods', { input: food })).body.found, false);
+      const shared = (await f.request('/foods', { input: food })).body;
+      assert.equal(shared.found, quality === 'estimate');
+      if (shared.found) assert.equal(shared.card.quality, 'estimate');
     } finally { await f.close(); }
   }
 });

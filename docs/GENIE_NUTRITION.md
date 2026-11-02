@@ -1,103 +1,101 @@
-# Genie nutrition lookup (#390)
+# Genie nutrition lookup (#390, #403)
 
-Open **Diet**, enter the food, quantity and unit, and press **Genie**.
-It checks the shared community library first, then fetches missing nutrition
-facts and fills the existing card directly. There is no separate nutrition
-review window, consent checkbox or sign-in button. Clicking Genie authorizes
-the food-only lookup described beside the card. Only an ambiguous food prompts
-one focused question (for example, cooked or dry pasta); answering does not
-log food. Cancel leaves the nutrient fields unchanged.
+Open **Diet** and enter the food, quantity and unit. When the nutrient fields are
+blank, the card fills itself about a second later: first from the shared
+community library (free, no wallet), then, for invited wallets, from Genie.
+**Genie** can also be pressed manually. There is no separate review window,
+consent checkbox, sign-in button or clarification question. Logging remains a
+separate action.
+
+Genie behaves like a knowledgeable person checking a few references: it weighs
+the three or four most plausible interpretations, picks the most likely one for
+how the food is being logged (for example, pasta measured in cups is cooked) and
+states that assumption in one line. Homemade or mixed foods are estimated from
+their main ingredients; trace additions such as probiotic cultures add
+negligible nutrition. Genie returns a not-found answer only for input that is
+not food or drink.
+
+Auto-fill never overwrites figures you typed. It runs once per food identity
+and unit (failures are not retried automatically; press Genie to retry), and it
+is suppressed while any nutrient field has a value. Changing the food name
+clears figures that came from the previous food, unless you typed them.
 
 The inline **Food details / saved defaults** section supports preparation,
 exact product brand/market/barcode, manual serving descriptions and local
-defaults. Packaged foods need their exact variant, brand and country/market.
-Manual nutrient fields and **Use community food facts (no AI)** remain available
-without a wallet. Genie itself appears only for eligible addresses. Barcode
-camera scanning and label-photo recognition are not included.
+defaults. Manual nutrient fields and **Use community food facts (no AI)** remain
+available without a wallet. Barcode camera scanning and label-photo recognition
+are not included.
 
-Results fill proportional figures for your current amount/unit, with sources,
-source-defined serving, preparation and retrieval date shown inline. Logging
-remains a separate action. **Save these figures as my default** is optional and
-local; editing or logging does not silently replace an existing default.
+## Estimates and sources
 
-Unknown nutrients stay blank. Potassium uses the existing app's **%DV** unit,
-not mg; the lookup only fills an explicit source-label %DV. Mass conversion
-supports grams and ounces. Source-backed cards may include explicit food-specific
-household equivalents, such as a source-defined cup weight or labeled serving.
+Cards are labeled **Genie estimate** unless every value and portion comes from
+a web source the lookup actually searched, in which case they are
+**source-backed**. Generic and homemade foods use one fast structured call with
+no web search, so they are estimates with no source links. Packaged products
+(and lookups with a product URL) may use web search; unsearched or rewritten
+URLs are dropped and the card is downgraded to an estimate rather than
+rejected. Estimates are good enough for practical food logging, not lab-grade
+or label-verified values, allergen-safety guarantees or dietary/medical advice.
+
+Unknown nutrients stay blank. Potassium uses the existing app's **%DV** unit
+(4700 mg = 100%).
+
+## Portions and scaling
+
 Changing amounts or compatible units recalculates from the original unrounded
-base without another lookup. US nutrition-label volume units are used:
-cup = 240 ml, tablespoon = 15 ml, teaspoon = 5 ml, fluid ounce = 30 ml.
-These volume ratios never imply a food's density.
+base without another lookup. Mass conversion supports grams and ounces. US
+nutrition-label volume units are used: cup = 240 ml, tablespoon = 15 ml,
+teaspoon = 5 ml, fluid ounce = 30 ml. Cards include household portions such as
+cups, tablespoons, pieces and servings, estimated from typical density when no
+source states them. When the selected unit has no portion yet (for example an
+older community card without a cup weight), Genie fills just that portion
+automatically for invited wallets, sending only the unit, not the amount eaten.
 
-The serving option displays its size. When the source supplies no separate
-serving, **one serving means the card's displayed base amount**, not an assumed
-standard portion. If a gram-based card has no cup/piece weight (including older
-community cards), an inline portion editor asks how many base units one portion
-represents. Define it from a label, reference or scale; then fractional/multiple
-portions calculate immediately. **Define / adjust this portion** can also set a
-personal serving size. Overrides stay local, mark the card user-entered and
-are kept across reloads only when explicitly saved as a default. They never
-overwrite the public reference. Old meals are unchanged.
+The serving option displays its size. **Define / adjust this portion** sets a
+personal portion from a label or scale. Overrides stay local, mark the card
+user-entered and are kept across reloads only when saved as a default. They
+never overwrite the public reference. Old meals are unchanged.
 
-No mass/volume or food-specific serving conversion is guessed. Source-backed means traceable,
-not independently verified. A search result is not proof a label is current,
-an allergen-safety guarantee or dietary/medical advice.
+## Provider calls and budget
 
-Source matching uses the same URL normalization as the reviewed card (host
-case, default port and root trailing slash). Document paths, query parameters and
-fragments remain significant, including fragment-based food identities.
-Missing or unsupported search/citation evidence withholds the card; it is not
-silently replaced with model knowledge or an unverified reference.
-
-Nutrition lookup uses two stages: a readable, cited web search followed by
-tool-free structured extraction constrained to those exact verified URLs.
-The second stage does not search or fill unknown nutrients from model knowledge.
-Missing evidence stops before extraction. Each lookup can use two provider
-calls, with at most one web-search tool call; both provider attempts are reserved
-individually against the unchanged shared lifetime cap. Cancellation, revoked
-access or exhausted allowance prevents the next stage from starting. There
-are no automatic paid retries. Nutrition has a 90-second overall timeout;
-Health, Yoga and Community retain their existing single-call behavior and timeout.
+Each Genie lookup is one provider call (at most two web-search tool uses for
+packaged products) reserved against the unchanged shared lifetime cap and the
+per-wallet rate limit. Community hits use none. There are no automatic paid
+retries. Nutrition has a 90-second timeout; Health, Yoga and Community retain
+their existing behavior.
 
 Approved defaults include exact identity/preparation, brand, market and barcode
 when supplied. Multiple defaults sharing a typed name do not auto-select an
 arbitrary product: choose the exact saved default in the inline details. Saved
 defaults prefill without another model call, and logging/one-off edits do not
-replace them. Old logged meals are unchanged when a default is replaced.
-Edited figures save as user-entered defaults only when explicitly requested.
+replace them. Edited figures save as user-entered defaults only when explicitly
+requested.
 
 ## Shared public food library
 
-The existing service disk stores validated, source-backed food cards keyed by
-food name/type, preparation, brand, market and barcode (case/whitespace normalized).
-Cooked and dry foods, brands and markets remain distinct. The extraction schema
-constrains supplied identity fields rather than asking a model to reproduce them
-unconstrained; it cannot silently rewrite a name or product identity.
+The existing service disk stores validated Genie food cards, both source-backed
+and labeled estimates, keyed by food name/type, preparation, brand, market and
+barcode (case/whitespace normalized). Cooked and dry foods, brands and markets
+remain distinct. The supplied identity fields always replace whatever the model
+returns, so a lookup cannot rewrite a food or product identity.
 
-Successful source-backed lookups are automatically reusable across people and
-browsers. Only the food identity, source-defined serving/portion equivalents, nutrients, ingredients,
-source links, limitations and retrieval date are stored; there is no wallet
-attribution, meal quantity/time, health record, consent history or conversation.
-User-entered and estimated cards, personal edits/defaults and pasted-label
-requests are not published. Shared data is public, not encrypted personal backup.
-Previously shared cards remain shared when someone deletes local health data.
+Only the food identity, serving/portion equivalents, nutrients, ingredients,
+quality label, assumption note, source links and retrieval date are stored;
+there is no wallet attribution, meal quantity/time, health record or
+conversation. User-entered cards, personal edits/defaults and pasted-label
+requests are not published. Shared data is public, not encrypted personal
+backup. Previously shared cards remain shared when someone deletes local health
+data.
 
 `POST /foods` reads exact matches from approved origins without a wallet, model
 call or enabled provider key. `POST /lookup` also rechecks the library before
-reserving a provider call, including after the global cap is exhausted.
-If a cached card cannot represent the selected unit, pressing Genie sends only
-the requested portion unit (not the amount eaten) to look for a source-defined
-equivalent. This explicit enrichment can use the same two provider attempts,
-subject to the unchanged cap. A validated source-backed result containing that
-portion may replace the old exact-identity reference; future compatible requests
-reuse it without provider work. Failed, estimated, user-entered or still-missing
-portion results cannot overwrite an existing shared reference. Missing weights
-can instead be entered locally with no provider call.
-Concurrent identical misses return an explicit busy message rather than pay
-for duplicate searches. There is no arbitrary browser card-upload endpoint.
-Entries survive service restarts; retrieval dates remain visible. There is no
-automatic freshness guarantee or overwrite by personal edits. This is a food
-reference library, not health-profile or cross-browser log synchronization.
+reserving a provider call, including after the global cap is exhausted. A new
+result that adds a requested missing portion may replace the existing reference,
+except that an estimate never replaces a source-backed card. Failed or
+user-entered results never overwrite a shared reference. Concurrent identical
+misses return an explicit busy message rather than paying twice. There is no
+arbitrary browser card-upload endpoint. This is a food reference library, not
+health-profile or cross-browser log synchronization.
 
 ## Local records and privacy
 
@@ -109,8 +107,8 @@ replacement is explicit. Health-data deletion clears defaults with the primary
 profile. The legacy `dietNutrCache` remains for manual entries, but cannot
 overwrite approved defaults.
 
-Lookup sends only the supplied food/product fields to the service and OpenAI
-web search. It does not include health logs, symptoms, chat history, Genie
+Lookup sends only the supplied food/product fields (and a requested portion
+unit) to the service and OpenAI. It does not include health logs, symptoms, chat history, Genie
 memory or DBusker context. Do not paste personal notes into the product label
 field. Food/amount changes, manual editing, wallet changes and closing Diet
 cancel pending results; cancellation cannot recall transmitted provider data.
@@ -158,7 +156,7 @@ hosted permissions or changing wallets requires permission again. Automatic
 hosted Health summaries require existing Health permission; otherwise summaries
 stay local. OpenAI Responses use `store: false`; this is **not a guarantee of
 zero vendor retention**. BigNuten stores no prompts or conversations server-side;
-public source-backed food cards are the explicit exception to local-only food facts.
+public Genie food cards (source-backed or labeled estimates) are the explicit exception to local-only food facts.
 
 The default chat backend is **Private BigNuten Genie**. Direct browser OpenAI
 and GitHub Models calls/key-entry controls are retired; old stored keys are not
@@ -197,7 +195,7 @@ The Render disk requires a compatible paid service plan; do not replace it with
 ephemeral storage and claim durable budgets. Service restart invalidates
 sessions/challenges, but retains aggregate per-wallet call/token totals. No
 prompts or conversation logs are stored; the separate public `foods` table stores
-only source-backed food cards without wallet attribution. Provider-reported token usage is
+only Genie food cards (source-backed or labeled estimates) without wallet attribution. Provider-reported token usage is
 recorded before card validation, including rejected/incomplete responses when
 usage is available; error responses update the nutrition usage display.
 Unavailable usage is not reconstructed or presented as a complete billing total.
@@ -254,7 +252,7 @@ belong in the release PR; keep personal findings out of public inventories.
 
 For the staged lookup repair, adapt the per-attempt reserve/finish pattern in
 DBusker `agent-service/server.mjs` at the same `6be300e` commit, retaining the
-existing BigNuten SQLite ledger and food-only boundary. Build the two-stage
-search/extraction adapter here: the inspected donor handles community retrieval,
+existing BigNuten SQLite ledger and food-only boundary. #403 later replaced the
+two-stage search/extraction adapter with a single best-estimate call: the inspected donor handles community retrieval,
 not a tested nutrition integration. The donor checkout's unrelated unfinished
 radio/promotion work is not part of this change.

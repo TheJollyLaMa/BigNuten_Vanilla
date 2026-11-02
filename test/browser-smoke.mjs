@@ -144,7 +144,7 @@ try {
         raw: JSON.stringify({ dataVersion: 1, weightLogs: [], waterDailyHistory: {} }),
       }]));
     });
-    const hostedRequests = [];
+    const hostedRequests = [], autoLookups = [];
     let deniedChallenges = 0;
     await page.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url());
@@ -167,6 +167,11 @@ try {
         if (url.pathname === '/session') return route.fulfill({ headers, json: request.method() === 'DELETE' ? { cleared: true }
           : { token: 'a'.repeat(64), wallet, expiresAt: await page.evaluate(() => Date.now()) + 900000 } });
         if (url.pathname === '/usage') return route.fulfill({ headers, json: { calls: hostedRequests.length, inputTokens: 10, outputTokens: 20 } });
+        if (url.pathname === '/foods') return route.fulfill({ headers, json: { found: false } });
+        if (url.pathname === '/lookup') {
+          autoLookups.push(body);
+          return route.fulfill({ headers, json: { found: false, reason: 'Synthetic hosted fixture has no card.', usage: { calls: 0, inputTokens: 0, outputTokens: 0 } } });
+        }
         assert.equal(url.pathname, '/assistant', 'Every private Genie route needs an explicit fixture');
         assert.deepEqual(Object.keys(body).sort(), ['assistant', 'consent', 'messages']);
         assert.equal(body.consent, true);
@@ -445,8 +450,6 @@ try {
         if (path === '/challenge') return route.fulfill({ json: { nonce: 'synthetic', accessMode: 'address-only', message: `${wallet}\nSign in to BigNuten Genie access only. No transaction, payment or token approval.\nURI: ${origin}/\n` } });
         if (path === '/session') return route.fulfill({ json: { token: 'a'.repeat(64), wallet: wallet.toLowerCase(), expiresAt: await page.evaluate(() => Date.now()) + 900000 } });
         if (path === '/foods') {
-          if (body.input.name === 'Pasta' && !body.input.preparation) return route.fulfill({ json: { found: false,
-            clarification: { question: 'Is your pasta cooked or dry?', options: ['Cooked, plain, without added salt', 'Dry, uncooked'] } } });
           return route.fulfill({ json: sharedFixture && body.input.name === sharedFixture.name
             ? { found: true, cached: true, card: sharedFixture } : { found: false } });
         }
@@ -476,7 +479,7 @@ try {
       await page.locator('#nutritionMarket').fill('US');
       const signatureCount = walletCalls.filter(method => method === 'personal_sign').length;
       await click('#dietNutritionGenie');
-      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Nutrition filled'));
+      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Filled by Genie (source-backed)'));
       assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, 1);
       assert.equal(walletCalls.filter(method => method === 'personal_sign').length, signatureCount, 'Address-only mode never signs');
       assert.equal(await page.locator('#nutritionConsent').count(), 0);
@@ -506,7 +509,7 @@ try {
       await page.locator('#dietFoodAmount').fill('0.5');
       await page.locator('#dietFoodUnit').selectOption('cup');
       await click('#dietNutritionGenie');
-      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Nutrition filled'));
+      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Filled by Genie'));
       assert.equal(nutritionRequests.at(-1).body.portionUnit, 'cup', 'Legacy cache misses request only the missing portion unit, not meal quantities');
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '272', 'Legacy cached facts gain a source-defined cup equivalent');
       const afterPortion = nutritionRequests.length;
@@ -516,29 +519,31 @@ try {
       await page.locator('#dietFoodAmount').fill('50');
       await page.locator('#dietFoodUnit').selectOption('g');
       assert.equal(await page.evaluate(() => [...Object.keys(localStorage), ...Object.keys(sessionStorage)].some(key => /nutrition.*token/i.test(key))), false);
+      const beforeAuto = nutritionRequests.filter(request => request.path === '/lookup').length;
       await page.locator('#dietFoodName').fill('Pasta');
-      await click('#dietNutritionGenie');
-      await page.locator('#nutritionClarification').waitFor({ state: 'visible' });
-      await page.locator('#nutritionClarification').getByRole('button', { name: 'Cooked, plain, without added salt', exact: true }).click();
       await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.includes('Synthetic extraction failure'));
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '', 'A new food name clears stale figures before auto-fill');
+      assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, beforeAuto + 1, 'An empty card auto-fills with one Genie call, no button or clarification');
+      assert.equal(nutritionRequests.at(-1).body.input.preparation, '');
       assert.match(await page.locator('#nutritionUsage').innerText(), /3 shared provider calls; 25 input \/ 30 output/);
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults.length), 1, 'Failed extraction never changes saved defaults');
       assert.equal(await page.locator('#nutritionClarification').count(), 0);
+      await page.locator('#dietFoodAmount').fill('60');
+      await page.waitForTimeout(1300);
+      assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, beforeAuto + 1, 'Auto-fill never retries the same food automatically');
+      await page.locator('#dietNutrCalories').fill('210');
+      await page.locator('#nutritionPreparation').fill('Cooked');
+      await page.waitForTimeout(1300);
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '210', 'Typed figures are never cleared or overwritten');
+      assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, beforeAuto + 1, 'Typed figures suppress auto-fill');
+      await page.locator('#dietNutrCalories').fill('');
       await page.locator('#nutritionPreparation').fill('');
-      const beforeClarification = nutritionRequests.filter(request => request.path === '/lookup').length;
-      const beforeCancel = await page.locator('#dietNutrCalories').inputValue();
-      await click('#dietNutritionGenie');
-      await page.locator('#nutritionClarification').waitFor({ state: 'visible' });
-      await page.locator('#nutritionClarification').getByRole('button', { name: 'Cancel', exact: true }).click();
-      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Lookup canceled'));
-      assert.equal(await page.locator('#dietNutrCalories').inputValue(), beforeCancel);
-      assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, beforeClarification, 'Canceled clarification makes no provider request');
       await page.evaluate(async () => {
         localStorage.removeItem('bignutenNutritionServiceUrl');
         const { genieClient } = await import('/js/genieService.mjs');
         genieClient.clear('Synthetic endpoint reset'); await genieClient.refresh(); await genieClient.ensureSignedIn();
       });
-      console.log(`${name}: direct Genie fill, zero-signature pilot, shared reuse, single clarification and failure usage passed`);
+      console.log(`${name}: direct Genie fill, empty-card auto-fill, zero-signature pilot, shared reuse and failure usage passed`);
       console.log(`${name}: inline manual defaults, proportional scaling and no automatic logging passed`);
       await click('#closeDietModal');
       await click('[data-panel="recent-foods-list"].panel-toggle-btn');
@@ -1380,7 +1385,9 @@ try {
       assert.ok(walletCalls.includes('eth_call'), 'Real ethers contract reads exercised');
       console.log(`${name}: covered ${panels.length} panels / ${covered.size} dialogs; ${external.size} external URLs fulfilled locally`);
       assert.deepEqual(unexpected, [], 'External requests need explicit fixtures');
-      assert.deepEqual(failed.filter(failure => !['403 https://bignuten-nutrition.onrender.com/challenge', '502 https://nutrition.fixture/lookup'].includes(failure)), [], 'No failed requests beyond deliberate invitation/provider failures');
+      // Editing the card or food intentionally aborts an in-flight auto-fill request.
+      const canceledNutrition = /^https:\/\/(nutrition\.fixture|bignuten-nutrition\.onrender\.com)\/(foods|lookup): net::ERR_ABORTED$/;
+      assert.deepEqual(failed.filter(failure => !['403 https://bignuten-nutrition.onrender.com/challenge', '502 https://nutrition.fixture/lookup'].includes(failure) && !canceledNutrition.test(failure)), [], 'No failed requests beyond deliberate invitation/provider failures or canceled nutrition lookups');
       const unallowed = errors.filter(error => !allowedErrors.some(entry => entry.match.test(error)));
       for (const error of errors.filter(error => !unallowed.includes(error))) console.warn(`ALLOWLISTED (${name}): ${error}`);
       assert.deepEqual(unallowed, [], 'No unexpected console errors or page exceptions');
