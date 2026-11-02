@@ -40,7 +40,10 @@ export const defaultData = {
   chantingSessions: [],
   emotions: [],
   genieSessions: [],
-  genieInsights: []
+  genieInsights: [],
+  latestResearch: [],
+  researchProtocols: [],
+  researchExperiments: []
 };
 
 export function cloneDefaultData() {
@@ -164,6 +167,9 @@ export function normalizeFitnessData(data) {
   normalized.emotions = coerceArray(source, ['emotions', 'emotionLogs', 'feelings']);
   normalized.genieSessions = coerceArray(source, ['genieSessions']);
   normalized.genieInsights = coerceArray(source, ['genieInsights']);
+  normalized.latestResearch = coerceArray(source, ['latestResearch']);
+  normalized.researchProtocols = coerceArray(source, ['researchProtocols']);
+  normalized.researchExperiments = coerceArray(source, ['researchExperiments']);
   normalized.exercises = normalizeExerciseBlock(source.exercises ?? source.exerciseLogs ?? source.workoutExercises);
 
   normalized.dataVersion = DATA_VERSION;
@@ -189,6 +195,7 @@ export function validateFitnessSnapshot(raw) {
     ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods'], ['measurements', 'measurementLogs', 'bodyMeasurements'],
     ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog'], ['painLogs', 'painLog'],
     ['emotions', 'emotionLogs', 'feelings'], ['metricLogs'], ['breathworkSessions'], ['genieSessions'], ['genieInsights'], ['chantingSessions'], ['nutritionDefaults'],
+    ['latestResearch'], ['researchProtocols'], ['researchExperiments'],
   ];
   const known = arrays.flat().concat(['gutHealth', 'waterDailyHistory', 'waterHistory', 'exercises', 'exerciseLogs', 'workoutExercises']);
   if (!known.some(key => Object.hasOwn(source, key))) throw new Error('Invalid snapshot: missing supported records.');

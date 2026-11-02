@@ -64,6 +64,9 @@ test('every defaultData key survives real JSON export → clear → import and s
       emotions: [{ id: 'synthetic-emotion', emotion: 'Calm' }],
       genieSessions: [{ id: 'synthetic-chat', messages: [{ role: 'user', content: 'Synthetic only' }] }],
       genieInsights: [{ id: 'synthetic-insight', text: 'Synthetic only' }],
+      latestResearch: [{ id: 'synthetic-research', title: 'Synthetic study', youtubeId: 'abcdefghijk', transcript: 'Synthetic transcript', addedAt: '2026-10-28T12:00:00Z' }],
+      researchProtocols: [{ id: 'synthetic-protocol', title: 'Synthetic protocol' }],
+      researchExperiments: [{ id: 'synthetic-experiment', startDate: '2026-10-28', durationDays: 7, baselineDays: 7, checkIns: {} }],
     };
     fixture.metricLogs.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
     const keys = Object.keys(defaultData).sort();

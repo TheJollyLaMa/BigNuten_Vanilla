@@ -904,6 +904,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 import { providerRegistry } from './storageProvider.js';
 import { initNutritionLookup } from './nutritionLookupUI.mjs';
+import { initResearchExperiments } from './researchExperimentsUI.mjs';
 import { matchingDefaults, scaleNutrition } from './nutritionDefaults.mjs';
 import { PinataProvider } from './providers/pinataProvider.js';
 import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
@@ -7874,6 +7875,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initChakraAura();
 
   // ── v3.1.0 Competitions (Streak Bets) ───────────────────────────────────
+  initResearchExperiments();
   initCompetitions();
 
   console.timeEnd('[startup] DOMContentLoaded → interactive');

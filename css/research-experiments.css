@@ -1,0 +1,62 @@
+.research-overlay[hidden], .research-draft[hidden] { display: none !important; }
+.research-overlay { position: fixed; inset: 0; z-index: 300000; display: grid; place-items: center; padding: 18px; background: rgba(1, 5, 14, .88); backdrop-filter: blur(7px); }
+.research-modal { width: min(1120px, 100%); max-height: min(94vh, 1000px); overflow: auto; padding: clamp(16px, 3vw, 30px); border: 1px solid #00e5ff; border-radius: 18px; background: linear-gradient(145deg, #07101f, #10192a 58%, #0c1220); color: #e8f7ff; box-shadow: 0 0 24px #00bfff55, 0 18px 70px #000b; }
+.research-header { position: sticky; top: 0; z-index: 3; margin-top: -1px; padding: 2px 48px 8px 0; background: linear-gradient(145deg, #07101f, #10192a 58%, #0c1220); display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.research-header h2 { margin: 0 0 10px; color: #68f5ff; font-size: clamp(1.25rem, 3vw, 2rem); text-shadow: 0 0 12px #00bfff66; }
+.research-eyebrow { margin: 0 0 6px; color: #ad7aff; font-size: .7rem; font-weight: 800; letter-spacing: .16em; }
+.research-close { position: absolute; top: max(8px, env(safe-area-inset-top)); right: 0; z-index: 300010; flex: 0 0 auto; border: 1px solid #ff6dba; border-radius: 50%; width: 40px; height: 40px; color: #fff; background: #261126; font-size: 1.5rem; cursor: pointer; }
+.research-notice, .research-consent-note { padding: 10px 12px; border-left: 3px solid #ffcf5a; background: #272212; color: #ffe4a3; font-size: .86rem; line-height: 1.5; }
+.research-columns { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); gap: 22px; align-items: start; }
+.research-column { min-width: 0; }
+.research-column h3 { margin: 8px 0 14px; color: #77f4ff; }
+.research-add-form, .research-draft form { display: grid; gap: 8px; }
+.research-modal label, .research-modal legend { color: #b7c8e8; font-size: .86rem; font-weight: 650; }
+.research-modal label span { color: #8d9bb4; font-weight: 400; }
+.research-modal input, .research-modal select, .research-modal textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid #354a68; border-radius: 8px; background: #080e1a; color: #eef6ff; font: inherit; }
+.research-modal textarea { resize: vertical; }
+.research-url-row { display: flex; gap: 8px; }
+.research-url-row input { flex: 1; }
+.research-modal button { border: 1px solid #41627e; border-radius: 8px; padding: 8px 11px; background: #111f31; color: #eafaff; font: inherit; cursor: pointer; }
+.research-modal button:hover, .research-modal button:focus-visible { border-color: #34eaff; box-shadow: 0 0 10px #00bfff55; }
+.research-modal button.research-primary { border-color: #14d6ef; background: #043647; color: #b9fbff; font-weight: 750; }
+.research-status { min-height: 1.2em; color: #83f3ff; }
+.research-status[data-error="true"] { color: #ff9aaf; }
+.research-library-controls { display: grid; grid-template-columns: 1fr 150px; gap: 6px 10px; margin: 18px 0 10px; }
+.research-library-controls label:nth-of-type(2) { grid-column: 2; grid-row: 1; }
+.research-library-controls #research-search { grid-column: 1; grid-row: 2; }
+.research-library-controls #research-filter { grid-column: 2; grid-row: 2; }
+.research-library, .research-protocols, .research-experiments { display: grid; gap: 10px; margin-top: 12px; }
+.research-card, .research-protocol-card, .research-experiment-card, .research-empty { min-width: 0; padding: 12px; border: 1px solid #293d5b; border-radius: 11px; background: #0a1322; }
+.research-card-head { display: flex; gap: 10px; align-items: flex-start; }
+.research-card-head img { width: 96px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 7px; background: #111f31; }
+.research-card h4, .research-protocol-card h4, .research-experiment-card h4 { margin: 0 0 6px; color: #9af9ff; overflow-wrap: anywhere; }
+.research-card-meta, .research-small-note { color: #9daec6; font-size: .78rem; line-height: 1.45; }
+.research-card-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.research-card details { margin-top: 9px; color: #b7c8e8; }
+.research-card pre { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: #d7e4f2; font: .78rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.research-card .research-inline-transcript { margin-top: 9px; }
+.research-check { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.research-check input { width: auto; }
+.research-draft { margin: 12px 0; padding: 14px; border: 1px solid #7155a9; border-radius: 11px; background: #171126; }
+.research-draft h4 { margin: 0 0 10px; color: #d4b8ff; }
+.research-number-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.research-number-row label input { margin-top: 5px; }
+.research-draft fieldset { border: 1px solid #3b4662; border-radius: 8px; }
+.research-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 5px 12px; padding: 6px 0; }
+.research-metric-option { display: flex; align-items: center; gap: 7px; }
+.research-metric-option input { width: auto; }
+.research-experiment-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.research-experiment-form label { display: grid; gap: 5px; }
+.research-experiment-form button { grid-column: 1 / -1; }
+.research-experiment-result { padding: 8px; margin-top: 8px; border-radius: 8px; background: #111d2e; color: #d9e8fb; font-size: .82rem; }
+.research-experiment-result p { margin: 5px 0; }
+.research-empty { color: #91a1b9; text-align: center; }
+@media (max-width: 760px) {
+  .research-overlay { display: block; padding: 0; }
+  .research-modal { box-sizing: border-box; width: 100%; max-height: 100dvh; min-height: 100dvh; border-radius: 0; padding: 16px 14px max(20px, env(safe-area-inset-bottom)); }
+  .research-columns { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .research-library-controls { grid-template-columns: 1fr; }
+  .research-library-controls label:nth-of-type(2), .research-library-controls #research-search, .research-library-controls #research-filter { grid-column: 1; grid-row: auto; }
+  .research-experiment-form { grid-template-columns: 1fr; }
+  .research-experiment-form button { grid-column: 1; }
+}
