@@ -279,7 +279,7 @@ try {
       await visible('#dietBtn');
       assert.equal(await page.locator('.genie-icon-btn').count(), 0, 'Guest has health controls, not Genie icons');
       assert.equal(await page.locator('#yoga-genie-btn').isVisible(), false);
-      assert.equal(await page.locator('#dietNutritionGenie').innerText(), 'Nutrition label');
+      assert.equal(await page.locator('#dietNutritionGenie').isVisible(), false);
       assert.equal(await page.locator('#genie-api-key-input').count(), 0, 'No browser AI-key entry is offered');
       await click('#wallet-connect');
       await page.waitForFunction(() => document.getElementById('wallet-connect').dataset.walletState === 'connected');
@@ -381,17 +381,14 @@ try {
       await page.locator('#dietFoodUnit').selectOption('g');
       await page.locator('#dietFoodTime').fill('12:15');
       const beforeNutrition = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).foods.length);
-      await click('#dietNutritionGenie');
-      await visible('#nutritionLookupDialog');
+      assert.equal(await page.locator('#nutritionLookupDialog').count(), 0, 'No extra nutrition review modal');
+      await page.locator('#nutritionLookupInline > details > summary').click();
       assert.equal(await page.locator('#nutritionServiceUrl').inputValue(), 'https://bignuten-nutrition.onrender.com', 'Published default uses the separate nutrition service');
-      await click('#nutritionManual');
-      await page.locator('#nutritionBaseAmount').fill('100');
-      await page.locator('#nutritionValue-calories').fill('389');
-      await page.locator('#nutritionValue-protein').fill('16.9');
-      assert.equal(await page.locator('#nutritionKeep').isDisabled(), true);
-      await page.locator('#nutritionReviewed').check();
+      await page.locator('#dietFoodAmount').fill('100');
+      await page.locator('#dietNutrCalories').fill('389');
+      await page.locator('#dietNutrProtein').fill('16.9');
       await click('#nutritionKeep');
-      await hidden('#nutritionLookupDialog');
+      await page.locator('#dietFoodAmount').fill('50');
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '195');
       assert.equal(await page.locator('#dietNutrProtein').inputValue(), '8.5');
       assert.equal(await page.locator('#dietFoodAmount').inputValue(), '50');
@@ -404,9 +401,6 @@ try {
       assert.match(await page.locator('#dietNutritionStatus').innerText(), /Cannot scale/);
       await page.locator('#dietFoodUnit').selectOption('g');
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '389');
-      await click('#dietNutritionGenie');
-      await click('#nutritionCancel');
-      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '389');
       await page.locator('#dietNutrCalories').fill('400');
       await click('#dietForm button[type="submit"]');
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults[0].nutr.calories), 389, 'One-off logging cannot replace approved defaults');
@@ -416,12 +410,19 @@ try {
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '195');
       await shot('genie-nutrition-prefill');
       const nutritionRequests = [];
+      let sharedFixture = null;
       await page.route('https://nutrition.fixture/**', async route => {
         const path = new URL(route.request().url()).pathname;
         const body = route.request().postDataJSON();
         nutritionRequests.push({ path, body });
-        if (path === '/challenge') return route.fulfill({ json: { nonce: 'synthetic', message: `${wallet}\nSign in to BigNuten Genie access only. No transaction, payment or token approval.\nURI: ${origin}/\n` } });
+        if (path === '/challenge') return route.fulfill({ json: { nonce: 'synthetic', accessMode: 'address-only', message: `${wallet}\nSign in to BigNuten Genie access only. No transaction, payment or token approval.\nURI: ${origin}/\n` } });
         if (path === '/session') return route.fulfill({ json: { token: 'a'.repeat(64), wallet: wallet.toLowerCase(), expiresAt: await page.evaluate(() => Date.now()) + 900000 } });
+        if (path === '/foods') {
+          if (body.input.name === 'Pasta' && !body.input.preparation) return route.fulfill({ json: { found: false,
+            clarification: { question: 'Is your pasta cooked or dry?', options: ['Cooked, plain, without added salt', 'Dry, uncooked'] } } });
+          return route.fulfill({ json: sharedFixture && body.input.name === sharedFixture.name
+            ? { found: true, cached: true, card: sharedFixture } : { found: false } });
+        }
         assert.equal(path, '/lookup');
         assert.deepEqual(Object.keys(body).sort(), ['consent', 'input']);
         assert.ok(!JSON.stringify(body).includes('Synthetic restore meal'));
@@ -429,57 +430,62 @@ try {
           return route.fulfill({ status: 502, json: { error: 'Synthetic extraction failure. No card was applied.',
             usage: { calls: 3, inputTokens: 25, outputTokens: 30 } } });
         }
-        return route.fulfill({ json: { found: true, reason: 'Synthetic exact product match; review label.',
-          usage: { calls: 2, inputTokens: 10, outputTokens: 20 },
-          card: { ...body.input, amount: 100, unit: 'g', serving: '', ingredients: 'Synthetic oats',
+        sharedFixture = { ...body.input, amount: 100, unit: 'g', serving: '', ingredients: 'Synthetic oats',
             nutr: { calories: 389, protein: 16.9 }, quality: 'source-backed',
             retrievedAt: '2026-10-28T12:00:00Z', note: 'Synthetic fixture',
-            sources: [{ url: 'https://example.com/synthetic-label', title: 'Synthetic label source' }] } } });
+            sources: [{ url: 'https://example.com/synthetic-label', title: 'Synthetic label source' }] };
+        return route.fulfill({ json: { found: true, reason: 'Synthetic exact product match; review label.',
+          usage: { calls: 2, inputTokens: 10, outputTokens: 20 }, card: sharedFixture } });
       });
-      await click('#dietNutritionGenie');
-      await page.locator('#nutritionLookupDialog summary').click();
+      await page.locator('#nutritionLookupInline details details > summary').click();
       await page.locator('#nutritionServiceUrl').fill('https://nutrition.fixture');
       await click('#nutritionSaveService');
-      await click('#nutritionCancel');
-      await click('#dietNutritionGenie');
-      assert.equal(await page.locator('#nutritionServiceUrl').inputValue(), 'https://nutrition.fixture', 'Saved service override survives reopening the modal');
+      await page.waitForFunction(() => !document.getElementById('dietNutritionGenie').hidden);
+      assert.equal(await page.locator('#nutritionServiceUrl').inputValue(), 'https://nutrition.fixture');
       await page.locator('#nutritionKind').selectOption('packaged');
       await page.locator('#nutritionBrand').fill('Synthetic brand');
       await page.locator('#nutritionMarket').fill('US');
-      await click('#nutritionSignIn');
-      assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, 0, 'Unchecked consent sends no food query; eligibility uses only wallet metadata');
-      await page.locator('#nutritionConsent').check();
-      await click('#nutritionSignIn');
-      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Signed in'));
-      await click('#nutritionSearch');
-      await page.locator('#nutritionReview').waitFor({ state: 'visible' });
+      const signatureCount = walletCalls.filter(method => method === 'personal_sign').length;
+      await click('#dietNutritionGenie');
+      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Nutrition filled'));
       assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, 1);
-      assert.match(await page.locator('#nutritionUsage').innerText(), /2 provider calls/);
+      assert.equal(walletCalls.filter(method => method === 'personal_sign').length, signatureCount, 'Address-only mode never signs');
+      assert.equal(await page.locator('#nutritionConsent').count(), 0);
+      assert.equal(await page.locator('#nutritionSignIn').count(), 0);
+      assert.match(await page.locator('#nutritionUsage').innerText(), /2 shared provider calls/);
       assert.match(await page.locator('#nutritionProvenance').innerText(), /source-backed/);
       assert.equal(await page.locator('#nutritionSources a').getAttribute('href'), 'https://example.com/synthetic-label');
-      await page.locator('#nutritionReviewed').check();
-      await page.locator('#nutritionValue-calories').fill('390');
-      assert.equal(await page.locator('#nutritionUse').isDisabled(), true, 'Editing invalidates review');
-      await page.locator('#nutritionReviewed').check();
-      await click('#nutritionUse');
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '195');
-      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults.length), 1, 'Use-once does not save a new packaged default');
-      assert.equal(await page.evaluate(() => [...Object.keys(localStorage), ...Object.keys(sessionStorage)].some(key => /nutrition.*token/i.test(key))), false);
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults.length), 1, 'Direct fill does not silently save a local default');
+      const beforeReuse = nutritionRequests.length;
       await click('#dietNutritionGenie');
-      await page.locator('#nutritionConsent').check();
-      await click('#nutritionSearch');
+      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Filled from the community'));
+      assert.equal(nutritionRequests.slice(beforeReuse).some(request => request.path === '/lookup'), false, 'Shared food hit never calls Genie');
+      assert.equal(await page.evaluate(() => [...Object.keys(localStorage), ...Object.keys(sessionStorage)].some(key => /nutrition.*token/i.test(key))), false);
+      await page.locator('#dietFoodName').fill('Pasta');
+      await click('#dietNutritionGenie');
+      await page.locator('#nutritionClarification').waitFor({ state: 'visible' });
+      await page.locator('#nutritionClarification').getByRole('button', { name: 'Cooked, plain, without added salt', exact: true }).click();
       await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.includes('Synthetic extraction failure'));
-      assert.match(await page.locator('#nutritionUsage').innerText(), /3 provider calls, 25 input \/ 30 output/);
-      assert.equal(await page.locator('#nutritionReview').isVisible(), false);
+      assert.match(await page.locator('#nutritionUsage').innerText(), /3 shared provider calls; 25 input \/ 30 output/);
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults.length), 1, 'Failed extraction never changes saved defaults');
-      await click('#nutritionCancel');
+      assert.equal(await page.locator('#nutritionClarification').count(), 0);
+      await page.locator('#nutritionPreparation').fill('');
+      const beforeClarification = nutritionRequests.filter(request => request.path === '/lookup').length;
+      const beforeCancel = await page.locator('#dietNutrCalories').inputValue();
+      await click('#dietNutritionGenie');
+      await page.locator('#nutritionClarification').waitFor({ state: 'visible' });
+      await page.locator('#nutritionClarification').getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Lookup canceled'));
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), beforeCancel);
+      assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, beforeClarification, 'Canceled clarification makes no provider request');
       await page.evaluate(async () => {
         localStorage.removeItem('bignutenNutritionServiceUrl');
         const { genieClient } = await import('/js/genieService.mjs');
         genieClient.clear('Synthetic endpoint reset'); await genieClient.refresh(); await genieClient.ensureSignedIn();
       });
-      console.log(`${name}: Genie packaged lookup, scoped consent, source review and use-once passed with mocked service`);
-      console.log(`${name}: Genie manual review, explicit save, scaling, cancel and default protection passed`);
+      console.log(`${name}: direct Genie fill, zero-signature pilot, shared reuse, single clarification and failure usage passed`);
+      console.log(`${name}: inline manual defaults, proportional scaling and no automatic logging passed`);
       await click('#closeDietModal');
       await click('[data-panel="recent-foods-list"].panel-toggle-btn');
       assert.match(await page.locator('#recent-foods-list').innerText(), /Smoke carrot/);
@@ -1305,7 +1311,7 @@ try {
       assert.equal(await page.locator('.genie-chat-window').count(), 0);
       assert.equal(await page.locator('#yoga-genie-btn').isVisible(), false);
       await visible('#dietBtn');
-      assert.equal(await page.locator('#dietNutritionGenie').innerText(), 'Nutrition label');
+      assert.equal(await page.locator('#dietNutritionGenie').isVisible(), false);
       assert.equal(await page.evaluate(() => localStorage.getItem('fitnessTrackerData')), recordsBeforeLock, 'Genie lock does not erase health records');
       assert.equal(hostedRequests.length, modelCallsBeforeLock, 'Uninvited wallet sends no model context');
       console.log(`${name}: real HTTP 403 fixture locks every Genie surface while preserving manual health tracking and records`);

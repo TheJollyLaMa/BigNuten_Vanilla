@@ -21,12 +21,24 @@ test('cited search precedes a tool-free structured card with exact source constr
   assert.equal(search.text, undefined);
   assert.equal(extraction.store, false); assert.equal(extraction.tools, undefined);
   assert.equal(extraction.text.format.type, 'json_schema');
+  for (const [key, value] of Object.entries({ name: card.name, kind: 'whole', preparation: 'raw', brand: '', market: '', barcode: '' })) {
+    assert.deepEqual(extraction.text.format.schema.properties.card.properties[key].enum, [value]);
+  }
   assert.deepEqual(JSON.parse(extraction.input).verifiedSourceUrls, ['https://example.com/oats']);
   assert.ok(!search.input.includes('health'));
   assert.equal(usages.length, 2);
   assert.deepEqual(result.usage, { input_tokens: 2, output_tokens: 4 });
   assert.equal(result.card.nutr.calories, 389);
   assert.ok(!Object.hasOwn(result.card.nutr, 'potassium'));
+});
+
+test('ambiguous staples ask one preparation question without guessing cooked versus dry', async () => {
+  const { nutritionClarification, nutritionKey, validateLookup } = await import('../services/nutritionModel.mjs');
+  const pasta = validateLookup({ name: 'Pasta', kind: 'whole' });
+  assert.deepEqual(nutritionClarification(pasta).options, ['Cooked, plain, without added salt', 'Dry, uncooked']);
+  assert.equal(nutritionClarification({ ...pasta, preparation: 'dry' }), null);
+  assert.notEqual(nutritionKey({ ...pasta, preparation: 'dry' }), nutritionKey({ ...pasta, preparation: 'cooked' }));
+  assert.equal(nutritionKey({ ...pasta, name: ' PASTA ' }), nutritionKey(pasta));
 });
 test('unsupported sources, no search, incomplete JSON and changed identity withhold cards', async () => {
   const { lookupNutrition } = await import('../services/nutritionModel.mjs');

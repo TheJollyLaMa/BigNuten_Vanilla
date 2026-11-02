@@ -2074,6 +2074,32 @@ footer {
   font-style: italic;
 }
 
+#nutritionLookupInline {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+#nutritionLookupInline label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-block: 0.5rem;
+}
+#nutritionLookupInline input,
+#nutritionLookupInline select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+#nutritionLookupInline button,
+#nutritionClarification button {
+  white-space: normal;
+  margin: 0.25rem;
+}
+#nutritionClarification {
+  max-width: min(28rem, calc(100vw - 3rem));
+}
+
 /* ── Raw Intake log: Nutrition card popover on hover ── */
 .food-nutr-popup {
   position: absolute;

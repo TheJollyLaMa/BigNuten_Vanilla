@@ -663,7 +663,7 @@
           <div class="diet-nutr-card__header">
             <span class="diet-nutr-card__icon">📊</span>
             <span class="diet-nutr-card__title">Nutritional Info <em id="dietNutrCardServingLabel">per serving</em></span>
-            <button type="button" id="dietNutritionGenie" class="diet-input" aria-label="Review a nutrition label">Nutrition label</button>
+            <button type="button" id="dietNutritionGenie" class="diet-input" data-genie-access hidden aria-label="Fill nutrition facts with Genie">Genie</button>
           </div>
           <div class="diet-nutr-grid">
             <div class="diet-nutr-field">
@@ -699,7 +699,7 @@
               <input type="number" id="dietNutrSugar" class="diet-input diet-input--nutr" placeholder="g" min="0" step="0.1">
             </div>
           </div>
-          <div class="diet-nutr-card__note" id="dietNutritionStatus" role="status">Review nutrition before saving a per-serving default. Unknown nutrients stay blank.</div>
+          <div class="diet-nutr-card__note" id="dietNutritionStatus" role="status">Enter nutrition manually, use community facts or press Genie to fill this card. Unknown nutrients stay blank.</div>
         </div>
 
         <button type="submit" class="diet-submit-btn">

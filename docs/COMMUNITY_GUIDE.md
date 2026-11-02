@@ -30,7 +30,9 @@ Genie memory by default. Hosted AI uses a separate permission from Health
 companion. That permission covers only the user's message and shared guide
 text, and is remembered separately from Health and Yoga permission. Hosted
 requests use the shared private BigNuten service, server-held OpenAI key,
-invited-wallet signature and global pilot call cap. Direct browser-key hosted
+invitation check and global pilot call cap. Signed mode proves wallet ownership;
+the steward-approved address-only pilot skips signatures and can be impersonated.
+It is a convenience gate, not private access control. Direct browser-key hosted
 paths are retired. See [shared Genie access](GENIE_NUTRITION.md#shared-genie-access-394).
 Cancel sends
 nothing. WebLLM processes guide prompts locally after its model is available;

@@ -142,10 +142,13 @@ Everything accessible to every user in the browser — no wallet required to sta
 
 ### Genie nutrition lookup
 
-**Diet → Nutrition label** (**Genie** for invited wallets) opens an editable nutrition review card with whole-food and
-exact packaged-product inputs. Approved per-serving defaults prefill locally
-and scale to compatible quantities; approval never logs a meal automatically.
-Manual label review needs no AI or wallet. Search uses a **separate invited-wallet
+**Diet → Genie** fills the existing nutrition card directly, checking shared
+community facts before making a paid lookup. Ambiguous foods get one focused
+question, such as cooked or dry pasta. No extra review modal, consent checkbox
+or separate sign-in step. Source-backed food cards become public community
+references; health logs, meals, quantities eaten and personal edits do not.
+Local per-serving defaults remain optional and scale to compatible quantities.
+Manual entry and community reuse need no AI or wallet. Search uses a **separate invited-wallet
 Render service with a server-held OpenAI key**, shared by all BigNuten hosted Genies.
 Deployment, sources, estimates, consent and setup are described in
 [GENIE_NUTRITION.md](docs/GENIE_NUTRITION.md). Search remains unavailable until
@@ -153,7 +156,7 @@ that service is configured and its real endpoint is supplied.
 
 ### Genie privacy and raw-food quick log
 
-- **Invitations gate Genie, not health tracking.** The five-button health footer and manual nutrition review stay available without an invited wallet. All hosted Genies share signed, short-lived access to the private BigNuten service, one server-held key and the original global pilot call cap. Existing admin permissions are unchanged. Wallet access does not sync or isolate browser-local health profiles; #391 remains separate.
+- **Invitations gate Genie, not health tracking.** Manual health tracking and shared food references stay available without an invited wallet. All hosted Genies share short-lived access, one server-held key and the original global pilot call cap. Default signed mode proves wallet ownership; the explicitly approved address-only pilot mode does not: anyone can claim an invited address and consume allowance. It is not private access control. Existing admin permissions are unchanged. Wallet access does not sync or isolate browser-local health profiles; #391 remains separate.
 - **Private BigNuten Genie is the default.** Browser OpenAI/GitHub Models key entry and direct hosted calls are retired. Health, Yoga and Community have distinct hosted-consent scopes and contexts; notices list the actual included categories before transmission. Community excludes Health logs/memory by default, and nutrition sends food/product inputs only. Cancel sends nothing.
 - **WebLLM** remains available to verified invited wallets: it processes prompts locally but downloads model files. **Settings → Assistant memory → Reset hosted AI permissions** requires permission again; it cannot recall data already sent. Automatic hosted Health summaries require existing Health permission, otherwise they stay local. Yoga requires the private hosted backend; choosing local sends nothing and directs users to dashboard chat for WebLLM. Server Responses use `store: false`, not a zero-retention guarantee. Legacy browser keys can be removed explicitly without deleting health records.
 - **Diet → Raw food quick log** captures a food, amount, unit, and estimated protein. It uses the same recovery-aware `foods` store, nutrition cache, recent-food display, and all-time Diet log as the full logger; closing or submitting returns to Diet. Additional macros remain unknown until supplied through the full logger.
@@ -871,7 +874,7 @@ js/
 ├── app.js               — Main app bootstrap, Admin Panel wiring, all IIFE init
 ├── fitnessData.js       — Central data schema, normalize, merge, IPFS snapshot
 ├── genieChat.js         — Invited Health/Community chat, private service or local WebLLM
-├── genieService.mjs     — Shared signed Genie access, memory-only sessions and revocation
+├── genieService.mjs     — Shared Genie pilot access, memory-only sessions and revocation
 ├── genieMemory.js       — 3-tier AI memory (session / summaries / pinned insights)
 ├── competitions.js      — StreakBet frontend: create/settle/cancel, IPFS report chain
 ├── streakVerify.js      — Auto-verifier: checks local logs, submits on-chain reports

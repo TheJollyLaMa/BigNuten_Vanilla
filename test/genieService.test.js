@@ -2,13 +2,13 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { Wallet } = require('ethers');
 const origin = 'https://genie.example';
-async function setup(genieCall = async () => ({ answer: 'Synthetic answer', usage: { input_tokens: 2, output_tokens: 3 } }), now = Date.now) {
+async function setup(genieCall = async () => ({ answer: 'Synthetic answer', usage: { input_tokens: 2, output_tokens: 3 } }), now = Date.now, accessMode = 'signed') {
   const { createNutritionServer } = await import('../services/nutritionService.mjs');
   const { createGenieClient } = await import('../js/genieService.mjs');
   const wallet = Wallet.createRandom();
   let current = wallet.address, signatures = 0;
   const settings = { origins: new Set([origin]), wallets: new Set([wallet.address.toLowerCase()]),
-    enabled: true, apiKey: 'synthetic-server-only', model: 'synthetic', maxCalls: 10, stateFile: ':memory:' };
+    enabled: true, apiKey: 'synthetic-server-only', model: 'synthetic', maxCalls: 10, stateFile: ':memory:', accessMode };
   const service = createNutritionServer(settings, { genieCall, logger: { warn() {} } });
   await new Promise(resolve => service.server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${service.server.address().port}`;
@@ -22,6 +22,21 @@ async function setup(genieCall = async () => ({ answer: 'Synthetic answer', usag
     close: async () => { client.clear(); await new Promise(resolve => service.server.close(resolve)); service.close(); } };
 }
 const input = { assistant: 'health', messages: [{ role: 'user', content: 'Synthetic question' }], consent: true };
+
+test('approved address-only mode enables all scopes with zero wallet signatures and still rejects revoked addresses', async () => {
+  const f = await setup(undefined, Date.now, 'address-only');
+  try {
+    await f.client.refresh();
+    for (const assistant of ['health', 'yoga', 'community']) {
+      const result = await f.client.request('/assistant', { ...input, assistant });
+      assert.equal(result.answer, 'Synthetic answer');
+    }
+    assert.equal(f.signatures(), 0);
+    f.settings.wallets.clear();
+    await assert.rejects(f.client.refresh(), /not invited/);
+    assert.equal(f.client.state().eligible, false);
+  } finally { await f.close(); }
+});
 
 test('provider failure usage reaches the client without becoming a successful answer', async () => {
   const f = await setup(async () => {
