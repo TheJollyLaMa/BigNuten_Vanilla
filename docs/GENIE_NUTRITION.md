@@ -22,9 +22,24 @@ local; editing or logging does not silently replace an existing default.
 
 Unknown nutrients stay blank. Potassium uses the existing app's **%DV** unit,
 not mg; the lookup only fills an explicit source-label %DV. Mass conversion
-supports grams and ounces; milliliters remain volume. No mass/volume, cup/piece
-or differently defined serving conversion is guessed. Choose the same base
-unit or explicitly enter a matching serving. Source-backed means traceable,
+supports grams and ounces. Source-backed cards may include explicit food-specific
+household equivalents, such as a source-defined cup weight or labeled serving.
+Changing amounts or compatible units recalculates from the original unrounded
+base without another lookup. US nutrition-label volume units are used:
+cup = 240 ml, tablespoon = 15 ml, teaspoon = 5 ml, fluid ounce = 30 ml.
+These volume ratios never imply a food's density.
+
+The serving option displays its size. When the source supplies no separate
+serving, **one serving means the card's displayed base amount**, not an assumed
+standard portion. If a gram-based card has no cup/piece weight (including older
+community cards), an inline portion editor asks how many base units one portion
+represents. Define it from a label, reference or scale; then fractional/multiple
+portions calculate immediately. **Define / adjust this portion** can also set a
+personal serving size. Overrides stay local, mark the card user-entered and
+are kept across reloads only when explicitly saved as a default. They never
+overwrite the public reference. Old meals are unchanged.
+
+No mass/volume or food-specific serving conversion is guessed. Source-backed means traceable,
 not independently verified. A search result is not proof a label is current,
 an allergen-safety guarantee or dietary/medical advice.
 
@@ -60,7 +75,7 @@ constrains supplied identity fields rather than asking a model to reproduce them
 unconstrained; it cannot silently rewrite a name or product identity.
 
 Successful source-backed lookups are automatically reusable across people and
-browsers. Only the food identity, source-defined serving, nutrients, ingredients,
+browsers. Only the food identity, source-defined serving/portion equivalents, nutrients, ingredients,
 source links, limitations and retrieval date are stored; there is no wallet
 attribution, meal quantity/time, health record, consent history or conversation.
 User-entered and estimated cards, personal edits/defaults and pasted-label
@@ -70,6 +85,14 @@ Previously shared cards remain shared when someone deletes local health data.
 `POST /foods` reads exact matches from approved origins without a wallet, model
 call or enabled provider key. `POST /lookup` also rechecks the library before
 reserving a provider call, including after the global cap is exhausted.
+If a cached card cannot represent the selected unit, pressing Genie sends only
+the requested portion unit (not the amount eaten) to look for a source-defined
+equivalent. This explicit enrichment can use the same two provider attempts,
+subject to the unchanged cap. A validated source-backed result containing that
+portion may replace the old exact-identity reference; future compatible requests
+reuse it without provider work. Failed, estimated, user-entered or still-missing
+portion results cannot overwrite an existing shared reference. Missing weights
+can instead be entered locally with no provider call.
 Concurrent identical misses return an explicit busy message rather than pay
 for duplicate searches. There is no arbitrary browser card-upload endpoint.
 Entries survive service restarts; retrieval dates remain visible. There is no

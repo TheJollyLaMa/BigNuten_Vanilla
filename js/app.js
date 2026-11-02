@@ -989,7 +989,7 @@ function prefillDietNutr(foodName) {
 
   // Set the base for proportional scaling when the user changes the amount
   _dietNutrBase = entry && entry.amount != null
-    ? { nutr: structuredClone(nutr), amount: entry.amount, unit: entry.unit, approved: entry.approved }
+    ? { ...entry, nutr: structuredClone(nutr) }
     : null;
 
   const fields = ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar'];

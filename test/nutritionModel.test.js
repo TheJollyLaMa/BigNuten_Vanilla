@@ -21,6 +21,8 @@ test('cited search precedes a tool-free structured card with exact source constr
   assert.equal(search.text, undefined);
   assert.equal(extraction.store, false); assert.equal(extraction.tools, undefined);
   assert.equal(extraction.text.format.type, 'json_schema');
+  assert.ok(extraction.text.format.schema.properties.card.required.includes('measures'));
+  assert.match(search.instructions, /food-specific household portions/);
   for (const [key, value] of Object.entries({ name: card.name, kind: 'whole', preparation: 'raw', brand: '', market: '', barcode: '' })) {
     assert.deepEqual(extraction.text.format.schema.properties.card.properties[key].enum, [value]);
   }
@@ -30,6 +32,26 @@ test('cited search precedes a tool-free structured card with exact source constr
   assert.deepEqual(result.usage, { input_tokens: 2, output_tokens: 4 });
   assert.equal(result.card.nutr.calories, 389);
   assert.ok(!Object.hasOwn(result.card.nutr, 'potassium'));
+});
+test('structured household portions retain only source-linked equivalents', async () => {
+  const { lookupNutrition } = await import('../services/nutritionModel.mjs');
+  const { scaleNutrition } = await import('../js/nutritionDefaults.mjs');
+  for (const sourceUrl of [card.sources[0].url, 'https://example.com/unverified']) {
+    const value = response();
+    const answer = JSON.parse(value.output[1].content[0].text);
+    answer.card.measures = [{ amount: 1, unit: 'cup', baseAmount: 80, sourceUrl }];
+    value.output[1].content[0].text = JSON.stringify(answer);
+    const lookup = () => lookupNutrition({ apiKey: 'fixture', model: 'fixture', portionUnit: 'cup',
+      input: { name: card.name, kind: 'whole', preparation: 'raw' },
+      fetchImpl: async (_url, options) => {
+        const payload = JSON.parse(options.body);
+        if (payload.tools) assert.equal(JSON.parse(payload.input).requestedPortionUnit, 'cup');
+        return { ok: true, json: async () => value };
+      } });
+    if (sourceUrl === card.sources[0].url) {
+      assert.ok(Math.abs(scaleNutrition((await lookup()).card, 0.5, 'cup').calories - 155.6) < 1e-10);
+    } else await assert.rejects(lookup(), /Portion source/);
+  }
 });
 
 test('ambiguous staples ask one preparation question without guessing cooked versus dry', async () => {

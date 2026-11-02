@@ -265,6 +265,44 @@ test('ambiguous food questions cost no calls and shared food facts survive resta
     assert.equal(f.seen.length, 0);
   } finally { if (f) await f.close(); await rm(directory, { recursive: true }); }
 });
+test('missing household portions can enrich legacy shared cards once, then reuse after the cap without provider work', async () => {
+  let calls = 0;
+  const f = await setup({ dependencies: { modelCall: async ({ portionUnit }) => {
+    calls++;
+    return { found: true, card: { ...publicCard, measures: portionUnit
+      ? [{ amount: 1, unit: 'cup', baseAmount: 140, sourceUrl: publicCard.sources[0].url }] : [] } };
+  } } });
+  try {
+    const session = await f.signin();
+    const payload = { input: { name: publicCard.name, kind: publicCard.kind, preparation: publicCard.preparation }, consent: true };
+    assert.equal((await f.request('/lookup', payload, session.token)).body.card.measures.length, 0);
+    const enriched = await f.request('/lookup', { ...payload, portionUnit: 'cup' }, session.token);
+    assert.equal(enriched.status, 200); assert.equal(enriched.body.cached, false);
+    assert.equal(enriched.body.card.measures[0].baseAmount, 140);
+    assert.equal((await f.request('/lookup', { ...payload, portionUnit: 'tbsp' }, session.token)).body.cached, true);
+    assert.equal((await f.request('/foods', { input: payload.input })).body.card.measures[0].baseAmount, 140);
+    assert.equal(calls, 2);
+    assert.equal((await f.request('/lookup', { ...payload, portionUnit: 'made-up' }, session.token)).status, 400);
+    assert.equal((await f.request('/lookup', { ...payload, amountEaten: 2 }, session.token)).status, 400);
+  } finally { await f.close(); }
+});
+test('a failed or unverified portion enrichment cannot erase a shared source-backed reference', async () => {
+  for (const result of [{ found: false, reason: 'No source portion' },
+    { found: true, card: { ...publicCard, quality: 'user-entered', measures: [{ amount: 1, unit: 'cup', baseAmount: 140 }] } }]) {
+    let calls = 0;
+    const f = await setup({ dependencies: { modelCall: async () => ++calls === 1
+      ? { found: true, card: structuredClone(publicCard) } : result } });
+    try {
+      const session = await f.signin();
+      const payload = { input: { name: publicCard.name, kind: publicCard.kind, preparation: publicCard.preparation }, consent: true };
+      await f.request('/lookup', payload, session.token);
+      assert.equal((await f.request('/lookup', { ...payload, portionUnit: 'cup' }, session.token)).status, 200);
+      const shared = (await f.request('/foods', { input: payload.input })).body.card;
+      assert.equal(shared.quality, 'source-backed'); assert.deepEqual(shared.measures, []);
+      assert.equal(shared.nutr.calories, 158);
+    } finally { await f.close(); }
+  }
+});
 test('user-entered and estimated model cards are never published to the food library', async () => {
   for (const quality of ['estimate', 'user-entered']) {
     const f = await setup({ dependencies: { modelCall: async () => ({ found: true, card: { ...publicCard, quality } }) } });

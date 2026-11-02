@@ -6,6 +6,9 @@ const properties = {
   name: text, kind: { type: 'string', enum: ['whole', 'packaged'] },
   preparation: text, brand: text, market: text, barcode: text,
   amount: { type: 'number' }, unit: text, serving: text, ingredients: text,
+  measures: { type: 'array', items: { type: 'object', additionalProperties: false,
+    properties: { unit: text, amount: { type: 'number' }, baseAmount: { type: 'number' }, sourceUrl: text },
+    required: ['unit', 'amount', 'baseAmount', 'sourceUrl'] } },
   note: text, quality: { type: 'string', enum: ['source-backed', 'estimate', 'user-entered'] },
   sources: { type: 'array', items: { type: 'object', additionalProperties: false,
     properties: { url: text, title: text }, required: ['url', 'title'] } },
@@ -20,6 +23,13 @@ Prefer government food-composition references or current manufacturer labels.
 Do not invent exact product facts or infer nutrient quantities from ingredients.
 If no adequate match exists, return found=false and explain what needs clarification.
 Return a source-defined base amount/unit and its serving description, not the user's consumed total.
+Also find food-specific household portions: cups, pieces, slices and labeled servings, with their weight.
+In measures, amount units equal baseAmount of the card's base unit, e.g. 1 cup equals 140 g
+for a 100 g card: {unit:"cup",amount:1,baseAmount:140,sourceUrl:"exact cited URL"}.
+Include only explicit source-defined equivalents for this exact food/preparation/product.
+Never infer grams from volume or invent a standard serving. Omit measures in the base unit's
+dimension (g/oz, or ml/cup/tbsp/tsp/fl oz). Return [] when no suitable portions are stated.
+Volume units use US nutrition-label measures: cup=240 ml, tbsp=15 ml, tsp=5 ml, fl oz=30 ml.
 Calories are kcal; protein/carbs/fat/fiber/sugar are grams; sodium is mg.
 Potassium is % Daily Value to match this app: only populate an explicit label %DV; otherwise null.
 Unknown nutrients must be null, never fabricated zeros. Include source URLs, limitations,
@@ -67,7 +77,7 @@ export function nutritionClarification(input) {
   return null;
 }
 
-export async function lookupNutrition({ apiKey, model, input, signal, fetchImpl = fetch,
+export async function lookupNutrition({ apiKey, model, input, portionUnit, signal, fetchImpl = fetch,
   reserveAdditionalCall = () => {}, recordUsage = () => {} }) {
   const identity = validateLookup(input);
   const totals = { input_tokens: 0, output_tokens: 0 };
@@ -105,7 +115,7 @@ base amount/unit, each available nutrient and units, and the exact preparation/p
 For ambiguous foods, explain the chosen preparation or variant; do not invent a brand.
 If the sources cannot distinguish a materially different food or preparation, ask for clarification.
 Prefer a 100 g reference for whole foods when the source provides it.`,
-    input: JSON.stringify(identity), max_tool_calls: 1,
+    input: JSON.stringify(portionUnit ? { food: identity, requestedPortionUnit: portionUnit } : identity), max_tool_calls: 1,
     tools: [{ type: 'web_search' }], tool_choice: 'required',
     include: ['web_search_call.action.sources'],
   });
