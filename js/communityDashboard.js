@@ -453,7 +453,7 @@ function renderBnutTab(stats) {
 
 // ─── Data Pool Tab ────────────────────────────────────────────────────────────
 
-function buildDataPreview(data, optIn) {
+export function buildDataPreview(data, optIn) {
   const preview = {};
 
   if (optIn.exercise !== false) {

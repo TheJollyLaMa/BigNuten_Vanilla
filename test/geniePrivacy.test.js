@@ -83,6 +83,7 @@ test('Community Guide gets separate hosted consent and never reads or sends heal
   const secret = 'Synthetic private health entry';
   seed({
     foods: [{ name: secret, date: new Date().toISOString() }],
+    gutHealth: { sessions: [{ id: 'synthetic-private-session', challenge: 'Synthetic private gut marker' }], symptoms: [] },
     genieSessions: [{ summary: 'Synthetic private Genie memory' }],
     genieInsights: [{ text: 'Synthetic pinned health memory' }],
   });
@@ -111,7 +112,7 @@ test('Community Guide gets separate hosted consent and never reads or sends heal
     assert.equal(requests.length, 1);
     const body = JSON.stringify(requests[0].body);
     assert.match(body, /Community Guide/);
-    assert.doesNotMatch(body, /Synthetic private health entry|Synthetic private Genie memory|Synthetic pinned health memory/);
+    assert.doesNotMatch(body, /Synthetic private health entry|Synthetic private gut marker|Synthetic private Genie memory|Synthetic pinned health memory/);
     assert.equal(healthReads, 0);
     assert.equal(privacy.hasGenieHostedConsent('private-genie', 'community'), true);
     assert.equal(privacy.hasGenieHostedConsent('private-genie', 'health'), false);
@@ -126,6 +127,21 @@ test('Community Guide gets separate hosted consent and never reads or sends heal
   } finally {
     localStorage.getItem = get;
   }
+});
+
+test('health companion allowlist does not include gut-health records in hosted context', async () => {
+  const marker = 'Synthetic gut tracker private marker';
+  seed({
+    foods: [{ name: 'Synthetic food context', date: new Date().toISOString() }],
+    gutHealth: { sessions: [{ id: 'synthetic-session', challenge: marker, readings: [] }], symptoms: [] },
+  });
+  genie.setGenieBackend('private-genie');
+  const pending = genie.chatWithGenie('Review my health today', 'test');
+  assert.ok(listed().some(category => category.startsWith('Food / Diet Log')));
+  assert.ok(!listed().some(category => category.includes('gut')));
+  act('allow');
+  assert.equal(await pending, 'Synthetic response');
+  assert.doesNotMatch(JSON.stringify(requests[0].body), /Synthetic gut tracker private marker/);
 });
 
 test('private hosted permission is remembered and reset gates again', async () => {
