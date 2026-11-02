@@ -6,6 +6,7 @@ import { readFile, readdir, mkdir } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Interface, ZeroAddress } from 'ethers';
+import { BASE_SUPPORTER } from '../js/supporterToken.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const shots = resolve(process.env.SCREENSHOT_DIR || 'test-results/smoke');
@@ -24,8 +25,8 @@ if (server) await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
 const base = process.env.BASE_URL || `http://127.0.0.1:${server.address().port}`;
 const origin = new URL(base).origin;
 
-// Encode empty-chain reads using real ABIs, not an ethers stub. No signed
-// transactions are simulated: a smoke run must never spend or send anything.
+// Encode synthetic chain reads/writes using real ABIs, not an ethers stub.
+// All wallet/RPC calls are local fixtures; no real transactions or funds exist.
 const functions = new Map();
 function addAbi(abi) {
   const iface = new Interface(abi);
@@ -56,8 +57,59 @@ const wallet = '0x' + '12'.repeat(20);
 let activeWallet = wallet;
 const walletCalls = [];
 let walletGranted = false;
+// Synthetic reviewed listing: never a real deployed BigNuten token or listing.
+const reviewedSupporter = {
+  contract: BASE_SUPPORTER.nftAddress, tokenId: '406', listingId: '42',
+  paymentToken: BASE_SUPPORTER.usdcAddress, expectedPriceAmount: '10000000',
+  metadataUri: 'ipfs://synthetic-metadata', imageUri: 'ipfs://synthetic-art',
+};
+let supporterFixture = null;
+const supporterRequests = [], supporterTransactions = new Map();
+function supporterRpc({ method, params = [] }) {
+  if (!supporterFixture) return undefined;
+  supporterRequests.push({ method, params });
+  const blockHash = '0x' + 'ab'.repeat(32);
+  if (method === 'eth_chainId') return supporterFixture.chain;
+  if (method === 'wallet_switchEthereumChain') {
+    assert.equal(params[0].chainId, '0x2105');
+    if (supporterFixture.reject) return { __smokeError: 4001, message: 'Synthetic wallet rejection' };
+    supporterFixture.chain = params[0].chainId; return null;
+  }
+  if (method === 'eth_call') {
+    const entry = functions.get(params[0].data?.slice(0, 10));
+    if (entry?.fragment.name === 'getListing') {
+      assert.equal(params[0].to.toLowerCase(), BASE_SUPPORTER.escrowAddress.toLowerCase());
+      assert.equal(entry.iface.decodeFunctionData(entry.fragment, params[0].data)[0], 42n);
+      return entry.iface.encodeFunctionResult(entry.fragment, [[reviewedSupporter.contract,
+        supporterFixture.mismatch ? 999n : 406n, 0n, reviewedSupporter.paymentToken, 10000000n,
+        supporterFixture.soldOut ? 0n : 3n, true, 'Synthetic fixture']]);
+    }
+    if (entry?.fragment.name === 'getNFTBalance') return entry.iface.encodeFunctionResult(entry.fragment, [3n]);
+    if (entry?.fragment.name === 'allowance') return entry.iface.encodeFunctionResult(entry.fragment, [0n]);
+  }
+  if (method === 'eth_estimateGas') return '0x30000';
+  if (method === 'eth_sendTransaction') {
+    const hash = '0x' + (supporterTransactions.size + 1).toString(16).padStart(64, '0');
+    const tx = params[0];
+    supporterTransactions.set(hash, { hash, from: wallet, to: tx.to, input: tx.data, value: '0x0',
+      gas: '0x30000', gasPrice: '0x1', nonce: '0x0', type: '0x0', chainId: '0x2105',
+      blockHash, blockNumber: '0x100', transactionIndex: '0x0', v: '0x1b', r: '0x1', s: '0x1' });
+    return hash;
+  }
+  if (method === 'eth_getTransactionByHash') return supporterTransactions.get(params[0]) || null;
+  if (method === 'eth_getTransactionReceipt') {
+    const tx = supporterTransactions.get(params[0]);
+    return tx ? { transactionHash: tx.hash, from: tx.from, to: tx.to, blockHash,
+      blockNumber: '0x100', transactionIndex: '0x0', contractAddress: null, logs: [],
+      logsBloom: '0x' + '00'.repeat(256), cumulativeGasUsed: '0x30000', gasUsed: '0x30000',
+      effectiveGasPrice: '0x1', status: '0x1', type: '0x0' } : null;
+  }
+  return undefined;
+}
 async function rpc({ method, params = [] }) {
   walletCalls.push(method);
+  const supporterResult = supporterRpc({ method, params });
+  if (supporterResult !== undefined) return supporterResult;
   switch (method) {
     case 'eth_accounts': return walletGranted ? [activeWallet] : [];
     case 'eth_requestAccounts': walletGranted = true; return [activeWallet];
@@ -164,7 +216,11 @@ try {
       const listeners = new Map();
       window.ethereum = {
         isMetaMask: true,
-        request: args => window.__smokeRpc(args),
+        request: async args => {
+          const result = await window.__smokeRpc(args);
+          if (result?.__smokeError) throw Object.assign(new Error(result.message), { code: result.__smokeError });
+          return result;
+        },
         on(event, listener) { if (!listeners.has(event)) listeners.set(event, new Set()); listeners.get(event).add(listener); return this; },
         removeListener(event, listener) { listeners.get(event)?.delete(listener); return this; },
       };
@@ -183,6 +239,9 @@ try {
     let deniedChallenges = 0;
     await page.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url());
+      if (url.origin === origin && url.pathname.endsWith('/js/supporter-token.json') && supporterFixture) {
+        return route.fulfill({ json: reviewedSupporter });
+      }
       if (url.origin === origin) return route.continue();
       external.add(request.url());
       if (libraries.has(request.url())) return route.fulfill({ contentType: 'text/javascript', body: await readFile(resolve(root, libraries.get(request.url()))) });
@@ -296,6 +355,60 @@ try {
           assert.ok(await page.locator('#ekadasi-links a').count(), 'Ekadasi reference links render even outside a fasting day');
         }
         if (id === 'about-modal') {
+          const card = page.locator('#about-supporter-token');
+          await page.waitForFunction(() => document.querySelector('#about-supporter-token').dataset.supporterState === 'coming-soon');
+          assert.match(await card.innerText(), /BigNuten Supporter Token coming soon on Base/);
+          assert.equal(await card.locator('[data-supporter-stamp]').isVisible(), true);
+          assert.equal(await card.locator('[data-supporter-buy]').isDisabled(), true);
+          const txCount = walletCalls.filter(method => method === 'eth_sendTransaction').length;
+          await card.locator('[data-supporter-buy]').evaluate(button => button.click());
+          assert.equal(walletCalls.filter(method => method === 'eth_sendTransaction').length, txCount, 'Unset config never requests a transaction');
+          assert.doesNotMatch(await page.locator('body').innerText(), new RegExp(['arti', 'zen'].join(''), 'i'));
+          if (trigger === '#app-title-name') {
+            for (const scenario of ['mismatch', 'soldOut', 'reject', 'matching']) {
+              supporterFixture = { chain: '0x1', [scenario]: true };
+              supporterRequests.length = 0;
+              supporterTransactions.clear();
+              await click('#about-modal .modal-close');
+              await click('#app-title-name');
+              const expected = scenario === 'mismatch' ? 'failed' : scenario === 'soldOut' ? 'sold-out' : 'ready';
+              await page.waitForFunction(expected => document.querySelector('#about-supporter-token').dataset.supporterState === expected, expected);
+              assert.equal(await card.locator('[data-supporter-stamp]').isVisible(), false);
+              if (scenario === 'mismatch' || scenario === 'soldOut') {
+                assert.equal(await card.locator('[data-supporter-buy]').isDisabled(), true);
+                assert.equal(supporterTransactions.size, 0);
+              } else {
+                assert.match(await card.locator('[data-supporter-terms]').innerText(), /10\.0 USDC on Base · 3 remaining/);
+                await card.locator('[data-supporter-buy]').click();
+                await page.waitForFunction(expected => document.querySelector('#about-supporter-token').dataset.supporterState === expected,
+                  scenario === 'reject' ? 'user-rejected' : 'success');
+                if (scenario === 'reject') assert.equal(supporterTransactions.size, 0);
+                else {
+                  const switched = supporterRequests.findIndex(request => request.method === 'wallet_switchEthereumChain');
+                  const sent = supporterRequests.flatMap((request, index) => request.method === 'eth_sendTransaction' ? [{ ...request, index }] : []);
+                  assert.equal(supporterRequests[switched].params[0].chainId, '0x2105');
+                  assert.equal(sent.length, 2, 'Exactly approval then purchase');
+                  assert.ok(switched < sent[0].index);
+                  const approve = functions.get(sent[0].params[0].data.slice(0, 10));
+                  assert.equal(approve.fragment.name, 'approve');
+                  assert.equal(sent[0].params[0].to.toLowerCase(), reviewedSupporter.paymentToken.toLowerCase());
+                  const approvalArgs = approve.iface.decodeFunctionData(approve.fragment, sent[0].params[0].data);
+                  assert.equal(approvalArgs[0].toLowerCase(), BASE_SUPPORTER.escrowAddress.toLowerCase());
+                  assert.equal(approvalArgs[1], 10000000n);
+                  const purchase = functions.get(sent[1].params[0].data.slice(0, 10));
+                  assert.equal(purchase.fragment.name, 'purchaseWithToken');
+                  assert.equal(sent[1].params[0].to.toLowerCase(), BASE_SUPPORTER.escrowAddress.toLowerCase());
+                  assert.deepEqual([...purchase.iface.decodeFunctionData(purchase.fragment, sent[1].params[0].data)], [42n, 1n]);
+                  assert.match(await card.locator('[data-supporter-status] a').getAttribute('href'), /^https:\/\/basescan\.org\/tx\/0x[0-9a-f]{64}$/);
+                }
+              }
+            }
+            supporterFixture = null;
+            await click('#about-modal .modal-close');
+            await click('#app-title-name');
+            await page.waitForFunction(() => document.querySelector('#about-supporter-token').dataset.supporterState === 'coming-soon');
+            console.log(`${name}: Supporter coming-soon, mismatch, sold-out, rejection, and Base USDC purchase fixtures passed`);
+          }
           await visible('#tz-clock');
           await page.locator('#tz-select').selectOption('Pacific/Honolulu');
           assert.equal(await page.evaluate(() => localStorage.getItem('userTimezone')), 'Pacific/Honolulu');
@@ -338,6 +451,12 @@ try {
       if (name === 'desktop') {
         await visible('#ipfs-edu-overlay'); await shot('ipfs-education');
         await click('#ipfs-edu-skip-btn'); await hidden('#ipfs-edu-overlay'); covered.add('ipfs-edu-overlay');
+      }
+      if (process.env.SUPPORTER_ONLY === '1') {
+        await modal('about-modal', '#app-title-name');
+        assert.deepEqual(unexpected, [], 'Supporter fixtures never reach an unmocked external endpoint');
+        assert.deepEqual(failed, [], 'Supporter fixture network requests succeed');
+        continue;
       }
       await visible('#dietBtn');
       assert.equal(await page.locator('.genie-icon-btn').count(), 0, 'Guest has health controls, not Genie icons');

@@ -1136,13 +1136,17 @@
       <section class="about-section">
         <h3>About the Project</h3>
         <p>BigNuten helps you track the combined effects of regular exercise, vitamins, and supplements on your body over time. Log workouts, weight, nutrition, and emotions — all in one place, stored locally and optionally on IPFS for decentralized persistence.</p>
-        <div class="artizen-support">
-          <a class="artizen-support-link" href="https://artizen.fund/index/p/bignuten?season=7" target="_blank" rel="noopener noreferrer">
-            <img src="https://s3.amazonaws.com/appforest_uf/f1668644671737x335127645793037440/Artizen_Logomark_RGB_FullColor.svg" alt="" aria-hidden="true" />
-            <span>Support on Artizen</span>
-            <img src="https://s3.amazonaws.com/appforest_uf/f1668644671737x335127645793037440/Artizen_Logomark_RGB_FullColor.svg" alt="" aria-hidden="true" />
-          </a>
-          <p>Boost BigNuten, purchase an artifact, and discover other great Artizen projects.</p>
+        <div class="supporter-token" id="about-supporter-token" aria-label="BigNuten Supporter Token">
+          <div class="supporter-token-artwork">
+            <img class="supporter-token-image" src="img/BigNuten.png" alt="BigNuten Supporter DNFT artwork" />
+            <span class="supporter-token-stamp" data-supporter-stamp>COMING SOON</span>
+          </div>
+          <div>
+            <h4>BigNuten Supporter Token (Base)</h4>
+            <p data-supporter-terms>Price (USDC on Base) and remaining stock pending listing.</p>
+            <button type="button" class="dnft-buy-btn" data-supporter-buy disabled>Coming soon</button>
+            <p data-supporter-status role="status" aria-live="polite">BigNuten Supporter Token coming soon on Base.</p>
+          </div>
         </div>
       </section>
 
@@ -1280,7 +1284,7 @@
         <!-- BigNuten DNFT Early Supporter — matches DecentHead buy-section standard -->
         <div class="dnft-buy-section" id="dnft-supporter-section">
           <h3 class="dnft-buy-heading">🎟️ Own a Piece of Web3 History</h3>
-          <p class="dnft-buy-subheading">BigNuten v1.0.0 — 100 genesis DNFTs · ERC-1155 · Optimism fallback</p>
+          <p class="dnft-buy-subheading">BigNuten Supporter Token · ERC-1155 · USDC on Base</p>
 
           <ul class="dnft-perks-list dnft-perks-compact">
             <li>🏅 Permanent on-chain proof of founding support</li>
@@ -1296,14 +1300,13 @@
             <!-- ── Crypto option — on-chain escrow buy ────────────────────── -->
             <div class="dnft-buy-option-card dnft-crypto-option">
               <div class="dnft-option-title">🔗 Buy with Crypto</div>
-              <div class="dnft-option-price">Currently available on Optimism fallback — instant &amp; trustless</div>
-              <div id="dnft-buy-cards">
-                <p class="dnft-buy-loading">⏳ Loading available editions…</p>
+              <div class="dnft-option-price">Reviewed BigNuten Supporter listing on Base only</div>
+              <div id="dnft-buy-cards" data-supporter-secondary>
+                <p data-supporter-terms>Price (USDC on Base) and remaining stock pending listing.</p>
+                <button type="button" class="dnft-buy-btn" data-supporter-buy disabled>Coming soon</button>
+                <p data-supporter-status role="status" aria-live="polite">BigNuten Supporter Token coming soon on Base.</p>
               </div>
-              <div id="dnft-buy-status"></div>
-              <p class="dnft-escrow-note">
-                Base is the default BNUT network. DNFT escrow is currently available via <a href="https://optimistic.etherscan.io/address/0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e" target="_blank" rel="noopener noreferrer">DecentEscrow on Optimism fallback</a>.
-              </p>
+              <p class="dnft-escrow-note">Purchases use USDC on Base via <a href="https://basescan.org/address/0x31b07b83e99A9bdF379bf40225b8A80d3804C89d" target="_blank" rel="noopener noreferrer">DecentEscrow</a>. No purchase is available until the steward reviews and pins the listing.</p>
             </div>
 
             <!-- ── Fiat option (PayPal + Stripe on same card) ─────────────── -->
