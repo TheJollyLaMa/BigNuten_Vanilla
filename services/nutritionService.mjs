@@ -7,7 +7,7 @@ import { chmodSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { getAddress, verifyMessage } from 'ethers';
 import { pathToFileURL } from 'node:url';
-import { lookupNutrition, validateLookup, nutritionKey, nutritionClarification } from './nutritionModel.mjs';
+import { lookupNutrition, validateLookup, nutritionKey } from './nutritionModel.mjs';
 import { validateNutrition, portionBaseAmount, NUTRITION_UNITS } from '../js/nutritionDefaults.mjs';
 import { chatWithPrivateGenie, validateGenieInput } from './genieModel.mjs';
 
@@ -109,7 +109,7 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
         let input;
         try { input = validateLookup(payload.input); } catch (error) { throw problem(400, error.message); }
         const card = sharedFood(input);
-        return send(200, { found: Boolean(card), ...(card ? { card } : { clarification: nutritionClarification(input) }), cached: Boolean(card) });
+        return send(200, { found: Boolean(card), ...(card ? { card } : {}), cached: Boolean(card) });
       }
       ready();
       if (request.method === 'POST' && request.url === '/challenge') {
@@ -164,8 +164,6 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
         if (nutrition) {
           const cached = !input.label && sharedFood(input);
           if (cached && (!payload.portionUnit || portionBaseAmount(cached, payload.portionUnit) !== null)) return send(200, { found: true, card: cached, cached: true, reason: 'Using shared community food facts. No provider call.', usage: usage(session.wallet) });
-          const clarification = nutritionClarification(input);
-          if (clarification) return send(200, { found: false, clarification, reason: clarification.question, usage: usage(session.wallet) });
           if (foodLookups.has(foodKey)) throw problem(429, 'This food is already being fetched for the community. Try again shortly to reuse its facts.');
         }
         if (active.has(key) || active.size >= 3) throw problem(429, 'Genie service is busy. Please wait.');
@@ -198,14 +196,17 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
         }
         try {
           const result = await (nutrition ? modelCall : genieCall)({ apiKey: settings.apiKey, model: settings.model, input, signal: controller.signal,
-            ...(nutrition ? { portionUnit: payload.portionUnit, reserveAdditionalCall: () => { controller.signal.throwIfAborted(); reserveCall(); }, recordUsage } : {}) });
+            ...(nutrition ? { portionUnit: payload.portionUnit, recordUsage } : {}) });
           if (!reportedUsage) recordUsage(result.usage);
           controller.signal.throwIfAborted(); ready(); authorized(request);
           if (nutrition && result.found) {
             result.card = validateNutrition(result.card);
             if (nutritionKey(result.card) !== foodKey) throw problem(502, 'The returned food identity changed. No nutrition was applied.');
-            if (result.card.quality === 'source-backed' && !input.label) {
-              if (payload.portionUnit && portionBaseAmount(result.card, payload.portionUnit) !== null) {
+            if (['source-backed', 'estimate'].includes(result.card.quality) && !input.label) {
+              const existing = sharedFood(input);
+              // A new estimate may add a missing portion, but never replaces a source-backed reference.
+              if (payload.portionUnit && portionBaseAmount(result.card, payload.portionUnit) !== null &&
+                  !(existing?.quality === 'source-backed' && result.card.quality !== 'source-backed')) {
                 db.prepare('INSERT INTO foods VALUES(?,?) ON CONFLICT(identity) DO UPDATE SET card=excluded.card').run(foodKey, JSON.stringify(result.card));
               } else db.prepare('INSERT OR IGNORE INTO foods VALUES(?,?)').run(foodKey, JSON.stringify(result.card));
             }

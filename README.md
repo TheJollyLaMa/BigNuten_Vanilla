@@ -142,16 +142,16 @@ Everything accessible to every user in the browser — no wallet required to sta
 
 ### Genie nutrition lookup
 
-**Diet → Genie** fills the existing nutrition card directly, checking shared
-community facts before making a paid lookup. Ambiguous foods get one focused
-question, such as cooked or dry pasta. No extra review modal, consent checkbox
-or separate sign-in step. Source-backed food cards become public community
-references; health logs, meals, quantities eaten and personal edits do not.
-Local per-serving defaults remain optional. Amounts, fractions and source-defined
-cups/servings scale from the original base without another AI call. Serving sizes
-are displayed; missing food-specific weights can be defined inline and saved
-locally without publishing personal overrides. Cups/spoons use US nutrition-label
-volume units; food density is never guessed.
+**Diet → Genie** fills a blank nutrition card automatically once the food,
+amount and unit are entered: community facts first, then one Genie call for
+invited wallets. Genie picks the most likely interpretation (homemade foods are
+estimated from their main ingredients), states its assumption and labels
+estimates; typed figures are never overwritten. No review modal, consent
+checkbox, sign-in step or clarification question. Genie food cards (labeled
+source-backed or estimate) become public community references; health logs,
+meals, quantities eaten and personal edits do not. Amounts, fractions, cups,
+spoons and servings scale from the original base without another AI call;
+portions can be overridden locally.
 Manual entry and community reuse need no AI or wallet. Search uses a **separate invited-wallet
 Render service with a server-held OpenAI key**, shared by all BigNuten hosted Genies.
 Deployment, sources, estimates, consent and setup are described in

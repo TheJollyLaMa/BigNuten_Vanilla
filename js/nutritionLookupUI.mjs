@@ -2,19 +2,19 @@ import { NUTRIENTS, validateNutrition, saveNutritionDefault, matchingDefaults, p
 import { genieClient, serviceUrl } from './genieService.mjs';
 export { serviceUrl } from './genieService.mjs';
 
-export function initNutritionLookup({ load, save, apply }) {
+export function initNutritionLookup({ load, save, apply, clear = () => {} }) {
   const opener = document.getElementById('dietNutritionGenie');
   if (!opener) return;
   const panel = document.createElement('div');
   panel.id = 'nutritionLookupInline';
   panel.innerHTML = `
-    <p>Genie fills this card directly. It shares only food facts and source links with the community library, never your meals or health history. Clicking Genie sends the food query to our service and, on a library miss, OpenAI. Up to two provider calls; saved community facts use none. Check the serving and sources before logging.</p>
+    <p>Enter a food, amount and unit: a blank card fills itself from the community food library, or from Genie for invited wallets (one provider call per new food). Genie picks the most likely match and labels estimates. Only food facts are shared with the community library, never your meals or health history. Your typed figures are never overwritten. Check before logging.</p>
     <button type="button" id="nutritionCommunity">Use community food facts (no AI)</button>
     <div id="nutritionPortion" hidden>
       <p id="nutritionPortionSummary"></p>
       <button type="button" id="nutritionAdjustPortion">Define / adjust this portion</button>
       <div id="nutritionPortionEditor" hidden>
-        <p>No weight is guessed for a cup, piece or other food-specific portion. Use the label, a source or your scale. This override stays local and is not shared.</p>
+        <p>Override this portion with your label or kitchen scale. This override stays on this device and is not shared.</p>
         <label id="nutritionPortionLabel" for="nutritionPortionAmount"></label>
         <input id="nutritionPortionAmount" type="number" min="0.000001" max="1000000" step="any">
         <button type="button" id="nutritionApplyPortion">Use this portion size</button>
@@ -44,7 +44,9 @@ export function initNutritionLookup({ load, save, apply }) {
   const amount = document.getElementById('dietFoodAmount');
   const unit = document.getElementById('dietFoodUnit');
   let card = null, edited = false, generation = 0, controller = null;
-  let clarification = null, clarificationResolve = null;
+  let userTyped = false, autoTimer = null;
+  const attempted = new Set();
+  const nutrientInputs = () => Object.keys(NUTRIENTS).map(key => document.getElementById(`dietNutr${key[0].toUpperCase()}${key.slice(1)}`));
   const status = text => { el('LookupStatus').textContent = text; };
   function identity() {
     return { name: foodName.value.trim(), ...Object.fromEntries(
@@ -57,12 +59,10 @@ export function initNutritionLookup({ load, save, apply }) {
   }
   function cancel() {
     generation++; controller?.abort(); controller = null;
-    clarificationResolve?.(null); clarificationResolve = null;
-    clarification?.remove(); clarification = null;
     opener.disabled = false; el('Community').disabled = false;
   }
   function reset() {
-    const pending = Boolean(controller || clarification);
+    const pending = Boolean(controller);
     cancel(); card = null; edited = false;
     el('Portion').hidden = true; el('PortionEditor').hidden = true;
     unit.querySelector('option[value="serving"]').textContent = 'serving';
@@ -104,27 +104,6 @@ export function initNutritionLookup({ load, save, apply }) {
     }
     return showPortion();
   }
-  async function ask(question) {
-    clarification = document.createElement('dialog');
-    clarification.id = 'nutritionClarification';
-    clarification.setAttribute('aria-label', question.question);
-    const title = document.createElement('h2');
-    title.textContent = question.question; clarification.append(title);
-    const choice = new Promise(resolve => { clarificationResolve = resolve; });
-    for (const option of question.options) {
-      const button = document.createElement('button');
-      button.type = 'button'; button.textContent = option;
-      button.addEventListener('click', () => clarificationResolve?.(option));
-      clarification.append(button);
-    }
-    const back = document.createElement('button'); back.type = 'button'; back.textContent = 'Cancel';
-    back.addEventListener('click', () => clarificationResolve?.(null)); clarification.append(back);
-    clarification.addEventListener('cancel', event => { event.preventDefault(); clarificationResolve?.(null); });
-    document.body.append(clarification); clarification.showModal();
-    const answer = await choice;
-    clarification?.remove(); clarification = null; clarificationResolve = null;
-    return answer;
-  }
   async function shared(input, signal) {
     const response = await fetch(`${serviceUrl(localStorage.getItem('bignutenNutritionServiceUrl') || window.BIGNUTEN_NUTRITION_SERVICE_URL)}/foods`, {
       method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input }),
@@ -133,7 +112,7 @@ export function initNutritionLookup({ load, save, apply }) {
     if (!response.ok) throw new Error(result.error || `Community food library failed (HTTP ${response.status}).`);
     return result;
   }
-  async function lookup(ai) {
+  async function lookup(ai, autoKey = '') {
     cancel(); const attempt = generation; controller = new AbortController();
     const signal = controller.signal;
     opener.disabled = true; el('Community').disabled = true;
@@ -141,45 +120,49 @@ export function initNutritionLookup({ load, save, apply }) {
     try {
       if (!foodName.value.trim()) throw new Error('Enter a food name first.');
       if (!Number.isFinite(Number(amount.value)) || Number(amount.value) <= 0 || !unit.value) throw new Error('Enter your amount and unit before fetching nutrition.');
-      let input = identity();
+      const input = identity();
       status('Checking community food facts...');
       let result = await shared(input, signal); current();
-      if (!result.found && result.clarification) {
-        const answer = await ask(result.clarification); current();
-        if (!answer) { status('Lookup canceled. Your nutrition fields are unchanged.'); return; }
-        el('Preparation').value = answer; input = identity();
-        result = await shared(input, signal); current();
-      }
       const missingPortion = result.found && portionBaseAmount(validateNutrition(result.card), unit.value) === null;
       if ((!result.found || missingPortion) && ai) {
         if (missingPortion) populate(result.card);
-        status(missingPortion ? 'Finding a source-defined portion for this food...' : 'Fetching food facts...');
-        const requestPortion = missingPortion || !['g', 'oz', 'ml', 'serving'].includes(unit.value);
+        status(missingPortion ? `Genie is estimating one ${unit.value} of ${input.name}...` : `Genie is filling ${input.name}...`);
+        const requestPortion = !['g', 'oz', 'ml'].includes(unit.value);
         result = await genieClient.request('/lookup', { input, consent: true, ...(requestPortion ? { portionUnit: unit.value } : {}) }, signal, current);
         current(); showUsage(result.usage);
-        if (result.clarification) {
-          const answer = await ask(result.clarification); current();
-          if (!answer) { status('Lookup canceled. Your nutrition fields are unchanged.'); return; }
-          el('Preparation').value = answer; input = identity();
-          status('Checking facts for that preparation...');
-          result = await shared(input, signal); current();
-          if (!result.found) result = await genieClient.request('/lookup', { input, consent: true }, signal, current);
-          current(); showUsage(result.usage);
-        }
       }
-      if (!result.found) { status(result.reason || 'No shared facts for this exact food/preparation yet. Use Genie or enter the figures manually.'); return; }
+      if (!result.found) {
+        status(result.reason || (ai ? 'Genie could not fill this food. Enter the figures manually.'
+          : 'No community facts for this food yet. Use Genie (invited wallets) or enter the figures manually.'));
+        return;
+      }
       if (!populate(result.card)) {
         status('Food facts found. Define the portion size below once; then amounts scale without another lookup.');
         return;
       }
-      status(result.cached ? 'Filled from the community food library. No provider call. Check serving and sources; nothing logged.'
-        : result.card.quality === 'source-backed' ? 'Nutrition filled. Source-backed food facts are reusable by the community. Check serving and sources; nothing logged.'
-          : 'Nutrition filled as an estimate, not added to the shared library. Check serving and sources; nothing logged.');
+      const kind = result.card.quality === 'estimate' ? 'Genie estimate' : result.card.quality;
+      status(result.cached
+        ? `Filled from the community food library (${kind}). No AI call. Check before logging; nothing logged.`
+        : `Filled by Genie (${kind})${result.reason ? `: ${result.reason}` : '.'} Shared as food facts only; nothing logged.`);
     } catch (error) {
       if (attempt === generation) { showUsage(error.usage); status(error.message); }
+      else if (autoKey) attempted.delete(autoKey);
     } finally {
       if (attempt === generation) { controller = null; opener.disabled = false; el('Community').disabled = false; }
     }
+  }
+  function scheduleAuto() {
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(() => {
+      if (controller || !foodName.value.trim() || !(Number(amount.value) > 0) || !unit.value) return;
+      if (card ? edited || portionBaseAmount(card, unit.value) !== null
+        : nutrientInputs().some(input => input.value !== '')) return;
+      const ai = genieClient.state().eligible;
+      const key = JSON.stringify([identity(), unit.value, ai]);
+      if (attempted.has(key)) return;
+      attempted.add(key);
+      void lookup(ai, key);
+    }, 900);
   }
   opener.addEventListener('click', () => { void lookup(true); });
   el('Community').addEventListener('click', () => { void lookup(false); });
@@ -189,16 +172,21 @@ export function initNutritionLookup({ load, save, apply }) {
       if (input === foodName) {
         for (const key of ['Preparation', 'Brand', 'Market', 'Barcode', 'Serving']) el(key).value = '';
         el('Kind').value = 'whole'; defaults();
+        if (!userTyped) clear();
         const saved = matchingDefaults(load().nutritionDefaults, foodName.value);
         if (saved.length === 1) populate(saved[0], true);
       }
+      scheduleAuto();
     });
   }
-  for (const input of [amount, unit]) input.addEventListener('input', () => {
-    if (controller) { cancel(); status('Amount/unit changed. Pending lookup canceled; fetch again for the new entry.'); }
+  unit.addEventListener('input', () => {
+    if (controller) { cancel(); status('Unit changed. Pending lookup canceled.'); }
   });
+  amount.addEventListener('input', scheduleAuto);
   unit.addEventListener('change', () => {
-    if (card && !showPortion()) status('Define this portion below to calculate nutrition. No extra lookup is needed.');
+    if (card && !showPortion()) status(genieClient.state().eligible ? `Genie will estimate one ${unit.value} of this food...`
+      : 'Define this portion below to calculate nutrition.');
+    scheduleAuto();
   });
   el('AdjustPortion').addEventListener('click', () => {
     el('PortionEditor').hidden = false; el('PortionAmount').focus();
@@ -220,7 +208,7 @@ export function initNutritionLookup({ load, save, apply }) {
   });
   for (const key of Object.keys(NUTRIENTS)) {
     document.getElementById(`dietNutr${key[0].toUpperCase()}${key.slice(1)}`).addEventListener('input', () => {
-      edited = true;
+      edited = true; userTyped = true;
       if (card) el('Provenance').textContent = 'User-edited nutrition. Original source links below are references, not verification of your edits. Personal edits stay local.';
       if (controller) { cancel(); status('You edited the card. Pending lookup canceled; your figures were preserved.'); }
     });
@@ -274,15 +262,15 @@ export function initNutritionLookup({ load, save, apply }) {
   for (const event of ['bignuten:wallet-changed', 'bignuten:genie-access-changed']) window.addEventListener(event, () => {
     const eligible = genieClient.state().eligible;
     opener.hidden = !eligible; opener.textContent = 'Genie'; opener.setAttribute('aria-label', 'Fill nutrition facts with Genie');
-    if (!eligible) reset();
+    if (!eligible) reset(); else scheduleAuto();
   });
   document.getElementById('closeDietModal')?.addEventListener('click', reset);
   const diet = document.getElementById('dietModal');
   new MutationObserver(() => {
-    if (diet.style.display === 'none' && (controller || clarification)) reset();
+    if (diet.style.display === 'none' && controller) reset();
   }).observe(diet, { attributes: true, attributeFilter: ['style'] });
   document.getElementById('dietForm').addEventListener('reset', () => {
-    reset();
+    reset(); userTyped = false; clearTimeout(autoTimer);
     queueMicrotask(defaults);
   });
   opener.hidden = !genieClient.state().eligible; opener.textContent = 'Genie';
