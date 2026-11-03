@@ -1,4 +1,4 @@
-import { createProfileStorage, LocalProfileCoordinator, migrateLegacyStorage, walletProfileId } from './profileContinuityCore.mjs';
+import { createProfileStorage, LocalProfileCoordinator, migrateLegacyStorage, walletProfileId, PROFILE_SELECTION_KEY, selectedHealthProfile } from './profileContinuityCore.mjs';
 import { mergeSnapshotData, normalizeFitnessData, retrofitOldSnapshots, patchAllSnapshotHistory } from './fitnessData.js';
 import { fitnessRecovery } from './snapshotRecovery.js';
 
@@ -84,6 +84,8 @@ function renderStatus({ status = coordinator.status, error = '' } = {}) {
   takeover.hidden = writer || status === 'unavailable' || status === 'connecting';
   takeover.disabled = status === 'yielding' || status === 'releasing';
   const copy = panel.querySelector('#bn-profile-copy-guest');
+  panel.querySelector('#bn-profile-use-guest').hidden = profile === 'guest';
+  panel.querySelector('#bn-profile-use-wallet').hidden = profile !== 'guest' || walletProfileId(window._connectedAccount) === 'guest';
   const guest = localInventory('guest');
   copy.hidden = profile === 'guest' || !writer || !guest.count;
   copy.textContent = `Copy ${guest.count} guest records into this wallet`;
@@ -98,6 +100,16 @@ function ensureStatusPanel() {
   panel.style.cssText = 'margin:10px 0;padding:10px 12px;border:1px solid #65b8cb;border-radius:10px;background:#102633;color:#e8f7ff;font:13px/1.4 system-ui';
   panel.innerHTML = '<details id="bn-profile-details" style="border:1px solid #65b8cb;border-radius:10px;background:#102633;box-shadow:0 4px 18px #0008"><summary style="padding:8px 10px;border-radius:10px;cursor:pointer"><strong id="bn-profile-identity"></strong><span> · </span><span id="bn-profile-state"></span></summary><div style="padding:0 10px 10px"><p id="bn-profile-note" style="margin:4px 0 8px"></p><button id="bn-profile-takeover" type="button" hidden>Take over editing</button> <button id="bn-profile-copy-guest" type="button" hidden></button><details style="margin-top:5px"><summary>Move data between browsers</summary><p id="bn-profile-backup-help"></p><button id="bn-profile-open-backups" type="button">Open encrypted backup options</button></details></div></details>';
   const settings = document.querySelector('#settings-modal .modal');
+  const choices = document.createElement('p');
+  choices.innerHTML = '<button type="button" id="bn-profile-use-guest">Use original Guest records</button> <button type="button" id="bn-profile-use-wallet">Use separate wallet records</button>';
+  panel.querySelector('#bn-profile-note').after(choices);
+  panel.querySelector('#bn-profile-use-guest').addEventListener('click', () => {
+    if (confirm('Open the original browser Guest records? Wallet records stay saved separately. Save any pending form first.')) void selectProfile('guest');
+  });
+  panel.querySelector('#bn-profile-use-wallet').addEventListener('click', () => {
+    const wallet = walletProfileId(window._connectedAccount);
+    if (wallet !== 'guest' && confirm('Open separate wallet records? Your original Guest records stay saved and are not copied automatically. Save any pending form first.')) void selectProfile(wallet);
+  });
   if (settings) settings.querySelector('.settings-header')?.after(panel);
   else document.body.appendChild(panel);
   cover = document.createElement('div');
@@ -170,6 +182,8 @@ function announceProfileReady() {
 }
 
 async function selectProfile(profileId) {
+  try { nativeStorage.setItem(PROFILE_SELECTION_KEY, profileId); }
+  catch (error) { alert(`Could not remember the health profile. Nothing switched: ${error.message}`); return; }
   switchingProfile = true;
   globalThis.__bignutenProfileIsReady = false;
   if (cover) { cover.textContent = `Switching to ${profileId === 'guest' ? 'guest' : 'wallet'} profile safely. Previous profile data is hidden.`; cover.style.display = 'grid'; }
@@ -185,14 +199,16 @@ export async function initializeProfileContinuity() {
   if (cover) { cover.textContent = 'Checking this browser profile and its local writer…'; cover.style.display = 'grid'; }
   window.addEventListener('bignuten:wallet-changed', () => {
     const next = walletProfileId(window._connectedAccount);
-    if (next !== profileStore.api.getProfile()) queueMicrotask(() => { void selectProfile(next); });
+    const current = profileStore.api.getProfile();
+    if (current !== 'guest' && next !== current) queueMicrotask(() => { void selectProfile('guest'); });
+    else renderStatus();
   });
   try {
     const accounts = await Promise.race([
       Promise.resolve(globalThis.ethereum?.request?.({ method: 'eth_accounts' })).catch(() => []),
       new Promise(resolve => setTimeout(() => resolve([]), 2000)),
     ]);
-    startupProfileId = walletProfileId(Array.isArray(accounts) ? accounts[0] : '');
+    startupProfileId = selectedHealthProfile(nativeStorage.getItem(PROFILE_SELECTION_KEY), Array.isArray(accounts) ? accounts[0] : '');
   } catch { startupProfileId = 'guest'; }
   if (switchingProfile) return;
   profileStore.api.setProfile(startupProfileId);

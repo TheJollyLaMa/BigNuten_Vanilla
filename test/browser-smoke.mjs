@@ -484,6 +484,22 @@ try {
       }
       await click('#aesculapius-right');
       await click('#aes-settings-btn');
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).emotions.some(entry => entry.emotion === 'Synthetic calm')), true, 'connecting MetaMask leaves original Guest records visible');
+      await page.locator('#bn-profile-details').evaluate(element => { element.open = true; });
+      page.once('dialog', dialog => dialog.accept());
+      await Promise.all([
+        page.waitForNavigation(),
+        page.locator('#bn-profile-use-wallet').evaluate(button => button.click()),
+      ]);
+      await page.waitForFunction(() => window.__bignutenProfileIsReady === true);
+      await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; }' });
+      if (name === 'desktop') {
+        await visible('#ipfs-edu-overlay');
+        await click('#ipfs-edu-skip-btn');
+        await hidden('#ipfs-edu-overlay');
+      }
+      await click('#aesculapius-right');
+      await click('#aes-settings-btn');
       await page.waitForFunction(() => {
         const button = document.getElementById('bn-profile-copy-guest');
         return button && !button.hidden && document.getElementById('bn-profile-state').textContent === 'Editing here';
@@ -1706,12 +1722,16 @@ try {
       await visible('#dietBtn');
       assert.equal(await page.locator('#dietNutritionGenie').isVisible(), false);
       const deniedProfile = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')));
-      assert.equal(deniedProfile.emotions.length, 0, 'another wallet sees its own empty local profile, not the previous wallet records');
+      assert.equal(deniedProfile.emotions.some(entry => entry.emotion === 'Synthetic calm'), true, 'changing wallets returns to original Guest records, never another wallet profile');
       assert.equal(hostedRequests.length, modelCallsBeforeLock, 'Uninvited wallet sends no model context');
       activeWallet = wallet;
+      await page.evaluate(address => window.__smokeEmitWalletEvent('accountsChanged', [address]), wallet);
       await Promise.all([
         page.waitForNavigation(),
-        page.evaluate(address => window.__smokeEmitWalletEvent('accountsChanged', [address]), wallet),
+        page.evaluate(async address => {
+          const { profileContinuity } = await import('/js/profileContinuity.js');
+          await profileContinuity.switchToWallet(address);
+        }, wallet),
       ]);
       await page.waitForFunction(() => window.__bignutenProfileIsReady === true);
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).emotions.some(entry => entry.emotion === 'Joy')), true, 'switching back restores the active wallet profile after the explicit snapshot restore');

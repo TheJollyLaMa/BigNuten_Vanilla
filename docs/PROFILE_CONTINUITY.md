@@ -2,13 +2,15 @@
 
 ## Shipped local behavior
 
+Health-profile selection is explicit and independent of connecting MetaMask. Without a saved selection, the original Guest records open even if a wallet is already connected. Settings provides **Use separate wallet records** and **Use original Guest records**; switching keeps both copies. An explicitly selected wallet profile survives refresh only while the matching account is connected. Disconnecting or changing accounts returns to Guest rather than silently opening a different wallet's records. Connecting/reconnecting alone never switches away from Guest. This prevents the post-update empty-wallet-profile regression.
+
 BigNuten now stores the app's localStorage keys inside a profile namespace: `guest` or `wallet-<lowercase EVM address>`. The address is a local profile selector, not authentication, encryption, or proof of ownership. Wallet connection never claims, merges, or uploads guest data. Existing unnamespaced keys are copied to the guest namespace once; the original keys are retained as a recovery source. The UI identifies the current profile as local-only and warns that it cannot see another browser's storage.
 
 Copying guest health records into a connected wallet profile is an explicit, reversible **copy**, not a move. The app creates an exact local backup of the source and destination bytes before merging, retains the guest profile, and reports conflicts; when an existing wallet record conflicts, it remains the displayed value while the guest source and backup retain the other value. No profile is silently overwritten or deleted.
 
 On supported secure browser contexts, Web Locks serialize writers for each local profile. BroadcastChannel asks the active tab to yield only after its owner confirms; the requesting user also confirms takeover. A writer lease token fences stale tabs at every localStorage mutation. Tabs without a verified lock or BroadcastChannel remain read-only/unavailable rather than assuming exclusivity. This coordination is limited to tabs sharing the same browser storage partition and origin; it does not coordinate Brave with Chrome, separate browser profiles, devices, origins, or offline copies.
 
-Local profile namespaces are **not encryption or a shared-computer confidentiality boundary**. Anyone with access to the browser profile/devtools can read its localStorage. Lock the OS/browser profile and export only to a private location. Disconnecting or changing wallet reloads the app under the newly selected local profile to discard in-memory views and fence pending work; the wallet's currently exposed account is used only as a local selector.
+Local profile namespaces are **not encryption or a shared-computer confidentiality boundary**. Anyone with access to the browser profile/devtools can read its localStorage, including Guest records. Lock the OS/browser profile and export only to a private location. Leaving an explicitly selected wallet reloads the app under Guest to discard in-memory views and fence pending work; the wallet's currently exposed account is used only as a local selector.
 
 ## Moving a profile to another browser today
 
