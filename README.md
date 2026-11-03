@@ -664,9 +664,9 @@ BigNuten is minting **100 Early Supporter DNFTs** on Optimism as ERC-1155 tokens
 
 #### 🔗 Option 1 — BigNuten Supporter Token on Base
 
-The **About → About the Project** card and the Early Supporter crypto section share one pinned-listing purchase flow. **No BigNuten Supporter listing exists on Base yet:** both show “BigNuten Supporter Token coming soon on Base” with existing BigNuten artwork and a disabled button. A diagonal **COMING SOON** stamp crosses the artwork until the Base listing is configured. They never scan or select other apps’ listings. The legacy Optimism editions are historical; this app offers Base purchases only. The table above describes that legacy collection, not the unlisted Base token.
+The **About → About the Project** card and the Early Supporter crypto section share one pinned-listing purchase flow. **The BigNuten v3.3.0 Supporter DNFT is live on Base:** token [#76](https://basescan.org/token/0xe63EC9f8228720bAAC2fD528C0A6d06B3Dc5439B?a=76) on DecentNFT, listed as DecentEscrow listing **6** with 1000 editions at **10 USDC**. The release, pins and mint evidence are on [v3.3.0](https://github.com/TheJollyLaMa/BigNuten_Vanilla/releases/tag/v3.3.0). The card art was refreshed after the mint; the old and new CIDs are recorded in `supporter-art-refresh.json`, and the exact-commit site is served at `bignuten.decentagency.eth`. The cards never scan or select other apps' listings. The legacy Optimism editions are historical; this app offers Base purchases only. The table above describes that legacy collection.
 
-After minting, depositing stock, and listing, the steward must submit a reviewed change to **`js/supporter-token.json`**. All seven fields are intentionally `null` until then:
+The reviewed listing is pinned in **`js/supporter-token.json`**. If every field is `null`, the cards show “BigNuten Supporter Token coming soon on Base” with a diagonal **COMING SOON** stamp and a disabled button. A future release updates these fields only after its own mint and listing:
 
 | Config field | Required reviewed value |
 |---|---|
@@ -678,7 +678,7 @@ After minting, depositing stock, and listing, the steward must submit a reviewed
 | `metadataUri` | Reviewed metadata URI (`ipfs://` or `https://`) proving this is BigNuten’s supporter token |
 | `imageUri` | Reviewed DNFT artwork URI (`ipfs://` or `https://`); existing BigNuten artwork is the load-error fallback |
 
-The chain (Base 8453) and escrow (`0x31b07b83e99A9bdF379bf40225b8A80d3804C89d`) are fixed in `js/supporterToken.mjs`, not inferred from the active app network. Metadata and artwork are reviewed pins, not automatic discovery or minting. Do not reuse the existing other-app listing IDs 0–5.
+The chain (Base 8453) and escrow (`0x31b07b83e99A9bdF379bf40225b8A80d3804C89d`) are fixed in `js/supporterToken.mjs`, not inferred from the active app network. Metadata and artwork are reviewed pins, not automatic discovery or minting. Listing IDs 0–5 belong to other apps.
 
 Before enabling purchase and again before each write, the app verifies the NFT contract/token ID, zero ETH price, exact USDC token/price, active listing, positive remaining supply, and escrow stock covering **all** listed availability. A mismatch or failed read disables purchase. Clicking connects MetaMask, switches/adds Base if necessary, approves only the exact price if allowance is short, then calls `purchaseWithToken(listingId, 1)`. It rechecks wallet/network and listing after approval; a rejection or later failure can leave an already-confirmed approval but does not indicate a successful purchase. A confirmed purchase shows a Basescan transaction link. Reopen About to refresh/retry. Partial config is an error, not a discovery fallback.
 
@@ -693,7 +693,7 @@ Before enabling purchase and again before each write, the app verifies the NFT c
 
 ### Community Escrow
 
-New Base DNFT sale proceeds will flow to the **[Base DecentEscrow contract](https://basescan.org/address/0x31b07b83e99A9bdF379bf40225b8A80d3804C89d)** once its metadata and listing are configured. Existing Early Supporter editions remain on the legacy Optimism contracts. Funds are intended for:
+Base Supporter DNFT sale proceeds flow to the **[Base DecentEscrow contract](https://basescan.org/address/0x31b07b83e99A9bdF379bf40225b8A80d3804C89d)**. Existing Early Supporter editions remain on the legacy Optimism contracts. Funds are intended for:
 
 - $BNUT bounties for contributors
 - Feature development and infrastructure
