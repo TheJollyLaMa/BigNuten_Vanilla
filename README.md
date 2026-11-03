@@ -676,7 +676,7 @@ The reviewed listing is pinned in **`js/supporter-token.json`**. If every field 
 | `paymentToken` | Base USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | `expectedPriceAmount` | Exact positive USDC base-unit amount (6 decimals), as a decimal string; no price is assumed |
 | `metadataUri` | Reviewed metadata URI (`ipfs://` or `https://`) proving this is BigNuten’s supporter token |
-| `imageUri` | Reviewed DNFT artwork URI (`ipfs://` or `https://`); existing BigNuten artwork is the load-error fallback |
+| `imageUri` | Reviewed DNFT artwork URI (`ipfs://` or `https://`); if the IPFS gateway fails, the card shows the bundled copy `img/supporter-token.png` (replace it with the matching front when the token changes), then the BigNuten logo |
 
 The chain (Base 8453) and escrow (`0x31b07b83e99A9bdF379bf40225b8A80d3804C89d`) are fixed in `js/supporterToken.mjs`, not inferred from the active app network. Metadata and artwork are reviewed pins, not automatic discovery or minting. Listing IDs 0–5 belong to other apps.
 

@@ -110,7 +110,8 @@ export function createSupporterController({ roots, ethers, network, escrowAbi, e
       for (const root of roots) {
         const image = root.querySelector('.supporter-token-image');
         if (image) {
-          image.onerror = () => { image.onerror = null; image.src = 'img/BigNuten.png'; };
+          // Public IPFS gateways rate-limit; fall back to the bundled copy of the reviewed art, then the app logo.
+          image.onerror = () => { image.onerror = () => { image.onerror = null; image.src = 'img/BigNuten.png'; }; image.src = 'img/supporter-token.png'; };
           image.src = imageUrl(config.imageUri);
         }
       }
