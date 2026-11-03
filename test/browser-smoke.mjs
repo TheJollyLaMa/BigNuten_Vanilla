@@ -239,8 +239,9 @@ try {
     let deniedChallenges = 0;
     await page.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url());
-      if (url.origin === origin && url.pathname.endsWith('/js/supporter-token.json') && supporterFixture) {
-        return route.fulfill({ json: reviewedSupporter });
+      if (url.origin === origin && url.pathname.endsWith('/js/supporter-token.json')) {
+        // Fixtures stay independent of the live listing; no fixture means an unset (coming-soon) config.
+        return route.fulfill({ json: supporterFixture ? reviewedSupporter : Object.fromEntries(Object.keys(reviewedSupporter).map(key => [key, null])) });
       }
       if (url.origin === origin) return route.continue();
       external.add(request.url());

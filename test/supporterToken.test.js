@@ -14,7 +14,10 @@ const listing = { nftContract: config.contract, tokenId: 406n, priceETH: 0n,
 test('reviewed config: unset is coming soon; valid pins support zero IDs and large uint256 strings', async () => {
   const { validateSupporterConfig: validate } = await modulePromise;
   assert.equal(validate(null).state, 'coming-soon');
-  assert.equal(validate(JSON.parse(readFileSync('js/supporter-token.json'))).state, 'coming-soon');
+  const shipped = JSON.parse(readFileSync('js/supporter-token.json'));
+  assert.equal(validate(shipped).state, 'configured');
+  assert.deepEqual([shipped.tokenId, shipped.listingId, shipped.expectedPriceAmount], ['76', '6', '10000000'], 'v3.3.0 Base Supporter listing');
+  assert.equal(validate(Object.fromEntries(Object.keys(shipped).map(key => [key, null]))).state, 'coming-soon');
   assert.equal(validate(config).state, 'configured');
   assert.equal(validate({ ...config, tokenId: '0', listingId: '0' }).state, 'configured');
   assert.equal(validate({ ...config, tokenId: (2n ** 255n).toString() }).state, 'configured');

@@ -1,9 +1,9 @@
 {
-  "contract": null,
-  "tokenId": null,
-  "listingId": null,
-  "paymentToken": null,
-  "expectedPriceAmount": null,
-  "metadataUri": null,
-  "imageUri": null
+  "contract": "0xe63EC9f8228720bAAC2fD528C0A6d06B3Dc5439B",
+  "tokenId": "76",
+  "listingId": "6",
+  "paymentToken": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "expectedPriceAmount": "10000000",
+  "metadataUri": "ipfs://QmdJGvn6Fh1cjaYuafpcw5ocF6GG1pEWRLMUmQr8Anm6rR",
+  "imageUri": "ipfs://QmddYgiwJrjW8jtE3MBzY7KCztJmqAq96dCR2iogcK5u3X"
 }
