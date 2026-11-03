@@ -1,5 +1,15 @@
 const { before, test } = require('node:test');
 const assert = require('node:assert/strict');
+test('connecting a wallet never implicitly selects its health profile', async () => {
+  const { selectedHealthProfile, walletProfileId } = await import('../js/profileContinuityCore.mjs');
+  const address = '0x' + 'ab'.repeat(20);
+  const wallet = walletProfileId(address);
+  assert.equal(selectedHealthProfile(null, address), 'guest');
+  assert.equal(selectedHealthProfile('guest', address), 'guest');
+  assert.equal(selectedHealthProfile(wallet, address), wallet);
+  assert.equal(selectedHealthProfile(wallet, '0x' + 'cd'.repeat(20)), 'guest');
+  assert.equal(selectedHealthProfile(wallet, ''), 'guest');
+});
 let createProfileStorage, LocalProfileCoordinator, migrateLegacyStorage, profileStorageKey, walletProfileId;
 before(async () => {
   ({ createProfileStorage, LocalProfileCoordinator, migrateLegacyStorage, profileStorageKey, walletProfileId } = await import('../js/profileContinuityCore.mjs'));

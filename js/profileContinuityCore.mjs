@@ -1,5 +1,11 @@
 export const PROFILE_PREFIX = 'bignuten.profile.v1:';
 export const PROFILE_MIGRATION_KEY = `${PROFILE_PREFIX}legacy-copied`;
+export const PROFILE_SELECTION_KEY = `${PROFILE_PREFIX}selected`;
+
+export function selectedHealthProfile(saved, address) {
+  const wallet = walletProfileId(address);
+  return saved === wallet ? wallet : 'guest';
+}
 
 export function walletProfileId(address) {
   const value = String(address || '').trim();
