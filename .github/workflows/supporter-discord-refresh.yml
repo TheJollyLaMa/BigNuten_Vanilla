@@ -1,0 +1,32 @@
+name: Refresh Supporter Discord artwork
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published Supporter release whose existing Discord post will be updated
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supporter-discord-refresh-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Edit the existing Discord announcement
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_SUPPORTER_WEBHOOK: ${{ secrets.DISCORD_SUPPORTER_WEBHOOK }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: node scripts/refresh-supporter-discord.mjs "$RELEASE_TAG"
