@@ -1,0 +1,125 @@
+.rabbit-deck, .rabbit-welcome {
+  --rabbit-ink: #173c36;
+  --rabbit-leaf: #275b4d;
+  color: var(--rabbit-ink);
+  background: #fffcf3;
+  border: 1px solid #d5dac6;
+  border-radius: 22px;
+  box-shadow: 0 12px 40px #092f3026;
+  font: 400 14px/1.5 system-ui, sans-serif;
+  color-scheme: light;
+}
+.rabbit-deck {
+  position: fixed;
+  z-index: 99998;
+  inset: auto max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) auto;
+  width: min(390px, calc(100vw - 24px));
+  max-height: min(76dvh, 700px);
+  overflow: auto;
+  padding: 18px;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+}
+.rabbit-deck[hidden], .rabbit-welcome[hidden] { display: none !important; }
+.rabbit-header {
+  position: static;
+  top: auto;
+  width: auto;
+  z-index: auto;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rabbit-header > div { flex: 1; }
+.rabbit-header strong { display: block; font-size: 15px; }
+.rabbit-eyebrow { display: block; color: #536e58; font-size: 10px; font-weight: 750; letter-spacing: .12em; }
+.rabbit-deck h2 { font-size: 21px; line-height: 1.2; margin: 8px 0 12px; color: var(--rabbit-ink); }
+.rabbit-deck h3 { font-size: 15px; color: var(--rabbit-ink); }
+.rabbit-deck p { margin: 10px 0; }
+.rabbit-progress { display: flex; align-items: center; gap: 10px; margin: 15px 0; font-size: 12px; }
+.rabbit-progress progress { flex: 1; width: 0; height: 7px; accent-color: var(--rabbit-leaf); }
+.rabbit-prompt { border-left: 3px solid #cc9e54; padding: 6px 12px; background: #f5efdf; border-radius: 0 8px 8px 0; }
+.rabbit-deck details { padding: 8px 0; }
+.rabbit-deck summary { cursor: pointer; color: #275b4d; font-weight: 650; }
+.rabbit-target-status, .rabbit-footnote { font-size: 12px; color: #53675c; }
+.rabbit-deck button, .rabbit-welcome button, .rabbit-deck select {
+  background: #f4f3e8;
+  border: 1px solid #b5c3ad;
+  border-radius: 11px;
+  color: var(--rabbit-ink);
+  font: inherit;
+  font-size: 12px;
+  padding: 9px 11px;
+  min-height: 42px;
+  cursor: pointer;
+  box-shadow: none;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.rabbit-deck button:hover, .rabbit-welcome button:hover { background: #e5ecdc; }
+.rabbit-deck button:disabled { opacity: .48; cursor: default; }
+.rabbit-deck .rabbit-primary { background: var(--rabbit-leaf); border-color: var(--rabbit-leaf); color: #fffdf6; }
+.rabbit-deck .rabbit-primary:hover { background: #174735; }
+.rabbit-deck :focus-visible, .rabbit-welcome :focus-visible { outline: 3px solid #a47723; outline-offset: 3px; }
+.rabbit-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 12px; }
+.rabbit-tour-select { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px; }
+.rabbit-tour-select select { flex: 1; min-width: 0; max-width: 100%; }
+.rabbit-target-highlight { outline: 3px solid #83a95b !important; outline-offset: 4px; }
+.rabbit-welcome { display: flex; align-items: center; gap: 14px; padding: 15px; margin: calc(var(--rabbit-header-space, 120px) + 12px) auto 0; max-width: min(760px, calc(100vw - 24px)); box-sizing: border-box; text-align: left; }
+.rabbit-welcome:not([hidden]) ~ main { margin-top: 14px; }
+.rabbit-welcome > div { flex: 1; }
+.rabbit-welcome p { margin: 5px 0 0; font-size: 12px; }
+/* Original CSS mascot: two asymmetric ears, a soft face and a tiny nose. */
+.rabbit-mascot { position: relative; display: inline-block; flex: 0 0 48px; width: 48px; height: 58px; }
+.rabbit-ear { position: absolute; top: 0; width: 12px; height: 35px; border: 2px solid #b7c8b1; background: #fff; border-radius: 70% 70% 40% 40%; box-sizing: border-box; }
+.rabbit-ear::after { content: ''; position: absolute; inset: 5px 3px; border-radius: 60%; background: #ecc6bb; }
+.rabbit-ear-left { left: 8px; transform: rotate(-15deg); }
+.rabbit-ear-right { right: 7px; top: 4px; transform: rotate(20deg); }
+.rabbit-face { position: absolute; bottom: 1px; left: 3px; width: 42px; height: 36px; border: 2px solid #b7c8b1; background: #fff; border-radius: 48% 48% 44% 44%; box-sizing: border-box; }
+.rabbit-face::before, .rabbit-face::after { content: ''; position: absolute; top: 13px; width: 4px; height: 5px; background: #274c3c; border-radius: 50%; }
+.rabbit-face::before { left: 10px; }
+.rabbit-face::after { right: 10px; }
+.rabbit-nose { position: absolute; bottom: 10px; left: 23px; width: 5px; height: 4px; border-radius: 50%; background: #c78877; }
+.rabbit-library {
+  border: 1px solid #6ccdb655;
+  border-radius: 18px;
+  padding: 18px;
+  background: linear-gradient(145deg, #12363a, #101c32);
+  text-align: left;
+}
+.rabbit-library > .rabbit-eyebrow { color: #b7dfb0; }
+.rabbit-library h3 { color: #e3f7dc; }
+#rabbit-tutorial-library { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+.rabbit-library button {
+  font: 400 13px/1.5 system-ui, sans-serif;
+  text-align: left;
+  padding: 13px;
+  border: 1px solid #a2c6b155;
+  border-radius: 12px;
+  background: #16373f;
+  color: #e5f3ed;
+  cursor: pointer;
+  min-height: 44px;
+}
+.rabbit-library button:hover { background: #214d50; border-color: #b5d7a8; }
+.rabbit-library button:focus-visible { outline: 3px solid #ffdc91; outline-offset: 3px; }
+.rabbit-library-tour > strong, .rabbit-library-tour > span, .rabbit-library-tour > small { display: block; }
+.rabbit-library-tour > strong { font-size: 15px; }
+.rabbit-library-tour > span { margin-top: 6px; }
+.rabbit-library-tour > small { margin-top: 10px; color: #bed6c1; }
+.rabbit-library-tour[data-rabbit-tour="starter"] { grid-column: 1 / -1; background: #eff5df; color: #173c36; border-color: #d3ddad; }
+.rabbit-library-tour[data-rabbit-tour="starter"] small { color: #42604c; }
+.rabbit-library-tour[data-rabbit-tour="starter"]:hover { background: #e0ecc6; }
+.rabbit-library-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+#rabbit-tutorial-library-status { font: 12px/1.5 system-ui, sans-serif; color: #c5dbd2; }
+@media (max-width: 480px) {
+  .rabbit-deck { padding: 13px; max-height: 65dvh; border-radius: 18px; }
+  .rabbit-welcome { flex-wrap: wrap; }
+  .rabbit-welcome > div { min-width: 170px; }
+  .rabbit-actions button { flex: 1; }
+  #rabbit-tutorial-library { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rabbit-deck *, .rabbit-welcome *, .rabbit-target-highlight { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

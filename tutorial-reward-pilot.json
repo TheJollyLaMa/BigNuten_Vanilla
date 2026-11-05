@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "campaign": "white-rabbit-closed-trial-v1",
+  "status": "awaiting-budget-and-funding",
+  "scope": "reward-eligibility-only",
+  "approvedBudgetBNUT": null,
+  "funded": false,
+  "claimsEnabled": false,
+  "reviewRequired": true,
+  "sources": [
+    {
+      "repository": "TheJollyLaMa/BigNuten_Vanilla",
+      "path": "contributor-accounts.json",
+      "blobSha": "5f4276b32dd476305e390a1f0847249b40a4eb20"
+    },
+    {
+      "repository": "TheJollyLaMa/DecentBusking",
+      "path": "contributor-accounts.json",
+      "blobSha": "0ff8153221e1aa11f5670ebbda1ffadf60a9b4f0"
+    }
+  ],
+  "participants": [
+    {
+      "id": "thejollylama",
+      "github": "TheJollyLaMa",
+      "displayName": "TheJollyLaMa",
+      "kind": "human",
+      "registration": "registered",
+      "sourcePolicies": [
+        {
+          "repository": "TheJollyLaMa/BigNuten_Vanilla",
+          "payoutMode": "wallet",
+          "walletAddress": "0x807061DF657A7697c04045dA7d16D941861cAABc"
+        },
+        {
+          "repository": "TheJollyLaMa/DecentBusking",
+          "payoutMode": "wallet",
+          "walletAddress": "0x807061DF657A7697c04045dA7d16D941861cAABc"
+        }
+      ]
+    },
+    {
+      "id": "copilot",
+      "github": "copilot",
+      "displayName": "Copilot",
+      "kind": "automation",
+      "registration": "registered",
+      "sourcePolicies": [
+        {
+          "repository": "TheJollyLaMa/BigNuten_Vanilla",
+          "payoutMode": "wallet",
+          "walletAddress": "0x23A457AD3C33d68E4fAd2FCa7c5d9a511E0C350e"
+        },
+        {
+          "repository": "TheJollyLaMa/DecentBusking",
+          "payoutMode": "retain-in-fund",
+          "walletAddress": null
+        }
+      ]
+    },
+    {
+      "id": "withinthevacuum",
+      "github": "withinthevacuum",
+      "displayName": "withinthevacuum",
+      "kind": "human",
+      "registration": "registered",
+      "sourcePolicies": [
+        {
+          "repository": "TheJollyLaMa/DecentBusking",
+          "payoutMode": "wallet",
+          "walletAddress": "0x405Bb3Cdf23833bb27BAD6629b7cd4f01688235f"
+        }
+      ]
+    },
+    {
+      "id": "joseacabrerav",
+      "github": "joseacabrerav",
+      "displayName": "joseacabrerav",
+      "kind": "human",
+      "registration": "registered",
+      "sourcePolicies": [
+        {
+          "repository": "TheJollyLaMa/DecentBusking",
+          "payoutMode": "wallet",
+          "walletAddress": "0x29185eB8cfD22Aa719529217bFbadE61677e0Ad2"
+        }
+      ]
+    },
+    {
+      "id": "grannylyn",
+      "github": null,
+      "displayName": "GrannyLyn",
+      "kind": "human",
+      "registration": "pending-github-registration",
+      "walletAddress": "0xF18E19c537a7A99571Bc3F8cef81DCBCaea7c3AE",
+      "sourcePolicies": []
+    },
+    {
+      "id": "zaal",
+      "github": null,
+      "displayName": "Zaal",
+      "kind": "human",
+      "registration": "pending-identity-and-wallet",
+      "sourcePolicies": []
+    }
+  ]
+}

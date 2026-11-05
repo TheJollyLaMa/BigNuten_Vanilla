@@ -7,6 +7,7 @@ import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Interface, ZeroAddress } from 'ethers';
 import { BASE_SUPPORTER } from '../js/supporterToken.mjs';
+import { rabbitWalkthrough } from './rabbitWalkthrough.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const shots = resolve(process.env.SCREENSHOT_DIR || 'test-results/smoke');
@@ -549,6 +550,7 @@ try {
       await click('#measurement-reminder-dismiss');
       await hidden('#measurement-reminder');
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).measurementReminderDismissedOn), '2026-10-28');
+      await rabbitWalkthrough(page, { name, walletCalls, hostedRequests, shot });
       await click('#water-drop-empty');
       for (let count = 0; count < 10; count++) await click('#water-log-btn');
       assert.equal(await page.locator('#water-modal-count').innerText(), '10 / 8');
