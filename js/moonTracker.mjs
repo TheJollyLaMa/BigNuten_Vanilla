@@ -63,10 +63,10 @@ export function initMoonTracker() {
         calendar = localCalendar(now, linked.latitude, linked.longitude, zone);
         cacheKey = key;
       }
-      const count = calendar.rises.filter(rise => rise <= now).length;
+      const count = 1 + calendar.rises.filter(rise => rise <= now).length;
       text('location-info', `Location: ${linked.latitude}, ${linked.longitude} · ${zone} (confirmed)\n` +
         'Coordinates stay in this page session; no server or profile upload.');
-      text('moon-local-events', `Local moonrise count: ${count || 'awaiting first moonrise'} since new moon\n` +
+      text('moon-local-events', `Local lunar day: ${count} (day 1 begins at new moon; later days begin at moonrise)\n` +
         `Sunrise: ${format(calendar.sunrise, zone)}\nMoonrise: ${format(calendar.moonrise, zone)}`);
       const upcoming = calendar.upcoming;
       if (!upcoming) {
@@ -76,7 +76,12 @@ export function initMoonTracker() {
       const today = localDate(now, zone);
       const isToday = localDate(upcoming.sunrise, zone) === today;
       const missing = calendar.observances.filter(event => !event.sunrise).map(event => event.reason);
+      const recent = calendar.observances.filter(event => event.sunrise && event.sunrise <= now).at(-1);
+      const recentText = recent
+        ? `Most recent observance: ${format(recent.sunrise, zone)}${localDate(recent.sunrise, zone) === today ? ' (today)' : ''}\n`
+        : '';
       text('ekadasi-info', `Jolly’s rule · ${isToday ? 'Observance date is today' : 'Next observance'}: ${format(upcoming.sunrise, zone)}\n` +
+        recentText +
         `Day ${upcoming.targetDay} begins at local moonrise: ${format(upcoming.moonrise, zone)}\n` +
         `Previous sunset (preparation): ${format(calendar.sunset, zone)}\n` +
         'Custom calendar — see the method and limitations below.' +

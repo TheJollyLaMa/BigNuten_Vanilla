@@ -371,8 +371,8 @@ try {
           await page.locator('#moon-timezone').fill('America/New_York');
           await page.locator('#moon-location-form button[type=submit]').click();
           assert.match(await page.locator('#moon-info').innerText(), /Krishna Ekadasi/);
-          assert.match(await page.locator('#moon-local-events').innerText(), /moonrise count: 24/);
-          assert.match(await page.locator('#ekadasi-info').innerText(), /Nov 5/);
+          assert.match(await page.locator('#moon-local-events').innerText(), /lunar day: 25/);
+          assert.match(await page.locator('#ekadasi-info').innerText(), /Observance date is today: Nov 4/);
           assert.match(await page.locator('#moon-modal').textContent(), /parana window unavailable/);
           await page.locator('#ss-now').click();
           await page.screenshot({ path: resolve(shots, `${name}-moon-tracker.png`) });

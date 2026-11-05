@@ -4,20 +4,20 @@ The tracker separates three quantities that the old "Moon Day" label mixed:
 
 - **Moon age:** elapsed 24-hour days since the calculated astronomical new moon.
 - **Tithi:** the current 12-degree interval of geocentric Sun–Moon ecliptic longitude separation. The two conventional Ekadasi tithis are 11 and 26.
-- **Local moonrise count:** number of actual moonrise events since new moon at the confirmed coordinates. This is not a tithi or a sequence of equal-length days.
+- **Local lunar day:** day 1 begins at new moon, and each subsequent local moonrise starts the next numbered day. This is not a tithi or a sequence of equal-length days. It is one greater than the number of post-new-moon moonrise events so far.
 
 ## Jolly's custom rule
 
-For #419, the project owner explicitly selected:
+For #419, the project owner's acceptance case is the moonrise early on
+November 4 starting day 25, before that day's sunrise. The corrected numbering is:
 
-1. The first local moonrise after astronomical new moon begins day 1.
-2. Count subsequent local moonrises in the lunation.
+1. Day 1 is the opening interval beginning at astronomical new moon.
+2. The first subsequent local moonrise starts day 2; each further rise increments the day.
 3. Day 11 and day 25 each select the **first local sunrise at or after their starting moonrise**.
 4. Display the preceding sunset as a preparation reference.
 
 A target moonrise after today's sunrise therefore selects a later sunrise.
-Equality selects that sunrise. The counter resets at each new moon; before
-the first subsequent moonrise, the UI says it is awaiting the first moonrise.
+Equality selects that sunrise. The counter resets to day 1 at each new moon.
 Short intervals around new moon and missing rises are not replaced with
 invented 24-hour days.
 
@@ -26,22 +26,25 @@ It does not implement arunodaya/viddha rules, Maha-Dvadashi, lunar-month naming,
 intercalary-month story selection or parana windows. The story library is
 available independently, without a falsely calculated "current" named story.
 It makes no medical claim or universal last-meal/dry-fasting prescription.
-The custom reset convention has not been independently verified against
-The Moon iPhone app.
+The custom reset convention reproduces the reported November dates, but
+has not been independently verified against The Moon iPhone app across other
+cycles. The initial PR incorrectly omitted the opening interval and selected
+November 5; that was an off-by-one error, not a correction to the user's report.
 
 ### November report
 
 At the public reference location Syracuse, NY (43.0481, -76.1474),
 at 05:46 America/New_York:
 
-| Date (2026) | Tithi | Local moonrise count |
+| Date (2026) | Tithi | Local lunar day |
 | --- | --- | --- |
-| November 3 | 25: Krishna Dashami | 23 |
-| November 4 | 26: Krishna Ekadasi | 24 |
-| November 5 | 27: Krishna Dvadashi | 25 |
+| November 3 | 25: Krishna Dashami | 24 |
+| November 4 | 26: Krishna Ekadasi | 25 |
+| November 5 | 27: Krishna Dvadashi | 26 |
 
-Under the owner-selected custom rule, moonrise 25 occurs on November 5 and
-selects that day's sunrise. This does **not** establish an official religious
+The moonrise starting local day 25 occurs on November 4 at approximately
+01:43 EST, before sunrise at approximately 06:43 EST. The rule therefore
+selects **November 4**, not November 5. This does **not** establish an official religious
 observance date for either day. The original screenshots are not included
 in the repository.
 

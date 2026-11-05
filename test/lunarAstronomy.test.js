@@ -54,12 +54,16 @@ test('quarterly planetary positions agree with JPL in matching ecliptic J2000 fr
 });
 
 test('reported dates keep tithi, elapsed age and local moonrise count separate', () => {
-  for (const [day, expectedTithi, expectedCount] of [[3, 25, 23], [4, 26, 24], [5, 27, 25]]) {
+  for (const [day, expectedTithi, expectedCount] of [[3, 25, 24], [4, 26, 25], [5, 27, 26]]) {
     const state = api.localCalendar(new Date(`2026-11-0${day}T10:46:00Z`), ...publicLocation);
     assert.equal(state.tithi, expectedTithi);
     assert.equal(state.day, expectedCount);
-    assert.equal(api.localDate(state.upcoming.sunrise, publicLocation[2]), '2026-11-05');
-    assert.equal(state.isObservance, day === 5);
+    if (day <= 4) assert.equal(api.localDate(state.upcoming.sunrise, publicLocation[2]), '2026-11-04');
+    else {
+      assert.equal(api.localDate(state.mostRecent.sunrise, publicLocation[2]), '2026-11-04');
+      assert.ok(state.upcoming.sunrise > state.date);
+    }
+    assert.equal(state.isObservance, day === 4);
   }
 });
 
@@ -74,15 +78,33 @@ test('actual local sunrise and moonrise agree with public USNO event times withi
   }
 });
 
+test('opening new-moon interval is day 1; each subsequent moonrise advances the numbered day', () => {
+  const observer = api.observerFor(...publicLocation.slice(0, 2));
+  const state = api.lunarState(new Date('2026-11-04T10:46:00Z'));
+  const cycle = api.localLunation(state.newMoon, observer);
+  for (const [targetDay, index] of [[11, 9], [25, 23]]) {
+    const observance = api.selectJollyObservance(cycle.rises, cycle.sunrises, targetDay);
+    assert.equal(observance.moonrise, cycle.rises[index]);
+    const before = api.localCalendar(new Date(observance.moonrise.getTime() - 10000), ...publicLocation);
+    const after = api.localCalendar(new Date(observance.moonrise.getTime() + 10000), ...publicLocation);
+    assert.equal(before.day, targetDay - 1);
+    assert.equal(after.day, targetDay);
+  }
+  const day25 = cycle.observances.find(event => event.targetDay === 25);
+  assert.equal(api.localDate(day25.moonrise, publicLocation[2]), '2026-11-04');
+  assert.equal(api.localDate(day25.sunrise, publicLocation[2]), '2026-11-04');
+  assert.ok(day25.moonrise < day25.sunrise);
+});
+
 test('Jolly selection compares target moonrise with sunrise, including equality, not fixed 6am', () => {
   const sunrise = new Date('2026-11-04T11:43:00Z');
   const next = new Date('2026-11-05T11:44:00Z');
   for (const [offset, expected] of [[-1, sunrise], [0, sunrise], [1, next]]) {
     const rises = [new Date(sunrise.getTime() + offset)];
-    assert.equal(api.selectJollyObservance(rises, [sunrise, next], 1).sunrise, expected);
+    assert.equal(api.selectJollyObservance(rises, [sunrise, next], 2).sunrise, expected);
   }
-  assert.match(api.selectJollyObservance([], [sunrise], 25).reason, /No 25th moonrise/);
-  assert.match(api.selectJollyObservance([sunrise], [], 1).reason, /No sunrise/);
+  assert.match(api.selectJollyObservance([], [sunrise], 25).reason, /No moonrise starting lunar day 25/);
+  assert.match(api.selectJollyObservance([sunrise], [], 2).reason, /No sunrise/);
 });
 
 test('tithi transitions change at the numerical boundary, not at civil midnight or moonrise', () => {
@@ -130,7 +152,7 @@ test('moonrise count resets at a calculated new moon and calendar results cross 
   const before = api.localCalendar(new Date('2026-11-09T06:00:00Z'), ...publicLocation);
   const after = api.localCalendar(new Date('2026-11-09T08:00:00Z'), ...publicLocation);
   assert.ok(before.day >= 25);
-  assert.equal(after.day, 0);
+  assert.equal(after.day, 1);
   for (const date of ['2024-01-01T12:00:00Z', '2024-02-29T12:00:00Z', '2026-11-01T06:30:00Z', '2030-12-31T12:00:00Z']) {
     const state = api.localCalendar(new Date(date), ...publicLocation);
     assert.ok(state.newMoon <= state.date && state.nextNewMoon > state.date);

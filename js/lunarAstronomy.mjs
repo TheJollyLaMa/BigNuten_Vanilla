@@ -64,8 +64,9 @@ export function riseEvents(body, observer, start, end) {
 }
 
 export function selectJollyObservance(rises, sunrises, targetDay) {
-  const moonrise = rises[targetDay - 1];
-  if (!moonrise) return { targetDay, moonrise: null, sunrise: null, reason: `No ${targetDay}th moonrise in this lunation.` };
+  // Day 1 is the opening new-moon interval; subsequent moonrises begin days 2+.
+  const moonrise = rises[targetDay - 2];
+  if (!moonrise) return { targetDay, moonrise: null, sunrise: null, reason: `No moonrise starting lunar day ${targetDay} in this lunation.` };
   const sunrise = sunrises.find(value => value >= moonrise) || null;
   return {
     targetDay, moonrise, sunrise,
@@ -89,15 +90,16 @@ export function localCalendar(value, latitude, longitude, timeZone) {
   const cycle = localLunation(state.newMoon, observer);
   const nextCycle = localLunation(cycle.nextNewMoon, observer);
   const today = localDate(state.date, timeZone);
-  const day = cycle.rises.filter(rise => rise <= state.date).length;
+  const day = 1 + cycle.rises.filter(rise => rise <= state.date).length;
   const all = [...cycle.observances, ...nextCycle.observances];
   const upcoming = all.find(event => event.sunrise && localDate(event.sunrise, timeZone) >= today) || null;
+  const mostRecent = cycle.observances.filter(event => event.sunrise && event.sunrise <= state.date).at(-1) || null;
   const sunrise = cycle.sunrises.find(rise => localDate(rise, timeZone) === today) || null;
   const sunset = upcoming?.sunrise
     ? Astronomy.SearchRiseSet(Astronomy.Body.Sun, observer, -1, upcoming.sunrise, -2)?.date || null
     : null;
   return {
-    ...state, ...cycle, day, sunrise, upcoming, sunset, today, timeZone,
+    ...state, ...cycle, day, sunrise, upcoming, mostRecent, sunset, today, timeZone,
     moonrise: cycle.rises.find(rise => localDate(rise, timeZone) === today) || null,
     isObservance: Boolean(upcoming?.sunrise && localDate(upcoming.sunrise, timeZone) === today),
   };
