@@ -35,7 +35,7 @@
     "clean": "hardhat clean",
     "test:hardhat": "hardhat test",
     "test:node": "node --test test/*.test.js",
-    "test:smoke": "node test/browser-smoke.mjs && npm run test:rehearsal:browser",
+    "test:smoke": "node test/moonTracker.browser.mjs && node test/browser-smoke.mjs && npm run test:rehearsal:browser",
     "test:rehearsal": "hardhat test test/hardhat/StreakBetRehearsal.test.js",
     "test:rehearsal:browser": "node scripts/streakRehearsal.js",
     "rehearsal:serve": "node scripts/streakRehearsal.js --serve"
@@ -51,6 +51,7 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.0",
+    "astronomy-engine": "2.1.19",
     "dotenv": "^16.4.0"
   },
   "engines": {

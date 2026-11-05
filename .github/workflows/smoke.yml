@@ -25,5 +25,6 @@ jobs:
           name: dashboard-smoke-screenshots
           path: |
             test-results/smoke
+            test-results/moon-tracker
             test-results/rehearsal
           if-no-files-found: warn

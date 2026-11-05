@@ -9868,5 +9868,37 @@ body.quest-mode .quest-highlight { outline: 3px solid #ffe08a !important; outlin
 @media (max-width: 600px) {
   #gut-health-modal .gut-health-modal { width: 96vw; max-height: 90vh; padding: 1rem; }
   .gut-health-gases { grid-template-columns: 1fr; gap: 0; }
-  .gut-history-row span { flex-basis: 100%; }
+    .gut-history-row span { flex-basis: 100%; }
 }
+
+  #moon-modal #moon-info,
+  #moon-modal #moon-local-events,
+  #moon-modal #ekadasi-info,
+  #moon-modal #location-info { white-space: pre-line; }
+  #moon-location-form { display: grid; gap: 0.7rem; }
+  #moon-location-form label { display: grid; gap: 0.3rem; text-align: left; }
+  #moon-location-form input { width: 100%; box-sizing: border-box; }
+  #moon-modal button { min-height: 44px; }
+  #moon-modal button {
+    background: #102b46;
+    color: #d7f5ff;
+    border: 1px solid #2788a8;
+    border-radius: 9px;
+    padding: 0.6rem 0.85rem;
+    cursor: pointer;
+  }
+  #moon-modal button:hover { background: #17425b; }
+  #moon-modal button:focus-visible,
+  #moon-modal summary:focus-visible { outline: 2px solid #fff3ac; outline-offset: 3px; }
+  #moon-modal details summary { cursor: pointer; padding: 0.65rem 0; color: #93e8ff; }
+  #moon-modal #moon-location-form button[type="submit"] { background: #075975; }
+  #moon-modal #moon-local-events { line-height: 1.8; }
+  #moon-modal #ekadasi-info { line-height: 1.7; }
+  #moon-modal #moon-notification-status { margin-top: 0.65rem; font-size: 0.85rem; }
+  #moon-modal .ss-controls { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+  #moon-modal #solar-system-canvas { max-width: 100%; height: auto; border-radius: 16px; }
+  #moon-modal #ss-timestamp { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  #moon-modal #ss-planet-list { line-height: 1.8; }
+  #moon-modal #ss-error { color: #ffd18a; }
+  #moon-icon[data-observance="today"] { filter: drop-shadow(0 0 7px #8ce9ff); }
+  #moon-icon[data-observance="upcoming"] { filter: drop-shadow(0 0 5px #ffe394); }
