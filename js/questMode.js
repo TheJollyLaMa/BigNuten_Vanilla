@@ -204,6 +204,7 @@ export function initQuestMode() {
   }
   function start() {
     if (overlay) return;
+    document.dispatchEvent(new CustomEvent('bn:quest-start'));
     previousFocus = document.activeElement;
     const settings = document.getElementById('settings-modal');
     if (visible(settings)) document.getElementById('settings-modal-close')?.click();
@@ -236,6 +237,9 @@ export function initQuestMode() {
   }
   function reset() { state = { ...initialState(), enabled: Boolean(overlay) }; save(); if (overlay) render(); }
   toggle.addEventListener('change', () => toggle.checked ? start() : stop());
+  document.addEventListener('bn:rabbit-start', () => {
+    if (overlay) stop({ restoreFocus: false });
+  });
   document.getElementById('quest-settings-reset').addEventListener('click', reset);
   document.getElementById('quest-settings-clear').addEventListener('click', () => {
     stop({ persist: false, restoreFocus: false });

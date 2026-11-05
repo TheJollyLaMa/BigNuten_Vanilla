@@ -12,12 +12,14 @@
     <link rel="stylesheet" href="css/issueHelper.css" />
     <link rel="stylesheet" href="css/nutrition-lookup.css" />
     <link rel="stylesheet" href="css/research-experiments.css" />
+    <link rel="stylesheet" href="css/rabbitTutorial.css" />
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
 </head>
 <body class="footer-visible">
+  <aside id="rabbit-tutorial-welcome" aria-label="BigNuten getting started"></aside>
   
   <header>
     <div id="header-left">
@@ -1073,6 +1075,7 @@
   <script type="module" src="js/streakCompetitions.js"></script>
   <script type="module" src="js/issueHelperUI.js"></script>
   <script type="module" src="js/questMode.js"></script>
+  <script type="module" src="js/tutorialIntegration.mjs"></script>
   <script type="module">
     import { initAdminContributors, initAddContributorModal, initBountyRegister } from './js/admin.js';
     import { initDeFiPanel } from './js/defi.js';
@@ -1163,6 +1166,18 @@
           <p class="about-version">v1.0.0 &nbsp;·&nbsp; MIT License</p>
         </div>
       </div>
+
+      <section class="about-section rabbit-library" aria-labelledby="rabbit-library-heading">
+        <p class="rabbit-eyebrow">A little curiosity. A real first step.</p>
+        <h3 id="rabbit-library-heading">Follow the White Rabbit</h3>
+        <p>Start with one small thing you can do today. Explore at your pace, skip anything, and come back here for every tutorial.</p>
+        <div id="rabbit-tutorial-library"></div>
+        <div class="rabbit-library-actions">
+          <button type="button" id="rabbit-quest-launch">Community Quest · 7 reading chapters</button>
+          <button type="button" data-rabbit-reset>Clear rabbit tutorial progress</button>
+        </div>
+        <p id="rabbit-tutorial-library-status" role="status" aria-live="polite"></p>
+      </section>
 
       <section class="about-section">
         <h3>About the Project</h3>

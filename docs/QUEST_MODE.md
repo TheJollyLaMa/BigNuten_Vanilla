@@ -7,6 +7,11 @@ challenge rules, fair reviews, evidence, contributions, and continued learning.
 Each chapter reads the current deterministic `js/communityGuide.mjs` sections,
 also used by Genie's Community Guide; there is no separate policy model.
 
+The same seven-chapter tour is replayable through **About → Follow the White
+Rabbit → Community Quest**. The [White Rabbit tutorials](WHITE_RABBIT_TUTORIALS.md)
+provide a separate first-use journey and topic decks. Starting either guide
+stops the other; neither migrates or resets the other's local progress.
+
 The fixed progress bar has an always-available Exit button. The nonmodal card
 does not trap focus or make the underlying app inert. Use Tab, the chapter
 selector, Previous / Mark read buttons, or left/right arrow keys inside the
