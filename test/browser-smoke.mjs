@@ -351,9 +351,35 @@ try {
         assert.ok(box.width > 0 && box.height > 0, `${id} renders`);
         // Surface-specific checks supplement the shared render/open/close assertion.
         if (id === 'moon-modal') {
-          assert.match(await page.locator('#moon-info').innerText(), /Moon Day:.*Sun Day:/);
+          assert.match(await page.locator('#moon-info').innerText(), /Tithi \d+\/30.*illuminated/);
+          assert.match(await page.locator('#moon-info').innerText(), /Moon age:.*elapsed days/);
           assert.match(await page.locator('#location-info').innerText(), /Location not linked/);
           assert.ok(await page.locator('#ekadasi-links a').count(), 'Ekadasi reference links render even outside a fasting day');
+          await page.locator('#ss-details > summary').click();
+          await page.locator('#ss-timestamp').filter({ hasText: 'Now' }).waitFor();
+          const dateBefore = await page.locator('#ss-timestamp').innerText();
+          await page.locator('#ss-next-day').click();
+          assert.match(await page.locator('#ss-timestamp').innerText(), /Simulation/);
+          assert.notEqual(await page.locator('#ss-timestamp').innerText(), dateBefore);
+          await page.locator('#ss-now').click();
+          assert.match(await page.locator('#ss-timestamp').innerText(), /^Now/);
+          await page.locator('#ss-play').click();
+          assert.match(await page.locator('#ss-error').innerText(), /Reduced motion/);
+          await page.clock.setSystemTime(new Date('2026-11-04T10:46:00Z'));
+          await page.locator('#moon-latitude').fill('43.0481');
+          await page.locator('#moon-longitude').fill('-76.1474');
+          await page.locator('#moon-timezone').fill('America/New_York');
+          await page.locator('#moon-location-form button[type=submit]').click();
+          assert.match(await page.locator('#moon-info').innerText(), /Krishna Ekadasi/);
+          assert.match(await page.locator('#moon-local-events').innerText(), /lunar day: 25/);
+          assert.match(await page.locator('#ekadasi-info').innerText(), /Observance date is today: Nov 4/);
+          assert.match(await page.locator('#moon-modal').textContent(), /parana window unavailable/);
+          await page.locator('#ss-now').click();
+          await page.screenshot({ path: resolve(shots, `${name}-moon-tracker.png`) });
+          await page.locator('#moon-location-details > summary').click();
+          await page.locator('#moon-clear-location').click();
+          assert.equal(await page.locator('#moon-local-events').innerText(), '');
+          await page.clock.setSystemTime(new Date('2026-10-28T12:00:00Z'));
         }
         if (id === 'about-modal') {
           const card = page.locator('#about-supporter-token');

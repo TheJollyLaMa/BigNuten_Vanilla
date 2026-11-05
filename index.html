@@ -261,19 +261,50 @@
       <div class="tracker-card tracker-location" id="location-info-card">
         <p id="location-info"></p>
         <button class="tracker-location-btn" onclick="requestLocation()">🔄 Link Location</button>
+        <details id="moon-location-details" open>
+        <summary>Set coordinates &amp; timezone</summary>
+        <form id="moon-location-form">
+          <label>Latitude <input id="moon-latitude" type="number" min="-90" max="90" step="any" required></label>
+          <label>Longitude <input id="moon-longitude" type="number" min="-180" max="180" step="any" required></label>
+          <label>Location timezone (IANA) <input id="moon-timezone" type="text" placeholder="America/New_York" required></label>
+          <p>Confirm the timezone for these coordinates. Geolocation does not supply a timezone.</p>
+          <button type="submit">Apply location</button>
+          <button id="moon-clear-location" type="button">Clear linked location</button>
+        </form>
+        </details>
+        <p id="moon-local-events"></p>
       </div>
       <div class="tracker-card tracker-ekadasi" id="ekadasi-info-card">
         <p id="ekadasi-info"></p>
+        <details>
+          <summary>About Jolly’s rule &amp; limits</summary>
+          <p>Day 1 begins at astronomical new moon. The first subsequent local moonrise begins day 2. For lunar days 11 and 25, select the first sunrise at or after the moonrise that starts that day. This numbering reproduces the November 4 report; it has not been independently verified against The Moon app across other cycles.</p>
+          <p>This custom moonrise-count rule is not a verified ISKCON/Vaishnava calendar. Named observance and parana window unavailable; consult your chosen calendar. No medical or dietary prescription. Preparation sunset is a reference, not a required meal cutoff.</p>
+        </details>
+        <button id="moon-notifications" type="button">Enable page-session reminders</button>
+        <p id="moon-notification-status" role="status">No background or closed-browser reminder delivery is promised.</p>
       </div>
       <div id="ekadasi-links"></div>
       <details id="ss-details" class="ss-details">
-        <summary>🪐 Solar System Today</summary>
+        <summary>🪐 Solar System · Now &amp; Explore</summary>
         <div class="ss-container">
-          <canvas id="solar-system-canvas" width="360" height="360"></canvas>
+          <p id="ss-timestamp"></p>
+          <canvas id="solar-system-canvas" width="360" height="360" role="img" aria-label="Heliocentric planetary overview. Distances are compressed; body sizes and Moon separation are enlarged. Numerical distances follow below."></canvas>
           <div class="ss-controls">
             <button id="ss-toggle-outer" class="ss-btn">🌌 Show Outer Planets</button>
+            <button id="ss-play" type="button">Play simulation</button>
+            <button id="ss-now" type="button">Reset to now</button>
+            <button id="ss-next-day" type="button">+1 day</button>
+            <label>Explore date (12:00 UTC) <input id="ss-date" type="date" min="2024-01-01" max="2030-12-31"></label>
           </div>
-          <div id="ss-planet-info" class="ss-planet-info" style="display:none;"></div>
+          <p>Sun-centered overview · distances compressed · bodies &amp; Moon separation enlarged.</p>
+          <details>
+            <summary>Projection &amp; simulation details</summary>
+            <p>Simulation speed: 3 hours per second. View from north of the J2000 ecliptic, not your local sky. Rings are distance guides, not orbital paths; stars are decorative. Astronomy Engine 2.1.19; supported dates 2024–2030. Sea-level rise estimates assume a standard unobstructed horizon, not local weather or terrain.</p>
+          </details>
+          <p id="ss-planet-list"></p>
+          <p id="ss-error" role="status"></p>
+          <div id="ss-planet-info" class="ss-planet-info"></div>
         </div>
       </details>
     </div>

@@ -132,7 +132,7 @@ Everything accessible to every user in the browser — no wallet required to sta
 | 🌬️ **Breathwork** | Guided breathing exercises and session logging |
 | 🧘 **Yoga Flow** | 12 pose library with custom sequences, SVG animations, session log |
 | 💧 **Hydration** | Daily water intake tracking (used by StreakBet verifier) |
-| 🌙 **Astronomy** | Moon phase, Vedic Tithi, Ekadasi calendar, Sun position |
+| 🌙 **Astronomy** | Calculated Moon phase and tithi, local sunrise/moonrise, [Jolly’s custom moonrise calendar](docs/MOON_TRACKER.md), and a heliocentric planetary explorer |
 
 ### Intelligence & Insights
 
