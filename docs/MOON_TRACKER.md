@@ -23,8 +23,9 @@ invented 24-hour days.
 
 This is explicitly **not a verified ISKCON/Gaudiya Vaishnava calendar**.
 It does not implement arunodaya/viddha rules, Maha-Dvadashi, lunar-month naming,
-intercalary-month story selection or parana windows. The story library is
-available independently, without a falsely calculated "current" named story.
+intercalary-month story selection or parana windows. Story names now follow
+the owner's confirmed-anchor custom sequence described below; they do not
+become verified traditional calendar assignments.
 It makes no medical claim or universal last-meal/dry-fasting prescription.
 The custom reset convention reproduces the reported November dates, but
 has not been independently verified against The Moon iPhone app across other
@@ -70,13 +71,46 @@ latitudes produces unavailable states; a later available sunrise is labelled
 with its actual date rather than assumed to be tomorrow. Rise searches are
 bounded to the current/next lunation and three additional days for sunrise.
 
-Reminders are separately opt-in and can be turned off in the tracker.
-They run only in the current page session, with session-only deduplication
-by local date, location and target. The app checks at one-minute intervals
-while visible and on visibility/reopen. It is not a background scheduler:
-closed-browser, suspended-tab, or timely operating-system delivery is not
-guaranteed. Reopening checks the current result. Reminders within 24 hours
-of an upcoming custom sunrise are preparation notices, not dietary advice.
+The tracker also calculates the previous lunation so the last observance
+remains available across new moon. The reminder button, permission request,
+notification delivery and verbose method/limits card were removed at the
+owner's request. The method remains documented here. The page refreshes
+visible results every minute and on reopen, with no background reminders.
+
+## Story placement and confirmed sequence
+
+The top card contains the tithi, featured story links, then the expandable
+story library. Coordinates and planets follow below. A story is featured
+from **two local calendar days before through two days after** its selected
+custom sunrise, including the entire endpoint days (not a rolling 48-hour
+interval). Without applied coordinates/timezone there are no invented local
+dates or featured links; the undated library remains available.
+
+Only the most recent date before today and the next date on/after today
+are dated/highlighted in the library. Last uses a light mint background;
+coming uses darker green. Labels distinguish them without color alone.
+Other stories have no dates. Links use explicit mint/cream styling, not
+browser-default blue. Dates recalculate from the astronomical lunar cycle
+and confirmed local rise events, never a repeated annual date list.
+
+The owner confirmed **Rama for November 4, 2026**, local lunar day 25.
+`ekadasiStories.mjs` counts actual astronomical new moons from that anchor,
+advancing two stories per lunation in the existing 24-story reading order.
+The following ordinary-cycle story is Utthana, then Utpanna. The library's
+**Confirm story sequence** form can re-anchor a confirmed story/date/day;
+only that selection is saved under `bignuten:ekadasi-story-anchor:v1`,
+not coordinates, reminders or health records. Save/load errors are surfaced.
+The ordinary sequence uses [Vijaya](https://iskcondesiretree.com/page/vijaya-ekadasi),
+whose library source identifies the dark fortnight of Phalguna, rather than
+treating Vaikuntha as a separate ordinary fortnight after Bhaimi/Jaya.
+
+This is a user-confirmed **custom reading sequence**, not a calculated
+lunisolar seasonal calendar: it does not determine adhika/kshaya months or
+automatically insert Padmini/Parama. A year is not assumed to be exactly 12
+lunations, nor is the ordinary 24-story rotation proof of seasonal religious
+names. Such a correction requires a new confirmed anchor; the collapsed
+confirmation controls state this limitation. Do not describe the resulting
+labels as verified ISKCON/Vaishnava dates. Parana remains unimplemented.
 
 ## Planetary explorer
 
@@ -130,7 +164,7 @@ degree for planetary angular checks. No independent authority has validated
 the project's custom religious rule; astronomical agreement is not that
 validation.
 
-Run `node --test test/lunarAstronomy.test.js`,
+Run `node --test test/lunarAstronomy.test.js test/ekadasiStories.test.js`,
 `node test/moonTracker.browser.mjs` and `node test/browser-smoke.mjs`.
 The focused and full browser checks are also part of `npm run test:smoke`.
 Reference refresh is a deliberate development
@@ -152,3 +186,14 @@ Use the established MIT Astronomy Engine rather than writing another
 ephemeris. Its runtime/licensing fit a static browser app; no wallet,
 health-storage, service-auth or chain contract is introduced. Existing
 health records and unrelated worktrees are untouched.
+
+Story-layout follow-up: adapt this repository's `localCalendar`,
+`localLunation`, `STORIES` and existing browser fixture from main `b97b9a0`.
+No new astronomy provider, calendar API, wallet/auth contract or shared
+ecosystem package is needed. The confirmed-anchor name mapping is new,
+explicitly custom logic, not an integration with a religious calendar.
+Receiving-app checks cover desktop/mobile story placement, endpoint days,
+distinct dated highlights, new-moon/year rollover, saved-reference errors
+and session-only location behavior.
+Validation: 369 Node tests, the focused desktop/mobile tracker checks and
+the full desktop/mobile app smoke pass.

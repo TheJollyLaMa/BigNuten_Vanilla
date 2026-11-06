@@ -57,6 +57,12 @@ try {
     await page.locator('#moon-info').filter({ hasText: 'Krishna Ekadasi' }).waitFor();
     assert.match(await page.locator('#location-info').innerText(), /Location not linked/);
     assert.equal(await page.evaluate(() => window.permissionRequests), 0);
+    assert.equal(await page.locator('#moon-notifications, #moon-notification-status, #ekadasi-info-card').count(), 0);
+    assert.equal(await page.locator('#ekadasi-featured a').count(), 0, 'No invented local date without coordinates.');
+    assert.equal(await page.locator('#moon-info-card #ekadasi-links').count(), 1);
+    assert.deepEqual(await page.locator('#moon-info-card').evaluate(card => [...card.children].map(node => node.id)),
+      ['moon-info', 'ekadasi-featured', 'ekadasi-links']);
+    assert.doesNotMatch(await page.locator('#moon-modal').innerText(), /Link a location to calculate|About Jolly/);
     await page.locator('#moon-latitude').fill('43.0481');
     await page.locator('#moon-longitude').fill('-76.1474');
     await page.locator('#moon-timezone').fill('America/New_York');
@@ -64,25 +70,44 @@ try {
     assert.match(await page.locator('#moon-local-events').innerText(), /lunar day: 25/);
     assert.match(await page.locator('#ekadasi-info').innerText(), /Observance date is today: Nov 4/);
     assert.equal(await page.locator('#moon-location-details').getAttribute('open'), null);
-    await page.locator('#moon-notifications').click();
-    await page.locator('#moon-notification-status').filter({ hasText: 'Reminders on' }).waitFor();
-    assert.equal(await page.evaluate(() => window.permissionRequests), 1);
-    assert.equal(await page.evaluate(() => window.notifications.length), 1, 'November 4 sunrise is the upcoming observance.');
+    assert.match(await page.locator('#ekadasi-featured').innerText(), /Rama Ekadasi.*Nov 4/);
+    assert.equal(await page.locator('#ekadasi-featured a').getAttribute('href'), 'https://iskcondesiretree.com/page/rama-ekadasi');
+    await page.locator('#moon-info-card').screenshot({ path: resolve(shots, `${name}-story-top.png`) });
+    await page.locator('#ekadasi-links > details > summary').click();
+    assert.equal(await page.locator('#ekadasi-links [data-story] span').filter({ hasText: /Last|Coming/ }).count(), 2);
+    assert.match(await page.locator('#ekadasi-links .ekadasi-next').innerText(), /Rama.*Coming.*Nov 4/);
+    const color = await page.locator('#ekadasi-featured a').evaluate(link => getComputedStyle(link).color);
+    assert.notEqual(color, 'rgb(0, 0, 238)');
     await page.clock.setSystemTime(new Date('2026-11-04T11:00:00Z'));
     await page.locator('#moon-modal .modal-close').click();
     await page.locator('#moon-icon').click();
-    await page.waitForFunction(() => window.notifications.length === 1);
     await page.locator('#moon-modal .modal-close').click();
     await page.locator('#moon-icon').click();
-    assert.equal(await page.evaluate(() => window.notifications.length), 1, 'Reopen does not duplicate reminder.');
+    assert.equal(await page.evaluate(() => window.notifications.length), 0, 'Removed reminders never request delivery.');
     await page.clock.setSystemTime(new Date('2026-11-05T12:00:00Z'));
     await page.locator('#moon-modal .modal-close').click();
     await page.locator('#moon-icon').click();
     assert.match(await page.locator('#moon-local-events').innerText(), /lunar day: 26/);
     assert.match(await page.locator('#ekadasi-info').innerText(), /Most recent observance: Nov 4/);
     assert.doesNotMatch(await page.locator('#ekadasi-info').innerText(), /Observance date is today/);
-    await page.locator('#moon-notifications').click();
-    assert.match(await page.locator('#moon-notification-status').innerText(), /turned off/);
+    assert.match(await page.locator('#ekadasi-links .ekadasi-last').innerText(), /Rama.*Last.*Nov 4/);
+    assert.match(await page.locator('#ekadasi-links .ekadasi-next').innerText(), /Utthana.*Coming/);
+    const highlights = await page.locator('#ekadasi-links .ekadasi-last, #ekadasi-links .ekadasi-next')
+      .evaluateAll(rows => rows.map(row => getComputedStyle(row).backgroundColor));
+    assert.notEqual(highlights[0], highlights[1]);
+    for (const [date, count] of [['2026-11-02T12:00:00Z', 1], ['2026-11-06T12:00:00Z', 1], ['2026-11-07T12:00:00Z', 0]]) {
+      await page.clock.setSystemTime(new Date(date));
+      await page.locator('#moon-modal .modal-close').click();
+      await page.locator('#moon-icon').click();
+      assert.equal(await page.locator('#ekadasi-featured a').count(), count, date);
+    }
+    await page.clock.setSystemTime(new Date('2026-11-06T12:00:00Z'));
+    await page.locator('#moon-modal .modal-close').click();
+    await page.locator('#moon-icon').click();
+    await page.locator('#ekadasi-links .ekadasi-next').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: resolve(shots, `${name}-story-library.png`) });
+    assert.ok(await page.locator('#moon-info-card').evaluate(card => card.scrollWidth <= card.clientWidth),
+      'Expanded story library fits the card.');
     await page.locator('#ss-details > summary').click();
     await page.locator('#ss-timestamp').filter({ hasText: 'Now' }).waitFor();
     await page.locator('#ss-next-day').click();
@@ -122,8 +147,25 @@ try {
     await page.locator('#moon-icon').click();
     assert.match(await page.locator('#location-info').innerText(), /Location not linked/);
     assert.equal(await page.evaluate(() => localStorage.length), 0);
+    await page.locator('#ekadasi-links > details > summary').click();
+    await page.locator('#ekadasi-links details details > summary').click();
+    await page.locator('#ekadasi-links [name=story]').selectOption('utthana');
+    await page.locator('#ekadasi-links [name=date]').fill('2026-11-04');
+    await page.locator('#ekadasi-links [name=day]').selectOption('25');
+    await page.locator('#ekadasi-links button[type=submit]').click();
+    assert.match(await page.locator('#ekadasi-reference-status').innerText(), /saved on this device/);
+    await page.reload();
+    await page.locator('#moon-icon').click();
+    assert.equal(await page.locator('#ekadasi-links [name=story]').inputValue(), 'utthana');
+    assert.equal(await page.locator('#moon-latitude').inputValue(), '');
+    assert.equal(await page.evaluate(() => localStorage.length), 1, 'Only the story reference persists, not location.');
+    await page.evaluate(() => localStorage.setItem('bignuten:ekadasi-story-anchor:v1', '{"slug":"invalid"}'));
+    await page.reload();
+    await page.locator('#moon-icon').click();
+    assert.match(await page.locator('#ekadasi-reference-status').textContent(), /could not be loaded/);
+    assert.equal(await page.locator('#ekadasi-links [name=story]').inputValue(), 'rama');
     assert.deepEqual(errors, []);
-    console.log(`${name}: location, custom rule, no implicit permissions, reminder dedup/off, simulation, reduced motion, hidden stop, error and reload privacy passed.`);
+    console.log(`${name}: compact story placement, Rama anchor/Utthana next, highlighted dates only, five-day window, no reminders, location, simulation, hidden stop and reload privacy passed.`);
     await context.close();
   }
 } finally {

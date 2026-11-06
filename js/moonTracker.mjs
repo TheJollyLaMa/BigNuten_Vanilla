@@ -1,16 +1,10 @@
 import { Astronomy, checkedDate, lunarState, localCalendar, localDate, heliocentric, lunarVector } from './lunarAstronomy.mjs';
+import { STORIES, STORY_ANCHOR_KEY, DEFAULT_STORY_ANCHOR, validateStoryAnchor,
+  storyForObservance, storyWindow, neighboringObservances } from './ekadasiStories.mjs';
 
 const PLANETS = [
   ['Mercury', '#b6b0a7'], ['Venus', '#f4d18c'], ['Earth', '#58baff'], ['Mars', '#ff795d'],
   ['Jupiter', '#dcb58d'], ['Saturn', '#edd59f'], ['Uranus', '#8ee2e5'], ['Neptune', '#758eff'],
-];
-const STORIES = [
-  ['Kamada', 'kamada'], ['Varuthini', 'varuthini'], ['Mohini', 'mohini'], ['Apara', 'apara'],
-  ['Pandava Nirjala', 'pandava-nirjala'], ['Yogini', 'yogini'], ['Sayana', 'sayana'], ['Kamika', 'kamika'],
-  ['Pavitropana', 'pavitropana'], ['Aja', 'aja-annada'], ['Parsva', 'parsva'], ['Indira', 'indira'],
-  ['Papankusha', 'papankusha'], ['Rama', 'rama'], ['Utthana', 'utthana'], ['Utpanna', 'utpanna'],
-  ['Mokshada', 'mokshada'], ['Saphala', 'saphala'], ['Putrada', 'putrada'], ['Sat-Tila', 'sattila'],
-  ['Bhaimi', 'bhaimi'], ['Vaikuntha', 'vaikuntha'], ['Amalaki', 'amalaki'], ['Papamochani', 'papamochani'],
 ];
 let linked = null;
 let refreshTracker = () => {};
@@ -44,8 +38,48 @@ export function initMoonTracker() {
   el('moon-timezone').value = Intl.DateTimeFormat().resolvedOptions().timeZone;
   let cacheKey = '';
   let calendar = null;
-  const notified = new Set();
-  let notifications = false;
+  let anchor = DEFAULT_STORY_ANCHOR;
+  let anchorError = '';
+  try {
+    const stored = localStorage.getItem(STORY_ANCHOR_KEY);
+    if (stored) anchor = validateStoryAnchor(JSON.parse(stored));
+  } catch (error) {
+    anchorError = `Saved story reference could not be loaded: ${error.message}. Using the Rama reference.`;
+    console.error('Ekadasi story reference:', error);
+  }
+  const storyLink = (name, slug) => {
+    const link = document.createElement('a');
+    link.href = `https://iskcondesiretree.com/page/${slug}-ekadasi`;
+    link.textContent = `${name} Ekadasi`;
+    link.target = '_blank'; link.rel = 'noopener noreferrer';
+    return link;
+  };
+  function clearStories() {
+    el('ekadasi-featured').replaceChildren();
+    for (const row of el('ekadasi-links').querySelectorAll('[data-story]')) {
+      row.classList.remove('ekadasi-last', 'ekadasi-next');
+      row.querySelector('span').textContent = '';
+    }
+  }
+  function renderStories(now, zone) {
+    clearStories();
+    if (!calendar || !linked) return;
+    const neighbors = neighboringObservances(calendar.surroundingObservances, now, zone);
+    for (const [kind, event] of Object.entries(neighbors)) {
+      if (!event) continue;
+      const [name, slug] = storyForObservance(event, anchor);
+      const date = new Intl.DateTimeFormat(undefined, { timeZone: zone, month: 'short', day: 'numeric' }).format(event.sunrise);
+      const row = el('ekadasi-links').querySelector(`[data-story="${slug}"]`);
+      row.classList.add(`ekadasi-${kind}`);
+      row.querySelector('span').textContent = ` · ${kind === 'last' ? 'Last' : 'Coming'} · ${date}`;
+      if (storyWindow(now, event.sunrise, zone)) {
+        const featured = document.createElement('div');
+        featured.className = `ekadasi-story-feature ekadasi-${kind}`;
+        featured.append(storyLink(name, slug), ` · ${date}`);
+        el('ekadasi-featured').append(featured);
+      }
+    }
+  }
 
   refreshTracker = () => {
     try {
@@ -55,9 +89,13 @@ export function initMoonTracker() {
       text('moon-info', `${state.name} · Tithi ${state.tithi}/30 · ${(state.illumination * 100).toFixed(1)}% illuminated\n` +
         `Moon age: ${state.ageDays.toFixed(2)} elapsed days since new moon\n` +
         `Tithi: ${format(state.start, zone)} → ${format(state.end, zone)}`);
-      text('ekadasi-info', 'Link a location to calculate Jolly’s moonrise rule. Astronomical tithis are shown separately.');
+      text('ekadasi-info', '');
       el('moon-icon')?.removeAttribute('data-observance');
-      if (!linked) return;
+      if (!linked) {
+        calendar = null;
+        clearStories();
+        return;
+      }
       const key = `${state.newMoon.toISOString()}/${localDate(now, zone)}/${linked.latitude}/${linked.longitude}/${zone}`;
       if (key !== cacheKey) {
         calendar = localCalendar(now, linked.latitude, linked.longitude, zone);
@@ -69,6 +107,7 @@ export function initMoonTracker() {
       text('moon-local-events', `Local lunar day: ${count} (day 1 begins at new moon; later days begin at moonrise)\n` +
         `Sunrise: ${format(calendar.sunrise, zone)}\nMoonrise: ${format(calendar.moonrise, zone)}`);
       const upcoming = calendar.upcoming;
+      renderStories(now, zone);
       if (!upcoming) {
         text('ekadasi-info', 'Jolly’s rule unavailable: target moonrise or following sunrise absent in the search window.');
         return;
@@ -76,7 +115,7 @@ export function initMoonTracker() {
       const today = localDate(now, zone);
       const isToday = localDate(upcoming.sunrise, zone) === today;
       const missing = calendar.observances.filter(event => !event.sunrise).map(event => event.reason);
-      const recent = calendar.observances.filter(event => event.sunrise && event.sunrise <= now).at(-1);
+      const recent = calendar.surroundingObservances.filter(event => event.sunrise && event.sunrise <= now).at(-1);
       const recentText = recent
         ? `Most recent observance: ${format(recent.sunrise, zone)}${localDate(recent.sunrise, zone) === today ? ' (today)' : ''}\n`
         : '';
@@ -84,21 +123,14 @@ export function initMoonTracker() {
         recentText +
         `Day ${upcoming.targetDay} begins at local moonrise: ${format(upcoming.moonrise, zone)}\n` +
         `Previous sunset (preparation): ${format(calendar.sunset, zone)}\n` +
-        'Custom calendar — see the method and limitations below.' +
+        'Custom moonrise dates · confirmed-anchor story sequence.' +
         (missing.length ? `\nUnavailable in this lunation: ${missing.join(' ')}` : ''));
       el('moon-icon')?.setAttribute('data-observance', isToday ? 'today' : 'upcoming');
-      const eventKey = `${cacheKey}/${upcoming.targetDay}`;
-      const hours = (upcoming.sunrise - now) / 3600000;
-      if (notifications && hours >= 0 && hours <= 24 && !notified.has(eventKey)) {
-        new Notification('BigNuten · Jolly’s rule', {
-          body: `Upcoming local observance: ${format(upcoming.sunrise, zone)}. See the tracker for preparation and limitations.`,
-        });
-        notified.add(eventKey);
-      }
     } catch (error) {
       text('moon-info', `Astronomy unavailable: ${error.message}`);
       text('ekadasi-info', 'Observance unavailable. Do not rely on an earlier result.');
       text('moon-local-events', '');
+      clearStories();
       el('moon-icon')?.removeAttribute('data-observance');
       console.error('Moon tracker:', error);
     }
@@ -131,39 +163,46 @@ export function initMoonTracker() {
     text('moon-local-events', '');
     refreshTracker();
   });
-  el('moon-notifications').addEventListener('click', async () => {
-    try {
-      if (!('Notification' in window)) throw new Error('Browser notifications are unsupported.');
-      if (notifications) {
-        notifications = false;
-        el('moon-notifications').textContent = 'Enable page-session reminders';
-        text('moon-notification-status', 'Page-session reminders turned off.');
-        return;
-      }
-      notifications = await Notification.requestPermission() === 'granted';
-      el('moon-notifications').textContent = notifications ? 'Turn off page-session reminders' : 'Enable page-session reminders';
-      text('moon-notification-status', notifications
-        ? 'Reminders on for this page session only. The page must remain open and active; background/closed-browser delivery is not guaranteed.'
-        : 'Notification permission not granted. Use the visible calendar instead.');
-      refreshTracker();
-    } catch (error) {
-      text('moon-notification-status', `Reminders unavailable: ${error.message}`);
-    }
-  });
   const list = el('ekadasi-links');
   const details = document.createElement('details');
   const summary = document.createElement('summary');
   summary.textContent = 'Ekadasi story library (not a dated calendar)';
   details.append(summary);
   for (const [name, slug] of STORIES) {
-    const link = document.createElement('a');
-    link.href = `https://iskcondesiretree.com/page/${slug}-ekadasi`;
-    link.textContent = `${name} Ekadasi`;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    details.append(link, document.createElement('br'));
+    const row = document.createElement('div');
+    row.dataset.story = slug;
+    row.append(storyLink(name, slug), document.createElement('span'));
+    details.append(row);
   }
+  const reference = document.createElement('details');
+  const referenceTitle = document.createElement('summary');
+  referenceTitle.textContent = 'Confirm story sequence';
+  const form = document.createElement('form');
+  form.innerHTML = `<p>Custom lunar sequence, anchored to your confirmed story. Extra-month/tradition-specific names need a new confirmation; this is not a verified seasonal calendar.</p>
+    <label>Story <select name="story"></select></label>
+    <label>Reference date <input name="date" type="date" min="2024-01-01" max="2030-12-31" required></label>
+    <label>Local lunar day <select name="day"><option value="11">11</option><option value="25">25</option></select></label>
+    <button type="submit">Save story reference on this device</button>
+    <p id="ekadasi-reference-status" role="status"></p>`;
+  for (const [name, slug] of STORIES) form.elements.story.add(new Option(name, slug));
+  form.elements.story.value = anchor.slug;
+  form.elements.date.value = anchor.date;
+  form.elements.day.value = String(anchor.targetDay);
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    try {
+      const next = validateStoryAnchor({ date: form.elements.date.value,
+        targetDay: Number(form.elements.day.value), slug: form.elements.story.value });
+      localStorage.setItem(STORY_ANCHOR_KEY, JSON.stringify(next));
+      anchor = next;
+      text('ekadasi-reference-status', 'Story reference saved on this device.');
+      refreshTracker();
+    } catch (error) { text('ekadasi-reference-status', `Story reference not saved: ${error.message}`); }
+  });
+  reference.append(referenceTitle, form);
+  details.append(reference);
   list.replaceChildren(details);
+  text('ekadasi-reference-status', anchorError);
   text('location-info', 'Location not linked. Confirm a timezone matching your coordinates, not necessarily your device.');
   refreshTracker();
   setInterval(() => { if (!document.hidden) refreshTracker(); }, 60000);
