@@ -6,7 +6,7 @@ import { initBodyMeasurements } from './bodyMeasurements.js';
 import { initWorkoutReview } from './workoutReview.js';
 import { initHeartMetrics } from './heartMetrics.js';
 import { initGutHealth } from './gutHealth.mjs';
-import { persistDietIntake, foodsInNutritionPeriod, summarizeCalories, summarizeCaloriesByDay, buildMealTimingInsights } from './dietIntake.js';
+import { persistDietIntake, foodsInNutritionPeriod, foodEntryDay, changeDietEntry, buildMealTimingInsights } from './dietIntake.js';
 import { geniePrivacyNotice, revokeGenieHostedConsent } from './geniePrivacy.js';
 import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
 import { createWaterIntakeStore } from './waterIntake.js';
@@ -389,6 +389,7 @@ function setDietNutrCache(foodName, nutr, amount, unit, nutritionSource) {
 
 /** Tracks the base nutrition values (for the prefilled amount) used for proportional scaling */
 let _dietNutrBase = null;
+let _dietEditing = null;
 
 /** Updates the nutrition card sub-title to reflect the current amount and unit */
 function updateNutrCardTitle() {
@@ -470,25 +471,9 @@ function foodNutritionSourceText(food) {
     : 'Nutrition provenance not recorded for this entry.';
 }
 
-function calorieSummaryText(summary) {
-  const calories = summary.calories % 1 === 0 ? summary.calories.toLocaleString() : summary.calories.toFixed(1);
-  return `${calories} kcal · ${summary.entriesWithCalories} of ${summary.totalEntries} entries have calories`;
-}
-
 function renderDietDaySummary() {
   const data = getFitnessData();
   const today = getTodayInUserTz();
-  const todaySummary = summarizeCalories(data.foods || [], today);
-  const calories = document.getElementById('diet-today-calories');
-  if (calories) calories.textContent = `Today (${today}): ${calorieSummaryText(todaySummary)}`;
-
-  const totalsList = document.getElementById('diet-daily-totals-list');
-  if (totalsList) {
-    totalsList.innerHTML = summarizeCaloriesByDay(data.foods || []).map(summary =>
-      `<li><time>${escapeHtml(summary.day)}</time><span>${escapeHtml(calorieSummaryText(summary))}</span></li>`
-    ).join('') || '<li>No food entries yet.</li>';
-  }
-
   const timeline = document.getElementById('diet-meal-timeline');
   const gaps = document.getElementById('diet-meal-gaps');
   if (!timeline || !gaps) return;
@@ -507,23 +492,22 @@ function renderDietDaySummary() {
 }
 
 
-/** Renders all-time diet log inside #dietAllTimeLog (latest first) */
-function renderDietAllTimeLog() {
-  const list = document.getElementById('dietAllTimeLog');
+function renderDietDailyLog() {
+  const list = document.getElementById('dietDailyLog');
   if (!list) return;
   const data = getFitnessData();
-  const entries = (data.foods || []).slice().reverse();
+  const entries = (data.foods || []).map((food, index) => ({ food, index }))
+    .filter(({ food }) => foodEntryDay(food) === getTodayInUserTz()).reverse();
   list.innerHTML = '';
   if (!entries.length) {
     list.innerHTML = '<li style="color:rgba(180,220,240,0.45);font-size:0.82rem;text-align:center;">No entries yet — log your first meal!</li>';
     return;
   }
-  const totalFoods = data.foods.length;
-  entries.forEach((food, i) => {
-    const originalIndex = totalFoods - 1 - i;
+  entries.forEach(({ food, index: originalIndex }) => {
     const li = document.createElement('li');
     li.className = 'diet-log-entry';
     li.dataset.foodIdx = originalIndex;
+    li._foodSnapshot = JSON.stringify(food);
     const dateStr = food.date ? (food.date.length > 10 ? formatInUserTz(food.date, { hour: undefined, minute: undefined, second: undefined, timeZoneName: undefined }) : food.date) : '';
     const mealTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(food.time || '') ? food.time : '';
     const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '';
@@ -554,6 +538,8 @@ function renderDietAllTimeLog() {
       <p class="diet-nutr-card__note">${escapeHtml(foodNutritionSourceText(food))}</p>
       ${(food.nutritionSource?.sources || []).map(source => `<a href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(source.title || source.url)}</a>`).join(' ')}
       <div class="diet-add-nutr-row">
+        <button class="diet-edit-entry" type="button">Edit / redo</button>
+        <button class="diet-remove-entry" type="button">Remove</button>
         <button class="diet-add-nutr-btn" type="button">＋ Add Nutrient</button>
         <div class="diet-add-nutr-form" hidden>
           <input class="diet-input diet-nutr-name-input" type="text" placeholder="Name (e.g. Calcium)" maxlength="40" />
@@ -582,7 +568,7 @@ function recordDietIntake(fields) {
   if (intake.nutr) setDietNutrCache(intake.name, intake.nutr, intake.amount, intake.unit, intake.nutritionSource);
   displayRecentFoods();
   refreshDietFoodSuggestions();
-  renderDietAllTimeLog();
+  renderDietDailyLog();
   renderDietDaySummary();
   return intake;
 }
@@ -592,9 +578,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const dietBtn = document.getElementById('dietBtn');
   const dietModal = document.getElementById('dietModal');
   const closeDietModal = document.getElementById('closeDietModal');
-  const rawFoodModal = document.getElementById('rawFoodModal');
-  const rawFoodForm = document.getElementById('rawFoodForm');
-  const quickLogButton = document.getElementById('dietQuickLogBtn');
   const micros = document.createElement('details');
   micros.id = 'dietMicronutrients';
   const summary = document.createElement('summary');
@@ -631,73 +614,14 @@ document.addEventListener('DOMContentLoaded', () => {
     _dietNutrBase = null;
     for (const key of Object.keys(NUTRIENTS)) document.getElementById(nutrientInputId(key)).value = '';
   } });
-  function closeRawFood() {
-    rawFoodModal.classList.add('hidden');
-    rawFoodModal.style.display = 'none';
-    rawFoodModal.removeAttribute('aria-modal');
-    dietModal.style.display = 'block';
-    dietModal.setAttribute('aria-modal', 'true');
-    quickLogButton.focus();
-  }
-  quickLogButton?.addEventListener('click', () => {
-    dietModal.style.display = 'none';
-    dietModal.removeAttribute('aria-modal');
-    rawFoodModal.classList.remove('hidden');
-    rawFoodModal.style.display = 'block';
-    rawFoodModal.setAttribute('aria-modal', 'true');
-    document.getElementById('rawFoodTime').value = getTimeInUserTz();
-    document.getElementById('rawFoodName').focus();
-  });
-  document.getElementById('closeRawFoodModal')?.addEventListener('click', closeRawFood);
-  let quickNutritionAutoFilled = false;
-  function prefillQuickNutrition() {
-    const name = document.getElementById('rawFoodName').value;
-    const defaults = matchingDefaults(getFitnessData().nutritionDefaults, name);
-    if (defaults.length !== 1) {
-      if (quickNutritionAutoFilled) {
-        document.getElementById('rawFoodProtein').value = '';
-        document.getElementById('rawFoodCalories').value = '';
-        quickNutritionAutoFilled = false;
-      }
-      return;
-    }
-    try {
-      const nutr = scaleNutrition(defaults[0], document.getElementById('rawFoodAmount').value, document.getElementById('rawFoodUnit').value);
-      document.getElementById('rawFoodProtein').value = nutr.protein ?? '';
-      document.getElementById('rawFoodCalories').value = nutr.calories ?? '';
-      quickNutritionAutoFilled = true;
-    } catch (error) {
-      document.getElementById('rawFoodProtein').value = '';
-      document.getElementById('rawFoodCalories').value = '';
-      document.getElementById('dietNutritionStatus').textContent = error.message;
-    }
-  }
-  for (const id of ['rawFoodName', 'rawFoodAmount', 'rawFoodUnit']) document.getElementById(id)?.addEventListener('input', prefillQuickNutrition);
-  rawFoodModal?.addEventListener('click', event => { if (event.target === rawFoodModal) closeRawFood(); });
-  rawFoodModal?.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { event.preventDefault(); closeRawFood(); }
-  });
-  rawFoodForm?.addEventListener('submit', event => {
-    event.preventDefault();
-    const intake = recordDietIntake({
-      name: document.getElementById('rawFoodName').value,
-      amount: document.getElementById('rawFoodAmount').value,
-      unit: document.getElementById('rawFoodUnit').value,
-      nutr: { protein: Number(document.getElementById('rawFoodProtein').value), ...(document.getElementById('rawFoodCalories').value !== '' ? { calories: Number(document.getElementById('rawFoodCalories').value) } : {}) },
-      time: document.getElementById('rawFoodTime').value,
-    });
-    if (!intake) return;
-    rawFoodForm.reset();
-    closeRawFood();
-  });
   if (dietBtn && dietModal) {
     dietBtn.addEventListener('click', function () {
       dietModal.style.display = 'block';
       dietModal.setAttribute('aria-modal', 'true');
       refreshDietFoodSuggestions();
-      renderDietAllTimeLog();
+      renderDietDailyLog();
       renderDietDaySummary();
-      document.getElementById('dietFoodTime').value = getTimeInUserTz();
+      if (!_dietEditing) document.getElementById('dietFoodTime').value = getTimeInUserTz();
     });
   }
   if (closeDietModal && dietModal) {
@@ -759,7 +683,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const name = document.getElementById('dietFoodName').value.trim();
       const amount = parseFloat(document.getElementById('dietFoodAmount').value);
       const unit = document.getElementById('dietFoodUnit').value.trim();
-      if (!name || isNaN(amount) || !unit) return;
+      const entryStatus = document.getElementById('dietEntryStatus');
+      if (!name || !Number.isFinite(amount) || amount <= 0 || !unit) {
+        entryStatus.textContent = 'Enter a food, positive amount and unit.';
+        return;
+      }
+      if (dietForm.dataset.lookupPending === 'true') {
+        entryStatus.textContent = 'Wait for Genie to finish before logging.';
+        return;
+      }
+      if (dietForm.dataset.portionMissing === 'true') {
+        entryStatus.textContent = 'This portion is not defined. Choose grams or ask Genie before logging.';
+        return;
+      }
 
       // Collect nutritional info
       const nutr = {};
@@ -769,35 +705,96 @@ document.addEventListener('DOMContentLoaded', () => {
         if (val !== '' && val != null) { nutr[key] = parseFloat(val); hasNutr = true; }
       });
 
-      if (!recordDietIntake({ name, amount, unit, nutr: hasNutr ? nutr : undefined,
+      if (!hasNutr && !confirm('This entry has no nutrition values. Log it anyway? You can edit it later.')) return;
+      if (unit === 'serving' && amount > 10 && !confirm(`You entered ${amount} servings, not grams. Is that correct? For one 65 g serving, enter 1 serving or 65 g.`)) return;
+      const fields = { name, amount, unit, nutr: hasNutr ? nutr : undefined,
         nutritionSource: hasNutr ? { quality: _dietNutrBase?.quality || 'user-entered', sources: _dietNutrBase?.sources || [],
           note: _dietNutrBase?.note || '', retrievedAt: _dietNutrBase?.retrievedAt || '' } : undefined,
-        time: document.getElementById('dietFoodTime').value })) return;
+        time: document.getElementById('dietFoodTime').value };
+      try {
+        if (_dietEditing) {
+          const data = getFitnessData();
+          data.foods = changeDietEntry(data.foods, _dietEditing.index, _dietEditing.original, fields);
+          saveFitnessData(data);
+          displayRecentFoods(); refreshDietFoodSuggestions(); renderDietDailyLog(); renderDietDaySummary();
+        } else if (!recordDietIntake(fields)) throw new Error('Invalid food values. No entry saved.');
+      } catch (error) { entryStatus.textContent = error.message; return; }
+      const wasEditing = Boolean(_dietEditing);
+      _dietEditing = null;
       _dietNutrBase = null;
       dietForm.reset();
+      document.getElementById('dietSubmit').textContent = 'Log Entry';
+      document.getElementById('dietCancelEdit').hidden = true;
+      entryStatus.textContent = wasEditing ? 'Entry updated.' : 'Entry logged.';
       updateNutrCardTitle();
       document.getElementById('dietFoodTime').value = getTimeInUserTz();
     });
   }
 
-  // Event delegation for "Add Nutrient" buttons in the diet all-time log
-  const dietLogList = document.getElementById('dietAllTimeLog');
+  document.getElementById('dietCancelEdit').addEventListener('click', () => {
+    _dietEditing = null; _dietNutrBase = null; dietForm.reset();
+    document.getElementById('dietSubmit').textContent = 'Log Entry';
+    document.getElementById('dietCancelEdit').hidden = true;
+    document.getElementById('dietEntryStatus').textContent = 'Edit canceled. Original entry unchanged.';
+    document.getElementById('dietFoodTime').value = getTimeInUserTz();
+  });
+  for (const event of ['bignuten:wallet-changed', 'bignuten:fitness-data-restored']) {
+    window.addEventListener(event, () => {
+      if (_dietEditing) document.getElementById('dietCancelEdit').click();
+    });
+  }
+  const dietLogList = document.getElementById('dietDailyLog');
   if (dietLogList) {
     dietLogList.addEventListener('change', event => {
       if (!event.target.matches('.diet-log-time')) return;
       const li = event.target.closest('.diet-log-entry');
       const index = Number(li?.dataset.foodIdx);
       const data = getFitnessData();
-      if (!Number.isInteger(index) || !data.foods[index]) return;
-      if (event.target.value) data.foods[index].time = event.target.value;
-      else delete data.foods[index].time;
-      saveFitnessData(data);
-      renderDietAllTimeLog();
-      renderDietDaySummary();
+      try {
+        data.foods = changeDietEntry(data.foods, index, li._foodSnapshot, { time: event.target.value || undefined });
+        saveFitnessData(data);
+        renderDietDailyLog(); renderDietDaySummary();
+      } catch (error) { document.getElementById('dietEntryStatus').textContent = error.message; }
     });
     dietLogList.addEventListener('click', (e) => {
       const li = e.target.closest('.diet-log-entry');
       if (!li) return;
+      if (e.target.matches('.diet-remove-entry, .diet-edit-entry')) {
+        const index = Number(li.dataset.foodIdx);
+        const data = getFitnessData();
+        try {
+          if (e.target.matches('.diet-remove-entry')) {
+            if (!confirm(`Remove "${data.foods[index]?.name}" from your food log? This also removes its contribution to your totals.`)) return;
+            data.foods = changeDietEntry(data.foods, index, li._foodSnapshot);
+            saveFitnessData(data);
+            if (_dietEditing) document.getElementById('dietCancelEdit').click();
+            displayRecentFoods(); refreshDietFoodSuggestions(); renderDietDailyLog(); renderDietDaySummary();
+            document.getElementById('dietEntryStatus').textContent = 'Entry removed. You can log a corrected one above.';
+          } else {
+            changeDietEntry(data.foods, index, li._foodSnapshot, {});
+            const food = data.foods[index];
+            dietForm.reset();
+            _dietEditing = { index, original: li._foodSnapshot };
+            document.getElementById('dietFoodName').value = food.name;
+            document.getElementById('dietFoodAmount').value = food.amount;
+            document.getElementById('dietFoodUnit').value = food.unit;
+            document.getElementById('dietFoodTime').value = food.time || getTimeInUserTz();
+            _dietNutrBase = { nutr: recordedNutrientValues(food.nutr), amount: food.amount, unit: food.unit,
+              ...(food.nutritionSource || { quality: 'user-entered', sources: [], note: 'Previously logged food; verify values.' }) };
+            for (const key of Object.keys(NUTRIENTS)) {
+              const value = parseRecordedNutrient(_dietNutrBase.nutr[key], key);
+              document.getElementById(nutrientInputId(key)).value = value ?? '';
+            }
+            dietForm.dispatchEvent(new CustomEvent('nutrition:edit'));
+            document.getElementById('dietSubmit').textContent = 'Save changes';
+            document.getElementById('dietCancelEdit').hidden = false;
+            document.getElementById('dietEntryStatus').textContent = 'Editing this entry. Its original date is preserved; nothing changes until you save.';
+            document.getElementById('dietFoodName').focus();
+            updateNutrCardTitle();
+          }
+        } catch (error) { document.getElementById('dietEntryStatus').textContent = error.message; }
+        return;
+      }
       const form = li.querySelector('.diet-add-nutr-form');
       const btn = li.querySelector('.diet-add-nutr-btn');
 
@@ -850,7 +847,7 @@ document.addEventListener('DOMContentLoaded', () => {
             retrievedAt: '', note: 'Food nutrition edited manually.' };
           saveFitnessData(foodData);
         }
-        renderDietAllTimeLog();
+        renderDietDailyLog();
         renderRawIntakeDVCard();
       }
     });
@@ -998,7 +995,6 @@ function renderRawIntakeDVCard() {
   const foods = foodsInNutritionPeriod(data.foods, getTodayInUserTz(), days);
   const totals = summarizeNutrients(foods);
 
-  const todayCalories = summarizeCalories(data.foods || [], getTodayInUserTz());
   const goalMultiplier = days;
   const calGoal = getDVEffectiveGoal('calories') * goalMultiplier;
   // overallPct may exceed 100 when intake surpasses the daily calorie goal
@@ -1038,7 +1034,6 @@ function renderRawIntakeDVCard() {
       <span class="dv-summary-overpct">${overallPct === null ? 'Calories unknown' : `${overallPct}% calorie reference`}</span>
     </div>
     <div class="dv-rows">${rows}</div>
-    <p class="dv-calorie-total" id="dv-daily-calories">Today's calories: ${escapeHtml(calorieSummaryText(todayCalories))}</p>
     <p class="diet-nutr-card__note">Known food totals only; missing nutrients are unknown, not zero. Partial totals are not total intake. Supplement doses are not counted as nutrient content. <a href="${NUTRIENT_REFERENCE_URL}" target="_blank" rel="noopener noreferrer">FDA label references</a> are not personal prescriptions or deficiency diagnoses. Total sugar has no FDA DV. Vitamin D: 800 IU = 20 mcg. Custom goals are preserved.</p>
     <button class="dv-manage-btn" id="dv-manage-open-btn" title="Add or remove nutrients from tracking">⚙️ Manage Nutrients</button>
   `;
@@ -3662,7 +3657,7 @@ window.addEventListener('bignuten:fitness-data-restored', () => {
   displayRecentFoods();
   displayRecentSupplements();
   displayRecentExercises();
-  renderDietAllTimeLog();
+  renderDietDailyLog();
   renderRawIntakeDVCard();
 });
 // ===== End Water Intake Tracker =====

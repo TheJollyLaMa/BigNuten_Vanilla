@@ -86,7 +86,6 @@ export const RABBIT_SAFE_OPENERS = Object.freeze({
   '#log-supplements': '#supplements-modal',
   '#log-exercise': '#exercise-log-modal',
   '#dietBtn': '#dietModal',
-  '#dietQuickLogBtn': '#rawFoodModal',
   '#emotion-icon': '#emotion-modal',
   '#chakra-sacral': '#pain-log-modal',
   '#chakra-heart': '#heart-modal',

@@ -17,16 +17,18 @@ const run = async (options, value) => {
   return { result, payloads, usages };
 };
 
-test('generic foods use one fast structured call and return a labeled best estimate', async () => {
+test('food names can search even when entered without packaged metadata and retain estimate labeling', async () => {
   const { result, payloads, usages } = await run({}, response({ ...card, name: 'Renamed by model', sources: [{ url: 'https://invented.example/', title: 'x' }] }));
   assert.equal(payloads.length, 1); assert.equal(usages.length, 1);
   const [payload] = payloads;
-  assert.equal(payload.store, false); assert.equal(payload.tools, undefined);
+  assert.equal(payload.store, false); assert.deepEqual(payload.tools, [{ type: 'web_search' }]);
   assert.equal(payload.text.format.type, 'json_schema');
   assert.ok(payload.text.format.schema.properties.card.required.includes('measures'));
   assert.match(payload.instructions, /3-4 most\s+plausible interpretations/);
   assert.match(payload.instructions, /Do not ask\s+for clarification/);
   assert.ok(!payload.input.includes('health'));
+  assert.match(payload.instructions, /brand\/product appears in the food name/);
+  assert.match(payload.instructions, /label\s+facts take precedence/);
   assert.equal(result.found, true); assert.equal(result.card.name, card.name, 'supplied identity is kept');
   assert.equal(result.card.quality, 'estimate');
   assert.deepEqual(result.card.sources, [], 'unsearched URLs are never shown as sources');

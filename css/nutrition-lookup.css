@@ -22,3 +22,7 @@
 #dietMicronutrients > summary { cursor: pointer; padding: 10px 0; }
 .dv-row__coverage { font-size: 0.7rem; opacity: 0.8; margin: 3px 0 7px; }
 .food-nutr-popup { max-height: 70vh; overflow-y: auto; }
+#nutritionLookupInline label { display: block; margin-top: 8px; }
+#nutritionLookupInline input, #nutritionLookupInline textarea { box-sizing: border-box; width: 100%; max-width: 100%; }
+#nutritionLookupInline summary { cursor: pointer; }
+.diet-edit-entry, .diet-remove-entry, #dietCancelEdit { cursor: pointer; padding: 8px 12px; }

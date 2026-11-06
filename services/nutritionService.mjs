@@ -220,12 +220,13 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
         limit(`wallet:${session.wallet}`, 6);
         if (active.has(key) || active.size >= 3) throw problem(429, 'Genie service is busy. Please wait.');
         const payload = await body(request);
-        if (nutrition && (payload.consent !== true || Object.keys(payload).some(key => !['input', 'consent', 'portionUnit'].includes(key)))) throw problem(400, 'Explicit food-only lookup consent is required.');
+        if (nutrition && (payload.consent !== true || Object.keys(payload).some(key => !['input', 'consent', 'portionUnit', 'refresh'].includes(key)))) throw problem(400, 'Explicit food-only lookup consent is required.');
+        if (nutrition && payload.refresh !== undefined && typeof payload.refresh !== 'boolean') throw problem(400, 'Refresh must be a boolean.');
         if (nutrition && payload.portionUnit !== undefined && !NUTRITION_UNITS.includes(payload.portionUnit)) throw problem(400, 'Choose a supported portion unit.');
         let input;
         try { input = nutrition ? validateLookup(payload.input) : validateGenieInput(payload); } catch (error) { throw problem(400, error.message); }
         const foodKey = nutrition ? nutritionKey(input) : null;
-        const cached = nutrition && !input.label ? sharedFood(input) : null;
+        const cached = nutrition && !input.label && !input.url && !payload.refresh ? sharedFood(input) : null;
         const enrich = cached && needsNutritionEnrichment(cached) && !enrichmentAttempted(input);
         if (nutrition) {
           if (cached && !enrich && (!payload.portionUnit || portionBaseAmount(cached, payload.portionUnit) !== null)) return send(200, { found: true, card: cached, cached: true,
@@ -265,10 +266,10 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
               if (result.card.quality === 'user-entered') throw problem(502, 'Genie did not return usable composition data. Existing food facts retained.');
               result.card = enrichNutritionCard(cached, result.card);
             }
-            if (['source-backed', 'estimate'].includes(result.card.quality) && !input.label) {
+            if (['source-backed', 'estimate'].includes(result.card.quality) && !input.label && !input.url) {
               const existing = sharedFood(input);
               // A new estimate may add a missing portion, but never replaces a source-backed reference.
-              if (enrich || payload.portionUnit && portionBaseAmount(result.card, payload.portionUnit) !== null &&
+              if (payload.refresh || enrich || payload.portionUnit && portionBaseAmount(result.card, payload.portionUnit) !== null &&
                   !(existing?.quality === 'source-backed' && result.card.quality !== 'source-backed')) {
                 db.prepare('INSERT INTO foods VALUES(?,?) ON CONFLICT(identity) DO UPDATE SET card=excluded.card').run(foodKey, JSON.stringify(result.card));
               } else db.prepare('INSERT OR IGNORE INTO foods VALUES(?,?)').run(foodKey, JSON.stringify(result.card));

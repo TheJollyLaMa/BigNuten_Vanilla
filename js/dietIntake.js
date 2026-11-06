@@ -21,6 +21,16 @@ export function persistDietIntake({ name, amount, unit, nutr, time, nutritionSou
   return intake;
 }
 
+export function changeDietEntry(entries, index, original, replacement) {
+  if (!Number.isInteger(index) || !entries?.[index] || JSON.stringify(entries[index]) !== original) {
+    throw new Error('This meal changed since it was opened. Reopen it before editing or removing.');
+  }
+  const next = entries.slice();
+  if (replacement) next[index] = { ...entries[index], ...replacement, date: entries[index].date };
+  else next.splice(index, 1);
+  return next;
+}
+
 export function foodEntryDay(entry, dateInUserTz = getDateInUserTz) {
   const date = entry?.date || entry?.timestamp;
   if (typeof date !== 'string' || !date) return null;

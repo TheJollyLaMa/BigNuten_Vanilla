@@ -504,23 +504,6 @@
 
   <!-- Modal Structure -->
 
-  <!-- Raw Food Intake Modal (hidden by default, only shown via script) -->
-  <div id="rawFoodModal" class="modal hidden" role="dialog" aria-labelledby="raw-food-title">
-    <div class="modal-content">
-      <button type="button" class="close" id="closeRawFoodModal" aria-label="Close raw food quick log">&times;</button>
-      <h2 id="raw-food-title">Raw Food Quick Log</h2>
-      <form id="rawFoodForm">
-        <input type="text" id="rawFoodName" aria-label="Food name" placeholder="Food name" required />
-        <input type="number" id="rawFoodAmount" aria-label="Amount" min="0.01" step="any" placeholder="Amount" required />
-        <input type="text" id="rawFoodUnit" aria-label="Unit" placeholder="Unit (e.g., cup, tbsp)" required />
-        <input type="number" id="rawFoodProtein" aria-label="Estimated protein in grams" min="0" step="any" placeholder="Estimated protein (g)" required />
-        <input type="number" id="rawFoodCalories" aria-label="Calories" min="0" step="any" placeholder="Calories (optional)" />
-        <label for="rawFoodTime">Time eaten</label>
-        <input type="time" id="rawFoodTime" aria-label="Time eaten" required />
-        <button type="submit">Log Intake</button>
-      </form>
-    </div>
-  </div>
   <div id="weight-modal" class="modal-overlay modal-hidden">
     <div class="modal">
       <button class="modal-close">×</button>
@@ -645,17 +628,6 @@
     <div class="diet-modal-content">
       <button class="diet-modal-close" id="closeDietModal">&times;</button>
       <h2 class="diet-modal-title">🥗 Log Diet</h2>
-      <button type="button" id="dietQuickLogBtn" class="diet-submit-btn">🥕 Raw food quick log</button>
-      <section id="diet-day-summary" class="diet-day-summary" aria-live="polite">
-        <h3>Today in your diet log</h3>
-        <p id="diet-today-calories"></p>
-        <ul id="diet-meal-timeline" class="diet-meal-timeline"></ul>
-        <p id="diet-meal-gaps" class="diet-meal-gaps"></p>
-      </section>
-      <section class="diet-daily-totals">
-        <h3>Daily calorie totals</h3>
-        <ul id="diet-daily-totals-list"></ul>
-      </section>
 
       <!-- Input Form -->
       <form id="dietForm" class="diet-form" autocomplete="off">
@@ -670,7 +642,7 @@
         <div class="diet-form-row">
           <div class="diet-form-group">
             <label class="diet-label" for="dietFoodAmount">Amount</label>
-            <input type="number" id="dietFoodAmount" class="diet-input" placeholder="1.5" min="0" step="0.25" required>
+            <input type="number" id="dietFoodAmount" class="diet-input" placeholder="1" min="0.000001" step="any" required>
           </div>
           <div class="diet-form-group">
             <label class="diet-label" for="dietFoodUnit">Unit</label>
@@ -698,6 +670,10 @@
             <input type="time" id="dietFoodTime" class="diet-input" required>
           </div>
         </div>
+
+        <button type="submit" class="diet-submit-btn" id="dietSubmit">🥗 Log Entry</button>
+        <button type="button" id="dietCancelEdit" class="diet-input" hidden>Cancel edit</button>
+        <p id="dietEntryStatus" role="status" aria-live="polite"></p>
 
         <!-- Nutritional Info Card -->
         <div class="diet-nutr-card" id="dietNutrCard">
@@ -740,19 +716,17 @@
               <input type="number" id="dietNutrSugar" class="diet-input diet-input--nutr" placeholder="g" min="0" step="0.1">
             </div>
           </div>
-          <div class="diet-nutr-card__note" id="dietNutritionStatus" role="status">Enter nutrition manually, use community facts or press Genie to fill this card. Unknown nutrients stay blank.</div>
+          <div class="diet-nutr-card__note" id="dietNutritionStatus" role="status">Unknown nutrients stay blank.</div>
         </div>
-
-        <button type="submit" class="diet-submit-btn">
-          <span class="diet-submit-shine"></span>
-          🥗 Log Entry
-        </button>
       </form>
 
-      <!-- All-Time Log -->
+      <section id="diet-day-summary" class="diet-day-summary" aria-live="polite">
+        <ul id="diet-meal-timeline" class="diet-meal-timeline"></ul>
+        <p id="diet-meal-gaps" class="diet-meal-gaps"></p>
+      </section>
       <div class="diet-log-section">
-        <h3 class="diet-log-title">📋 All-Time Log</h3>
-        <ul id="dietAllTimeLog" class="diet-log-list"></ul>
+        <h3 class="diet-log-title">📋 Today's food log</h3>
+        <ul id="dietDailyLog" class="diet-log-list"></ul>
       </div>
     </div>
   </div>

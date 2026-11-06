@@ -181,6 +181,31 @@ const publicCard = {
   nutr: { calories: 158, protein: 5.8 }, quality: 'source-backed',
   retrievedAt: '2026-11-02T00:00:00Z', sources: [{ url: 'https://example.com/pasta', title: 'Synthetic source' }],
 };
+test('explicit Genie refresh bypasses a wrong cached match while automatic reuse stays free', async () => {
+  let calls = 0;
+  const f = await setup({ settings: { maxCalls: 2 }, dependencies: { modelCall: async ({ input }) => {
+    calls++;
+    return { found: true, card: { ...publicCard, nutr: { calories: calls === 1 ? 199 : 160, protein: 10 },
+      note: input.label || 'Synthetic product reference' } };
+  } } });
+  try {
+    const session = await f.signin();
+    const payload = { input: { name: publicCard.name, kind: publicCard.kind, preparation: publicCard.preparation }, consent: true };
+    await f.request('/lookup', payload, session.token);
+    assert.equal((await f.request('/lookup', payload, session.token)).body.card.nutr.calories, 199);
+    assert.equal(calls, 1);
+    assert.equal((await f.request('/lookup', { ...payload, refresh: 'true' }, session.token)).status, 400);
+    const corrected = await f.request('/lookup', { ...payload, refresh: true }, session.token);
+    assert.equal(corrected.status, 200);
+    assert.equal(corrected.body.cached, false);
+    assert.equal(corrected.body.card.nutr.calories, 160);
+    assert.equal(calls, 2);
+    assert.equal((await f.request('/foods', { input: payload.input })).body.card.nutr.calories, 160);
+    f.advance(60001);
+    assert.equal((await f.request('/lookup', payload, session.token)).body.cached, true);
+    assert.equal((await f.request('/lookup', { ...payload, refresh: true }, session.token)).status, 429);
+  } finally { await f.close(); }
+});
 test('legacy shared cards get one durable micronutrient attempt on use, preserving values across restart', async () => {
   const { mkdtemp, rm } = require('node:fs/promises');
   const { tmpdir } = require('node:os');
