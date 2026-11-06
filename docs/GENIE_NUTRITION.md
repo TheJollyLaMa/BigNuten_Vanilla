@@ -1,4 +1,4 @@
-# Genie nutrition lookup (#390, #403)
+# Genie nutrition lookup (#390, #403, #423)
 
 Open **Diet** and enter the food, quantity and unit. When the nutrient fields are
 blank, the card fills itself about a second later: first from the shared
@@ -11,8 +11,8 @@ Genie behaves like a knowledgeable person checking a few references: it weighs
 the three or four most plausible interpretations, picks the most likely one for
 how the food is being logged (for example, pasta measured in cups is cooked) and
 states that assumption in one line. Homemade or mixed foods are estimated from
-their main ingredients; trace additions such as probiotic cultures add
-negligible nutrition. Genie returns a not-found answer only for input that is
+their main ingredients. Added minerals/vitamins, fortification and iodized salt
+must not be assumed nutritionally negligible. Genie returns a not-found answer only for input that is
 not food or drink.
 
 Auto-fill never overwrites figures you typed. It runs once per food identity
@@ -39,6 +39,100 @@ or label-verified values, allergen-safety guarantees or dietary/medical advice.
 
 Unknown nutrients stay blank. Potassium uses the existing app's **%DV** unit
 (4700 mg = 100%).
+
+## Vitamins, minerals and coverage
+
+The main food card has an expandable **Vitamins, minerals and additional
+nutrients** section. A single registry in `js/nutritionDefaults.mjs` defines 37
+fields shared by manual entry, Genie output, food-card/default validation,
+portion scaling, meal history, food popovers and Daily Value management.
+It includes iodine, potassium, copper, calcium, magnesium, iron, zinc, selenium,
+phosphorus, chloride, manganese, chromium, molybdenum, choline and the main
+vitamins, as well as macros, added sugar, saturated fat and cholesterol.
+
+Amounts apply to the selected food quantity. Iodine/selenium/B12 and similar
+fields use **mcg**, copper/calcium/magnesium use **mg**, vitamin A uses **mcg
+RAE**, folate **mcg DFE**, niacin **mg NE**, and vitamin E **mg
+alpha-tocopherol**. These equivalents must not be guessed from incompatible
+units. For compatibility, potassium remains stored as %DV and vitamin D as IU:
+**1% potassium DV = 47 mg**, **40 IU vitamin D = 1 mcg**. Old food logs are
+not rewritten. Small micronutrient amounts are not rounded to whole numbers
+or one decimal in the form.
+
+Reference goals use the current
+[FDA label Daily Values](https://www.fda.gov/food/nutrition-facts-label/daily-value-nutrition-and-supplement-facts-labels):
+potassium 4700 mg, calcium 1300 mg, magnesium 420 mg, copper 0.9 mg,
+iodine 150 mcg, and vitamin D 20 mcg (800 IU). Calories retain the 2000 kcal
+label reference. Total sugar has **no FDA DV**; added sugar has a separate
+50 g reference. Existing custom goals and visible-row preferences are
+preserved. Label references are not personal prescriptions or safe upper
+limits for every person.
+
+Daily Value totals report **N of M food entries have data** for each nutrient.
+No known value displays **Unknown**, not zero; a genuine recorded numeric zero
+is retained. A known subtotal with missing entries is explicitly **partial**,
+not a complete intake or a deficiency finding. Periods use the selected
+timezone's calendar days and exclude future days. Supplement dosage is not
+automatically treated as nutrient content.
+
+New Genie requests include the complete nutrient schema. Missing label fields
+and unavailable iodine/trace-mineral composition must remain null; values
+must not be invented from macros or unspecified fortification. Whole-food
+Genie values remain estimates, not independently measured facts. Sources
+verify the returned URL provenance, not laboratory accuracy of every number.
+Review against a matching label or reliable composition reference when possible.
+
+When an older incomplete community card is used, an invited Genie user
+automatically requests one micronutrient upgrade. Existing numeric figures
+(including zero) and base quantity are retained; only missing values are added,
+scaled into that base. Combined facts are conservatively labeled as estimates.
+The checked schema version is saved even if some nutrients remain unknown.
+The service durably records the attempt before provider work, so failure,
+unavailable data or restart does not trigger repeated paid micronutrient calls.
+Failures are shown explicitly; existing facts remain usable. A failed check
+requires steward intervention to allow another attempt. The check consumes
+the existing shared call budget and never bypasses invitation or cap controls.
+
+Local defaults are also checked when selected/used and retain their figures;
+successful merged upgrades are saved locally. Personal defaults/edits are
+never sent for enrichment: only the existing food identity/portion-unit request
+is used. Non-invited users can reuse shared upgrades but cannot trigger paid
+work. This is on-use upgrading, not a bulk refresh of the food library.
+Historical meals are not rewritten. Manual entry remains available.
+Legacy browser-cache entries are upgraded and saved in place when their
+original base amount/unit and nutrient values form a valid card. Entries with
+no original serving or invalid units cannot be safely scaled: the UI explicitly
+asks for review rather than guessing their base or overwriting their figures.
+Active manual figure edits suppress automatic lookups.
+
+New meal saves retain card-level quality, source links, retrieval date and
+notes in `nutritionSource`. Editing figures changes the saved quality to
+user-entered; older meals without this metadata say provenance was not
+recorded. Metadata survives the same JSON/encrypted snapshot path as the meal.
+
+### Reuse and validation
+
+For #423, adapt the receiving app's existing `nutritionDefaults.mjs`,
+`nutritionLookupUI.mjs`, `dietIntake.js`, `fitnessSchema.js` and
+`services/nutritionModel.mjs` at main `4b288cd`. These already share food-card
+validation, portion conversion, recovery-aware saving and provider contracts.
+The same registry now supplies the food form and daily reference table instead
+of maintaining divergent nutrient lists. Canopy's curated inventory was checked
+for nutrition leads; this was scoped research, not a whole-library scan.
+No new nutrition provider, framework, dependency or telemetry is introduced.
+
+Regression coverage includes registry shape/units, exact copper/B12/iodine
+scaling, old potassium/vitamin D units, legacy key spellings without double
+counting, null/zero/partial totals, timezone periods, source metadata and
+snapshot round trips, plus the complete provider output schema. The existing
+desktop/mobile smoke runner saves a synthetic micronutrient meal through the
+real form, checks source history and visible daily coverage, and distinguishes
+unavailable selenium from a known zinc zero. It also upgrades old shared facts,
+local defaults and the legacy browser cache, preserving original figures and
+verifying reuse without another paid check. Service tests cover durable
+attempts across restart, unavailable data, provider failure, incompatible
+base units and the existing shared call cap. Synthetic references are testing
+fixtures, not independently verified composition data for real foods.
 
 ## Portions and scaling
 

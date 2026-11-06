@@ -1,8 +1,132 @@
-export const NUTRIENTS = {
-  calories: 'Calories (kcal)', protein: 'Protein (g)', carbs: 'Carbs (g)',
-  fat: 'Fat (g)', fiber: 'Fiber (g)', sugar: 'Sugar (g)',
-  sodium: 'Sodium (mg)', potassium: 'Potassium (%DV)',
-};
+export const NUTRIENT_REFERENCE_URL = 'https://www.fda.gov/food/nutrition-facts-label/daily-value-nutrition-and-supplement-facts-labels';
+// Food units preserve existing potassium %DV and vitamin D IU records.
+export const NUTRIENT_DEFINITIONS = Object.freeze(Object.fromEntries(Object.entries({
+  calories: { label: 'Calories', unit: 'kcal', goal: 2000 },
+  protein: { label: 'Protein', unit: 'g', goal: 50 },
+  carbs: { label: 'Carbs', unit: 'g', goal: 275 },
+  fat: { label: 'Fat', unit: 'g', goal: 78 },
+  fiber: { label: 'Fiber', unit: 'g', goal: 28 },
+  sugar: { label: 'Total sugar', unit: 'g', goal: null },
+  sodium: { label: 'Sodium', unit: 'mg', goal: 2300 },
+  potassium: { label: 'Potassium', unit: '%DV', displayUnit: 'mg', factor: 47, goal: 4700 },
+  calcium: { label: 'Calcium', unit: 'mg', goal: 1300 },
+  magnesium: { label: 'Magnesium', unit: 'mg', goal: 420 },
+  iodine: { label: 'Iodine', unit: 'mcg', goal: 150 },
+  copper: { label: 'Copper', unit: 'mg', goal: 0.9 },
+  iron: { label: 'Iron', unit: 'mg', goal: 18 },
+  zinc: { label: 'Zinc', unit: 'mg', goal: 11 },
+  selenium: { label: 'Selenium', unit: 'mcg', goal: 55 },
+  phosphorus: { label: 'Phosphorus', unit: 'mg', goal: 1250 },
+  manganese: { label: 'Manganese', unit: 'mg', goal: 2.3 },
+  chromium: { label: 'Chromium', unit: 'mcg', goal: 35 },
+  molybdenum: { label: 'Molybdenum', unit: 'mcg', goal: 45 },
+  chloride: { label: 'Chloride', unit: 'mg', goal: 2300 },
+  vitaminA: { label: 'Vitamin A', unit: 'mcg RAE', goal: 900 },
+  vitaminC: { label: 'Vitamin C', unit: 'mg', goal: 90 },
+  vitaminD: { label: 'Vitamin D', unit: 'IU', goal: 800 },
+  vitaminE: { label: 'Vitamin E', unit: 'mg alpha-tocopherol', goal: 15 },
+  vitaminK: { label: 'Vitamin K', unit: 'mcg', goal: 120 },
+  thiamin: { label: 'Thiamin (B1)', unit: 'mg', goal: 1.2 },
+  riboflavin: { label: 'Riboflavin (B2)', unit: 'mg', goal: 1.3 },
+  niacin: { label: 'Niacin (B3)', unit: 'mg NE', goal: 16 },
+  vitaminB6: { label: 'Vitamin B6', unit: 'mg', goal: 1.7 },
+  folate: { label: 'Folate', unit: 'mcg DFE', goal: 400 },
+  vitaminB12: { label: 'Vitamin B12', unit: 'mcg', goal: 2.4 },
+  biotin: { label: 'Biotin', unit: 'mcg', goal: 30 },
+  pantothenicAcid: { label: 'Pantothenic acid (B5)', unit: 'mg', goal: 5 },
+  choline: { label: 'Choline', unit: 'mg', goal: 550 },
+  addedSugar: { label: 'Added sugar', unit: 'g', goal: 50 },
+  saturatedFat: { label: 'Saturated fat', unit: 'g', goal: 20 },
+  cholesterol: { label: 'Cholesterol', unit: 'mg', goal: 300 },
+}).map(([key, value]) => [key, Object.freeze(value)])));
+export const NUTRIENTS = Object.freeze(Object.fromEntries(Object.entries(NUTRIENT_DEFINITIONS)
+  .map(([key, value]) => [key, `${value.label} (${value.unit})`])));
+export const nutrientInputId = key => `dietNutr${key[0].toUpperCase()}${key.slice(1)}`;
+export const NUTRITION_COVERAGE_VERSION = 1;
+export function needsNutritionEnrichment(card) {
+  return card.nutritionCoverageVersion !== NUTRITION_COVERAGE_VERSION &&
+    Object.keys(NUTRIENTS).some(key => card.nutr[key] == null);
+}
+
+export function enrichNutritionCard(original, incoming) {
+  const base = validateNutrition(original), next = validateNutrition(incoming);
+  if (base.id !== next.id) throw new Error('Cannot enrich a different food identity.');
+  const scaled = scaleNutrition(next, base.amount, base.unit);
+  const additions = Object.fromEntries(Object.entries(scaled).filter(([key]) => !Object.hasOwn(base.nutr, key)));
+  const sources = [...new Map([...base.sources, ...next.sources].map(source => [source.url, source])).values()].slice(0, 10);
+  const ratio = portionBaseAmount(next, base.unit);
+  const measures = base.quality === 'source-backed' && next.quality !== 'source-backed' ? base.measures
+    : [...base.measures, ...next.measures.filter(measure => !base.measures.some(old => old.unit === measure.unit))
+      .map(measure => ({ ...measure, baseAmount: measure.baseAmount / ratio }))];
+  return validateNutrition({ ...base,
+    nutr: { ...base.nutr, ...additions },
+    measures,
+    nutritionCoverageVersion: next.nutritionCoverageVersion,
+    quality: Object.keys(additions).length && base.quality !== 'user-entered' ? 'estimate' : base.quality,
+    sources,
+    note: Object.keys(additions).length
+      ? `${base.note.slice(0, 1800)} Missing nutrients added from a ${next.quality} card; existing figures retained. ${next.note.slice(0, 1800)}`
+      : base.note,
+  });
+}
+
+export function recordedNutrientKey(key) {
+  const compact = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return Object.keys(NUTRIENTS).find(known => known.toLowerCase() === compact) || null;
+}
+
+export function recordedNutrientValues(nutr) {
+  const values = {};
+  for (const [key, value] of Object.entries(nutr || {})) {
+    const known = recordedNutrientKey(key);
+    if (known && !Object.hasOwn(values, known)) values[known] = value;
+  }
+  // Exact canonical fields win over legacy spellings, without double counting.
+  for (const key of Object.keys(NUTRIENTS)) if (Object.hasOwn(nutr || {}, key)) values[key] = nutr[key];
+  return values;
+}
+
+export function parseRecordedNutrient(raw, key) {
+  if (typeof raw === 'number') return Number.isFinite(raw) && raw >= 0 ? raw : null;
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const match = raw.trim().match(/^(\d+(?:\.\d*)?|\.\d+)(?:[eE]([+-]?\d+))?\s*(.*)$/);
+  if (!match) return null;
+  const value = Number(match[1] + (match[2] ? `e${match[2]}` : ''));
+  const unit = match[3].trim().toLowerCase();
+  const expected = NUTRIENT_DEFINITIONS[key]?.unit.toLowerCase();
+  if (unit && unit !== expected && !(key === 'potassium' && unit === '%')) return null;
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+export function summarizeNutrients(entries) {
+  const foods = Array.isArray(entries) ? entries : [];
+  const records = foods.map(food => recordedNutrientValues(food?.nutr));
+  return Object.fromEntries(Object.entries(NUTRIENT_DEFINITIONS).map(([key, definition]) => {
+    let total = 0, knownEntries = 0;
+    for (const nutr of records) {
+      const raw = nutr[key];
+      const value = parseRecordedNutrient(raw, key);
+      if (value === null) continue;
+      total += value * (definition.factor || 1);
+      knownEntries++;
+    }
+    return [key, { total: knownEntries ? total : null, knownEntries, totalEntries: foods.length }];
+  }));
+}
+
+export function validateNutritionSource(value) {
+  if (!value || !['source-backed', 'estimate', 'user-entered'].includes(value.quality)
+    || !Array.isArray(value.sources) || value.sources.length > 10) throw new Error('Invalid nutrition provenance.');
+  const sources = value.sources.map(source => {
+    const url = new URL(source.url);
+    if (url.protocol !== 'https:' || url.username || url.password || url.href.length > 2000) throw new Error('Sources require safe HTTPS URLs.');
+    return { url: url.href, title: String(source.title || '').slice(0, 300) };
+  });
+  if (value.quality === 'source-backed' && !sources.length) throw new Error('Source-backed nutrition needs a source.');
+  const retrievedAt = String(value.retrievedAt || '');
+  if (retrievedAt && !Number.isFinite(Date.parse(retrievedAt))) throw new Error('Invalid nutrition source date.');
+  return { quality: value.quality, sources, retrievedAt, note: String(value.note || '').slice(0, 4000) };
+}
 const clean = value => String(value || '').trim();
 export const NUTRITION_UNITS = ['g', 'oz', 'ml', 'serving', 'piece', 'cup', 'tbsp', 'tsp', 'fl oz', 'slice', 'handful', 'scoop'];
 const factors = { g: ['mass', 1], oz: ['mass', 28.349523125],
@@ -21,6 +145,10 @@ export function validateNutrition(value) {
     ingredients: clean(value.ingredients), note: clean(value.note), quality: value.quality,
     retrievedAt: clean(value.retrievedAt), sources: value.sources, nutr: value.nutr,
   };
+  if (value.nutritionCoverageVersion !== undefined) {
+    if (value.nutritionCoverageVersion !== NUTRITION_COVERAGE_VERSION) throw new Error('Unsupported nutrition coverage version.');
+    card.nutritionCoverageVersion = value.nutritionCoverageVersion;
+  }
   if (!card.name || card.name.length > 200 || !['whole', 'packaged'].includes(card.kind)) throw new Error('Enter a food name and food type.');
   if (card.kind === 'packaged' && (!card.brand || !card.market)) throw new Error('Packaged foods need a brand and country/market.');
   if (!Number.isFinite(card.amount) || card.amount < 1e-6 || card.amount > 1e6 ||

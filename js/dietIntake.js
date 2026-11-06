@@ -1,8 +1,9 @@
 import { sleepBedtimeDate } from './metrics.js';
 import { getDateInUserTz, getTimeInUserTz, getUserTimezone } from './timezone.js';
+import { validateNutritionSource } from './nutritionDefaults.mjs';
 
 /** Shared by the full Diet logger and raw-food quick log; callers use the app's recovery-aware store. */
-export function persistDietIntake({ name, amount, unit, nutr, time }, load, save, now = new Date()) {
+export function persistDietIntake({ name, amount, unit, nutr, time, nutritionSource }, load, save, now = new Date()) {
   name = String(name || '').trim();
   unit = String(unit || '').trim();
   amount = Number(amount);
@@ -12,6 +13,7 @@ export function persistDietIntake({ name, amount, unit, nutr, time }, load, save
     type: 'diet', name, amount, unit, nutr, date: now.toISOString(),
     time: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time || '')) ? time : getTimeInUserTz(now),
   };
+  if (nutritionSource) intake.nutritionSource = validateNutritionSource(nutritionSource);
   const data = load();
   data.foods ||= [];
   data.foods.push(intake);
@@ -24,6 +26,16 @@ export function foodEntryDay(entry, dateInUserTz = getDateInUserTz) {
   if (typeof date !== 'string' || !date) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
   return dateInUserTz(date);
+}
+
+export function foodsInNutritionPeriod(entries, today, days, dateInUserTz = getDateInUserTz) {
+  const start = new Date(`${today}T00:00:00Z`);
+  start.setUTCDate(start.getUTCDate() - days + 1);
+  const firstDay = start.toISOString().slice(0, 10);
+  return (Array.isArray(entries) ? entries : []).filter(entry => {
+    const day = foodEntryDay(entry, dateInUserTz);
+    return day && day >= firstDay && day <= today;
+  });
 }
 
 export function summarizeCalories(entries, day, dateInUserTz = getDateInUserTz) {

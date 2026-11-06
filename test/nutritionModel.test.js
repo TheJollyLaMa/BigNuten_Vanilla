@@ -35,6 +35,21 @@ test('generic foods use one fast structured call and return a labeled best estim
   assert.ok(!Object.hasOwn(result.card.nutr, 'potassium'));
 });
 
+test('provider schema requests all supported micronutrients and preserves unknown iodine and small amounts', async () => {
+  const { NUTRIENTS } = await import('../js/nutritionDefaults.mjs');
+  const { result, payloads } = await run({}, response({ ...card,
+    nutr: { calories: 100, copper: 0.009, magnesium: 40, vitaminB12: 0.006, iodine: null, selenium: 0 } }));
+  const schema = payloads[0].text.format.schema.properties.card.properties.nutr;
+  assert.deepEqual(schema.required, Object.keys(NUTRIENTS));
+  assert.deepEqual(Object.keys(schema.properties), Object.keys(NUTRIENTS));
+  assert.equal(result.card.nutr.copper, 0.009);
+  assert.equal(result.card.nutr.vitaminB12, 0.006);
+  assert.equal(result.card.nutr.selenium, 0);
+  assert.ok(!Object.hasOwn(result.card.nutr, 'iodine'));
+  assert.match(payloads[0].instructions, /UNKNOWN, not zero/);
+  assert.match(payloads[0].instructions, /Vitamin D stays in IU/);
+});
+
 test('homemade foods get estimated household portions that scale', async () => {
   const { scaleNutrition } = await import('../js/nutritionDefaults.mjs');
   const yogurt = { ...card, name: 'Homemade yogurt (whole milk, inulin, L. reuteri)', preparation: '', serving: '',

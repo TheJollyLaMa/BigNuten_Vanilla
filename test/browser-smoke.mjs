@@ -749,7 +749,8 @@ try {
         if (path === '/session') return route.fulfill({ json: { token: 'a'.repeat(64), wallet: wallet.toLowerCase(), expiresAt: await page.evaluate(() => Date.now()) + 900000 } });
         if (path === '/foods') {
           return route.fulfill({ json: sharedFixture && body.input.name === sharedFixture.name
-            ? { found: true, cached: true, card: sharedFixture } : { found: false } });
+            ? { found: true, cached: true, card: sharedFixture,
+              enrichmentNeeded: sharedFixture.name.startsWith('Legacy ') && !sharedFixture.nutritionCoverageVersion } : { found: false } });
         }
         assert.equal(path, '/lookup');
         assert.deepEqual(Object.keys(body).sort(), body.portionUnit ? ['consent', 'input', 'portionUnit'] : ['consent', 'input']);
@@ -759,11 +760,14 @@ try {
             usage: { calls: 3, inputTokens: 25, outputTokens: 30 } } });
         }
         sharedFixture = { ...body.input, amount: 100, unit: 'g', serving: '', ingredients: 'Synthetic oats',
+            nutritionCoverageVersion: 1,
             measures: [{ amount: 1, unit: 'cup', baseAmount: 140, sourceUrl: 'https://example.com/synthetic-label' },
               { amount: 1, unit: 'serving', baseAmount: 80, sourceUrl: 'https://example.com/synthetic-label' }],
-            nutr: { calories: 389, protein: 16.9 }, quality: 'source-backed',
+            nutr: { calories: 389, protein: 16.9, calcium: 130, magnesium: 42, potassium: 10,
+              iodine: 15, copper: 0.09, vitaminB12: 0.024, selenium: null, zinc: 0 }, quality: 'source-backed',
             retrievedAt: '2026-10-28T12:00:00Z', note: 'Synthetic fixture',
             sources: [{ url: 'https://example.com/synthetic-label', title: 'Synthetic label source' }] };
+        if (body.input.name.startsWith('Legacy ')) sharedFixture.nutr.calories = 111;
         return route.fulfill({ json: { found: true, reason: 'Synthetic exact product match; review label.',
           usage: { calls: 2, inputTokens: 10, outputTokens: 20 }, card: sharedFixture } });
       });
@@ -786,12 +790,21 @@ try {
       assert.match(await page.locator('#nutritionProvenance').innerText(), /source-backed/);
       assert.equal(await page.locator('#nutritionSources a').getAttribute('href'), 'https://example.com/synthetic-label');
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '195');
+      await page.locator('#dietMicronutrients > summary').click();
+      assert.equal(await page.locator('#dietNutrIodine').inputValue(), '7.5');
+      assert.equal(await page.locator('#dietNutrCopper').inputValue(), '0.045');
+      assert.equal(await page.locator('#dietNutrVitaminB12').inputValue(), '0.012');
+      assert.equal(await page.locator('#dietNutrSelenium').inputValue(), '');
+      assert.equal(await page.locator('#dietNutrZinc').inputValue(), '0');
+      await shot('micronutrient-food-card');
       const beforeScaling = nutritionRequests.length;
       await page.locator('#dietFoodAmount').fill('0.5');
       await page.locator('#dietFoodUnit').selectOption('cup');
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '272');
       await page.locator('#dietFoodAmount').fill('2');
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '1089');
+      assert.equal(await page.locator('#dietNutrCopper').inputValue(), '0.252');
+      assert.equal(await page.locator('#dietNutrVitaminB12').inputValue(), '0.0672');
       await page.locator('#dietFoodUnit').selectOption('serving');
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '622');
       assert.match(await page.locator('#dietFoodUnit option:checked').innerText(), /80 g/);
@@ -817,10 +830,25 @@ try {
       await page.locator('#dietFoodAmount').fill('50');
       await page.locator('#dietFoodUnit').selectOption('g');
       assert.equal(await page.evaluate(() => [...Object.keys(localStorage), ...Object.keys(sessionStorage)].some(key => /nutrition.*token/i.test(key))), false);
+      const beforeMicroSave = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).foods.length);
+      await click('#dietForm button[type="submit"]');
+      const savedMicros = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).foods.at(-1));
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).foods.length), beforeMicroSave + 1);
+      assert.equal(savedMicros.nutr.iodine, 7.5);
+      assert.equal(savedMicros.nutr.copper, 0.045);
+      assert.equal(savedMicros.nutr.vitaminB12, 0.012);
+      assert.equal(savedMicros.nutr.zinc, 0);
+      assert.ok(!Object.hasOwn(savedMicros.nutr, 'selenium'));
+      assert.equal(savedMicros.nutritionSource.quality, 'source-backed');
+      assert.equal(savedMicros.nutritionSource.sources[0].url, 'https://example.com/synthetic-label');
+      assert.match(await page.locator('#dietAllTimeLog .diet-log-entry').first().innerText(), /Copper: 0.045 mg/);
+      await page.locator('#dietFoodAmount').fill('50');
+      await page.locator('#dietFoodUnit').selectOption('g');
       const beforeAuto = nutritionRequests.filter(request => request.path === '/lookup').length;
       await page.locator('#dietFoodName').fill('Pasta');
       await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.includes('Synthetic extraction failure'));
       assert.equal(await page.locator('#dietNutrCalories').inputValue(), '', 'A new food name clears stale figures before auto-fill');
+      assert.equal(await page.locator('#dietNutrIodine').inputValue(), '', 'Failed/new food cards never retain stale micronutrients');
       assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, beforeAuto + 1, 'An empty card auto-fills with one Genie call, no button or clarification');
       assert.equal(nutritionRequests.at(-1).body.input.preparation, '');
       assert.match(await page.locator('#nutritionUsage').innerText(), /3 shared provider calls; 25 input \/ 30 output/);
@@ -836,6 +864,57 @@ try {
       assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, beforeAuto + 1, 'Typed figures suppress auto-fill');
       await page.locator('#dietNutrCalories').fill('');
       await page.locator('#nutritionPreparation').fill('');
+      // Upgrade an old local default from a legacy shared card without replacing its figures.
+      await page.locator('#dietFoodName').fill('Legacy mineral food');
+      await page.locator('#dietFoodAmount').fill('100');
+      await page.locator('#dietFoodUnit').selectOption('g');
+      await page.locator('#dietNutrCalories').fill('123');
+      await click('#nutritionKeep');
+      sharedFixture = { ...sharedFixture, name: 'Legacy mineral food', kind: 'whole', preparation: '',
+        brand: '', market: '', barcode: '', measures: [], nutr: { calories: 111 } };
+      delete sharedFixture.nutritionCoverageVersion;
+      await page.evaluate(() => document.getElementById('dietForm').reset());
+      await page.locator('#dietFoodAmount').fill('50');
+      await page.locator('#dietFoodUnit').selectOption('g');
+      const beforeUpgrade = nutritionRequests.filter(request => request.path === '/lookup').length;
+      await page.locator('#dietFoodName').fill('Legacy mineral food');
+      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Filled by Genie'));
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '62', 'Local default calories are retained, not replaced by community/model figures');
+      assert.equal(await page.locator('#dietNutrIodine').inputValue(), '7.5');
+      const upgraded = await page.evaluate(() => JSON.parse(localStorage.getItem('fitnessTrackerData')).nutritionDefaults.find(card => card.name === 'Legacy mineral food'));
+      assert.equal(upgraded.nutr.calories, 123);
+      assert.equal(upgraded.nutritionCoverageVersion, 1);
+      assert.ok(!Object.hasOwn(upgraded.nutr, 'selenium'));
+      assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, beforeUpgrade + 1);
+      await page.evaluate(() => document.getElementById('dietForm').reset());
+      await page.locator('#dietFoodAmount').fill('50');
+      await page.locator('#dietFoodUnit').selectOption('g');
+      await page.locator('#dietFoodName').fill('Legacy mineral food');
+      await page.waitForTimeout(1300);
+      assert.equal(await page.locator('#dietNutrIodine').inputValue(), '7.5');
+      assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, beforeUpgrade + 1, 'Unknown selenium does not trigger another paid check on local-default reuse');
+      await page.evaluate(() => {
+        const cache = JSON.parse(localStorage.getItem('dietNutrCache') || '{}');
+        cache['legacy cached minerals'] = { amount: 100, unit: 'g', nutr: { calories: 137, zinc: 0 } };
+        localStorage.setItem('dietNutrCache', JSON.stringify(cache));
+        document.getElementById('dietForm').reset();
+      });
+      sharedFixture = { ...sharedFixture, name: 'Legacy cached minerals', nutr: { calories: 111 }, measures: [] };
+      delete sharedFixture.nutritionCoverageVersion;
+      await page.locator('#dietFoodName').fill('Legacy cached minerals');
+      await page.waitForFunction(() => document.getElementById('nutritionLookupStatus').textContent.startsWith('Filled by Genie'));
+      assert.equal(await page.locator('#dietNutrCalories').inputValue(), '137', 'Legacy cache retains its original serving and figures');
+      assert.equal(await page.locator('#dietNutrIodine').inputValue(), '15');
+      assert.equal(await page.locator('#dietNutrZinc').inputValue(), '0');
+      const cachedUpgrade = await page.evaluate(() => JSON.parse(localStorage.getItem('dietNutrCache'))['legacy cached minerals']);
+      assert.equal(cachedUpgrade.nutritionCoverageVersion, 1);
+      assert.equal(cachedUpgrade.nutr.calories, 137);
+      const afterCacheUpgrade = nutritionRequests.filter(request => request.path === '/lookup').length;
+      await page.evaluate(() => document.getElementById('dietForm').reset());
+      await page.locator('#dietFoodName').fill('Legacy cached minerals');
+      await page.waitForTimeout(1300);
+      assert.equal(await page.locator('#dietNutrIodine').inputValue(), '15');
+      assert.equal(nutritionRequests.filter(request => request.path === '/lookup').length, afterCacheUpgrade);
       await page.evaluate(async () => {
         localStorage.removeItem('bignutenNutritionServiceUrl');
         const { genieClient } = await import('/js/genieService.mjs');
@@ -846,7 +925,25 @@ try {
       await click('#closeDietModal');
       await click('[data-panel="recent-foods-list"].panel-toggle-btn');
       assert.match(await page.locator('#recent-foods-list').innerText(), /Smoke carrot/);
+      await click('#dv-manage-open-btn');
+      for (const key of ['iodine', 'copper', 'selenium', 'zinc', 'potassium']) {
+        await page.locator(`#dv-manage-list [data-nutr-key="${key}"]`).check();
+      }
+      await click('#dv-manage-modal-close');
+      if (!await page.locator('#recent-foods-list').isVisible()) await click('[data-panel="recent-foods-list"].panel-toggle-btn');
+      await visible('#dv-card-content');
+      const nutrientRow = key => page.locator('#dv-card-content .dv-row').filter({ has: page.locator(`[data-nutr-key="${key}"]`) });
+      assert.match(await nutrientRow('iodine').innerText(), /7\.5 \/ 150 mcg/);
+      assert.match(await nutrientRow('copper').innerText(), /0\.045 \/ 0\.9 mg/);
+      assert.match(await nutrientRow('selenium').innerText(), /Unknown \/ 55 mcg/);
+      assert.match(await nutrientRow('zinc').innerText(), /0 \/ 11 mg/);
+      assert.match(await nutrientRow('potassium').innerText(), /235 \/ 4,700 mg/);
+      assert.match(await nutrientRow('iodine').innerText(), /partial known total/);
+      assert.match(await nutrientRow('selenium').innerText(), /0 of \d+ food entries/);
+      await shot('micronutrient-daily-coverage');
+      console.log(`${name}: exact micronutrients, null/zero, small copper/B12, scaling, real meal save/source history and daily coverage verified`);
       await click('[data-panel="recent-foods-list"].panel-toggle-btn');
+      await hidden('#recent-foods-list');
       await click('#chakra-heart');
       await visible('#heart-modal');
       await page.locator('#metric-value').fill('62');

@@ -6,7 +6,7 @@ import { initBodyMeasurements } from './bodyMeasurements.js';
 import { initWorkoutReview } from './workoutReview.js';
 import { initHeartMetrics } from './heartMetrics.js';
 import { initGutHealth } from './gutHealth.mjs';
-import { persistDietIntake, summarizeCalories, summarizeCaloriesByDay, buildMealTimingInsights } from './dietIntake.js';
+import { persistDietIntake, foodsInNutritionPeriod, summarizeCalories, summarizeCaloriesByDay, buildMealTimingInsights } from './dietIntake.js';
 import { geniePrivacyNotice, revokeGenieHostedConsent } from './geniePrivacy.js';
 import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
 import { createWaterIntakeStore } from './waterIntake.js';
@@ -351,7 +351,8 @@ window.addEventListener('DOMContentLoaded', () => {
 import { providerRegistry } from './storageProvider.js';
 import { initNutritionLookup } from './nutritionLookupUI.mjs';
 import { initResearchExperiments } from './researchExperimentsUI.mjs';
-import { matchingDefaults, scaleNutrition } from './nutritionDefaults.mjs';
+import { matchingDefaults, scaleNutrition, NUTRIENTS, NUTRIENT_DEFINITIONS, NUTRIENT_REFERENCE_URL,
+  nutrientInputId, summarizeNutrients, parseRecordedNutrient, recordedNutrientKey, recordedNutrientValues } from './nutritionDefaults.mjs';
 import { PinataProvider } from './providers/pinataProvider.js';
 import { normalizeFitnessData, importAndMergeFromCID } from './fitnessData.js';
 import { initCommunityDashboard } from './communityDashboard.js';
@@ -378,10 +379,11 @@ function getDietNutrCache(foodName) {
 }
 
 /** Saves nutritional info for a food name into the cache, including last-used amount and unit */
-function setDietNutrCache(foodName, nutr, amount, unit) {
+function setDietNutrCache(foodName, nutr, amount, unit, nutritionSource) {
   if (matchingDefaults(getFitnessData().nutritionDefaults, foodName).length) return;
   const cache = JSON.parse(localStorage.getItem('dietNutrCache') || '{}');
-  cache[foodName.toLowerCase()] = { nutr, amount: amount ?? null, unit: unit ?? null };
+  cache[foodName.toLowerCase()] = { nutr, amount: amount ?? null, unit: unit ?? null,
+    ...(nutritionSource || {}) };
   localStorage.setItem('dietNutrCache', JSON.stringify(cache));
 }
 
@@ -414,18 +416,17 @@ function recalcDietNutrForAmount() {
     }
     return;
   }
-  const fields = ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar'];
-  fields.forEach(f => {
-    const el = document.getElementById(`dietNutr${f}`);
+  Object.keys(NUTRIENTS).forEach(key => {
+    const el = document.getElementById(nutrientInputId(key));
     if (!el) return;
-    const baseVal = _dietNutrBase.nutr[f.toLowerCase()];
+    const baseVal = _dietNutrBase.nutr[key];
     if (baseVal != null) {
-      const scaled = scaledNutr[f.toLowerCase()];
-      // Calories and Potassium rounded to integers; others to 1 decimal place
-      el.value = (f === 'Calories' || f === 'Potassium' || f === 'Sodium')
+      const scaled = scaledNutr[key];
+      el.value = (key === 'calories' || key === 'sodium')
         ? Math.round(scaled)
-        : Math.round(scaled * 10) / 10;
-    }
+        : ['protein', 'carbs', 'fat', 'fiber', 'sugar'].includes(key)
+          ? Math.round(scaled * 10) / 10 : Number(scaled.toPrecision(12));
+    } else el.value = '';
   });
   updateNutrCardTitle();
 }
@@ -441,10 +442,9 @@ function prefillDietNutr(foodName) {
     ? { ...entry, nutr: structuredClone(nutr) }
     : null;
 
-  const fields = ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar'];
-  fields.forEach(f => {
-    const el = document.getElementById(`dietNutr${f}`);
-    if (el) el.value = (nutr && nutr[f.toLowerCase()] != null) ? nutr[f.toLowerCase()] : '';
+  Object.keys(NUTRIENTS).forEach(key => {
+    const el = document.getElementById(nutrientInputId(key));
+    if (el) el.value = nutr?.[key] ?? '';
   });
 
   // Prefill amount and unit with last-used values
@@ -462,7 +462,13 @@ function prefillDietNutr(foodName) {
   if (entry?.ambiguous) document.getElementById('dietNutritionStatus').textContent = 'Several preparations/products share this name. Select the exact saved default in Food details / saved defaults.';
 }
 
-const KNOWN_NUTR_KEYS = new Set(['calories','protein','carbs','fat','fiber','potassium','sodium','sugar']);
+const KNOWN_NUTR_KEYS = new Set(Object.keys(NUTRIENTS));
+
+function foodNutritionSourceText(food) {
+  const source = food.nutritionSource;
+  return source ? `${source.quality} nutrition${source.retrievedAt ? ` · ${source.retrievedAt}` : ''}${source.note ? ` · ${source.note}` : ''}`
+    : 'Nutrition provenance not recorded for this entry.';
+}
 
 function calorieSummaryText(summary) {
   const calories = summary.calories % 1 === 0 ? summary.calories.toLocaleString() : summary.calories.toFixed(1);
@@ -524,17 +530,13 @@ function renderDietAllTimeLog() {
     let nutrHtml = '';
     if (food.nutr) {
       const pills = [];
-      if (food.nutr.calories != null)   pills.push(`🔥 ${food.nutr.calories} kcal`);
-      if (food.nutr.protein != null)    pills.push(`💪 ${food.nutr.protein}g protein`);
-      if (food.nutr.carbs != null)      pills.push(`🌾 ${food.nutr.carbs}g carbs`);
-      if (food.nutr.fat != null)        pills.push(`🫙 ${food.nutr.fat}g fat`);
-      if (food.nutr.fiber != null)      pills.push(`🌿 ${food.nutr.fiber}g fiber`);
-      if (food.nutr.potassium != null)  pills.push(`🍌 ${food.nutr.potassium}% K`);
-      if (food.nutr.sodium != null)     pills.push(`🧂 ${food.nutr.sodium}mg Na`);
-      if (food.nutr.sugar != null)      pills.push(`🍬 ${food.nutr.sugar}g sugar`);
+      const recorded = recordedNutrientValues(food.nutr);
+      Object.entries(NUTRIENT_DEFINITIONS).forEach(([key, definition]) => {
+        if (recorded[key] != null) pills.push(`${definition.label}: ${recorded[key]} ${definition.unit}`);
+      });
       // Custom nutrients (any key not in the known set)
       Object.entries(food.nutr).forEach(([key, val]) => {
-        if (!KNOWN_NUTR_KEYS.has(key) && val != null) {
+        if (!KNOWN_NUTR_KEYS.has(key) && !recordedNutrientKey(key) && val != null) {
           pills.push(`✨ ${key}: ${val}`);
         }
       });
@@ -549,6 +551,8 @@ function renderDietAllTimeLog() {
       </div>
       <div class="diet-log-entry__date">${escapeHtml(dateStr)} · <span>${mealTime || 'time not recorded'}</span> <label>Time <input class="diet-log-time" type="time" aria-label="Edit meal time" value="${mealTime}" /></label></div>
       ${nutrHtml}
+      <p class="diet-nutr-card__note">${escapeHtml(foodNutritionSourceText(food))}</p>
+      ${(food.nutritionSource?.sources || []).map(source => `<a href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(source.title || source.url)}</a>`).join(' ')}
       <div class="diet-add-nutr-row">
         <button class="diet-add-nutr-btn" type="button">＋ Add Nutrient</button>
         <div class="diet-add-nutr-form" hidden>
@@ -575,7 +579,7 @@ function refreshDietFoodSuggestions() {
 function recordDietIntake(fields) {
   const intake = persistDietIntake(fields, getFitnessData, saveFitnessData);
   if (!intake) return null;
-  if (intake.nutr) setDietNutrCache(intake.name, intake.nutr, intake.amount, intake.unit);
+  if (intake.nutr) setDietNutrCache(intake.name, intake.nutr, intake.amount, intake.unit, intake.nutritionSource);
   displayRecentFoods();
   refreshDietFoodSuggestions();
   renderDietAllTimeLog();
@@ -591,13 +595,41 @@ document.addEventListener('DOMContentLoaded', () => {
   const rawFoodModal = document.getElementById('rawFoodModal');
   const rawFoodForm = document.getElementById('rawFoodForm');
   const quickLogButton = document.getElementById('dietQuickLogBtn');
-  initNutritionLookup({ load: getFitnessData, save: saveFitnessData, apply: card => {
+  const micros = document.createElement('details');
+  micros.id = 'dietMicronutrients';
+  const summary = document.createElement('summary');
+  summary.textContent = 'Vitamins, minerals and additional nutrients';
+  const note = document.createElement('p');
+  note.className = 'diet-nutr-card__note';
+  note.textContent = 'All values apply to the amount above. Leave unavailable nutrients blank, not zero. Potassium uses %DV (100% = 4700 mg); vitamin D uses IU (40 IU = 1 mcg). RAE, DFE and NE require the stated nutrient equivalents.';
+  const grid = document.createElement('div');
+  grid.className = 'diet-nutr-grid';
+  for (const [key, definition] of Object.entries(NUTRIENT_DEFINITIONS)) {
+    if (document.getElementById(nutrientInputId(key))) continue;
+    const field = document.createElement('div');
+    field.className = 'diet-nutr-field';
+    const label = document.createElement('label');
+    label.className = 'diet-label';
+    label.htmlFor = nutrientInputId(key);
+    label.textContent = NUTRIENTS[key];
+    const input = document.createElement('input');
+    input.id = nutrientInputId(key);
+    input.type = 'number'; input.min = '0'; input.step = 'any';
+    input.className = 'diet-input diet-input--nutr';
+    input.placeholder = definition.unit;
+    field.append(label, input); grid.append(field);
+  }
+  document.getElementById('dietNutrPotassium').step = 'any';
+  micros.append(summary, note, grid);
+  document.getElementById('dietNutrCard').append(micros);
+  initNutritionLookup({ load: getFitnessData, save: saveFitnessData, cached: getDietNutrCache,
+    saveCache: card => setDietNutrCache(card.name, card.nutr, card.amount, card.unit, card), apply: card => {
     _dietNutrBase = { ...card, approved: card.approved === true };
-    for (const field of ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar']) document.getElementById(`dietNutr${field}`).value = '';
+    for (const key of Object.keys(NUTRIENTS)) document.getElementById(nutrientInputId(key)).value = '';
     recalcDietNutrForAmount();
   }, clear: () => {
     _dietNutrBase = null;
-    for (const field of ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar']) document.getElementById(`dietNutr${field}`).value = '';
+    for (const key of Object.keys(NUTRIENTS)) document.getElementById(nutrientInputId(key)).value = '';
   } });
   function closeRawFood() {
     rawFoodModal.classList.add('hidden');
@@ -706,15 +738,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dietFoodUnitEl) {
     dietFoodUnitEl.addEventListener('change', () => { updateNutrCardTitle(); recalcDietNutrForAmount(); });
   }
-  for (const field of ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar']) {
-    document.getElementById(`dietNutr${field}`)?.addEventListener('input', () => {
+  for (const key of Object.keys(NUTRIENTS)) {
+    document.getElementById(nutrientInputId(key))?.addEventListener('input', () => {
       // A one-off edit becomes the current form's base, never a saved default.
       const nutr = {};
-      for (const name of ['Calories', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Potassium', 'Sodium', 'Sugar']) {
-        const raw = document.getElementById(`dietNutr${name}`).value;
-        if (raw !== '') nutr[name.toLowerCase()] = Number(raw);
+      for (const key of Object.keys(NUTRIENTS)) {
+        const raw = document.getElementById(nutrientInputId(key)).value;
+        if (raw !== '') nutr[key] = Number(raw);
       }
-      _dietNutrBase = { nutr, amount: Number(document.getElementById('dietFoodAmount').value), unit: document.getElementById('dietFoodUnit').value };
+      _dietNutrBase = { nutr, amount: Number(document.getElementById('dietFoodAmount').value), unit: document.getElementById('dietFoodUnit').value,
+        quality: 'user-entered', sources: [], note: 'User-entered or edited nutrition.' };
     });
   }
 
@@ -730,15 +763,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Collect nutritional info
       const nutr = {};
-      const nutrMap = { calories: 'Calories', protein: 'Protein', carbs: 'Carbs', fat: 'Fat',
-                        fiber: 'Fiber', potassium: 'Potassium', sodium: 'Sodium', sugar: 'Sugar' };
       let hasNutr = false;
-      Object.entries(nutrMap).forEach(([key, id]) => {
-        const val = document.getElementById(`dietNutr${id}`)?.value;
+      Object.keys(NUTRIENTS).forEach(key => {
+        const val = document.getElementById(nutrientInputId(key))?.value;
         if (val !== '' && val != null) { nutr[key] = parseFloat(val); hasNutr = true; }
       });
 
-      if (!recordDietIntake({ name, amount, unit, nutr: hasNutr ? nutr : undefined, time: document.getElementById('dietFoodTime').value })) return;
+      if (!recordDietIntake({ name, amount, unit, nutr: hasNutr ? nutr : undefined,
+        nutritionSource: hasNutr ? { quality: _dietNutrBase?.quality || 'user-entered', sources: _dietNutrBase?.sources || [],
+          note: _dietNutrBase?.note || '', retrievedAt: _dietNutrBase?.retrievedAt || '' } : undefined,
+        time: document.getElementById('dietFoodTime').value })) return;
       _dietNutrBase = null;
       dietForm.reset();
       updateNutrCardTitle();
@@ -802,11 +836,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (foodData.foods[idx]) {
           if (!foodData.foods[idx].nutr) foodData.foods[idx].nutr = {};
           // Sanitize key: lowercase, alphanumeric and underscores only
-          const key = nutrName.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-          foodData.foods[idx].nutr[key] = nutrVal;
+          const compactName = nutrName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const knownKey = Object.keys(NUTRIENTS).find(key => key.toLowerCase() === compactName
+            || NUTRIENT_DEFINITIONS[key].label.toLowerCase().replace(/[^a-z0-9]/g, '') === compactName);
+          const key = knownKey || nutrName.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+          const value = knownKey ? parseRecordedNutrient(nutrVal, knownKey) : nutrVal;
+          if (value === null) {
+            alert(`Enter a non-negative ${NUTRIENT_DEFINITIONS[knownKey].unit} value for ${NUTRIENT_DEFINITIONS[knownKey].label}. No nutrient saved.`);
+            return;
+          }
+          foodData.foods[idx].nutr[key] = value;
+          foodData.foods[idx].nutritionSource = { quality: 'user-entered', sources: [],
+            retrievedAt: '', note: 'Food nutrition edited manually.' };
           saveFitnessData(foodData);
         }
         renderDietAllTimeLog();
+        renderRawIntakeDVCard();
       }
     });
   }
@@ -886,31 +931,18 @@ function displayCurrentWeight() {
 }
 // ── Daily Value Nutrition Card (Raw Intake side panel) ─────────────────────
 
-/** Master list of all trackable nutrients with FDA/WHO default daily goals */
-const INTAKE_DV_MASTER = {
-  calories:     { label: 'Calories',    unit: 'kcal', goal: 2000,  icon: '🔥' },
-  protein:      { label: 'Protein',     unit: 'g',    goal: 50,    icon: '💪' },
-  fat:          { label: 'Fat',         unit: 'g',    goal: 65,    icon: '🫙' },
-  carbs:        { label: 'Carbs',       unit: 'g',    goal: 275,   icon: '🌾' },
-  sugar:        { label: 'Sugar',       unit: 'g',    goal: 25,    icon: '🍬' },
-  fiber:        { label: 'Fiber',       unit: 'g',    goal: 28,    icon: '🌿' },
-  sodium:       { label: 'Sodium',      unit: 'mg',   goal: 2300,  icon: '🧂' },
-  potassium:    { label: 'Potassium',   unit: 'mg',   goal: 3400,  icon: '🍌', factor: 34 }, // stored as %DV; 1 %DV = 34 mg
-  magnesium:    { label: 'Magnesium',   unit: 'mg',   goal: 400,   icon: '🔩' },
-  iron:         { label: 'Iron',        unit: 'mg',   goal: 18,    icon: '⚙️' },
-  calcium:      { label: 'Calcium',     unit: 'mg',   goal: 1000,  icon: '🦷' },
-  vitaminC:     { label: 'Vitamin C',   unit: 'mg',   goal: 90,    icon: '🍊' },
-  vitaminD:     { label: 'Vitamin D',   unit: 'IU',   goal: 800,   icon: '☀️' },
-  zinc:         { label: 'Zinc',        unit: 'mg',   goal: 11,    icon: '⚡' },
-  saturatedFat: { label: 'Sat. Fat',    unit: 'g',    goal: 20,    icon: '🥩' },
-  cholesterol:  { label: 'Cholesterol', unit: 'mg',   goal: 300,   icon: '🫀' },
-};
+const nutrientIcons = { calories: '🔥', protein: '💪', fat: '🫙', carbs: '🌾', sugar: '🍬',
+  fiber: '🌿', sodium: '🧂', potassium: '🍌', magnesium: '🔩', iron: '⚙️',
+  calcium: '🦷', vitaminC: '🍊', vitaminD: '☀️', zinc: '⚡', saturatedFat: '🥩', cholesterol: '🫀' };
+const INTAKE_DV_MASTER = Object.fromEntries(Object.entries(NUTRIENT_DEFINITIONS).map(([key, definition]) => [
+  key, { ...definition, unit: definition.displayUnit || definition.unit, icon: nutrientIcons[key] || '✨' },
+]));
 
 /** Backward-compat alias used by other code */
 const INTAKE_DV_DAILY = INTAKE_DV_MASTER;
 
 /** Nutrients shown by default (matching the original list) */
-const DV_DEFAULT_VISIBLE = ['calories','protein','fat','sugar','potassium','magnesium','iron','calcium'];
+const DV_DEFAULT_VISIBLE = ['calories','protein','fat','sugar','potassium','magnesium','iron','calcium','iodine','copper'];
 
 const DV_VISIBLE_KEY = 'dvVisibleNutrients';
 const DV_CUSTOM_GOALS_KEY = 'dvCustomGoals';
@@ -963,35 +995,14 @@ function renderRawIntakeDVCard() {
 
   const days = INTAKE_PERIOD_DAYS[_rawIntakePeriod] || 1;
   const data = getFitnessData();
-  // Set cutoff to the start of the earliest day in the selected period
-  // (e.g. daily = today only, weekly = today + previous 6 days = 7 days inclusive)
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days + 1);
-  cutoff.setHours(0, 0, 0, 0);
-
-  const foods = (data.foods || []).filter(food => {
-    const d = new Date(food.date || food.timestamp || '');
-    return !isNaN(d) && d >= cutoff;
-  });
-
-  // Sum nutrients across ALL master nutrients for the period
-  const totals = {};
-  Object.keys(INTAKE_DV_MASTER).forEach(k => { totals[k] = 0; });
-  foods.forEach(food => {
-    if (!food.nutr) return;
-    Object.entries(INTAKE_DV_MASTER).forEach(([key, cfg]) => {
-      const raw = food.nutr[key];
-      if (raw != null && !isNaN(parseFloat(raw))) {
-        totals[key] += parseFloat(raw) * (cfg.factor || 1);
-      }
-    });
-  });
+  const foods = foodsInNutritionPeriod(data.foods, getTodayInUserTz(), days);
+  const totals = summarizeNutrients(foods);
 
   const todayCalories = summarizeCalories(data.foods || [], getTodayInUserTz());
   const goalMultiplier = days;
   const calGoal = getDVEffectiveGoal('calories') * goalMultiplier;
   // overallPct may exceed 100 when intake surpasses the daily calorie goal
-  const overallPct = calGoal > 0 ? Math.round((totals.calories / calGoal) * 100) : 0;
+  const overallPct = calGoal > 0 && totals.calories.total !== null ? Math.round((totals.calories.total / calGoal) * 100) : null;
 
   const periodLabel = { daily: 'Today', weekly: 'This Week', monthly: 'This Month', annual: 'This Year' }[_rawIntakePeriod] || '';
 
@@ -1002,9 +1013,9 @@ function renderRawIntakeDVCard() {
       const cfg = INTAKE_DV_MASTER[key];
       const effectiveGoal = getDVEffectiveGoal(key);
       const goal = effectiveGoal * goalMultiplier;
-      const val = totals[key] || 0;
-      const pct = goal > 0 ? Math.min(100, Math.round((val / goal) * 100)) : 0; // capped at 100 for progress-bar display
-      const valFmt = val % 1 === 0 ? val.toLocaleString() : val.toFixed(1);
+      const { total: val, knownEntries, totalEntries } = totals[key];
+      const pct = val !== null && goal > 0 ? Math.round((val / goal) * 100) : null;
+      const valFmt = val === null ? 'Unknown' : val.toLocaleString(undefined, { maximumSignificantDigits: 12 });
       const goalFmt = goal % 1 === 0 ? goal.toLocaleString() : goal.toFixed(1);
       const barColor = pct >= 100 ? '#00ff99' : pct >= 75 ? '#00e5ff' : pct >= 50 ? '#ffcc00' : '#ff6e6e';
       const isCustom = getDVCustomGoals()[key] !== undefined && getDVCustomGoals()[key] !== null;
@@ -1013,20 +1024,22 @@ function renderRawIntakeDVCard() {
         <div class="dv-row__main">
           <span class="dv-row__icon">${cfg.icon}</span>
           <span class="dv-row__label">${cfg.label}</span>
-          <div class="dv-row__bar-wrap"><div class="dv-row__bar" style="width:${pct}%;background:${barColor};"></div></div>
-          <button class="dv-row__pct dv-row__pct--btn" data-nutr-key="${key}" title="Customize goal for ${cfg.label}" aria-label="Customize ${cfg.label} goal">${pct}%${customBadge}</button>
+          <div class="dv-row__bar-wrap"><div class="dv-row__bar" style="width:${Math.min(100, pct || 0)}%;background:${barColor};"></div></div>
+          <button class="dv-row__pct dv-row__pct--btn" data-nutr-key="${key}" title="Customize goal for ${cfg.label}" aria-label="Customize ${cfg.label} goal">${pct === null ? '—' : `${pct}%`}${customBadge}</button>
         </div>
-        <div class="dv-row__vals">${valFmt} / ${goalFmt} ${cfg.unit}</div>
+        <div class="dv-row__vals">${valFmt}${goal > 0 ? ` / ${goalFmt}` : ''} ${cfg.unit}${knownEntries < totalEntries && knownEntries ? ' · partial known total' : ''}</div>
+        <div class="dv-row__coverage">${knownEntries} of ${totalEntries} food entries have ${cfg.label.toLowerCase()} data</div>
       </div>`;
     }).join('');
 
   card.innerHTML = `
     <div class="dv-summary-header">
       <span class="dv-summary-period">${periodLabel}</span>
-      <span class="dv-summary-overpct">${overallPct}% DV</span>
+      <span class="dv-summary-overpct">${overallPct === null ? 'Calories unknown' : `${overallPct}% calorie reference`}</span>
     </div>
     <div class="dv-rows">${rows}</div>
     <p class="dv-calorie-total" id="dv-daily-calories">Today's calories: ${escapeHtml(calorieSummaryText(todayCalories))}</p>
+    <p class="diet-nutr-card__note">Known food totals only; missing nutrients are unknown, not zero. Partial totals are not total intake. Supplement doses are not counted as nutrient content. <a href="${NUTRIENT_REFERENCE_URL}" target="_blank" rel="noopener noreferrer">FDA label references</a> are not personal prescriptions or deficiency diagnoses. Total sugar has no FDA DV. Vitamin D: 800 IU = 20 mcg. Custom goals are preserved.</p>
     <button class="dv-manage-btn" id="dv-manage-open-btn" title="Add or remove nutrients from tracking">⚙️ Manage Nutrients</button>
   `;
 }
@@ -1069,7 +1082,7 @@ function openDVGoalModal(key) {
 
   const defaultGoal = cfg.goal;
   const customGoal = getDVCustomGoals()[key];
-  const currentGoal = customGoal != null ? customGoal : defaultGoal;
+  const currentGoal = customGoal != null ? customGoal : defaultGoal ?? '';
 
   const body = document.getElementById('dv-goal-modal-body');
   if (body) {
@@ -1081,7 +1094,7 @@ function openDVGoalModal(key) {
       <label class="dv-goal-label">Daily Goal (${cfg.unit})
         <input id="dv-goal-input" class="dv-goal-input" type="number" min="0" step="any" value="${currentGoal}" />
       </label>
-      <p class="dv-goal-hint">FDA/WHO default: <strong>${defaultGoal} ${cfg.unit}</strong></p>
+      <p class="dv-goal-hint">${defaultGoal === null ? 'No FDA Daily Value for total sugar.' : `FDA label reference: <strong>${defaultGoal} ${cfg.unit}</strong>`} Not an individualized target or safe upper limit.</p>
       <div class="dv-goal-actions">
         <button id="dv-goal-save-btn" class="dv-goal-btn dv-goal-btn--primary">✅ Save Goal</button>
         <button id="dv-goal-reset-btn" class="dv-goal-btn dv-goal-btn--secondary">↩ Reset to Default</button>
@@ -1165,7 +1178,7 @@ function renderDVManageList() {
         <span class="dv-manage-icon">${cfg.icon}</span>
         <span class="dv-manage-name">${cfg.label}</span>
       </label>
-      <span class="dv-manage-goal">${effectiveGoal} ${cfg.unit}${customBadge}</span>
+      <span class="dv-manage-goal">${effectiveGoal === null ? 'No FDA DV' : `${effectiveGoal} ${cfg.unit}`}${customBadge}</span>
     </div>`;
   }).join('');
 
@@ -1378,25 +1391,18 @@ function showFoodNutrPopup(food, anchorElement) {
     popup.addEventListener('mouseleave', () => { popup.style.display = 'none'; });
   }
 
-  const nutr = food.nutr || {};
+  const nutr = recordedNutrientValues(food.nutr);
   const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '1 serving';
-  const fields = [
-    { key: 'calories',   label: 'Calories',     unit: 'kcal', icon: '🔥' },
-    { key: 'protein',    label: 'Protein',       unit: 'g',    icon: '💪' },
-    { key: 'carbs',      label: 'Carbs',         unit: 'g',    icon: '🌾' },
-    { key: 'fat',        label: 'Fat',           unit: 'g',    icon: '🫙' },
-    { key: 'fiber',      label: 'Fiber',         unit: 'g',    icon: '🌿' },
-    { key: 'potassium',  label: 'Potassium',     unit: '%DV',  icon: '🍌' },
-    { key: 'sodium',     label: 'Sodium',        unit: 'mg',   icon: '🧂' },
-    { key: 'sugar',      label: 'Sugar',         unit: 'g',    icon: '🍬' },
-  ];
+  const fields = Object.entries(NUTRIENT_DEFINITIONS).map(([key, definition]) => ({
+    key, ...definition, icon: nutrientIcons[key] || '✨',
+  }));
   const hasNutr = fields.some(f => nutr[f.key] != null);
   const rows = hasNutr
     ? fields.filter(f => nutr[f.key] != null).map(f =>
         `<div class="diet-nutr-field food-nutr-popup__row">
           <span class="food-nutr-popup__icon">${f.icon}</span>
           <span class="food-nutr-popup__label">${f.label}</span>
-          <span class="food-nutr-popup__val">${nutr[f.key]} ${f.unit}</span>
+          <span class="food-nutr-popup__val">${escapeHtml(nutr[f.key])} ${f.unit}</span>
         </div>`
       ).join('')
     : `<div style="color:rgba(180,220,240,0.5);font-size:0.78rem;text-align:center;">No nutrition data</div>`;
@@ -1404,9 +1410,10 @@ function showFoodNutrPopup(food, anchorElement) {
   popup.innerHTML = `
     <div class="diet-nutr-card__header">
       <span class="diet-nutr-card__icon">📊</span>
-      <span class="diet-nutr-card__title">${food.name} <em>for ${amountStr}</em></span>
+      <span class="diet-nutr-card__title">${escapeHtml(food.name)} <em>for ${escapeHtml(amountStr)}</em></span>
     </div>
     <div class="diet-nutr-grid">${rows}</div>
+    <p class="diet-nutr-card__note">${escapeHtml(foodNutritionSourceText(food))} Unlisted nutrients are unknown, not zero.</p>
   `;
 
   const rect = anchorElement.getBoundingClientRect();

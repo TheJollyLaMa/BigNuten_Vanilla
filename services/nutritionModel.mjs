@@ -1,4 +1,4 @@
-import { validateNutrition, nutritionUnitRatio, NUTRITION_UNITS } from '../js/nutritionDefaults.mjs';
+import { validateNutrition, nutritionUnitRatio, NUTRITION_UNITS, NUTRIENTS } from '../js/nutritionDefaults.mjs';
 
 const text = { type: 'string' };
 const nutrient = { type: ['number', 'null'] };
@@ -13,8 +13,8 @@ const properties = {
   sources: { type: 'array', items: { type: 'object', additionalProperties: false,
     properties: { url: text, title: text }, required: ['url', 'title'] } },
   nutr: { type: 'object', additionalProperties: false, properties: Object.fromEntries(
-    ['calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium', 'potassium'].map(key => [key, nutrient])),
-  required: ['calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium', 'potassium'] },
+    Object.keys(NUTRIENTS).map(key => [key, nutrient])),
+  required: Object.keys(NUTRIENTS) },
 };
 export const nutritionInstructions = `You fill a food-log nutrition card quickly, like a knowledgeable
 person who checked a few references. This is food logging, not medical care.
@@ -23,8 +23,8 @@ Always return the best practical card (found=true) for anything edible. Consider
 plausible interpretations of the food and pick the most likely one for how it is being logged
 (e.g. pasta measured in cups is cooked; plain "yogurt" is plain whole-milk yogurt). Do not ask
 for clarification. State the chosen interpretation in one short sentence in "assumption".
-For homemade or mixed foods, estimate from the main ingredients; trace additions such as
-probiotic cultures, spices or vitamins contribute negligible nutrition. For branded or packaged
+For homemade or mixed foods, estimate from the main ingredients. Do not assume added vitamins,
+minerals, fortified ingredients or iodized salt have negligible micronutrient content. For branded or packaged
 foods, use the current label when known, otherwise the closest typical equivalent.
 Return found=false only when the input is not food or drink.
 Prefer a 100 g base for solid foods (100 ml for drinks) with a short serving description.
@@ -36,7 +36,16 @@ unless it is the same dimension as the base unit (g/oz or ml/cup/tbsp/tsp/fl oz)
 converts itself. Volume units use US nutrition-label measures: cup=240 ml, tbsp=15, tsp=5, fl oz=30.
 Calories are kcal; protein/carbs/fat/fiber/sugar are grams; sodium is mg.
 Potassium is % Daily Value (4700 mg = 100%); use null if unknown.
-Fill every nutrient with a reasonable typical value; use null only when truly unknowable.
+Nutrient fields and exact units: ${Object.entries(NUTRIENTS).map(([key, label]) => `${key}: ${label}`).join('; ')}.
+Vitamin D stays in IU for legacy compatibility (1 mcg = 40 IU). Vitamin A is mcg RAE,
+folate is mcg DFE, niacin is mg NE, and vitamin E is mg alpha-tocopherol; do not guess
+these equivalents from an incompatible unit. Total sugar and added sugar are different.
+For macros, give a reasonable typical estimate when supported. For micronutrients,
+use reliable composition data for this food/preparation or an explicit matching label.
+Missing label fields, missing iodine/trace-mineral data, or unspecified fortification
+are UNKNOWN, not zero. Return null rather than inventing values from macros or claiming
+precision for variable soil, salt or recipe composition. Numeric zero requires a known zero.
+Keep estimates labeled; no deficiency assessment, supplement dose or treatment advice.
 quality is "source-backed" only when every value and portion comes from a cited web source
 that you searched; otherwise "estimate". Use sourceUrl "" and sources [] unless copying a URL
 exactly from this request's web search results. Do not claim allergen safety, diagnosis or treatment.`;
