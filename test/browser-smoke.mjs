@@ -374,7 +374,10 @@ try {
           assert.match(await page.locator('#moon-info').innerText(), /Krishna Ekadasi/);
           assert.match(await page.locator('#moon-local-events').innerText(), /lunar day: 25/);
           assert.match(await page.locator('#ekadasi-info').innerText(), /Observance date is today: Nov 4/);
-          assert.match(await page.locator('#moon-modal').textContent(), /parana window unavailable/);
+          assert.match(await page.locator('#ekadasi-featured').innerText(), /Rama Ekadasi.*Nov 4/);
+          assert.equal(await page.locator('#moon-info-card #ekadasi-links').count(), 1);
+          assert.equal(await page.locator('#moon-notifications, #moon-notification-status, #ekadasi-info-card').count(), 0);
+          assert.doesNotMatch(await page.locator('#moon-modal').textContent(), /About Jolly|parana window unavailable/);
           await page.locator('#ss-now').click();
           await page.screenshot({ path: resolve(shots, `${name}-moon-tracker.png`) });
           await page.locator('#moon-location-details > summary').click();

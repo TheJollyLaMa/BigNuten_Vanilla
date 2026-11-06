@@ -3420,6 +3420,28 @@ svg text {
   margin-top: 0.3rem;
 }
 
+#moon-modal a,
+#moon-modal a:visited {
+  color: #b6f3dd;
+  text-decoration-color: #65b99c;
+  text-underline-offset: 3px;
+}
+#moon-modal a:hover, #moon-modal a:focus-visible { color: #fff3c4; }
+#ekadasi-links [data-story], .ekadasi-story-feature {
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+#moon-modal .ekadasi-last { background: #d3eee3; color: #19382d; }
+#moon-modal .ekadasi-last a, #moon-modal .ekadasi-last a:visited { color: #184a38; text-decoration-color: currentColor; }
+#moon-modal .ekadasi-next { background: #284d43; color: #e4f9ef; }
+#moon-modal .ekadasi-next a, #moon-modal .ekadasi-next a:visited { color: #def7e9; text-decoration-color: currentColor; }
+#location-info-card > #ekadasi-info { margin-top: 0.65rem; }
+#ekadasi-links > details > summary { cursor: pointer; padding: 0.6rem 0; }
+#ekadasi-links form label { display: block; margin: 0.5rem 0; }
+#ekadasi-links input, #ekadasi-links select { max-width: 100%; }
+
 /* Featured Ekadasi card */
 #ekadasi-links .ekadasi-featured {
   background: rgba(0, 60, 80, 0.55);

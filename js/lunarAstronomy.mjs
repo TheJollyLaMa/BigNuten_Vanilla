@@ -79,7 +79,7 @@ export function localLunation(newMoon, observer) {
   if (!next) throw new Error('Next new moon unavailable.');
   const rises = riseEvents(Astronomy.Body.Moon, observer, newMoon, next.date);
   const sunrises = riseEvents(Astronomy.Body.Sun, observer, newMoon, new Date(next.date.getTime() + 3 * DAY));
-  const observances = [11, 25].map(day => selectJollyObservance(rises, sunrises, day));
+  const observances = [11, 25].map(day => ({ ...selectJollyObservance(rises, sunrises, day), newMoon }));
   return { newMoon, nextNewMoon: next.date, rises, sunrises, observances };
 }
 
@@ -88,18 +88,22 @@ export function localCalendar(value, latitude, longitude, timeZone) {
   const observer = observerFor(latitude, longitude);
   localDate(state.date, timeZone);
   const cycle = localLunation(state.newMoon, observer);
+  const previousMoon = Astronomy.SearchMoonPhase(0, new Date(state.newMoon.getTime() - DAY), -32);
+  if (!previousMoon) throw new Error('Previous new moon unavailable.');
+  const previousCycle = localLunation(previousMoon.date, observer);
   const nextCycle = localLunation(cycle.nextNewMoon, observer);
   const today = localDate(state.date, timeZone);
   const day = 1 + cycle.rises.filter(rise => rise <= state.date).length;
   const all = [...cycle.observances, ...nextCycle.observances];
   const upcoming = all.find(event => event.sunrise && localDate(event.sunrise, timeZone) >= today) || null;
-  const mostRecent = cycle.observances.filter(event => event.sunrise && event.sunrise <= state.date).at(-1) || null;
+  const surroundingObservances = [...previousCycle.observances, ...all];
+  const mostRecent = surroundingObservances.filter(event => event.sunrise && event.sunrise <= state.date).at(-1) || null;
   const sunrise = cycle.sunrises.find(rise => localDate(rise, timeZone) === today) || null;
   const sunset = upcoming?.sunrise
     ? Astronomy.SearchRiseSet(Astronomy.Body.Sun, observer, -1, upcoming.sunrise, -2)?.date || null
     : null;
   return {
-    ...state, ...cycle, day, sunrise, upcoming, mostRecent, sunset, today, timeZone,
+    ...state, ...cycle, day, sunrise, upcoming, mostRecent, surroundingObservances, sunset, today, timeZone,
     moonrise: cycle.rises.find(rise => localDate(rise, timeZone) === today) || null,
     isObservance: Boolean(upcoming?.sunrise && localDate(upcoming.sunrise, timeZone) === today),
   };
