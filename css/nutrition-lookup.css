@@ -18,3 +18,7 @@
 .nutrition-lookup a { color: #8ee9ff; overflow-wrap: anywhere; }
 .nutrition-lookup::backdrop { background: rgba(0, 0, 0, .65); }
 #dietNutritionGenie { margin-left: auto; width: auto; cursor: pointer; }
+#dietMicronutrients { margin: 12px 0; }
+#dietMicronutrients > summary { cursor: pointer; padding: 10px 0; }
+.dv-row__coverage { font-size: 0.7rem; opacity: 0.8; margin: 3px 0 7px; }
+.food-nutr-popup { max-height: 70vh; overflow-y: auto; }

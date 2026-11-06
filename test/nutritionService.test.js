@@ -181,6 +181,57 @@ const publicCard = {
   nutr: { calories: 158, protein: 5.8 }, quality: 'source-backed',
   retrievedAt: '2026-11-02T00:00:00Z', sources: [{ url: 'https://example.com/pasta', title: 'Synthetic source' }],
 };
+test('legacy shared cards get one durable micronutrient attempt on use, preserving values across restart', async () => {
+  const { mkdtemp, rm } = require('node:fs/promises');
+  const { tmpdir } = require('node:os');
+  const { join } = require('node:path');
+  const { DatabaseSync } = await import('node:sqlite');
+  const { nutritionKey } = await import('../services/nutritionModel.mjs');
+  const directory = await mkdtemp(join(tmpdir(), 'bignuten-micros-'));
+  const food = { name: publicCard.name, kind: publicCard.kind, preparation: publicCard.preparation };
+  for (const outcome of ['success', 'unknown', 'failure', 'incompatible', 'not-found']) {
+    let f;
+    try {
+      const settings = { stateFile: join(directory, `${outcome}.sqlite`), maxCalls: 1 };
+      let calls = 0;
+      const dependencies = { modelCall: async () => {
+        calls++;
+        if (outcome === 'failure') throw new Error('Synthetic failure');
+        if (outcome === 'not-found') return { found: false, reason: 'No matching composition data' };
+        return { found: true, card: { ...publicCard, amount: 200, unit: outcome === 'incompatible' ? 'ml' : 'g',
+          nutr: { calories: 900, protein: 99, iodine: outcome === 'unknown' ? null : 30, copper: 0.18 } } };
+      } };
+      f = await setup({ settings, dependencies });
+      const db = new DatabaseSync(settings.stateFile);
+      db.prepare('INSERT INTO foods VALUES(?,?)').run(nutritionKey(food), JSON.stringify(publicCard)); db.close();
+      assert.equal((await f.request('/foods', { input: food })).body.enrichmentNeeded, true);
+      const session = await f.signin();
+      const result = await f.request('/lookup', { input: food, consent: true }, session.token);
+      assert.equal(result.status, ['failure', 'incompatible'].includes(outcome) ? 503 : 200);
+      assert.equal(calls, 1);
+      await f.close(); f = null;
+      f = await setup({ settings, dependencies });
+      const shared = (await f.request('/foods', { input: food })).body;
+      assert.equal(shared.enrichmentNeeded, false);
+      assert.equal(shared.card.nutr.calories, 158);
+      assert.equal(shared.card.nutr.protein, 5.8);
+      if (['success', 'unknown'].includes(outcome)) {
+        assert.equal(shared.card.nutr.copper, 0.09);
+        assert.equal(shared.card.nutr.iodine, outcome === 'unknown' ? undefined : 15);
+        assert.equal(shared.card.nutritionCoverageVersion, 1);
+      } else {
+        assert.equal(shared.enrichmentUnavailable, true);
+        assert.ok(!Object.hasOwn(shared.card.nutr, 'copper'));
+      }
+      const next = await f.signin();
+      const repeat = await f.request('/lookup', { input: food, consent: true }, next.token);
+      assert.equal(repeat.status, 200);
+      assert.equal(repeat.body.cached, true);
+      assert.equal(calls, 1, 'Unknowns and failures never trigger another paid micronutrient check, even after restart.');
+    } finally { if (f) await f.close(); }
+  }
+  await rm(directory, { recursive: true, force: true });
+});
 test('address-only pilot is explicit, nonce/origin bound, rechecks invitations and needs no signature', async () => {
   const f = await setup({ settings: { accessMode: 'address-only' } });
   try {

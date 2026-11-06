@@ -8,7 +8,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { getAddress, verifyMessage } from 'ethers';
 import { pathToFileURL } from 'node:url';
 import { lookupNutrition, validateLookup, nutritionKey } from './nutritionModel.mjs';
-import { validateNutrition, portionBaseAmount, NUTRITION_UNITS } from '../js/nutritionDefaults.mjs';
+import { validateNutrition, portionBaseAmount, NUTRITION_UNITS, NUTRITION_COVERAGE_VERSION,
+  needsNutritionEnrichment, enrichNutritionCard } from '../js/nutritionDefaults.mjs';
 import { chatWithPrivateGenie, validateGenieInput } from './genieModel.mjs';
 import { draftResearchProtocol, fetchYoutubeCaptions, fetchYoutubeOEmbed, validateResearchProtocolInput, validateResearchVideoId } from './researchModel.mjs';
 
@@ -43,6 +44,9 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
     INSERT OR IGNORE INTO budget VALUES(1,0);`);
   if (!['signed', 'address-only'].includes(settings.accessMode || 'signed')) throw new Error('Genie access mode must be signed or address-only.');
   db.exec('CREATE TABLE IF NOT EXISTS foods(identity TEXT PRIMARY KEY, card TEXT NOT NULL);');
+  db.exec('CREATE TABLE IF NOT EXISTS nutrition_enrichment(identity TEXT PRIMARY KEY, version INTEGER NOT NULL);');
+  const enrichmentAttempted = input => Boolean(db.prepare('SELECT 1 FROM nutrition_enrichment WHERE identity=? AND version=?')
+    .get(nutritionKey(input), NUTRITION_COVERAGE_VERSION));
   const foodLookups = new Set();
   function sharedFood(input) {
     const stored = db.prepare('SELECT card FROM foods WHERE identity=?').get(nutritionKey(input));
@@ -120,7 +124,9 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
         let input;
         try { input = validateLookup(payload.input); } catch (error) { throw problem(400, error.message); }
         const card = sharedFood(input);
-        return send(200, { found: Boolean(card), ...(card ? { card } : {}), cached: Boolean(card) });
+        return send(200, { found: Boolean(card), ...(card ? { card,
+          enrichmentNeeded: needsNutritionEnrichment(card) && !enrichmentAttempted(input),
+          enrichmentUnavailable: needsNutritionEnrichment(card) && enrichmentAttempted(input) } : {}), cached: Boolean(card) });
       }
       ready();
       if (request.method === 'POST' && request.url === '/challenge') {
@@ -219,13 +225,18 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
         let input;
         try { input = nutrition ? validateLookup(payload.input) : validateGenieInput(payload); } catch (error) { throw problem(400, error.message); }
         const foodKey = nutrition ? nutritionKey(input) : null;
+        const cached = nutrition && !input.label ? sharedFood(input) : null;
+        const enrich = cached && needsNutritionEnrichment(cached) && !enrichmentAttempted(input);
         if (nutrition) {
-          const cached = !input.label && sharedFood(input);
-          if (cached && (!payload.portionUnit || portionBaseAmount(cached, payload.portionUnit) !== null)) return send(200, { found: true, card: cached, cached: true, reason: 'Using shared community food facts. No provider call.', usage: usage(session.wallet) });
+          if (cached && !enrich && (!payload.portionUnit || portionBaseAmount(cached, payload.portionUnit) !== null)) return send(200, { found: true, card: cached, cached: true,
+            enrichmentUnavailable: needsNutritionEnrichment(cached),
+            reason: needsNutritionEnrichment(cached) ? 'Previous micronutrient check did not complete. Existing facts retained; no automatic retry.' : 'Using shared community food facts. No provider call.', usage: usage(session.wallet) });
           if (foodLookups.has(foodKey)) throw problem(429, 'This food is already being fetched for the community. Try again shortly to reuse its facts.');
         }
         if (active.has(key) || active.size >= 3) throw problem(429, 'Genie service is busy. Please wait.');
         reserveCall(session.wallet);
+        if (enrich) db.prepare('INSERT INTO nutrition_enrichment VALUES(?,?) ON CONFLICT(identity) DO UPDATE SET version=excluded.version')
+          .run(foodKey, NUTRITION_COVERAGE_VERSION);
         if (nutrition) foodLookups.add(foodKey);
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(problem(504, nutrition
@@ -248,12 +259,16 @@ export function createNutritionServer(settings, { modelCall = lookupNutrition, g
           if (!reportedUsage) recordUsage(result.usage);
           controller.signal.throwIfAborted(); ready(); authorized(request);
           if (nutrition && result.found) {
-            result.card = validateNutrition(result.card);
+            result.card = validateNutrition({ ...result.card, nutritionCoverageVersion: NUTRITION_COVERAGE_VERSION });
             if (nutritionKey(result.card) !== foodKey) throw problem(502, 'The returned food identity changed. No nutrition was applied.');
+            if (enrich) {
+              if (result.card.quality === 'user-entered') throw problem(502, 'Genie did not return usable composition data. Existing food facts retained.');
+              result.card = enrichNutritionCard(cached, result.card);
+            }
             if (['source-backed', 'estimate'].includes(result.card.quality) && !input.label) {
               const existing = sharedFood(input);
               // A new estimate may add a missing portion, but never replaces a source-backed reference.
-              if (payload.portionUnit && portionBaseAmount(result.card, payload.portionUnit) !== null &&
+              if (enrich || payload.portionUnit && portionBaseAmount(result.card, payload.portionUnit) !== null &&
                   !(existing?.quality === 'source-backed' && result.card.quality !== 'source-backed')) {
                 db.prepare('INSERT INTO foods VALUES(?,?) ON CONFLICT(identity) DO UPDATE SET card=excluded.card').run(foodKey, JSON.stringify(result.card));
               } else db.prepare('INSERT OR IGNORE INTO foods VALUES(?,?)').run(foodKey, JSON.stringify(result.card));

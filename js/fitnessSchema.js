@@ -1,5 +1,5 @@
 import { normalizeBreathSessions } from './breathwork.js';
-import { validateNutrition } from './nutritionDefaults.mjs';
+import { validateNutrition, validateNutritionSource } from './nutritionDefaults.mjs';
 import { normalizeMetricLogs } from './metrics.js';
 import { normalizeGutHealth } from './gutHealth.mjs';
 import { normalizeWorkoutSession, normalizeMeasurement, measurementDayNumber } from './workoutBody.js';
@@ -94,10 +94,10 @@ function coerceObject(source, keys) {
 
 function normalizeFoodEntries(entries) {
   return entries.map(entry => {
-    if (!isPlainObject(entry) || entry.time === undefined) return entry;
-    if (typeof entry.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(entry.time)) return entry;
+    if (!isPlainObject(entry)) return entry;
     const normalized = { ...entry };
-    delete normalized.time;
+    if (entry.nutritionSource !== undefined) normalized.nutritionSource = validateNutritionSource(entry.nutritionSource);
+    if (entry.time !== undefined && !(typeof entry.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(entry.time))) delete normalized.time;
     return normalized;
   });
 }
