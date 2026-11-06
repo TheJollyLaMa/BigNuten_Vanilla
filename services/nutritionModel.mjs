@@ -26,6 +26,14 @@ for clarification. State the chosen interpretation in one short sentence in "ass
 For homemade or mixed foods, estimate from the main ingredients. Do not assume added vitamins,
 minerals, fortified ingredients or iodized salt have negligible micronutrient content. For branded or packaged
 foods, use the current label when known, otherwise the closest typical equivalent.
+When a brand/product appears in the food name, search for that exact product even if
+kind is "whole". Preserve the supplied identity fields; do not silently substitute
+a generic oyster or another brand for branded smoked oysters. User-provided label
+facts take precedence over generic estimates for matching fields. State explicitly
+when the exact product label could not be verified and keep unmatched micros unknown
+or clearly estimated from reliable matching composition data. A serving weight is
+the weight of ONE serving, never the number of servings eaten. Return nutrient values
+for the card base amount, with a matching serving measure (e.g. 1 serving = 65 g).
 Return found=false only when the input is not food or drink.
 Prefer a 100 g base for solid foods (100 ml for drinks) with a short serving description.
 In measures, amount units equal baseAmount of the card's base unit, e.g. 1 cup equals 140 g
@@ -82,7 +90,6 @@ export function nutritionKey(input) {
 export async function lookupNutrition({ apiKey, model, input, portionUnit, signal, fetchImpl = fetch,
   recordUsage = () => {} }) {
   const identity = validateLookup(input);
-  const search = identity.kind === 'packaged' || Boolean(identity.url);
   signal?.throwIfAborted();
   let response;
   try {
@@ -92,8 +99,8 @@ export async function lookupNutrition({ apiKey, model, input, portionUnit, signa
       body: JSON.stringify({ model, store: false, max_output_tokens: 3000,
         instructions: nutritionInstructions,
         input: JSON.stringify(portionUnit ? { food: identity, requestedPortionUnit: portionUnit } : { food: identity }),
-        ...(search ? { tools: [{ type: 'web_search' }], tool_choice: 'auto', max_tool_calls: 2,
-          include: ['web_search_call.action.sources'] } : {}),
+        tools: [{ type: 'web_search' }], tool_choice: 'auto', max_tool_calls: 2,
+        include: ['web_search_call.action.sources'],
         text: { format: { type: 'json_schema', name: 'bignuten_nutrition', strict: true,
           schema: { type: 'object', additionalProperties: false,
             properties: { found: { type: 'boolean' }, assumption: text, card: { type: 'object',

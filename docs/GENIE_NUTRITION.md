@@ -1,9 +1,10 @@
-# Genie nutrition lookup (#390, #403, #423)
+# Genie nutrition lookup (#390, #403, #423, #426)
 
 Open **Diet** and enter the food, quantity and unit. When the nutrient fields are
 blank, the card fills itself about a second later: first from the shared
 community library (free, no wallet), then, for invited wallets, from Genie.
-**Genie** can also be pressed manually. There is no separate review window,
+**Genie** explicitly rechecks a food, bypassing a previously wrong cached match.
+There is no separate review window,
 consent checkbox, sign-in button or clarification question. Logging remains a
 separate action.
 
@@ -20,19 +21,47 @@ and unit (failures are not retried automatically; press Genie to retry), and it
 is suppressed while any nutrient field has a value. Changing the food name
 clears figures that came from the previous food, unless you typed them.
 
-The inline **Food details / saved defaults** section supports preparation,
-exact product brand/market/barcode, manual serving descriptions and local
-defaults. Manual nutrient fields and **Use community food facts (no AI)** remain
-available without a wallet. Barcode camera scanning and label-photo recognition
-are not included.
+The form starts with food, amount, unit and time, followed by **Log Entry**,
+the nutrition card/Genie and expandable micronutrients. The daily editable log
+is at the bottom. The separate raw-food quick log, all-time list, calorie
+totals, defaults/portion-management controls and token counters are removed
+from this view; stored history and defaults are not deleted.
+
+An optional **Product label** disclosure accepts label facts or a product URL
+for an explicit Genie recheck. User-provided label facts take precedence over
+generic values. Label/URL requests are not published in the shared food cache.
+Manual nutrient entry and automatic shared-food reuse remain wallet-free.
+Barcode camera scanning and label-photo recognition are not included.
+
+### Correcting a meal
+
+Each entry in today's log has **Edit / redo** and **Remove**. Editing fills the
+same form and replaces only that entry on **Save changes**, preserving its
+original date. **Cancel edit** leaves the original unchanged. Removal requires
+confirmation and recalculates recent foods and nutrient totals. A changed or
+stale record is rejected rather than editing/deleting another meal by index.
+Saving while Genie is pending or the portion is undefined is blocked. Saving
+without nutrition requires confirmation; entries can still be intentionally
+logged without figures.
+
+Amount is a count of the selected unit: **1 serving (65 g)** and **65 g** are
+equivalent, while **65 servings (65 g)** means **4,225 g**. Large serving counts
+show a warning and require confirmation. They are never silently reinterpreted.
+The #426 screenshot reproduced exactly from the public generic-oyster cache:
+199 kcal/100 g × 65 g/serving × 65 servings = 8,407.75 kcal (displayed 8,408).
+That was also a generic estimate, not a verified Wegmans product label. The
+user-reported 160 kcal/10 g protein per 65 g must not be presented as a verified
+micronutrient composition. Private Brave entries require correction in that
+browser; deployment does not rewrite personal records.
 
 ## Estimates and sources
 
 Cards are labeled **Genie estimate** unless every value and portion comes from
 a web source the lookup actually searched, in which case they are
-**source-backed**. Generic and homemade foods use one fast structured call with
-no web search, so they are estimates with no source links. Packaged products
-(and lookups with a product URL) may use web search; unsearched or rewritten
+**source-backed**. Every provider request now permits web search, including
+brand names typed into the generic food field, so exact product verification
+is not gated on a hidden packaged-food selector. Generic/homemade results may
+still be estimates. Unsearched or rewritten
 URLs are dropped and the card is downgraded to an estimate rather than
 rejected. Estimates are good enough for practical food logging, not lab-grade
 or label-verified values, allergen-safety guarantees or dietary/medical advice.
@@ -145,25 +174,25 @@ source states them. When the selected unit has no portion yet (for example an
 older community card without a cup weight), Genie fills just that portion
 automatically for invited wallets, sending only the unit, not the amount eaten.
 
-The serving option displays its size. **Define / adjust this portion** sets a
-personal portion from a label or scale. Overrides stay local, mark the card
-user-entered and are kept across reloads only when saved as a default. They
-never overwrite the public reference. Old meals are unchanged.
+The serving option displays its size. For an incorrect portion, provide its
+label in **Product label** and press **Genie**, or use a known gram quantity.
+Undefined conversions block logging until corrected. Old meals are unchanged.
 
 ## Provider calls and budget
 
-Each Genie lookup is one provider call (at most two web-search tool uses for
-packaged products) reserved against the unchanged shared lifetime cap and the
+Each Genie lookup is one provider call (at most two optional web-search tool uses)
+reserved against the unchanged shared lifetime cap and the
 per-wallet rate limit. Community hits use none. There are no automatic paid
 retries. Nutrition has a 90-second timeout; Health, Yoga and Community retain
 their existing behavior.
 
-Approved defaults include exact identity/preparation, brand, market and barcode
-when supplied. Multiple defaults sharing a typed name do not auto-select an
-arbitrary product: choose the exact saved default in the inline details. Saved
-defaults prefill without another model call, and logging/one-off edits do not
-replace them. Edited figures save as user-entered defaults only when explicitly
-requested.
+Existing local defaults still prefill without a model call and are enriched
+on use when incomplete. Ambiguous names do not choose an arbitrary default.
+The form no longer exposes default creation/deletion. Explicit Genie refresh
+updates the matching cached/default facts, unlike automatic enrichment, which
+retains existing figures. One-off manual meal edits do not overwrite approved
+defaults. Budget accounting remains server-side; token totals are not displayed
+in the food-entry form.
 
 ## Shared public food library
 
@@ -180,6 +209,14 @@ conversation. User-entered cards, personal edits/defaults and pasted-label
 requests are not published. Shared data is public, not encrypted personal
 backup. Previously shared cards remain shared when someone deletes local health
 data.
+
+An explicit `POST /lookup` with `refresh: true` bypasses reuse and reserves a
+normal paid call. A valid provider result may replace even an old source-backed
+reference, with the new result's actual quality, so bad matches can be corrected
+without inventing a new food name. Failure leaves existing facts intact.
+Pasted-label and product-URL responses stay local rather than replacing public
+references. Refresh still honors invitation, consent, rate, concurrency and
+budget checks; it is never sent by automatic enrichment.
 
 `POST /foods` reads exact matches from approved origins without a wallet, model
 call or enabled provider key. `POST /lookup` also rechecks the library before

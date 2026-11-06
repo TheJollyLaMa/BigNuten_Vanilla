@@ -32,7 +32,7 @@ The matrix below retains its original e260f1a audit scope; see the current
 | --- | --- | --- | --- | --- |
 | Nutrition / raw intake panel → `index.html`, `js/app.js`, `#recent-foods-list` | Yes | PASS / smoke: content, daily/weekly/monthly/annual DV navigation, Genie | B | — |
 | Diet intake modal → `js/app.js`, `#dietModal` via `#dietBtn` | Yes | PASS / smoke: opens and closes | B | — |
-| Legacy raw-food modal → `js/app.js`, `#rawFoodModal` expects missing `#dietButton` | Markup/handler, unreachable | KNOWN GAP: assert present but hidden and missing opener; not a successful user journey | B (explicit discovery exception) | [#361](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/361), concurrent worker |
+| Unified Diet form → `js/app.js`, `#dietModal` | Yes | #426 removes the separate raw-food modal/opener. The daily log provides date-preserving edit/cancel and confirmed removal; nutrition stays in the main form | `test/browser-smoke.mjs`, `test/dietEntryRepair.test.js` | [#426](https://github.com/TheJollyLaMa/BigNuten_Vanilla/issues/426) |
 | Nutrient goal / manage nutrients → `js/app.js`, `#dv-goal-modal`, `#dv-manage-modal` | Yes | PASS / smoke: reachable from nutrition panel | B | — |
 | Exercise log / recent exercises → `js/app.js`, `#exercise-modal`, `#recent-exercises-list` | Yes | PASS / smoke: submit synthetic Push-ups, six reps, weight ten; recent log and add-to-workout button appear | B | — |
 | Workout set list → `js/app.js`, `#workout-set-list` | Yes | PASS / smoke: add logged exercise, content and Genie | B | — |
