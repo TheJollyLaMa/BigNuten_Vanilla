@@ -391,6 +391,48 @@ function setDietNutrCache(foodName, nutr, amount, unit, nutritionSource) {
 let _dietNutrBase = null;
 let _dietEditing = null;
 
+function handleFoodEntryAction(index, original, remove = false) {
+  try {
+    const data = getFitnessData();
+    changeDietEntry(data.foods, index, original, {});
+    const food = data.foods[index];
+    if (remove) {
+      if (!confirm(`Delete "${food.name}" from your food log? This also removes its contribution to your totals.`)) return;
+      data.foods = changeDietEntry(data.foods, index, original);
+      saveFitnessData(data);
+      if (_dietEditing) document.getElementById('dietCancelEdit').click();
+      displayRecentFoods(); refreshDietFoodSuggestions(); renderDietDailyLog(); renderDietDaySummary();
+      document.getElementById('dietEntryStatus').textContent = 'Entry deleted. You can log a corrected one above.';
+      return;
+    }
+    const form = document.getElementById('dietForm');
+    document.getElementById('dietBtn').click();
+    form.reset();
+    _dietEditing = { index, original };
+    document.getElementById('dietFoodName').value = food.name;
+    document.getElementById('dietFoodAmount').value = food.amount;
+    document.getElementById('dietFoodUnit').value = food.unit;
+    document.getElementById('dietFoodTime').value = food.time || getTimeInUserTz();
+    _dietNutrBase = { nutr: recordedNutrientValues(food.nutr), amount: food.amount, unit: food.unit,
+      ...(food.nutritionSource || { quality: 'user-entered', sources: [], note: 'Previously logged food; verify values.' }) };
+    for (const key of Object.keys(NUTRIENTS)) {
+      const value = parseRecordedNutrient(_dietNutrBase.nutr[key], key);
+      document.getElementById(nutrientInputId(key)).value = value ?? '';
+    }
+    form.dispatchEvent(new CustomEvent('nutrition:edit'));
+    document.getElementById('dietSubmit').textContent = 'Save changes';
+    document.getElementById('dietCancelEdit').hidden = false;
+    document.getElementById('dietEntryStatus').textContent = 'Editing this entry. Change the name or figures, or press Genie. Nothing changes until you save.';
+    updateNutrCardTitle();
+    document.getElementById('dietFoodName').focus({ preventScroll: true });
+    document.querySelector('.diet-modal-content').scrollTop = 0;
+    form.scrollIntoView({ block: 'start' });
+  } catch (error) {
+    document.getElementById('dietEntryStatus').textContent = error.message;
+    alert(error.message);
+  }
+}
+
 /** Updates the nutrition card sub-title to reflect the current amount and unit */
 function updateNutrCardTitle() {
   const label = document.getElementById('dietNutrCardServingLabel');
@@ -533,13 +575,15 @@ function renderDietDailyLog() {
         <span class="diet-log-entry__name">${escapeHtml(food.name)}</span>
         <span class="diet-log-entry__amount">${escapeHtml(amountStr)}</span>
       </div>
+      <div class="food-entry-actions">
+        <button class="diet-edit-entry" type="button">Edit</button>
+        <button class="diet-remove-entry" type="button">Delete</button>
+      </div>
       <div class="diet-log-entry__date">${escapeHtml(dateStr)} · <span>${mealTime || 'time not recorded'}</span> <label>Time <input class="diet-log-time" type="time" aria-label="Edit meal time" value="${mealTime}" /></label></div>
       ${nutrHtml}
       <p class="diet-nutr-card__note">${escapeHtml(foodNutritionSourceText(food))}</p>
       ${(food.nutritionSource?.sources || []).map(source => `<a href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(source.title || source.url)}</a>`).join(' ')}
       <div class="diet-add-nutr-row">
-        <button class="diet-edit-entry" type="button">Edit / redo</button>
-        <button class="diet-remove-entry" type="button">Remove</button>
         <button class="diet-add-nutr-btn" type="button">＋ Add Nutrient</button>
         <div class="diet-add-nutr-form" hidden>
           <input class="diet-input diet-nutr-name-input" type="text" placeholder="Name (e.g. Calcium)" maxlength="40" />
@@ -760,39 +804,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const li = e.target.closest('.diet-log-entry');
       if (!li) return;
       if (e.target.matches('.diet-remove-entry, .diet-edit-entry')) {
-        const index = Number(li.dataset.foodIdx);
-        const data = getFitnessData();
-        try {
-          if (e.target.matches('.diet-remove-entry')) {
-            if (!confirm(`Remove "${data.foods[index]?.name}" from your food log? This also removes its contribution to your totals.`)) return;
-            data.foods = changeDietEntry(data.foods, index, li._foodSnapshot);
-            saveFitnessData(data);
-            if (_dietEditing) document.getElementById('dietCancelEdit').click();
-            displayRecentFoods(); refreshDietFoodSuggestions(); renderDietDailyLog(); renderDietDaySummary();
-            document.getElementById('dietEntryStatus').textContent = 'Entry removed. You can log a corrected one above.';
-          } else {
-            changeDietEntry(data.foods, index, li._foodSnapshot, {});
-            const food = data.foods[index];
-            dietForm.reset();
-            _dietEditing = { index, original: li._foodSnapshot };
-            document.getElementById('dietFoodName').value = food.name;
-            document.getElementById('dietFoodAmount').value = food.amount;
-            document.getElementById('dietFoodUnit').value = food.unit;
-            document.getElementById('dietFoodTime').value = food.time || getTimeInUserTz();
-            _dietNutrBase = { nutr: recordedNutrientValues(food.nutr), amount: food.amount, unit: food.unit,
-              ...(food.nutritionSource || { quality: 'user-entered', sources: [], note: 'Previously logged food; verify values.' }) };
-            for (const key of Object.keys(NUTRIENTS)) {
-              const value = parseRecordedNutrient(_dietNutrBase.nutr[key], key);
-              document.getElementById(nutrientInputId(key)).value = value ?? '';
-            }
-            dietForm.dispatchEvent(new CustomEvent('nutrition:edit'));
-            document.getElementById('dietSubmit').textContent = 'Save changes';
-            document.getElementById('dietCancelEdit').hidden = false;
-            document.getElementById('dietEntryStatus').textContent = 'Editing this entry. Its original date is preserved; nothing changes until you save.';
-            document.getElementById('dietFoodName').focus();
-            updateNutrCardTitle();
-          }
-        } catch (error) { document.getElementById('dietEntryStatus').textContent = error.message; }
+        handleFoodEntryAction(Number(li.dataset.foodIdx), li._foodSnapshot, e.target.matches('.diet-remove-entry'));
         return;
       }
       const form = li.querySelector('.diet-add-nutr-form');
@@ -1260,51 +1272,35 @@ function displayRecentFoods() {
   renderRawIntakeDVCard();
 
   const data = getFitnessData();
-  const today = new Date().toISOString().split('T')[0];
-  const past7 = new Date();
-  past7.setDate(past7.getDate() - 6); // includes today
+  const recent = new Set(foodsInNutritionPeriod(data.foods, getTodayInUserTz(), 7));
+  const foods = (data.foods || []).map((food, index) => ({ food, index }))
+    .filter(({ food }) => recent.has(food)).reverse();
 
-  // Show all entries in last 7 days, newest first
-  const foods = (data.foods || []).filter(food => {
-    let foodDate = food.date || food.timestamp || '';
-    if (!foodDate) return false;
-    let dateObj;
-    if (foodDate.length === 10) { // YYYY-MM-DD
-      dateObj = new Date(foodDate);
-    } else {
-      dateObj = new Date(foodDate);
-    }
-    return dateObj >= past7;
-  }).reverse();
-
-  foods.forEach(food => {
+  foods.forEach(({ food, index }) => {
     const li = document.createElement('li');
+    li.className = 'diet-log-entry recent-food-entry';
     let desc = food.description ? ` (${food.description})` : '';
     const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '';
     const dateStr = food.date ? (food.date.length > 10 ? formatInUserTz(food.date, { year: 'numeric', month: 'short', day: 'numeric' }) : food.date) : '';
-    li.innerHTML = `<span class="supplement-name-hover">${escapeHtml(food.name)}</span>${escapeHtml(desc)} — ${escapeHtml(amountStr)} on ${escapeHtml(dateStr)} · ${escapeHtml(food.time || 'time not recorded')}`;
-    
-    li.addEventListener('mouseenter', () => showFoodNutrPopup(food, li));
-    li.addEventListener('mouseleave', hideFoodNutrPopup);
-
-    li.addEventListener('click', () => {
-      const data = getFitnessData();
-      const entries = data.foods.filter(f => f.name === food.name);
-      const last = entries.at(-1);
-      const confirmSame = confirm(`Log same intake: "${last.amount}${last.unit ? ' ' + last.unit : ''}" for ${last.name}? Click cancel to change.`);
-      const now = new Date();
-      const date = now.toISOString().split('T')[0];
-      const time = getTimeInUserTz(now);
-      if (confirmSame) {
-        data.foods.push({ ...last, date: now.toISOString(), time });
-      } else {
-        const newAmount = prompt(`Enter new amount for ${last.name}:`, last.amount);
-        if (newAmount) {
-          data.foods.push({ name: last.name, amount: parseFloat(newAmount) || newAmount, unit: last.unit, nutr: last.nutr, date: now.toISOString(), time });
-        }
-      }
-      saveFitnessData(data);
-      displayRecentFoods();
+    const nutr = recordedNutrientValues(food.nutr);
+    const pills = Object.entries(NUTRIENT_DEFINITIONS).filter(([key]) => nutr[key] != null)
+      .map(([key, definition]) => `<span class="diet-log-entry__nutr-pill">${escapeHtml(definition.label)}: ${escapeHtml(nutr[key])} ${escapeHtml(definition.unit)}</span>`).join('');
+    li.innerHTML = `
+      <div class="diet-log-entry__top"><span class="diet-log-entry__name">${escapeHtml(food.name)}${escapeHtml(desc)}</span><span class="diet-log-entry__amount">${escapeHtml(amountStr)}</span></div>
+      <div class="diet-log-entry__date">${escapeHtml(dateStr)} · ${escapeHtml(food.time || 'time not recorded')}</div>
+      <div class="food-entry-actions">
+        <button type="button" class="diet-edit-entry">Edit</button>
+        <button type="button" class="diet-remove-entry">Delete</button>
+      </div>
+      <details class="food-entry-nutrition"><summary>Nutrition details</summary>
+        <div class="diet-log-entry__nutr">${pills || '<span>No nutrition data recorded.</span>'}</div>
+        <p class="diet-nutr-card__note">${escapeHtml(foodNutritionSourceText(food))} Unlisted nutrients are unknown.</p>
+      </details>`;
+    const original = JSON.stringify(food);
+    li.addEventListener('click', event => {
+      if (!event.target.matches('.diet-edit-entry, .diet-remove-entry')) return;
+      event.stopPropagation();
+      handleFoodEntryAction(index, original, event.target.matches('.diet-remove-entry'));
     });
 
     list.appendChild(li);
@@ -1374,57 +1370,6 @@ function showFoodGraphPopup(foodName, anchorElement) {
     });
   }
 }
-// --- Food nutrition card popover for Raw Intake log ---
-function showFoodNutrPopup(food, anchorElement) {
-  let popup = document.getElementById('food-nutr-popup');
-  if (!popup) {
-    popup = document.createElement('div');
-    popup.id = 'food-nutr-popup';
-    popup.className = 'diet-nutr-card food-nutr-popup';
-    document.body.appendChild(popup);
-    popup.addEventListener('mouseenter', () => { popup.style.display = 'block'; });
-    popup.addEventListener('mouseleave', () => { popup.style.display = 'none'; });
-  }
-
-  const nutr = recordedNutrientValues(food.nutr);
-  const amountStr = food.amount != null ? `${food.amount}${food.unit ? ' ' + food.unit : ''}` : '1 serving';
-  const fields = Object.entries(NUTRIENT_DEFINITIONS).map(([key, definition]) => ({
-    key, ...definition, icon: nutrientIcons[key] || '✨',
-  }));
-  const hasNutr = fields.some(f => nutr[f.key] != null);
-  const rows = hasNutr
-    ? fields.filter(f => nutr[f.key] != null).map(f =>
-        `<div class="diet-nutr-field food-nutr-popup__row">
-          <span class="food-nutr-popup__icon">${f.icon}</span>
-          <span class="food-nutr-popup__label">${f.label}</span>
-          <span class="food-nutr-popup__val">${escapeHtml(nutr[f.key])} ${f.unit}</span>
-        </div>`
-      ).join('')
-    : `<div style="color:rgba(180,220,240,0.5);font-size:0.78rem;text-align:center;">No nutrition data</div>`;
-
-  popup.innerHTML = `
-    <div class="diet-nutr-card__header">
-      <span class="diet-nutr-card__icon">📊</span>
-      <span class="diet-nutr-card__title">${escapeHtml(food.name)} <em>for ${escapeHtml(amountStr)}</em></span>
-    </div>
-    <div class="diet-nutr-grid">${rows}</div>
-    <p class="diet-nutr-card__note">${escapeHtml(foodNutritionSourceText(food))} Unlisted nutrients are unknown, not zero.</p>
-  `;
-
-  const rect = anchorElement.getBoundingClientRect();
-  const popupWidth = 280;
-  let left = rect.left + window.scrollX;
-  if (left + popupWidth > window.innerWidth) left = window.innerWidth - popupWidth - 8;
-  popup.style.top = `${rect.bottom + window.scrollY + 4}px`;
-  popup.style.left = `${Math.max(4, left)}px`;
-  popup.style.display = 'block';
-}
-
-function hideFoodNutrPopup() {
-  const popup = document.getElementById('food-nutr-popup');
-  if (popup) popup.style.display = 'none';
-}
-
   // --- Raw Intake logging button logic ---
   const logFoodsBtn = document.getElementById('log-foods');
   logFoodsBtn?.addEventListener('click', () => {

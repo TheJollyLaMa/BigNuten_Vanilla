@@ -26,3 +26,11 @@
 #nutritionLookupInline input, #nutritionLookupInline textarea { box-sizing: border-box; width: 100%; max-width: 100%; }
 #nutritionLookupInline summary { cursor: pointer; }
 .diet-edit-entry, .diet-remove-entry, #dietCancelEdit { cursor: pointer; padding: 8px 12px; }
+.food-entry-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.food-entry-actions button { width: auto; min-height: 40px; border: 1px solid #00a3cc; border-radius: 8px; background: #08263c; color: #e0f4ff; }
+.food-entry-actions .diet-remove-entry { border-color: #e18d8d; color: #ffc9c9; }
+#dietDailyLog { max-height: none; overflow: visible; }
+#dietDailyLog .diet-log-entry, #foods-last7days .recent-food-entry { min-width: 0; overflow-wrap: anywhere; flex-shrink: 0; }
+#dietDailyLog .diet-log-entry__nutr-pill, #foods-last7days .diet-log-entry__nutr-pill { white-space: normal; overflow-wrap: anywhere; }
+#foods-last7days .recent-food-entry { display: block; width: 100%; box-sizing: border-box; }
+.food-entry-nutrition summary { cursor: pointer; padding: 8px 0; }

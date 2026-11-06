@@ -35,7 +35,7 @@ Barcode camera scanning and label-photo recognition are not included.
 
 ### Correcting a meal
 
-Each entry in today's log has **Edit / redo** and **Remove**. Editing fills the
+Each entry in today's log has **Edit** and **Delete**. Editing fills the
 same form and replaces only that entry on **Save changes**, preserving its
 original date. **Cancel edit** leaves the original unchanged. Removal requires
 confirmation and recalculates recent foods and nutrient totals. A changed or
@@ -43,6 +43,17 @@ stale record is rejected rather than editing/deleting another meal by index.
 Saving while Genie is pending or the portion is undefined is blocked. Saving
 without nutrition requires confirmation; entries can still be intentionally
 logged without figures.
+
+Both the dashboard's recent-food entries and the daily Diet log show adjacent
+**Edit** and **Delete** buttons before the nutrient contents. Dashboard nutrition
+details expand in place and remain open while reading; they are not a narrow
+hover-only popup. Edit opens the same prefilled Diet form, scrolls it into view,
+and supports a new Genie request or manual name/value changes. Clicking a food
+row no longer silently enters the old repeat-intake prompt. Daily entries grow
+with their contents rather than shrinking inside a fixed-height nested list.
+Dashboard actions address the exact selected entry, including earlier entries
+within the seven selected-timezone calendar days, not the latest meal with the
+same name. Stored historical meals outside that view remain unchanged.
 
 Amount is a count of the selected unit: **1 serving (65 g)** and **65 g** are
 equivalent, while **65 servings (65 g)** means **4,225 g**. Large serving counts
