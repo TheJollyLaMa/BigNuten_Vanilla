@@ -9924,3 +9924,20 @@ body.quest-mode .quest-highlight { outline: 3px solid #ffe08a !important; outlin
   #moon-modal #ss-error { color: #ffd18a; }
   #moon-icon[data-observance="today"] { filter: drop-shadow(0 0 7px #8ce9ff); }
   #moon-icon[data-observance="upcoming"] { filter: drop-shadow(0 0 5px #ffe394); }
+#gut-recipes { overflow-wrap: anywhere; }
+#gut-recipes label { display: block; margin: 0.6rem 0; }
+#gut-recipes input, #gut-recipes select, #gut-recipes textarea {
+  box-sizing: border-box; max-width: 100%; width: 100%; padding: 0.5rem;
+  background: #102334; color: #e3f7ef; border: 1px solid #6da995; border-radius: 6px;
+}
+#gut-recipes button {
+  margin: 0.25rem; padding: 0.6rem; cursor: pointer; border: 1px solid #6da995;
+  background: #193e36; color: #e3f7ef; border-radius: 6px;
+}
+#gut-recipes button:focus-visible { outline: 2px solid #b6f3dd; outline-offset: 3px; }
+#gut-recipes details { margin: 0.7rem 0; }
+#gut-recipes summary { cursor: pointer; padding: 0.5rem 0; }
+#gut-recipes fieldset { min-width: 0; margin: 0.7rem 0; border: 1px solid #6da995; border-radius: 8px; }
+#gut-recipes .gut-nutrient-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem; }
+#gut-recipe-list { padding-left: 1rem; }
+#gut-observation-list > details { border: 1px solid #6da995; border-radius: 8px; padding: 0.6rem; }

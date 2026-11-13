@@ -143,6 +143,8 @@ export function mergeSnapshotData(current, imported) {
   // Existing approved defaults win on import; replacing a default is explicit.
   const currentDefaults = current.nutritionDefaults || [];
   merged.nutritionDefaults = [...currentDefaults, ...(imported.nutritionDefaults || []).filter(card => !currentDefaults.some(entry => entry.id === card.id))];
+  const recipes = current.mealRecipes || [];
+  merged.mealRecipes = [...recipes, ...(imported.mealRecipes || []).filter(recipe => !recipes.some(item => item.id === recipe.id))];
 
   // Preserve distinct records even if they share a timestamp.
   const simpleArrayFields = ['weightLogs', 'supplements', 'foods', 'measurements', 'metricLogs', 'breathworkSessions', 'sessionLog', 'painLogs', 'chantingSessions', 'emotions', 'genieSessions', 'genieInsights', 'latestResearch', 'researchProtocols', 'researchExperiments'];
@@ -190,6 +192,8 @@ export function mergeSnapshotData(current, imported) {
   merged.gutHealth = {
     sessions: mergeById(currentGut.sessions, importedGut.sessions).sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
     symptoms: mergeById(currentGut.symptoms, importedGut.symptoms).sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    ...(currentGut.observations?.length || importedGut.observations?.length
+      ? { observations: mergeById(currentGut.observations, importedGut.observations) } : {}),
   };
 
   merged.waterDailyHistory = {

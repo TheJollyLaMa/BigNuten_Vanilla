@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { Interface, ZeroAddress } from 'ethers';
 import { BASE_SUPPORTER } from '../js/supporterToken.mjs';
 import { rabbitWalkthrough } from './rabbitWalkthrough.mjs';
+import { gutRecipeWalkthrough } from './gutRecipeWalkthrough.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const shots = resolve(process.env.SCREENSHOT_DIR || 'test-results/smoke');
@@ -640,6 +641,8 @@ try {
       await hidden('#gut-health-modal');
       covered.add('gut-health-modal');
       console.log(`${name}: manually logged gut session, breath trend, meal reference and symptom`);
+      await gutRecipeWalkthrough(page, shot);
+      console.log(`${name}: smoothie starter, explicit estimate, trace nutrients, half-serving intake, observation/repeat and historical snapshots passed`);
       // Log one synthetic exercise through the real form to populate the workout
       // path. Fresh browser contexts guarantee this never touches user data.
       await click('#log-exercise');

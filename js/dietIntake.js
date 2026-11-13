@@ -1,9 +1,10 @@
 import { sleepBedtimeDate } from './metrics.js';
 import { getDateInUserTz, getTimeInUserTz, getUserTimezone } from './timezone.js';
 import { validateNutritionSource } from './nutritionDefaults.mjs';
+import { validateMealRecipe } from './mealRecipes.mjs';
 
 /** Shared by the full Diet logger and raw-food quick log; callers use the app's recovery-aware store. */
-export function persistDietIntake({ name, amount, unit, nutr, time, nutritionSource }, load, save, now = new Date()) {
+export function persistDietIntake({ name, amount, unit, nutr, time, nutritionSource, recipeSnapshot }, load, save, now = new Date()) {
   name = String(name || '').trim();
   unit = String(unit || '').trim();
   amount = Number(amount);
@@ -14,6 +15,7 @@ export function persistDietIntake({ name, amount, unit, nutr, time, nutritionSou
     time: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time || '')) ? time : getTimeInUserTz(now),
   };
   if (nutritionSource) intake.nutritionSource = validateNutritionSource(nutritionSource);
+  if (recipeSnapshot) intake.recipeSnapshot = validateMealRecipe(recipeSnapshot);
   const data = load();
   data.foods ||= [];
   data.foods.push(intake);

@@ -6,6 +6,8 @@ import { initBodyMeasurements } from './bodyMeasurements.js';
 import { initWorkoutReview } from './workoutReview.js';
 import { initHeartMetrics } from './heartMetrics.js';
 import { initGutHealth } from './gutHealth.mjs';
+import { initGutRecipes } from './gutRecipesUI.mjs';
+import { recipeCard } from './mealRecipes.mjs';
 import { persistDietIntake, foodsInNutritionPeriod, foodEntryDay, changeDietEntry, buildMealTimingInsights } from './dietIntake.js';
 import { geniePrivacyNotice, revokeGenieHostedConsent } from './geniePrivacy.js';
 import { fitnessRecovery, initializeSnapshotRecovery } from './snapshotRecovery.js';
@@ -219,6 +221,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initChantingModal({ getFitnessData, saveFitnessData, showModal, hideModal });
   initHeartMetrics({ load: getFitnessData, save: saveFitnessData, showModal, hideModal });
   initGutHealth({ load: getFitnessData, save: saveFitnessData, showModal, hideModal });
+  initGutRecipes({ load: getFitnessData, save: saveFitnessData, hideModal });
   // --- Feelings Wheel (3-ring interactive, one-click logging + analytics) ---
   initFeelingsWheel();
 });
@@ -367,6 +370,11 @@ import { initCorrelationGraph } from './correlationGraph.js';
 
 /** Returns the nutritional info stored for a food name, or null if unknown */
 function getDietNutrCache(foodName) {
+  const recipes = (getFitnessData().mealRecipes || []).filter(recipe => recipe.name.toLowerCase() === foodName.trim().toLowerCase());
+  const selected = recipes.find(recipe => recipe.id === document.getElementById('dietForm')?.dataset.recipeSelection);
+  if (selected) return recipeCard(selected);
+  if (recipes.length === 1) return recipeCard(recipes[0]);
+  if (recipes.length > 1) return { ambiguous: true, personalRecipe: true };
   const approved = matchingDefaults(getFitnessData().nutritionDefaults, foodName);
   if (approved.length === 1) return { ...approved[0], approved: true };
   if (approved.length > 1) return { ambiguous: true };
@@ -380,6 +388,7 @@ function getDietNutrCache(foodName) {
 
 /** Saves nutritional info for a food name into the cache, including last-used amount and unit */
 function setDietNutrCache(foodName, nutr, amount, unit, nutritionSource) {
+  if (nutritionSource?.recipeSnapshot || (getFitnessData().mealRecipes || []).some(recipe => recipe.name.toLowerCase() === foodName.trim().toLowerCase())) return;
   if (matchingDefaults(getFitnessData().nutritionDefaults, foodName).length) return;
   const cache = JSON.parse(localStorage.getItem('dietNutrCache') || '{}');
   cache[foodName.toLowerCase()] = { nutr, amount: amount ?? null, unit: unit ?? null,
@@ -414,7 +423,8 @@ function handleFoodEntryAction(index, original, remove = false) {
     document.getElementById('dietFoodUnit').value = food.unit;
     document.getElementById('dietFoodTime').value = food.time || getTimeInUserTz();
     _dietNutrBase = { nutr: recordedNutrientValues(food.nutr), amount: food.amount, unit: food.unit,
-      ...(food.nutritionSource || { quality: 'user-entered', sources: [], note: 'Previously logged food; verify values.' }) };
+      ...(food.nutritionSource || { quality: 'user-entered', sources: [], note: 'Previously logged food; verify values.' }),
+      ...(food.recipeSnapshot ? { recipeSnapshot: food.recipeSnapshot } : {}) };
     for (const key of Object.keys(NUTRIENTS)) {
       const value = parseRecordedNutrient(_dietNutrBase.nutr[key], key);
       document.getElementById(nutrientInputId(key)).value = value ?? '';
@@ -453,11 +463,17 @@ function recalcDietNutrForAmount() {
       ? 'Using reviewed per-serving default. Logging does not replace it.' : 'Scaling from the saved base quantity.';
   } catch (error) {
     document.getElementById('dietNutritionStatus').textContent = error.message;
+    if (_dietNutrBase.recipeSnapshot) document.getElementById('dietForm').dataset.portionMissing = 'true';
     for (const key of Object.keys(_dietNutrBase.nutr)) {
       const input = document.getElementById(`dietNutr${key[0].toUpperCase()}${key.slice(1)}`);
       if (input) input.value = '';
     }
     return;
+  }
+  if (_dietNutrBase.recipeSnapshot) {
+    document.getElementById('dietForm').dataset.portionMissing = 'false';
+    const entryStatus = document.getElementById('dietEntryStatus');
+    if (entryStatus.textContent.startsWith('This recipe uses servings.')) entryStatus.textContent = 'Recipe portion ready; review, then Log Entry.';
   }
   Object.keys(NUTRIENTS).forEach(key => {
     const el = document.getElementById(nutrientInputId(key));
@@ -602,14 +618,14 @@ function refreshDietFoodSuggestions() {
   const dl = document.getElementById('diet-food-suggestions');
   if (!dl) return;
   const data = getFitnessData();
-  const names = [...new Set((data.foods || []).map(f => f.name).filter(Boolean))];
-  dl.innerHTML = names.map(n => `<option value="${n}"></option>`).join('');
+  const names = [...new Set([...(data.foods || []).map(f => f.name), ...(data.mealRecipes || []).map(recipe => recipe.name)].filter(Boolean))];
+  dl.replaceChildren(...names.map(name => new Option(name, name)));
 }
 
 function recordDietIntake(fields) {
   const intake = persistDietIntake(fields, getFitnessData, saveFitnessData);
   if (!intake) return null;
-  if (intake.nutr) setDietNutrCache(intake.name, intake.nutr, intake.amount, intake.unit, intake.nutritionSource);
+  if (intake.nutr && !intake.recipeSnapshot) setDietNutrCache(intake.name, intake.nutr, intake.amount, intake.unit, intake.nutritionSource);
   displayRecentFoods();
   refreshDietFoodSuggestions();
   renderDietDailyLog();
@@ -715,6 +731,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (raw !== '') nutr[key] = Number(raw);
       }
       _dietNutrBase = { nutr, amount: Number(document.getElementById('dietFoodAmount').value), unit: document.getElementById('dietFoodUnit').value,
+        ...(_dietNutrBase?.recipeSnapshot ? { recipeSnapshot: _dietNutrBase.recipeSnapshot,
+          incompleteNutrients: _dietNutrBase.incompleteNutrients } : {}),
         quality: 'user-entered', sources: [], note: 'User-entered or edited nutrition.' };
     });
   }
@@ -737,7 +755,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       if (dietForm.dataset.portionMissing === 'true') {
-        entryStatus.textContent = 'This portion is not defined. Choose grams or ask Genie before logging.';
+        entryStatus.textContent = _dietNutrBase?.recipeSnapshot
+          ? 'This recipe uses servings. Restore serving units before logging; no gram conversion is defined.'
+          : 'This portion is not defined. Choose grams or ask Genie before logging.';
         return;
       }
 
@@ -752,7 +772,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!hasNutr && !confirm('This entry has no nutrition values. Log it anyway? You can edit it later.')) return;
       if (unit === 'serving' && amount > 10 && !confirm(`You entered ${amount} servings, not grams. Is that correct? For one 65 g serving, enter 1 serving or 65 g.`)) return;
       const fields = { name, amount, unit, nutr: hasNutr ? nutr : undefined,
+        recipeSnapshot: _dietNutrBase?.recipeSnapshot,
         nutritionSource: hasNutr ? { quality: _dietNutrBase?.quality || 'user-entered', sources: _dietNutrBase?.sources || [],
+          ...(_dietNutrBase?.incompleteNutrients ? { incompleteNutrients: _dietNutrBase.incompleteNutrients } : {}),
           note: _dietNutrBase?.note || '', retrievedAt: _dietNutrBase?.retrievedAt || '' } : undefined,
         time: document.getElementById('dietFoodTime').value };
       try {
@@ -1035,8 +1057,8 @@ function renderRawIntakeDVCard() {
           <div class="dv-row__bar-wrap"><div class="dv-row__bar" style="width:${Math.min(100, pct || 0)}%;background:${barColor};"></div></div>
           <button class="dv-row__pct dv-row__pct--btn" data-nutr-key="${key}" title="Customize goal for ${cfg.label}" aria-label="Customize ${cfg.label} goal">${pct === null ? '—' : `${pct}%`}${customBadge}</button>
         </div>
-        <div class="dv-row__vals">${valFmt}${goal > 0 ? ` / ${goalFmt}` : ''} ${cfg.unit}${knownEntries < totalEntries && knownEntries ? ' · partial known total' : ''}</div>
-        <div class="dv-row__coverage">${knownEntries} of ${totalEntries} food entries have ${cfg.label.toLowerCase()} data</div>
+        <div class="dv-row__vals">${valFmt}${goal > 0 ? ` / ${goalFmt}` : ''} ${cfg.unit}${knownEntries < totalEntries && val !== null ? ' · partial known total' : ''}</div>
+        <div class="dv-row__coverage">${knownEntries} of ${totalEntries} food entries have complete ${cfg.label.toLowerCase()} data</div>
       </div>`;
     }).join('');
 

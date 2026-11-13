@@ -65,6 +65,10 @@ export function initNutritionLookup({ load, save, apply, clear = () => {}, cache
     return showPortion();
   }
   async function lookup(ai, refresh = false, autoKey = '') {
+    if (cached(foodName.value)?.recipeSnapshot || cached(foodName.value)?.personalRecipe) {
+      status('Personal recipe: edit its ingredients or approximate card in Gut tracker. It is not sent to Genie or the community library.');
+      return;
+    }
     cancel(); const attempt = generation; controller = new AbortController();
     const signal = controller.signal;
     opener.disabled = true; form.dataset.lookupPending = 'true';
@@ -128,10 +132,23 @@ export function initNutritionLookup({ load, save, apply, clear = () => {}, cache
     }, 900);
   }
   opener.addEventListener('click', () => { void lookup(true, true); });
-  foodName.addEventListener('input', () => {
+  foodName.addEventListener('input', event => {
+    form.dataset.recipeSelection = event.detail?.recipeId || '';
     reset(); el('Label').value = ''; el('Url').value = '';
     const saved = matchingDefaults(load().nutritionDefaults, foodName.value);
     const previous = cached(foodName.value);
+    if (previous?.personalRecipe) {
+      userTyped = true;
+      status('Several personal recipes share this name. Choose Review & log portion on the exact template in Gut.');
+      return;
+    }
+    if (previous?.recipeSnapshot) {
+      userTyped = true;
+      apply(previous);
+      el('Provenance').textContent = `${previous.quality} · ${previous.note}`;
+      status('Personal recipe. Partial nutrients are known subtotals; review before logging.');
+      return;
+    }
     if (saved.length === 1) populate(saved[0], true);
     else if (!userTyped && previous && !previous.ambiguous) {
       try {
@@ -155,6 +172,7 @@ export function initNutritionLookup({ load, save, apply, clear = () => {}, cache
     userTyped = true; status('Press Genie to use these product details.');
   });
   form.addEventListener('nutrition:edit', () => { reset(); userTyped = true; });
+  form.addEventListener('reset', () => { form.dataset.recipeSelection = ''; });
   form.addEventListener('reset', () => {
     reset(); userTyped = false; el('Label').value = ''; el('Url').value = '';
   });
