@@ -52,6 +52,11 @@ test('every defaultData key survives real JSON export → clear → import and s
         amount: 100, unit: 'g', serving: '', ingredients: '', note: 'Synthetic label',
         quality: 'user-entered', retrievedAt: '2026-10-28T12:00:00Z', sources: [], nutr: { calories: 52 },
       })],
+      mealRecipes: [(await import('../js/mealRecipes.mjs')).validateMealRecipe({
+        id: 'synthetic-recipe', name: 'Synthetic yogurt', yield: 2, mode: 'ingredients', culture: 'Unknown CFU',
+        batch: 'Synthetic batch', note: '', estimatedNutr: {},
+        ingredients: [{ name: 'Yogurt', amount: 240, unit: 'g', detail: 'Synthetic facts', nutr: { protein: 10, calcium: 300 } }],
+      })],
       measurements: [{ id: 'synthetic-measurement', type: 'Waist', measurement: 80, unit: 'cm', date: '2026-10-28', time: '10:00', progressPhotoTaken: true, progressPhotoNote: 'Private photo elsewhere', bodyFatMetricId: 'synthetic-fat' }],
       measurementReminderDismissedOn: '2026-10-27',
       gutHealth: { sessions: [{ id: 'synthetic-gut-session', challenge: 'Synthetic test session', startedAt: '2026-10-28T10:00:00.000Z', mealContext: { id: 'synthetic-food', name: 'Apple', date: '2026-10-28', fiber: 2.4 }, note: 'Synthetic manual fixture', readings: [{ id: 'synthetic-hydrogen', timestamp: '2026-10-28T10:00:00.000Z', phase: 'baseline', source: 'Synthetic manual device', hydrogen: { value: 4, scale: 'ppm', scaleType: 'ppm' }, methane: null, note: '' }, { id: 'synthetic-methane', timestamp: '2026-10-28T10:30:00.000Z', phase: 'after-challenge', source: 'Synthetic manual device', hydrogen: null, methane: { value: 2, scale: 'device score 0–10', scaleType: 'reported-scale' }, note: '' }] }], symptoms: [{ id: 'synthetic-gut-symptom', sessionId: 'synthetic-gut-session', timestamp: '2026-10-28T10:15:00.000Z', type: 'Bloating', intensity: 3, stoolForm: null, note: 'Synthetic only' }] },
@@ -69,6 +74,8 @@ test('every defaultData key survives real JSON export → clear → import and s
       researchExperiments: [{ id: 'synthetic-experiment', startDate: '2026-10-28', durationDays: 7, baselineDays: 7, checkIns: {} }],
     };
     fixture.metricLogs.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+    fixture.gutHealth.observations = [{ id: 'synthetic-period', name: 'Synthetic observation', recipeId: 'synthetic-recipe',
+      start: '2026-10-28', end: '2026-11-10', note: '', fastStart: '2026-10-27T18:00:00.000Z', fastEnd: '2026-10-28T10:00:00.000Z' }];
     const keys = Object.keys(defaultData).sort();
     assert.deepEqual(Object.keys(fixture).sort(), keys, 'New schema keys require a populated fixture');
     assert.deepEqual(validateFitnessSnapshot(fixture), fixture);

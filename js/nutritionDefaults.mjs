@@ -102,15 +102,16 @@ export function summarizeNutrients(entries) {
   const foods = Array.isArray(entries) ? entries : [];
   const records = foods.map(food => recordedNutrientValues(food?.nutr));
   return Object.fromEntries(Object.entries(NUTRIENT_DEFINITIONS).map(([key, definition]) => {
-    let total = 0, knownEntries = 0;
-    for (const nutr of records) {
+    let total = 0, knownEntries = 0, reportedEntries = 0;
+    for (const [index, nutr] of records.entries()) {
       const raw = nutr[key];
       const value = parseRecordedNutrient(raw, key);
       if (value === null) continue;
       total += value * (definition.factor || 1);
-      knownEntries++;
+      reportedEntries++;
+      if (!foods[index]?.nutritionSource?.incompleteNutrients?.includes(key)) knownEntries++;
     }
-    return [key, { total: knownEntries ? total : null, knownEntries, totalEntries: foods.length }];
+    return [key, { total: reportedEntries ? total : null, knownEntries, totalEntries: foods.length }];
   }));
 }
 
@@ -125,7 +126,10 @@ export function validateNutritionSource(value) {
   if (value.quality === 'source-backed' && !sources.length) throw new Error('Source-backed nutrition needs a source.');
   const retrievedAt = String(value.retrievedAt || '');
   if (retrievedAt && !Number.isFinite(Date.parse(retrievedAt))) throw new Error('Invalid nutrition source date.');
-  return { quality: value.quality, sources, retrievedAt, note: String(value.note || '').slice(0, 4000) };
+  if (value.incompleteNutrients !== undefined && (!Array.isArray(value.incompleteNutrients) ||
+      value.incompleteNutrients.some(key => !Object.hasOwn(NUTRIENTS, key)))) throw new Error('Invalid nutrient coverage.');
+  return { quality: value.quality, sources, retrievedAt, note: String(value.note || '').slice(0, 4000),
+    ...(value.incompleteNutrients ? { incompleteNutrients: [...new Set(value.incompleteNutrients)] } : {}) };
 }
 const clean = value => String(value || '').trim();
 export const NUTRITION_UNITS = ['g', 'oz', 'ml', 'serving', 'piece', 'cup', 'tbsp', 'tsp', 'fl oz', 'slice', 'handful', 'scoop'];

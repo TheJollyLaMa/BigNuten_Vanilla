@@ -2,6 +2,7 @@ import { normalizeBreathSessions } from './breathwork.js';
 import { validateNutrition, validateNutritionSource } from './nutritionDefaults.mjs';
 import { normalizeMetricLogs } from './metrics.js';
 import { normalizeGutHealth } from './gutHealth.mjs';
+import { normalizeMealRecipes, validateMealRecipe } from './mealRecipes.mjs';
 import { normalizeWorkoutSession, normalizeMeasurement, measurementDayNumber } from './workoutBody.js';
 
 const DATA_VERSION = 1;
@@ -26,6 +27,7 @@ export const defaultData = {
   supplements: [],
   foods: [],
   nutritionDefaults: [],
+  mealRecipes: [],
   measurements: [],
   measurementReminderDismissedOn: '',
   metricLogs: [],
@@ -97,6 +99,7 @@ function normalizeFoodEntries(entries) {
     if (!isPlainObject(entry)) return entry;
     const normalized = { ...entry };
     if (entry.nutritionSource !== undefined) normalized.nutritionSource = validateNutritionSource(entry.nutritionSource);
+    if (entry.recipeSnapshot !== undefined) normalized.recipeSnapshot = validateMealRecipe(entry.recipeSnapshot);
     if (entry.time !== undefined && !(typeof entry.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(entry.time))) delete normalized.time;
     return normalized;
   });
@@ -154,6 +157,7 @@ export function normalizeFitnessData(data) {
   normalized.supplements = coerceArray(source, ['supplements', 'supplementLogs', 'supplementHistory']);
   normalized.foods = normalizeFoodEntries(coerceArray(source, ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods']));
   normalized.nutritionDefaults = coerceArray(source, ['nutritionDefaults']).map(validateNutrition);
+  normalized.mealRecipes = normalizeMealRecipes(source.mealRecipes);
 
   normalized.breathworkSessions = normalizeBreathSessions(source.breathworkSessions);
   normalized.metricLogs = normalizeMetricLogs(source.metricLogs);
@@ -195,7 +199,7 @@ export function validateFitnessSnapshot(raw) {
     ['foods', 'foodLogs', 'dietLogs', 'mealLogs', 'rawFoods'], ['measurements', 'measurementLogs', 'bodyMeasurements'],
     ['sessionLog', 'workoutSessions', 'exerciseSessions', 'workoutLog'], ['painLogs', 'painLog'],
     ['emotions', 'emotionLogs', 'feelings'], ['metricLogs'], ['breathworkSessions'], ['genieSessions'], ['genieInsights'], ['chantingSessions'], ['nutritionDefaults'],
-    ['latestResearch'], ['researchProtocols'], ['researchExperiments'],
+    ['latestResearch'], ['researchProtocols'], ['researchExperiments'], ['mealRecipes'],
   ];
   const known = arrays.flat().concat(['gutHealth', 'waterDailyHistory', 'waterHistory', 'exercises', 'exerciseLogs', 'workoutExercises']);
   if (!known.some(key => Object.hasOwn(source, key))) throw new Error('Invalid snapshot: missing supported records.');

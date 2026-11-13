@@ -2,6 +2,7 @@ const GASES = ['hydrogen', 'methane'];
 const PHASES = ['baseline', 'after-challenge', 'other'];
 const SYMPTOMS = ['Bloating', 'Abdominal discomfort', 'Gas', 'Nausea', 'Constipation', 'Diarrhea', 'Other'];
 const MAX_NOTE = 2000;
+import { validateObservation } from './gutObservations.mjs';
 
 function object(value) { return value && typeof value === 'object' && !Array.isArray(value); }
 function text(value, field, { required = false, max = MAX_NOTE } = {}) {
@@ -109,7 +110,10 @@ export function normalizeGutHealth(value) {
     if (symptom.sessionId && !sessionIds.has(symptom.sessionId)) throw new Error('A symptom may reference only an existing test session.');
     symptomIds.add(symptom.id);
   }
-  return { sessions, symptoms };
+  if (value.observations !== undefined && !Array.isArray(value.observations)) throw new Error('Observation periods must be a list.');
+  const observations = (value.observations || []).map(validateObservation);
+  if (new Set(observations.map(item => item.id)).size !== observations.length) throw new Error('Duplicate observation IDs.');
+  return { sessions, symptoms, ...(observations.length ? { observations } : {}) };
 }
 
 /** Computes only like-for-like follow-up peaks against the earliest same-scale baseline. */
